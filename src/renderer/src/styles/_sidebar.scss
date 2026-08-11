@@ -148,6 +148,7 @@
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
+  height: 24px;
   cursor: pointer;
   white-space: nowrap;
   min-width: 0;
@@ -259,6 +260,7 @@
 .tree-input {
   flex: 1;
   min-width: 0;
+  height: 18px;
   background: var(--bg-panel);
   border: 1px solid var(--accent);
   color: var(--text);
@@ -283,7 +285,7 @@
   align-items: center;
   justify-content: center;
   width: 20px;
-  height: 20px;
+  height: 18px;
   padding: 0;
   border: none;
   background: transparent;
