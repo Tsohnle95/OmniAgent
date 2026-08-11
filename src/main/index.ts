@@ -79,20 +79,33 @@ function registerIpc(): void {
   ipcMain.handle("shell:health", async () => backend.connect().catch(() => false));
 }
 
-app.whenReady().then(async () => {
-  app.setName("OpenShell");
-  await backend.connect().catch(() => {});
-  backend.start();
-  backend.onMessage((msg) => {
-    win?.webContents.send("shell:message", msg);
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!win) {
+      createWindow();
+      return;
+    }
+    if (win.isMinimized()) win.restore();
+    win.focus();
   });
-  registerIpc();
-  createWindow();
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  app.whenReady().then(() => {
+    app.setName("OpenShell");
+    backend.start();
+    backend.onMessage((msg) => {
+      win?.webContents.send("shell:message", msg);
+    });
+    registerIpc();
+    createWindow();
+    void backend.connect().catch(() => {});
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
   });
-});
+}
 
 app.on("window-all-closed", () => {
   backend.stop();

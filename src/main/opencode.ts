@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
 import { promises as fsp } from "node:fs";
 import { watch, type FSWatcher } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { OpenCode } from "@opencode-ai/client";
-import { Service } from "@opencode-ai/client/service";
+import { Service, type Endpoint } from "@opencode-ai/client/service";
 import type { PermissionReply, ProjectInfo, SessionInfo, TreeEntry, ModelOption } from "@shared/types";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -57,6 +58,8 @@ export class OpenShellBackend {
   private hasGit: boolean | null = null;
   private listeners = new Set<(msg: unknown) => void>();
   private stopped = false;
+  private lastEnsureAt = 0;
+  private readonly ensureCooldownMs = 30_000;
 
   onMessage(cb: (msg: unknown) => void): () => void {
     this.listeners.add(cb);
@@ -67,19 +70,42 @@ export class OpenShellBackend {
     for (const cb of this.listeners) cb(msg);
   }
 
+  private static discoverFiles(): string[] {
+    if (process.platform !== "darwin") return [];
+    const desktop = path.join(homedir(), "Library", "Application Support", "ai.opencode.desktop", "opencode", "service.json");
+    return [desktop];
+  }
+
+  private async discoverEndpoint(): Promise<Endpoint | null> {
+    const files = OpenShellBackend.discoverFiles();
+    for (const file of files) {
+      const endpoint = await Service.discover({ file }).catch(() => null);
+      if (endpoint) return endpoint;
+    }
+    return null;
+  }
+
   async connect(): Promise<boolean> {
-    const discovered = await Service.discover().catch(() => null);
     const endpoint =
-      discovered ??
-      (await Service.ensure({
-        command: ["opencode2", "serve", "--service"]
-      }).catch(() => null));
+      (await Service.discover().catch(() => null)) ??
+      (await this.discoverEndpoint()) ??
+      (await this.ensureBounded());
     if (!endpoint) return false;
     this.client = OpenCode.make({
       baseUrl: endpoint.url,
       headers: Service.headers(endpoint)
     });
     return true;
+  }
+
+  private async ensureBounded(): Promise<Endpoint | null> {
+    if (Date.now() - this.lastEnsureAt < this.ensureCooldownMs) return null;
+    this.lastEnsureAt = Date.now();
+    const attempt = Service.ensure({
+      command: ["opencode2", "serve", "--service"]
+    }).catch(() => null);
+    const timeout = sleep(10_000).then(() => null);
+    return Promise.race([attempt, timeout]);
   }
 
   start(): void {
