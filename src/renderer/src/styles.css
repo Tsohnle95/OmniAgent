@@ -85,8 +85,20 @@ body {
 }
 
 .divider {
+  position: relative;
   cursor: col-resize;
   background: transparent;
+  z-index: 2;
+}
+
+.divider::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  width: 13px;
+  cursor: col-resize;
 }
 
 /* ---------- Sidebar ---------- */
@@ -493,6 +505,7 @@ body {
   padding-top: 8px;
   min-width: 0;
   overflow: hidden;
+  cursor: col-resize;
 }
 
 .agent-tray-model { flex: 0 0 34px; padding: 0; }
