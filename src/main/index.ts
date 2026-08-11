@@ -9,7 +9,7 @@ const terminals = new TerminalManager();
 let win: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
-  win = new BrowserWindow({
+  const newWin = new BrowserWindow({
     width: 1480,
     height: 920,
     minWidth: 1000,
@@ -26,13 +26,18 @@ function createWindow(): BrowserWindow {
       nodeIntegration: false
     }
   });
+  win = newWin;
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  newWin.on("closed", () => {
+    if (win === newWin) win = null;
+  });
+
+  newWin.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: "deny" };
   });
 
-  win.webContents.on("before-input-event", (event, input) => {
+  newWin.webContents.on("before-input-event", (event, input) => {
     const mod = process.platform === "darwin" ? input.meta : input.control;
     if (input.type === "keyDown" && mod && !input.alt && !input.shift && input.key.toLowerCase() === "w") {
       event.preventDefault();
@@ -41,11 +46,11 @@ function createWindow(): BrowserWindow {
   });
 
   if (process.env["ELECTRON_RENDERER_URL"]) {
-    void win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+    void newWin.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    void win.loadFile(path.join(__dirname, "../renderer/index.html"));
+    void newWin.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
-  return win;
+  return newWin;
 }
 
 function registerIpc(): void {
@@ -146,7 +151,8 @@ if (!app.requestSingleInstanceLock()) {
     app.setName("OpenShell");
     backend.start();
     const fwd = (msg: unknown): void => {
-      win?.webContents.send("shell:message", msg);
+      if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+      win.webContents.send("shell:message", msg);
     };
     backend.onMessage(fwd);
     terminals.onMessage(fwd);
