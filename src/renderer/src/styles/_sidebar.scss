@@ -267,3 +267,31 @@
   outline: none;
   border-radius: 3px;
 }
+
+.tree-row-actions {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 4px;
+  gap: 2px;
+}
+
+.tree-row:hover .tree-row-actions { display: inline-flex; }
+
+.tree-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tree-row-action:hover { background: var(--bg-active); color: var(--text); }
+
+.tree-row-action .codicon { font-size: 13px; }

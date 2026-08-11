@@ -85,6 +85,47 @@ function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: 
   return <span className={`codicon ffile ${icon}`} style={{ "--file-color": color } as CSSProperties} />;
 }
 
+function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
+  const { startCreate, openCtxMenu } = useStore();
+  const parent =
+    entry.type === "directory"
+      ? entry.path
+      : entry.path.includes("/")
+        ? entry.path.slice(0, entry.path.lastIndexOf("/"))
+        : "";
+  const menu = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    openCtxMenu(e.clientX, e.clientY, entry);
+  };
+  return (
+    <span className="tree-row-actions">
+      <button
+        className="tree-row-action"
+        title="New File"
+        onClick={(e) => {
+          e.stopPropagation();
+          startCreate(parent, "file");
+        }}
+      >
+        <span className="codicon codicon-new-file" />
+      </button>
+      <button
+        className="tree-row-action"
+        title="New Folder"
+        onClick={(e) => {
+          e.stopPropagation();
+          startCreate(parent, "dir");
+        }}
+      >
+        <span className="codicon codicon-new-folder" />
+      </button>
+      <button className="tree-row-action" title="More actions…" onClick={menu}>
+        <span className="codicon codicon-more" />
+      </button>
+    </span>
+  );
+}
+
 function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
   const {
     expanded,
@@ -127,6 +168,7 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
         <span className="tree-name">{entry.path.split("/").pop()}</span>
         {hasChanges && <span className="tree-badge" />}
+        <RowActions entry={entry} />
       </div>
       {isOpen && (
         <div className="tree-children">
@@ -182,6 +224,7 @@ function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactN
       <FileIcon name={name} isDir={false} />
       <span className="tree-name">{name}</span>
       {changed && <span className="tree-badge changed" />}
+      <RowActions entry={entry} />
     </div>
   );
 }
