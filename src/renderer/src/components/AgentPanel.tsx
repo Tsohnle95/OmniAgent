@@ -5,7 +5,6 @@ import { useStore } from "../store";
 import type { ModelOption, TranscriptItem } from "@shared/types";
 
 const OUTPUT_LIMIT = 6000;
-const INPUT_LIMIT = 3000;
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -161,7 +160,21 @@ function PermissionCard({
 function TranscriptItemView({ item }: { item: TranscriptItem }): ReactNode {
   switch (item.kind) {
     case "user":
-      return <div className="user-bubble">{item.text}</div>;
+      return (
+        <div className="user-bubble">
+          {item.attachments && item.attachments.length > 0 && (
+            <div className="user-attachments">
+              {item.attachments.map((attachment) => (
+                <span className="user-attachment" key={attachment.name}>
+                  <span className="codicon codicon-file" />
+                  {attachment.name}
+                </span>
+              ))}
+            </div>
+          )}
+          {item.text}
+        </div>
+      );
     case "assistant":
       return (
         <div className="assistant-block">
@@ -191,19 +204,6 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): ReactNode {
   }
 }
 
-function useElapsed(running: boolean): number {
-  const [secs, setSecs] = useState(0);
-  useEffect(() => {
-    if (!running) {
-      setSecs(0);
-      return;
-    }
-    const t = setInterval(() => setSecs((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [running]);
-  return secs;
-}
-
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
     const map = new Map<string, ModelOption[]>();
@@ -223,9 +223,45 @@ function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
 
 type MenuKind = "model" | "agent" | null;
 
+interface VoiceResult {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+
+interface VoiceResultEvent {
+  resultIndex: number;
+  results: ArrayLike<VoiceResult>;
+}
+
+interface VoiceRecognition {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: VoiceResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type VoiceRecognitionConstructor = new () => VoiceRecognition;
+
+type VoiceWindow = Window & {
+  SpeechRecognition?: VoiceRecognitionConstructor;
+  webkitSpeechRecognition?: VoiceRecognitionConstructor;
+};
+
+function formatVariant(variant: string | undefined): string {
+  if (!variant) return "Auto";
+  return variant
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function Composer(): ReactNode {
   const {
-    busy,
+    approvalMode,
+    toggleApprovalMode,
     models,
     currentModel,
     switchModel,
@@ -233,20 +269,29 @@ function Composer(): ReactNode {
     currentAgent,
     switchAgent,
     sendPrompt,
-    stop
+    stop,
+    busy
   } = useStore();
   const [input, setInput] = useState("");
+  const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
   const [menu, setMenu] = useState<MenuKind>(null);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [notice, setNotice] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const secs = useElapsed(busy);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const voiceRef = useRef<VoiceRecognition | null>(null);
   const groups = useModelGroups(models);
-  const canSend = input.trim().length > 0;
+  const canSend = input.trim().length > 0 || files.length > 0;
+  const variantLabel = currentModel?.variant
+    ? formatVariant(currentModel.variant)
+    : currentModel?.variants && currentModel.variants.length > 0
+      ? "Auto"
+      : "";
 
   useEffect(() => {
     if (!menu) return;
     const onDown = (e: MouseEvent): void => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenu(null);
+      if (!composerRef.current?.contains(e.target as Node)) setMenu(null);
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") setMenu(null);
@@ -259,22 +304,119 @@ function Composer(): ReactNode {
     };
   }, [menu]);
 
+  useEffect(() => () => voiceRef.current?.stop(), []);
+
   const send = (): void => {
-    if (!input.trim()) return;
-    void sendPrompt(input);
+    if (!canSend) return;
+    void sendPrompt(input, files.map((file) => file.path));
     setInput("");
+    setFiles([]);
     inputRef.current?.focus();
   };
 
+  const attachFiles = async (): Promise<void> => {
+    setNotice("");
+    let paths: string[];
+    try {
+      paths = await window.openshell.selectFiles();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Files could not be attached.");
+      return;
+    }
+    if (paths.length === 0) return;
+    setFiles((current) => {
+      const next = [...current];
+      for (const filePath of paths) {
+        if (!next.some((file) => file.path === filePath)) {
+          next.push({ path: filePath, name: filePath.split(/[\\/]/).pop() ?? filePath });
+        }
+      }
+      return next;
+    });
+    inputRef.current?.focus();
+  };
+
+  const toggleVoice = (): void => {
+    if (voiceRef.current) {
+      voiceRef.current.stop();
+      voiceRef.current = null;
+      setVoiceActive(false);
+      return;
+    }
+    const voiceWindow = window as VoiceWindow;
+    const Constructor = voiceWindow.SpeechRecognition ?? voiceWindow.webkitSpeechRecognition;
+    if (!Constructor) {
+      setNotice("Voice input is unavailable in this build.");
+      return;
+    }
+    const recognition = new Constructor();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language;
+    recognition.onresult = (event) => {
+      const words: string[] = [];
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        if (event.results[index]?.isFinal) words.push(event.results[index][0].transcript);
+      }
+      if (words.length > 0) {
+        setInput((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${words.join(" ")}`);
+      }
+    };
+    recognition.onerror = () => {
+      setNotice("Voice input stopped.");
+      setVoiceActive(false);
+      voiceRef.current = null;
+    };
+    recognition.onend = () => {
+      setVoiceActive(false);
+      voiceRef.current = null;
+    };
+    try {
+      recognition.start();
+      voiceRef.current = recognition;
+      setVoiceActive(true);
+      setNotice("");
+    } catch {
+      setNotice("Voice input could not start.");
+    }
+  };
+
+  const chooseModel = (model: ModelOption): void => {
+    void switchModel(model.id, model.providerID, currentModel?.id === model.id ? currentModel.variant : undefined);
+    setMenu(null);
+  };
+
+  const chooseVariant = (variant?: string): void => {
+    if (!currentModel) return;
+    void switchModel(currentModel.id, currentModel.providerID, variant);
+    setMenu(null);
+  };
+
   return (
-    <div className="composer">
+    <div className="composer" ref={composerRef}>
+      {files.length > 0 && (
+        <div className="composer-attachments">
+          {files.map((file) => (
+            <span className="composer-attachment" key={file.path}>
+              <span className="codicon codicon-file" />
+              <span>{file.name}</span>
+              <button
+                className="composer-attachment-remove"
+                title={`Remove ${file.name}`}
+                onClick={() => setFiles((current) => current.filter((item) => item.path !== file.path))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="composer-body">
-        <span className="composer-prompt">›</span>
         <textarea
           ref={inputRef}
           className="composer-input"
-          rows={2}
-          placeholder="Ask Codex to do anything"
+          rows={3}
+          placeholder="Describe what you want to build"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -284,80 +426,122 @@ function Composer(): ReactNode {
             }
           }}
         />
-        {canSend && (
-          <button className="composer-send" title="Send (Enter)" onClick={send}>
-            ➤
-          </button>
-        )}
       </div>
       <div className="composer-footer">
-        <span className="composer-hint">? for shortcuts</span>
-        <span className="composer-pills">
+        <div className="composer-tools">
+          <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
+            <span className="codicon codicon-add" />
+          </button>
+          <button
+            className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
+            aria-pressed={approvalMode === "approve"}
+            title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
+            onClick={toggleApprovalMode}
+          >
+            <span className="codicon codicon-shield" />
+            {approvalMode === "approve" ? "Auto-approve on" : "Approve for me"}
+          </button>
+          {notice && <span className="composer-notice">{notice}</span>}
+        </div>
+        <div className="composer-controls">
           {agents.length > 0 && (
             <button
-              className={`composer-pill ${menu === "agent" ? "open" : ""}`}
+              className={`composer-selector ${menu === "agent" ? "open" : ""}`}
+              title="Change agent"
               onClick={() => setMenu(menu === "agent" ? null : "agent")}
             >
               <span className="codicon codicon-git-branch" />
-              {currentAgent?.name ?? "agent"}
+              <span>{currentAgent?.name ?? "Agent"}</span>
               <span className="codicon codicon-chevron-down" />
             </button>
           )}
           {models.length > 0 && (
             <button
-              className={`composer-pill ${menu === "model" ? "open" : ""}`}
+              className={`composer-selector model ${menu === "model" ? "open" : ""}`}
+              title="Change model and response strength"
               onClick={() => setMenu(menu === "model" ? null : "model")}
             >
-              <span className="codicon codicon-symbol-class" />
-              {currentModel?.name ?? "model"}
+              <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
               <span className="codicon codicon-chevron-down" />
             </button>
           )}
-        </span>
-        {busy && (
-          <button className="composer-stop" title="Stop the agent" onClick={() => void stop()}>
-            <span className="codicon codicon-stop" />
+          <button
+            className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
+            title={voiceActive ? "Stop voice input" : "Use voice input"}
+            aria-pressed={voiceActive}
+            onClick={toggleVoice}
+          >
+            <span className="codicon codicon-mic" />
           </button>
-        )}
+          {busy && (
+            <button className="composer-icon-button stop" title="Stop the agent" onClick={() => void stop()}>
+              <span className="codicon codicon-stop" />
+            </button>
+          )}
+          <button className="composer-send" title={canSend ? "Send (Enter)" : "Type a prompt first"} disabled={!canSend} onClick={send}>
+            <span className="codicon codicon-arrow-up" />
+          </button>
+        </div>
       </div>
 
       {menu && (
-        <div className="composer-menu" ref={menuRef}>
+        <div className="composer-menu">
           {menu === "agent" ? (
-            agents.map((a) => (
+            agents.map((agent) => (
               <button
-                key={a.id}
-                className={`composer-menu-item ${currentAgent?.id === a.id ? "selected" : ""}`}
+                key={agent.id}
+                className={`composer-menu-item ${currentAgent?.id === agent.id ? "selected" : ""}`}
                 onClick={() => {
-                  void switchAgent(a.id);
+                  void switchAgent(agent.id);
                   setMenu(null);
                 }}
               >
-                <span className="composer-menu-check">{currentAgent?.id === a.id ? "✓" : ""}</span>
-                {a.name}
+                <span className="composer-menu-check">{currentAgent?.id === agent.id ? "✓" : ""}</span>
+                {agent.name}
               </button>
             ))
           ) : (
-            groups.map(([provider, list]) => (
-              <div key={provider} className="composer-menu-group">
-                <div className="composer-menu-head">{provider}</div>
-                {list.map((m) => (
+            <>
+              {groups.map(([provider, list]) => (
+                <div key={provider} className="composer-menu-group">
+                  <div className="composer-menu-head">{provider}</div>
+                  {list.map((model) => (
+                    <button
+                      key={`${model.id}::${model.providerID}`}
+                      className={`composer-menu-item ${currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "selected" : ""}`}
+                      onClick={() => chooseModel(model)}
+                    >
+                      <span className="composer-menu-check">
+                        {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "✓" : ""}
+                      </span>
+                      {model.name}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {currentModel && currentModel.variants && currentModel.variants.length > 0 && (
+                <div className="composer-menu-group variant-menu">
+                  <div className="composer-menu-head">Response strength</div>
                   <button
-                    key={`${m.id}::${m.providerID}`}
-                    className={`composer-menu-item ${currentModel?.id === m.id && currentModel?.providerID === m.providerID ? "selected" : ""}`}
-                    onClick={() => {
-                      void switchModel(m.id, m.providerID);
-                      setMenu(null);
-                    }}
+                    className={`composer-menu-item ${!currentModel.variant ? "selected" : ""}`}
+                    onClick={() => chooseVariant()}
                   >
-                    <span className="composer-menu-check">
-                      {currentModel?.id === m.id && currentModel?.providerID === m.providerID ? "✓" : ""}
-                    </span>
-                    {m.name}
+                    <span className="composer-menu-check">{!currentModel.variant ? "✓" : ""}</span>
+                    Auto
                   </button>
-                ))}
-              </div>
-            ))
+                  {currentModel.variants.map((variant) => (
+                    <button
+                      key={variant}
+                      className={`composer-menu-item ${currentModel.variant === variant ? "selected" : ""}`}
+                      onClick={() => chooseVariant(variant)}
+                    >
+                      <span className="composer-menu-check">{currentModel.variant === variant ? "✓" : ""}</span>
+                      {formatVariant(variant)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

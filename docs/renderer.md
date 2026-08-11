@@ -20,16 +20,17 @@ Exposed via `useStore()` (context). State:
 | `tree` | `Record<relPath, TreeEntry[]>` | lazy-loaded explorer cache |
 | `expanded` | `Set<relPath>` | open tree directories |
 | `toasts` | `Toast[]` | transient notifications |
-| `models` | `ModelOption[]` | for the agent-header picker |
-| `currentModel` | `ModelOption \| null` | seeded from `modelDefault()`, live-updated by `session.model.selected` |
-| `agents` | `AgentOption[]` | for the agent-header picker |
+| `models` | `ModelOption[]` | for the composer model/strength picker |
+| `currentModel` | `ModelOption \| null` | seeded from `modelDefault()`, live-updated by `session.model.selected`; includes selected `variant` |
+| `agents` | `AgentOption[]` | for the composer agent picker |
 | `currentAgent` | `AgentOption \| null` | live-updated by `session.agent.selected` |
+| `approvalMode` | `ApprovalMode` | `ask` shows permission cards; `approve` automatically replies `once` |
 | `wordWrap` | `boolean` | Monaco `wordWrap` setting, persisted to `localStorage` ("wordWrap") |
 | `sessions` | `SessionSummary[]` | recent sessions for the Welcome screen |
 
 Actions: `openSession`, `selectFolder`, `reopenSession(id)`,
 `loadSessions`, `sendPrompt`, `stop`, `loadModels`, `switchModel`,
-`loadAgents`, `switchAgent`, `toggleWordWrap`, `openFile(path, {mode})`,
+`loadAgents`, `switchAgent`, `toggleApprovalMode`, `toggleWordWrap`, `openFile(path, {mode})`,
 `closeTab`, `setActive`, `setTabMode`, `editContent`, `saveTab`,
 `toggleDir`, `replyPermission`.
 
@@ -63,7 +64,7 @@ Key mechanisms:
 | `Welcome` | `Welcome.tsx` | Folder pick + recent projects (`projects()`) |
 | `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree with VS Code-style codicon file/folder icons and per-level indent guide lines (`.tree-children` wrappers) |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines) + Codex-style composer: `›` prompt, "Ask Codex to do anything" placeholder, circular send button on non-empty input, footer with "? for shortcuts" hint and model/agent pills opening popup pickers (models grouped by provider with ✓), smart auto-scroll |
+| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles with attachment chips, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines) + integrated composer: neutral prompt placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, circular send button, and smart auto-scroll |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
 
 Tool cards (`ToolCard`): show status spinner/check/cross, per-tool icon,

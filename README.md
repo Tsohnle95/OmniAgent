@@ -84,7 +84,7 @@ items are checked off there.
 
 Delivered so far (see `git log`):
 
-- **Tool cards** got the Codex-style pass: per-tool icons, status-colored
+- **Tool cards** got a richer pass: per-tool icons, status-colored
   borders, clickable file-path chips, inline output previews, and a
   permission UX that shows the resolved reply.
 - **Session history / reopen** — recent sessions appear on the Welcome

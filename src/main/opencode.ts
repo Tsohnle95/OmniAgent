@@ -3,6 +3,7 @@ import { promises as fsp } from "node:fs";
 import { watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { app } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
@@ -410,12 +411,16 @@ export class OpenShellBackend {
 
   // ---------- session + API ----------
 
-  private async savedModel(): Promise<{ id: string; providerID: string } | null> {
+  private async savedModel(): Promise<{ id: string; providerID: string; variant?: string } | null> {
     try {
       const raw = await fsp.readFile(this.settingsPath, "utf8");
-      const parsed = JSON.parse(raw) as { model?: { id?: string; providerID?: string } };
+      const parsed = JSON.parse(raw) as { model?: { id?: string; providerID?: string; variant?: string } };
       if (parsed.model?.id && parsed.model.providerID) {
-        return { id: parsed.model.id, providerID: parsed.model.providerID };
+        return {
+          id: parsed.model.id,
+          providerID: parsed.model.providerID,
+          ...(parsed.model.variant ? { variant: parsed.model.variant } : {})
+        };
       }
     } catch {
       /* no settings yet */
@@ -434,7 +439,9 @@ export class OpenShellBackend {
     return null;
   }
 
-  private async persistSettings(patch: { model?: { id: string; providerID: string }; agent?: string }): Promise<void> {
+  private async persistSettings(
+    patch: { model?: { id: string; providerID: string; variant?: string }; agent?: string }
+  ): Promise<void> {
     try {
       await fsp.mkdir(path.dirname(this.settingsPath), { recursive: true });
       const existing = (await this.savedModel()) ?? null;
@@ -520,9 +527,26 @@ export class OpenShellBackend {
     return this.sessionID && this.directory ? { id: this.sessionID, directory: this.directory } : null;
   }
 
-  async prompt(text: string): Promise<void> {
+  async prompt(text: string, filePaths: string[] = []): Promise<void> {
     if (!this.client || !this.sessionID) throw new Error("no active session");
-    await this.client.session.prompt({ sessionID: this.sessionID, text });
+    const files = await Promise.all(
+      filePaths.map(async (filePath) => {
+        const stat = await fsp.stat(filePath);
+        if (!stat.isFile()) throw new Error(`${path.basename(filePath)} is not a file`);
+        if (stat.size > 10 * 1024 * 1024) {
+          throw new Error(`${path.basename(filePath)} is larger than 10 MB`);
+        }
+        return {
+          uri: pathToFileURL(filePath).toString(),
+          name: path.basename(filePath)
+        };
+      })
+    );
+    await this.client.session.prompt({
+      sessionID: this.sessionID,
+      text,
+      ...(files.length > 0 ? { files } : {})
+    });
   }
 
   async interrupt(): Promise<void> {
@@ -536,23 +560,32 @@ export class OpenShellBackend {
       this.directory ? { location: { directory: this.directory } } : undefined
     );
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as { id?: string; providerID?: string; name?: string; enabled?: boolean }[])
+    return (arr as {
+      id?: string;
+      providerID?: string;
+      name?: string;
+      enabled?: boolean;
+      variants?: { id?: string }[];
+    }[])
       .filter((m) => m.enabled !== false)
       .map((m) => ({
         id: m.id ?? "",
         providerID: m.providerID ?? "",
-        name: m.name ?? m.id ?? "model"
+        name: m.name ?? m.id ?? "model",
+        variants: Array.isArray(m.variants)
+          ? m.variants.map((variant) => variant.id ?? "").filter(Boolean)
+          : []
       }))
       .filter((m) => m.id && m.providerID);
   }
 
-  async switchModel(id: string, providerID: string): Promise<void> {
+  async switchModel(id: string, providerID: string, variant?: string): Promise<void> {
     if (!this.client || !this.sessionID) throw new Error("no active session");
     await this.client.session.switchModel({
       sessionID: this.sessionID,
-      model: { id, providerID }
+      model: { id, providerID, ...(variant ? { variant } : {}) }
     });
-    void this.persistSettings({ model: { id, providerID } });
+    void this.persistSettings({ model: { id, providerID, ...(variant ? { variant } : {}) } });
   }
 
   async listAgents(): Promise<AgentOption[]> {
@@ -577,10 +610,26 @@ export class OpenShellBackend {
     const res = await this.client.model.default(
       this.directory ? { location: { directory: this.directory } } : undefined
     );
-    const data = res as { data?: { id?: string; providerID?: string; name?: string } };
-    const m = data?.data ?? (res as { id?: string; providerID?: string; name?: string });
+    const data = res as {
+      data?: { id?: string; providerID?: string; name?: string; variants?: { id?: string }[]; variant?: string };
+    };
+    const m = data?.data ?? (res as {
+      id?: string;
+      providerID?: string;
+      name?: string;
+      variants?: { id?: string }[];
+      variant?: string;
+    });
     if (!m?.id || !m.providerID) return null;
-    return { id: m.id, providerID: m.providerID, name: m.name ?? m.id };
+    return {
+      id: m.id,
+      providerID: m.providerID,
+      name: m.name ?? m.id,
+      variants: Array.isArray(m.variants)
+        ? m.variants.map((variant) => variant.id ?? "").filter(Boolean)
+        : [],
+      ...(m.variant ? { variant: m.variant } : {})
+    };
   }
 
   async replyPermission(requestID: string, reply: PermissionReply): Promise<void> {

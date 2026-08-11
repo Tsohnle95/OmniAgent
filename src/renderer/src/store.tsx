@@ -11,6 +11,7 @@ import {
 import type {
   AgentFileState,
   AgentOption,
+  ApprovalMode,
   BackendMessage,
   ModelOption,
   PermissionReply,
@@ -19,7 +20,8 @@ import type {
   Tab,
   ToolCallView,
   TranscriptItem,
-  TreeEntry
+  TreeEntry,
+  UserAttachment
 } from "@shared/types";
 
 export interface Toast {
@@ -43,18 +45,20 @@ interface Store {
   currentModel: ModelOption | null;
   agents: AgentOption[];
   currentAgent: AgentOption | null;
+  approvalMode: ApprovalMode;
   wordWrap: boolean;
   sessions: SessionSummary[];
   openSession: (dir: string) => Promise<void>;
   selectFolder: () => Promise<void>;
   reopenSession: (sessionID: string) => Promise<void>;
   loadSessions: () => Promise<void>;
-  sendPrompt: (text: string) => Promise<void>;
+  sendPrompt: (text: string, files?: string[]) => Promise<void>;
   stop: () => Promise<void>;
   loadModels: () => Promise<void>;
-  switchModel: (id: string, providerID: string) => Promise<void>;
+  switchModel: (id: string, providerID: string, variant?: string) => Promise<void>;
   loadAgents: () => Promise<void>;
   switchAgent: (id: string) => Promise<void>;
+  toggleApprovalMode: () => void;
   toggleWordWrap: () => void;
   openFile: (path: string, opts?: { mode?: "edit" | "diff" }) => Promise<void>;
   closeTab: (path: string) => void;
@@ -166,6 +170,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [currentModel, setCurrentModel] = useState<ModelOption | null>(null);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [currentAgent, setCurrentAgent] = useState<AgentOption | null>(null);
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>(
+    () => (window.localStorage.getItem("approvalMode") === "approve" ? "approve" : "ask")
+  );
   const [wordWrap, setWordWrap] = useState<boolean>(
     () => window.localStorage.getItem("wordWrap") === "on"
   );
@@ -183,6 +190,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const toolStartRef = useRef<Map<string, number>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
+  const approvalModeRef = useRef<ApprovalMode>(approvalMode);
+  approvalModeRef.current = approvalMode;
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -211,16 +220,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       setModels(list);
       setCurrentModel((cur) => {
         if (cur) {
-          return (
-            list.find((m) => m.id === cur.id && m.providerID === cur.providerID) ??
-            cur
-          );
+          const match = list.find((m) => m.id === cur.id && m.providerID === cur.providerID);
+          return match ? { ...match, ...(cur.variant ? { variant: cur.variant } : {}) } : cur;
         }
         if (!def) return null;
-        return (
-          list.find((m) => m.id === def.id && m.providerID === def.providerID) ??
-          def
-        );
+        const match = list.find((m) => m.id === def.id && m.providerID === def.providerID);
+        return match ? { ...match, ...(def.variant ? { variant: def.variant } : {}) } : def;
       });
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
@@ -228,9 +233,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [toast]);
 
   const switchModel = useCallback(
-    async (id: string, providerID: string) => {
+    async (id: string, providerID: string, variant?: string) => {
       try {
-        await window.openshell.switchModel(id, providerID);
+        await window.openshell.switchModel(id, providerID, variant);
+        const base = modelsRef.current.find((m) => m.id === id && m.providerID === providerID);
+        if (base) setCurrentModel({ ...base, ...(variant ? { variant } : {}) });
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
@@ -356,13 +363,22 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
 
   const sendPrompt = useCallback(
-    async (text: string) => {
+    async (text: string, files: string[] = []) => {
       const t = text.trim();
-      if (!t || !session) return;
-      const userItem: TranscriptItem = { kind: "user", id: `user-${Date.now()}`, text: t };
+      if ((!t && files.length === 0) || !session) return;
+      const promptText = t || "Review the attached files.";
+      const attachments: UserAttachment[] = files.map((filePath) => ({
+        name: filePath.split(/[\\/]/).pop() ?? filePath
+      }));
+      const userItem: TranscriptItem = {
+        kind: "user",
+        id: `user-${Date.now()}`,
+        text: promptText,
+        ...(attachments.length > 0 ? { attachments } : {})
+      };
       setTranscript((prev) => [...prev, userItem]);
       try {
-        await window.openshell.prompt(t);
+        await window.openshell.prompt(promptText, files);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
@@ -381,6 +397,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         await window.openshell.permissionReply(requestID, reply);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
+        return;
       }
       setTranscript((prev) =>
         prev.map((item) =>
@@ -392,6 +409,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     },
     [toast]
   );
+
+  const toggleApprovalMode = useCallback(() => {
+    setApprovalMode((current) => {
+      const next = current === "approve" ? "ask" : "approve";
+      approvalModeRef.current = next;
+      window.localStorage.setItem("approvalMode", next);
+      return next;
+    });
+  }, []);
 
   const toggleDir = useCallback(
     async (path: string) => {
@@ -730,11 +756,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.model.selected": {
           const model = data.model as { id?: string; providerID?: string; variant?: string } | undefined;
           if (model?.id && model.providerID) {
-            setCurrentModel(
-              modelsRef.current.find(
-                (m) => m.id === model.id && m.providerID === model.providerID
-              ) ?? { id: model.id, providerID: model.providerID, name: model.id }
+            const match = modelsRef.current.find(
+              (m) => m.id === model.id && m.providerID === model.providerID
             );
+            setCurrentModel({
+              ...(match ?? { id: model.id, providerID: model.providerID, name: model.id }),
+              ...(model.variant ? { variant: model.variant } : {})
+            });
           }
           break;
         }
@@ -759,21 +787,22 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         case "permission.asked": {
           const requestID = String(data.id);
-          setTranscript((prev) =>
-            prev.some((i) => i.kind === "permission" && i.requestID === requestID)
-              ? prev
-              : [
-                  ...prev,
-                  {
-                    kind: "permission",
-                    id: requestID,
-                    requestID,
-                    action: String(data.action ?? "unknown"),
-                    resources: Array.isArray(data.resources) ? data.resources.map(String) : [],
-                    pending: true
-                  }
-                ]
-          );
+          const automatic = approvalModeRef.current === "approve";
+          setTranscript((prev) => {
+            if (prev.some((i) => i.kind === "permission" && i.requestID === requestID)) return prev;
+            return [
+              ...prev,
+              {
+                kind: "permission",
+                id: requestID,
+                requestID,
+                action: String(data.action ?? "unknown"),
+                resources: Array.isArray(data.resources) ? data.resources.map(String) : [],
+                pending: true
+              }
+            ];
+          });
+          if (automatic) void replyPermission(requestID, "once");
           break;
         }
         case "permission.replied": {
@@ -796,7 +825,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (s) setSession(s);
     });
     return off;
-  }, [session, resetAll, loadModels, upsertTool, toggleWordWrap, loadAgents, agents]);
+  }, [
+    session,
+    resetAll,
+    loadModels,
+    upsertTool,
+    toggleWordWrap,
+    loadAgents,
+    agents,
+    approvalMode,
+    replyPermission
+  ]);
 
   const value = useMemo<Store>(
     () => ({
@@ -814,6 +853,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       currentModel,
       agents,
       currentAgent,
+      approvalMode,
       wordWrap,
       sessions,
       openSession,
@@ -826,6 +866,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       switchModel,
       loadAgents,
       switchAgent,
+      toggleApprovalMode,
       toggleWordWrap,
       openFile,
       closeTab,
@@ -838,9 +879,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }),
     [
       session, connected, busy, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
-      models, currentModel, agents, currentAgent, wordWrap, sessions,
+      models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,
-      loadAgents, switchAgent, toggleWordWrap,
+      loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, toggleDir, replyPermission
     ]

@@ -23,7 +23,9 @@ const api = {
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
   openSessionById: (sessionID: string): Promise<ReopenedSession> =>
     ipcRenderer.invoke("shell:open-session-id", sessionID),
-  prompt: (text: string): Promise<void> => ipcRenderer.invoke("shell:prompt", text),
+  prompt: (text: string, files: string[] = []): Promise<void> =>
+    ipcRenderer.invoke("shell:prompt", text, files),
+  selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
   interrupt: (): Promise<void> => ipcRenderer.invoke("shell:interrupt"),
   listDir: (rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
     ipcRenderer.invoke("shell:fs-list", rel),
@@ -33,8 +35,8 @@ const api = {
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
   models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
   modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),
-  switchModel: (id: string, providerID: string): Promise<void> =>
-    ipcRenderer.invoke("shell:switch-model", id, providerID),
+  switchModel: (id: string, providerID: string, variant?: string): Promise<void> =>
+    ipcRenderer.invoke("shell:switch-model", id, providerID, variant),
   agents: (): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents"),
   switchAgent: (id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", id),
   terminalStart: (directory: string | null): Promise<TerminalStartResult> =>

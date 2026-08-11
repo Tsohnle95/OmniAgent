@@ -18,7 +18,8 @@ automatically.
 | `openSession(dir)` | `Promise<SessionInfo>` |
 | `sessions()` | `Promise<SessionSummary[]>` |
 | `openSessionById(sessionID)` | `Promise<ReopenedSession>` (session + replayed transcript) |
-| `prompt(text)` | `Promise<void>` |
+| `prompt(text, files?)` | `Promise<void>`; files are absolute paths selected through `selectFiles()` |
+| `selectFiles()` | `Promise<string[]>` |
 | `interrupt()` | `Promise<void>` |
 | `listDir(rel)` | `Promise<TreeEntry[]>` |
 | `readFile(rel)` | `Promise<string \| null>` |
@@ -26,7 +27,7 @@ automatically.
 | `projects()` | `Promise<ProjectInfo[]>` |
 | `models()` | `Promise<ModelOption[]>` |
 | `modelDefault()` | `Promise<ModelOption \| null>` |
-| `switchModel(id, providerID)` | `Promise<void>` |
+| `switchModel(id, providerID, variant?)` | `Promise<void>` |
 | `agents()` | `Promise<AgentOption[]>` |
 | `switchAgent(id)` | `Promise<void>` |
 | `terminalStart(directory \| null)` | `Promise<{ id }>` |

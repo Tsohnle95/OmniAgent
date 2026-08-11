@@ -67,7 +67,18 @@ function registerIpc(): void {
     backend.openSessionById(sessionID)
   );
 
-  ipcMain.handle("shell:prompt", async (_e, text: string) => backend.prompt(text));
+  ipcMain.handle("shell:prompt", async (_e, text: string, files: string[] = []) =>
+    backend.prompt(text, files)
+  );
+
+  ipcMain.handle("shell:select-files", async (e) => {
+    const parent = BrowserWindow.fromWebContents(e.sender);
+    const result = await dialog.showOpenDialog(parent ?? win!, {
+      title: "Attach files",
+      properties: ["openFile", "multiSelections"]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
 
   ipcMain.handle("shell:interrupt", async () => backend.interrupt());
 
@@ -85,8 +96,8 @@ function registerIpc(): void {
 
   ipcMain.handle("shell:model-default", async () => backend.modelDefault());
 
-  ipcMain.handle("shell:switch-model", async (_e, id: string, providerID: string) =>
-    backend.switchModel(id, providerID)
+  ipcMain.handle("shell:switch-model", async (_e, id: string, providerID: string, variant?: string) =>
+    backend.switchModel(id, providerID, variant)
   );
 
   ipcMain.handle("shell:permission-reply", async (_e, requestID: string, reply: PermissionReply) =>

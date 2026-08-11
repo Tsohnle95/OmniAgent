@@ -71,7 +71,7 @@ table is in `docs/main.md`.
    and passed along; stores `sessionID`/`directory`, clears baseline
    state, starts the fs watcher.
 3. Emits `{ kind: "session" }`; renderer resets all UI state.
-4. Prompts go through `client.session.prompt({ sessionID, text })`;
+4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
 5. Only ONE session exists per app run (history/reopen exists via
    `openSessionById`, see `docs/main.md`).
@@ -107,17 +107,23 @@ changed (`dirty`/`stale` flags on `Tab`). Writes go through Node `fs` in
 the main process (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching.
 
-## Models and agents
+## Models, agents, and composer controls
 
 The header of the agent panel has two pickers. Models come from
-`client.model.list()` (filtered to `{ id, providerID, name }`) and are
-grouped by provider in the dropdown. The current model is seeded from
-`client.model.default()` and updated live by `session.model.selected`.
-Switching calls `client.session.switchModel({ sessionID, model })`.
+`client.model.list()` (filtered to `{ id, providerID, name, variants }`) and
+are grouped by provider in the composer menu. The current model is seeded
+from `client.model.default()` and updated live by `session.model.selected`.
+Switching calls `client.session.switchModel({ sessionID, model })`, including
+`model.variant` when a model exposes response-strength variants.
 Agents come from `client.agent.list()`; the selection is updated live by
 `session.agent.selected` and switched via
 `client.session.switchAgent({ sessionID, agent })`. Both choices are
-persisted to `settings.json` so new sessions start with them.
+persisted to `settings.json` so new sessions start with them. The composer
+also opens a native multi-file picker; the main process converts selected
+files to `file://` URIs for the prompt API. Its approval toggle is local UI
+state: approve mode automatically replies `once` to each permission request.
+Voice input uses the Chromium Speech Recognition API when the Electron build
+provides it.
 
 ## Terminal tray
 

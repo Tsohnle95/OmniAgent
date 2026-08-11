@@ -36,10 +36,18 @@ export interface ModelOption {
   id: string;
   providerID: string;
   name: string;
+  variants?: string[];
+  variant?: string;
 }
 
 export interface AgentOption {
   id: string;
+  name: string;
+}
+
+export type ApprovalMode = "ask" | "approve";
+
+export interface UserAttachment {
   name: string;
 }
 
@@ -72,7 +80,7 @@ export interface ToolCallView {
 }
 
 export type TranscriptItem =
-  | { kind: "user"; id: string; text: string }
+  | { kind: "user"; id: string; text: string; attachments?: UserAttachment[] }
   | { kind: "assistant"; id: string; messageID: string; text: string; reasoning: string; reasoningOpen: boolean }
   | { kind: "tool"; tool: ToolCallView }
   | {

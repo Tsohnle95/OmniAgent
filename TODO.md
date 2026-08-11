@@ -4,7 +4,7 @@ Add points here anytime — `- [ ]` for open items, `- [x]` when done.
 A fresh session can start working from this file. Bigger ideas belong in
 the README roadmap; this file is the actionable queue.
 
-## Agent panel UX (Codex-style polish)
+## Agent panel UX polish
 
 - [x] Tool cards still feel "dry" — user wants Codex/Antigravity richness.
       Done: per-tool icons, status-colored borders (running/success/failed),
@@ -50,10 +50,9 @@ the README roadmap; this file is the actionable queue.
 - [x] Word-wrap: Wrap toolbar button + ⌥Z + ⌘W (the muscle-memory
       shortcut — main intercepts ⌘W so it toggles wrap instead of closing
       the window; ⌥Z uses `e.code` so it works with Option+Z).
-- [x] Agent panel composer redesigned like Codex: `›` prompt with "Ask
-      Codex to do anything" placeholder, circular send button, footer
-      with "? for shortcuts" hint and model/agent pills that open popup
-      pickers (models grouped by provider, ✓ on current).
+- [x] Agent panel composer redesigned as a neutral integrated prompt box:
+      attachment picker, approval toggle, agent/model/variant menus,
+      microphone, circular send control, and clear prompt placeholder.
 - [x] Right-hand panel restyled to opencode-desktop-ish message layout:
       compact tool cards with `$ command` lines and clickable file chips
       instead of giant JSON/read-path rectangles, cleaner thinking block,
@@ -65,7 +64,7 @@ the README roadmap; this file is the actionable queue.
       (`file · src/foo`), deleted/modified styled; EXPLORER now uses
       VS Code-style codicon icons (folder/folder-opened, per-type file
       icons) with per-level indent guide lines.
-- [x] Models grouped by provider (`<optgroup>`) in the picker.
+- [x] Models grouped by provider sections in the composer picker.
 - [x] Window is explicitly movable/resizable; grid uses `minmax(0,1fr)`
       so no panel gets pushed off-screen; closing the tray no longer
       hides anything (tray is a real layout row).
@@ -74,9 +73,8 @@ the README roadmap; this file is the actionable queue.
       directory as cwd.
 - [x] Titlebar shifted right on macOS so it never overlaps the traffic
       lights.
-- [x] Agent picker next to the model picker (agent.list / switchAgent,
-      persisted). Model strength (high/low) is not exposed by the
-      opencode2 API, so it can't be wired up yet.
+- [x] Agent picker plus model response-strength variants (agent.list /
+      switchAgent and Model.Ref.variant, persisted where selected).
 - [x] Code cards redesigned (see "Right-hand panel restyled" above).
 - [x] ⌘S saves; dirty tab dot + "unsaved" / "changed on disk" labels
       show save state.

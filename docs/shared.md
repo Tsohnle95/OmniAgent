@@ -12,8 +12,10 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
 | `FileUpdate` | `{ path, baseline: string \| null, content: string \| null, deleted }` | Watcher payload; `baseline` is what the agent started from |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
-| `ModelOption` | `{ id, providerID, name }` | Model picker options + current selection |
+| `ModelOption` | `{ id, providerID, name, variants?, variant? }` | Model picker options + current model/strength selection |
 | `AgentOption` | `{ id, name }` | Agent picker options + current selection |
+| `ApprovalMode` | `"ask" \| "approve"` | Composer permission behavior; approve mode replies `once` automatically |
+| `UserAttachment` | `{ name }` | Attachment chip rendered on a submitted user prompt |
 | `TerminalStartResult` | `{ id }` | PTY id returned by `terminalStart` |
 | `TerminalData` | `{ id, data }` | PTY output chunk (`terminal-data` message) |
 | `TerminalExit` | `{ id, exitCode }` | PTY exit (`terminal-exit` message) |

@@ -17,7 +17,7 @@ State:
 - `watcher` — recursive `fs.watch` on the session directory
 - `hasGit` — lazily probed (`.git` presence), cached tri-state
 - `settingsPath` — `app.getPath("userData")/settings.json`, holds the
-  last-used `{model:{id,providerID}}` and `{agent:{id}}` so new sessions
+  last-used `{model:{id,providerID,variant?}}` and `{agent:{id}}` so new sessions
   start on the same model/agent
 - `stopped` — set by `stop()`; the event loop exits (`start()` resets it
   so the backend can be restarted after the window is re-created)
@@ -33,16 +33,16 @@ Public methods (all used by IPC):
 | `openSession(directory)` | `session.create({location:{directory}, model?: saved, agent?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt}` |
 | `openSessionById(sessionID)` | `session.get` to recover the directory, activates it, then `message.list` → replay transcript |
-| `prompt(text)` | `session.prompt({sessionID, text})` |
+| `prompt(text, files?)` | `session.prompt({sessionID, text, files?: selected file URIs})` |
 | `interrupt()` | `session.interrupt`, errors swallowed |
 | `replyPermission(requestID, reply)` | `permission.reply`, reply is `"once"|"always"|"reject"` |
 | `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
 | `readFile(rel)` | Read a file via the API; `null` if unreadable |
 | `writeFile(rel, content)` | Write via Node `fs` (no API write endpoint); updates snapshots and emits `file-update` |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
-| `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name}` |
+| `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
-| `switchModel(id, providerID)` | `session.switchModel`; persists the choice to `settings.json` |
+| `switchModel(id, providerID, variant?)` | `session.switchModel`; persists the model and variant to `settings.json` |
 | `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
 | `switchAgent(id)` | `session.switchAgent`; persists the choice to `settings.json` |
 | `getState()` | `{id, directory}` or null |
@@ -82,7 +82,8 @@ Internals:
 | `shell:open-session` | `(dir) → SessionInfo` |
 | `shell:sessions` | `() → SessionSummary[]` |
 | `shell:open-session-id` | `(sessionID) → ReopenedSession` |
-| `shell:prompt` | `(text) → void` |
+| `shell:prompt` | `(text, files?) → void`; files are user-selected absolute paths converted to file URIs |
+| `shell:select-files` | `() → string[]` (native multi-file dialog) |
 | `shell:interrupt` | `() → void` |
 | `shell:fs-list` | `(rel) → TreeEntry[]` |
 | `shell:fs-read` | `(rel) → string \| null` |
@@ -90,7 +91,7 @@ Internals:
 | `shell:projects` | `() → ProjectInfo[]` |
 | `shell:models` | `() → ModelOption[]` |
 | `shell:model-default` | `() → ModelOption \| null` |
-| `shell:switch-model` | `(id, providerID) → void` |
+| `shell:switch-model` | `(id, providerID, variant?) → void` |
 | `shell:agents` | `() → AgentOption[]` |
 | `shell:switch-agent` | `(id) → void` |
 | `shell:terminal-start` | `(directory \| null) → { id }` (spawns a PTY login shell) |
