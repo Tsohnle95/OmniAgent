@@ -1117,8 +1117,6 @@ body {
   color: var(--text);
 }
 
-.composer-icon-button.stop { color: var(--red); }
-
 .composer-approval {
   width: 28px;
   height: 28px;
@@ -1208,6 +1206,17 @@ body {
 .composer-send:disabled {
   cursor: default;
   opacity: 0.65;
+}
+
+.composer-send.stop {
+  background: var(--red);
+  border-color: var(--red);
+  color: #ffffff;
+}
+
+.composer-send.stop:hover:not(:disabled) {
+  background: #f66a5f;
+  border-color: #f66a5f;
 }
 
 .composer-menu {

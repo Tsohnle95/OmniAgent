@@ -560,13 +560,13 @@ function Composer(): ReactNode {
           >
             <span className="codicon codicon-mic" />
           </button>
-          {busy && (
-            <button className="composer-icon-button stop" title="Stop the agent" onClick={() => void stop()}>
-              <span className="codicon codicon-stop" />
-            </button>
-          )}
-          <button className="composer-send" title={canSend ? "Send (Enter)" : "Type a prompt first"} disabled={!canSend} onClick={send}>
-            <span className="codicon codicon-arrow-up" />
+          <button
+            className={`composer-send ${busy ? "stop" : ""}`}
+            title={busy ? "Stop the agent" : canSend ? "Send (Enter)" : "Type a prompt first"}
+            disabled={!busy && !canSend}
+            onClick={busy ? () => void stop() : send}
+          >
+            <span className={`codicon ${busy ? "codicon-stop" : "codicon-arrow-up"}`} />
           </button>
         </div>
       </div>
