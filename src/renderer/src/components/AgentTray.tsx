@@ -7,9 +7,13 @@ export function AgentTray({ onExpand }: { onExpand: () => void }): ReactNode {
   return (
     <div className="agent-tray">
       <span className={`agent-dot ${busy ? "busy" : ""}`} />
-      <button className="agent-tray-model" title={`Show agent panel — ${label}`} onClick={onExpand}>
+      <button
+        className="activity-btn agent-tray-model"
+        title={`Show agent panel — ${label}`}
+        aria-label={`Show agent panel — ${label}`}
+        onClick={onExpand}
+      >
         <span className="codicon codicon-symbol-event" />
-        <span className="agent-tray-model-name">{label}</span>
       </button>
     </div>
   );

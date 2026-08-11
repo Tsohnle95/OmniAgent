@@ -128,9 +128,15 @@ body {
 }
 
 .sidebar.collapsed {
+  background: transparent;
   align-items: center;
   padding-top: 8px;
   gap: 4px;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .activity-btn {
+  flex: 0 0 34px;
 }
 
 .activity-btn {
@@ -294,6 +300,8 @@ body {
 }
 
 .tree-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -308,6 +316,7 @@ body {
   margin-left: auto;
   font-size: 10px;
   color: var(--text-faint);
+  flex-shrink: 0;
 }
 
 .tree-badge {
@@ -500,7 +509,7 @@ body {
 .agent-collapse { margin-left: auto; }
 
 .agent-tray {
-  background: var(--bg-panel);
+  background: transparent;
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -508,32 +517,12 @@ body {
   gap: 8px;
   padding-top: 8px;
   min-width: 0;
-}
-
-.agent-tray-model {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: 6px 0;
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.agent-tray-model:hover { color: var(--text); }
-
-.agent-tray-model .codicon { font-size: 17px; }
-
-.agent-tray-model-name {
-  writing-mode: vertical-rl;
-  font-size: 10px;
-  max-height: 120px;
   overflow: hidden;
 }
+
+.agent-tray-model { flex: 0 0 34px; padding: 0; }
+
+.agent-tray-model .codicon { font-size: 17px; }
 
 .agent-scroll {
   flex: 1;

@@ -7,45 +7,69 @@ import { AgentPanel } from "./components/AgentPanel";
 import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 
-const SIDE_COLLAPSED_W = 44;
-const AGENT_TRAY_W = 44;
-const COLLAPSE_DRAG_W = 60;
+const COLLAPSED_PANEL_W = 44;
 
 function useDragResize(
   initial: number,
   min: number,
   max: number,
-  flip = false,
+  flip: boolean,
+  open: boolean,
+  onOpen: () => void,
   onCollapse?: () => void
 ): [number, (e: React.MouseEvent) => void] {
   const [width, setWidth] = useState(initial);
-  const startRef = useRef<{ x: number; width: number } | null>(null);
-  const lastWRef = useRef(initial);
-  const collapseRef = useRef(false);
+  const startRef = useRef<{ x: number; width: number; open: boolean } | null>(null);
+  const lastRawWRef = useRef(initial);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault();
-    startRef.current = { x: e.clientX, width };
+    const startedOpen = open;
+    startRef.current = {
+      x: e.clientX,
+      width: startedOpen ? width : COLLAPSED_PANEL_W,
+      open: startedOpen
+    };
+    lastRawWRef.current = startedOpen ? width : COLLAPSED_PANEL_W;
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
       const dx = ev.clientX - startRef.current.x;
-      const w = startRef.current.width + (flip ? -dx : dx);
-      collapseRef.current = w < COLLAPSE_DRAG_W;
-      lastWRef.current = Math.min(max, Math.max(SIDE_COLLAPSED_W, w));
-      setWidth(lastWRef.current);
+      const rawW = startRef.current.width + (flip ? -dx : dx);
+      lastRawWRef.current = rawW;
+
+      if (!startRef.current.open) {
+        if (rawW >= min) {
+          setWidth(Math.min(max, rawW));
+          onOpen();
+        }
+        return;
+      }
+
+      if (onCollapse && rawW <= COLLAPSED_PANEL_W) {
+        const previousWidth = startRef.current.width;
+        startRef.current = null;
+        setWidth(previousWidth);
+        onCollapse();
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        return;
+      }
+
+      setWidth(Math.min(max, Math.max(min, rawW)));
     };
     const up = (): void => {
       if (startRef.current) {
-        const start = startRef.current;
+        const started = startRef.current;
         startRef.current = null;
-        if (collapseRef.current) {
-          setWidth(start.width);
-          onCollapse?.();
-        } else if (lastWRef.current < min) {
+        if (!started.open) {
+          if (lastRawWRef.current >= min) {
+            setWidth(Math.min(max, lastRawWRef.current));
+            onOpen();
+          }
+        } else if (lastRawWRef.current < min) {
           setWidth(min);
         }
       }
-      collapseRef.current = false;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
@@ -94,17 +118,26 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const [sideW, sideDrag] = useDragResize(250, 170, 520, false, () => setSideOpen(false));
   const [sideOpen, setSideOpen] = useState(true);
-  const [agentW, agentDrag] = useDragResize(420, 300, 760, true, () => setAgentOpen(false));
+  const [sideW, sideDrag] = useDragResize(250, 170, 520, false, sideOpen, () => setSideOpen(true));
   const [agentOpen, setAgentOpen] = useState(true);
+  const [agentW, agentDrag] = useDragResize(
+    420,
+    300,
+    760,
+    true,
+    agentOpen,
+    () => setAgentOpen(true),
+    () => setAgentOpen(false)
+  );
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
 
   const cols = [
-    sideOpen ? `${sideW}px` : `${SIDE_COLLAPSED_W}px`,
-    ...(sideOpen ? ["8px"] : []),
+    sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
+    "8px",
     "minmax(0,1fr)",
-    ...(agentOpen ? ["8px", `${agentW}px`] : [`${AGENT_TRAY_W}px`])
+    "8px",
+    agentOpen ? `${agentW}px` : `${COLLAPSED_PANEL_W}px`
   ].join(" ");
 
   return (
@@ -124,7 +157,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
       <div className="main-row" style={{ gridTemplateColumns: cols }}>
         <FileSidebar collapsed={!sideOpen} onCollapse={setSideOpen} />
-        {sideOpen && <div className="divider" onMouseDown={sideDrag} />}
+        <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         <EditorPane />
         {agentOpen ? (
           <>
@@ -132,7 +165,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             <AgentPanel onCollapse={() => setAgentOpen(false)} />
           </>
         ) : (
-          <AgentTray onExpand={() => setAgentOpen(true)} />
+          <>
+            <div className="divider collapsed" onMouseDown={agentDrag} />
+            <AgentTray onExpand={() => setAgentOpen(true)} />
+          </>
         )}
       </div>
 
