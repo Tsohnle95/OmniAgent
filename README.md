@@ -75,6 +75,25 @@ npm start          # run the production build
 
 ## Notes / roadmap
 
-- One session per app run; session history/reopen is not wired up yet.
+Open requests from real usage — pick these up in a fresh session.
+The working queue is `TODO.md` (add points there anytime):
+
+- **Tool cards are still "dry"** — user wants Codex-style richness. Current
+  cards show name, file/command detail, live args, elapsed time, and
+  collapsible output. Candidate upgrades: file-path chips, per-tool
+  status colors, output preview inline, richer permission UX.
+- **Session history / reopen** — one session per app run today;
+  `session.list`/`session.get` + message replay exist in the client.
+  Would make the app survive restarts and crashes without losing the
+  agent's context (the original motivation for this project).
+- **Model picker polish** — dropdown is session-gated and does not
+  persist a choice across sessions; a saved `opencode.json`-style default
+  or a last-used model would be nicer.
+- **North star**: mimic the Codex/Antigravity feel — a calm, informative
+  streaming agent panel that always shows what the agent is doing.
+
+Known constraints:
+
 - The `@opencode-ai/client` API and event shapes are beta and may shift; the
   typed calls are isolated in `src/main/opencode.ts`.
+- Operational/debugging know-how lives in `docs/operations.md`.

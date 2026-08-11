@@ -41,6 +41,10 @@ for (const d of new Set(agentDocLinks)) {
   if (!(await exists(d))) check(false, `AGENTS.md links ${d} but the file does not exist`);
 }
 
+if (/TODO\.md/.test(agents) && !(await exists("TODO.md"))) {
+  check(false, "AGENTS.md references TODO.md but the file does not exist");
+}
+
 const readme = await read("README.md");
 for (const d of [...readme.matchAll(/`(docs\/[\w.-]+\.md)`/g)].map((m) => m[1])) {
   if (!(await exists(d))) check(false, `README.md links ${d} but the file does not exist`);
