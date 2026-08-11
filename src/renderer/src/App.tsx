@@ -20,7 +20,6 @@ function useDragResize(
 ): [number, (e: React.MouseEvent) => void] {
   const [width, setWidth] = useState(initial);
   const startRef = useRef<{ x: number; width: number; open: boolean } | null>(null);
-  const lastRawWRef = useRef(initial);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -30,37 +29,29 @@ function useDragResize(
       width: startedOpen ? width : COLLAPSED_PANEL_W,
       open: startedOpen
     };
-    lastRawWRef.current = startedOpen ? width : COLLAPSED_PANEL_W;
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
       const dx = ev.clientX - startRef.current.x;
       const rawW = startRef.current.width + (flip ? -dx : dx);
-      lastRawWRef.current = rawW;
-
-      if (!startRef.current.open) {
-        if (rawW > COLLAPSED_PANEL_W) {
-          setWidth(Math.min(max, rawW));
-          onOpen();
+      if (onCollapse && rawW <= COLLAPSED_PANEL_W) {
+        setWidth(COLLAPSED_PANEL_W);
+        if (startRef.current.open) {
+          startRef.current.open = false;
+          onCollapse();
         }
         return;
       }
 
-      setWidth(Math.min(max, Math.max(onCollapse ? COLLAPSED_PANEL_W : min, rawW)));
-    };
-    const up = (): void => {
-      if (startRef.current) {
-        const started = startRef.current;
-        startRef.current = null;
-        if (!started.open) {
-          if (lastRawWRef.current > COLLAPSED_PANEL_W) {
-            setWidth(Math.min(max, lastRawWRef.current));
-            onOpen();
-          }
-        } else if (onCollapse && lastRawWRef.current <= COLLAPSED_PANEL_W) {
-          setWidth(COLLAPSED_PANEL_W);
-          onCollapse();
+      if (rawW > COLLAPSED_PANEL_W || !onCollapse) {
+        setWidth(Math.min(max, Math.max(min, rawW)));
+        if (!startRef.current.open) {
+          startRef.current.open = true;
+          onOpen();
         }
       }
+    };
+    const up = (): void => {
+      if (startRef.current) startRef.current = null;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
