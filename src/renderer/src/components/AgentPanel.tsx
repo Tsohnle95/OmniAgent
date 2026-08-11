@@ -368,7 +368,7 @@ function Composer(): ReactNode {
     setFiles([]);
     const el = inputRef.current;
     if (el) {
-      el.style.height = "";
+      el.style.removeProperty("--composer-input-height");
       el.focus();
     }
   };
@@ -510,8 +510,8 @@ function Composer(): ReactNode {
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
-            e.target.style.height = "0px";
-            e.target.style.height = `${e.target.scrollHeight}px`;
+            e.target.style.setProperty("--composer-input-height", "0px");
+            e.target.style.setProperty("--composer-input-height", `${e.target.scrollHeight}px`);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

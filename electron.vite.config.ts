@@ -10,6 +10,9 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    css: {
+      devSourcemap: true
+    },
     resolve: {
       alias: {
         "@": resolve(__dirname, "src/renderer/src"),

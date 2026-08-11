@@ -1,0 +1,141 @@
+.tray-divider {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.terminal-tray {
+  height: var(--terminal-height);
+  display: flex;
+  flex-direction: column;
+  background: #131316;
+  border-top: 1px solid var(--border);
+  min-height: 0;
+  position: relative;
+  z-index: 70;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--accent);
+  padding: 3px 8px 3px 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.terminal-tab.active {
+  background: #131316;
+  color: var(--text);
+}
+
+.terminal-tab-close {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.terminal-tab-close:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.terminal-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.terminal-add:hover { background: var(--bg-hover); color: var(--text); }
+
+.terminal-add .codicon { font-size: 13px; }
+
+.terminal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.terminal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+.terminal-close .codicon { font-size: 13px; }
+
+.terminal-notice {
+  color: var(--yellow);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-host {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  display: flex;
+}
+
+.terminal-host.hidden { display: none; }
+
+.terminal-host .xterm { height: 100%; }
+
+.terminal-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 12px;
+}

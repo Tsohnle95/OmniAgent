@@ -1,0 +1,217 @@
+.sidebar {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 6px 14px;
+}
+
+.sidebar-title {
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  background: transparent;
+  align-items: center;
+  padding-top: 8px;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .activity-btn {
+  flex: 0 0 34px;
+}
+
+.activity-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.activity-btn:hover { background: var(--bg-hover); color: var(--text); }
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+
+.icon-btn.stop { color: var(--red); font-size: 11px; }
+
+.sidebar-section { display: flex; flex-direction: column; min-height: 0; }
+
+.sidebar-section.changes {
+  height: var(--changes-height);
+  flex-shrink: 0;
+}
+
+.sidebar-section.explorer { flex: 1; min-height: 0; }
+
+.sidebar-count {
+  background: var(--bg-active);
+  border-radius: 8px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.section-trigger {
+  padding: 4px 10px 0 14px;
+  flex-shrink: 0;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.section-toggle:hover, .section-toggle.open {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.section-toggle .push { margin-left: auto; }
+
+.section-toggle .codicon { font-size: 11px; flex-shrink: 0; }
+
+.changes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0 6px;
+}
+
+.sidebar-vdivider {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0 12px;
+}
+
+.tree-empty { padding: 6px 14px; color: var(--text-faint); font-style: italic; }
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tree-row:hover { background: var(--bg-hover); }
+
+.tree-row.file.active { background: var(--bg-active); }
+
+.tree-row.file.deleted .tree-name { color: var(--red); text-decoration: line-through; }
+
+.tree-dir-suffix {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.tree-meta.deleted { color: var(--red); }
+
+.fdir {
+  width: 16px;
+  flex-shrink: 0;
+  color: #dcb67a;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ffile {
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--file-color, var(--text-dim));
+  font-size: 14.5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-children {
+  margin-left: 16px;
+  border-left: 1px solid rgba(142, 142, 160, 0.18);
+  padding-left: 0;
+}
+
+.tree-meta {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.tree-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tree-badge.changed { margin-left: auto; }

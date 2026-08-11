@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { TreeEntry } from "@shared/types";
 
@@ -82,7 +82,7 @@ function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: 
     );
   }
   const [icon, color] = fileIcon(name);
-  return <span className={`codicon ffile ${icon}`} style={{ color }} />;
+  return <span className={`codicon ffile ${icon}`} style={{ "--file-color": color } as CSSProperties} />;
 }
 
 function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
@@ -97,7 +97,6 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
     <div>
       <div
         className={`tree-row dir ${isOpen ? "open" : ""}`}
-        style={{ paddingLeft: 8 }}
         onClick={() => void toggleDir(entry.path)}
       >
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
@@ -128,7 +127,6 @@ function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactN
   return (
     <div
       className={`tree-row file ${active ? "active" : ""}`}
-      style={{ paddingLeft: 8 }}
       onClick={() => void openFile(entry.path)}
       title={entry.path}
     >
@@ -235,7 +233,10 @@ export function FileSidebar({
       </div>
       {changesOpen && (
         <>
-          <div className="sidebar-section changes" style={{ height: changesH }}>
+          <div
+            className="sidebar-section changes"
+            style={{ "--changes-height": `${changesH}px` } as CSSProperties}
+          >
             <div className="changes-list">
               {changes.length === 0 && <div className="tree-empty">No changes yet</div>}
               {changes.map(([path, state]) => {

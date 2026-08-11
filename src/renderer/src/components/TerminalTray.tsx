@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -210,7 +210,7 @@ export function TerminalTray({ height, onClose }: { height: number; onClose: () 
   };
 
   return (
-    <div className="terminal-tray" style={{ height }}>
+    <div className="terminal-tray" style={{ "--terminal-height": `${height}px` } as CSSProperties}>
       <div className="terminal-header">
         {terms.map((term) => (
           <span

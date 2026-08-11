@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, useStore } from "./store";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar } from "./components/FileSidebar";
@@ -137,7 +137,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </span>
       </div>
 
-      <div className="main-row" style={{ gridTemplateColumns: cols }}>
+      <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
         <FileSidebar collapsed={!sideOpen} onCollapse={setSideOpen} onDrag={sideDrag} />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         <EditorPane />

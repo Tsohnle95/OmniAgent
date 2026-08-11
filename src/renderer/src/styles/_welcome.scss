@@ -1,0 +1,106 @@
+.welcome {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.welcome-inner {
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.welcome-logo {
+  font-size: 52px;
+  color: var(--accent);
+  opacity: 0.9;
+  user-select: none;
+}
+
+.welcome h1 { margin: 0; font-size: 26px; }
+
+.welcome-sub { color: var(--text-dim); margin: 0 0 8px; line-height: 1.5; }
+
+.welcome-warn { color: var(--yellow); font-size: 12px; margin: 0; }
+
+.welcome-sections {
+  width: 100%;
+  margin-top: 22px;
+  text-align: left;
+}
+
+.welcome-section { margin-bottom: 4px; }
+
+.welcome-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.welcome-section-title:hover { background: var(--bg-hover); color: var(--text); }
+
+.welcome-section-title .codicon { font-size: 11px; flex-shrink: 0; }
+
+.welcome-section-count {
+  margin-left: auto;
+  background: var(--bg-active);
+  border-radius: 8px;
+  padding: 0 7px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.welcome-projects { width: 100%; text-align: left; }
+
+.welcome-empty { color: var(--text-faint); font-size: 12px; padding: 4px 8px; }
+
+.welcome-project {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.welcome-project:hover { background: var(--bg-hover); border-color: var(--accent-dim); }
+
+.welcome-project-icon { color: var(--accent); }
+
+.welcome-project-name { font-weight: 600; }
+
+.welcome-project-dir {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 11px;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

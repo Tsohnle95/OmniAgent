@@ -77,6 +77,19 @@ successful tools show a one-line preview with a "show output" toggle.
 Permission cards show an action icon, resource list, and a resolved state
 naming the reply (`Allowed · always` / `Denied`).
 
+## Styles (`src/renderer/src/styles/`)
+
+`main.scss` is the single renderer stylesheet entry and uses ordered Sass
+partials so the cascade stays explicit. Component rules are owned by
+`_sidebar.scss`, `_editor.scss`, `_agent.scss`, `_composer.scss`,
+`_welcome.scss`, and `_terminal.scss`; app-wide rules are separated into
+`_foundation.scss`, `_layout.scss`, `_buttons.scss`, `_toasts.scss`, and
+`_scrollbars.scss`. Vite CSS source maps are enabled in development, so
+DevTools links inspected rules back to the partial and source line rather
+than a generated `<style>` block or bundled CSS location. Runtime layout
+measurements are passed as inline CSS custom-property values; their actual
+presentational declarations remain in the owning SCSS partial.
+
 Terminal input flows: keystrokes → `terminalInput(id, data)`; output
 streams back via `onMessage` (`terminal-data`). The xterm `fit` addon +
 `ResizeObserver` keep the PTY dimensions in sync (`terminalResize`).

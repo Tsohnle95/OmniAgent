@@ -1,0 +1,137 @@
+.editor-pane {
+  background: var(--bg-elev);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tabbar {
+  display: flex;
+  overflow-x: auto;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-right: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12.5px;
+  max-width: 220px;
+}
+
+.tab.active {
+  background: var(--bg-elev);
+  color: var(--text);
+  border-top: 2px solid var(--accent);
+}
+
+.tab-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-dirty {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.tab-actions { display: flex; align-items: center; gap: 2px; }
+
+.tab-diff-badge {
+  font-size: 12px;
+  color: var(--accent);
+  padding: 0 3px;
+}
+
+.tab-diff-badge:hover { background: var(--bg-active); border-radius: 3px; }
+
+.tab-close {
+  font-size: 14px;
+  color: var(--text-faint);
+  padding: 0 3px;
+  line-height: 1;
+}
+
+.tab-close:hover { color: var(--text); background: var(--bg-active); border-radius: 3px; }
+
+.editor-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.editor-toolbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+.editor-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-dirty { color: var(--yellow); font-size: 11px; }
+
+.editor-stale { color: var(--yellow); font-size: 11px; }
+
+.editor-deleted { color: var(--red); font-size: 11px; }
+
+.editor-toolbar-right { display: flex; gap: 4px; flex-shrink: 0; }
+
+.toolbar-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.toolbar-btn:hover { background: var(--bg-hover); }
+
+.toolbar-btn.on {
+  background: var(--accent-dim);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.deleted-banner {
+  background: #431616;
+  color: var(--red);
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.editor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.editor-empty-icon { font-size: 42px; color: var(--text-faint); margin-bottom: 10px; }
+
+.editor-empty-sub { color: var(--text-faint); font-size: 12px; }
+
