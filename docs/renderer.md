@@ -38,7 +38,9 @@ Key mechanisms:
 
 - **Event dispatch** — the `onMessage` effect handles `session` /
   `file-update` / `event` messages. The event switch is documented in
-  `docs/events.md`. Events are filtered by `data.sessionID`.
+  `docs/events.md`. Events are filtered by `data.sessionID`; current V2
+  `message.part.delta` and `message.part.updated` envelopes are normalized from
+  `properties` as well as the legacy `data` envelope.
 - **Tool tracking refs** — `toolNamesRef`, `toolInputsRef`, `toolStartRef`
   back the upsert-based tool cards (order-independent; see events doc).
   `upsertTool` never lets a terminal (`success`/`failed`) status regress
@@ -53,6 +55,10 @@ Key mechanisms:
 - **Diff wiring** — tabs carry `baseline` (from `agentFiles`) and the
   watcher's `file-update` keeps them fresh; `stale`/`deleted` flags
   surface external changes.
+
+- **V2 transcript replay** — reopened sessions accept OpenCode's `info` plus
+  `parts` message projection and reconstruct text, reasoning, and tool cards
+  from the persisted state rather than depending on the live event order.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 

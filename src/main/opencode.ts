@@ -122,14 +122,18 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
   const out: TranscriptItem[] = [];
   for (const raw of messages) {
     const msg = raw as Record<string, unknown>;
-    const type = msg.type;
+    const info = (msg.info ?? msg) as Record<string, unknown>;
+    const parts = Array.isArray(msg.parts) ? (msg.parts as Record<string, unknown>[]) : [];
+    const type = info.type;
     if (type === "user") {
-      const text = String(msg.text ?? "");
-      if (text.trim()) out.push({ kind: "user", id: String(msg.id), text });
+      const text = String(info.text ?? "");
+      if (text.trim()) out.push({ kind: "user", id: String(info.id), text });
       continue;
     }
     if (type === "assistant") {
-      const content = Array.isArray(msg.content) ? (msg.content as Record<string, unknown>[]) : [];
+      const content = parts.length > 0
+        ? parts
+        : Array.isArray(info.content) ? (info.content as Record<string, unknown>[]) : [];
       const text = content
         .filter((c) => c.type === "text")
         .map((c) => String(c.text ?? ""))
@@ -141,8 +145,8 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
       if (text || reasoning) {
         out.push({
           kind: "assistant",
-          id: String(msg.id),
-          messageID: String(msg.id),
+           id: String(info.id),
+           messageID: String(info.id),
           text,
           reasoning,
           reasoningOpen: false
@@ -154,12 +158,12 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
       continue;
     }
     if (type === "compaction") {
-      const status = (msg.status ?? "") as string;
+      const status = (info.status ?? "") as string;
       if (status === "running") {
-        const summary = String(msg.summary ?? "").trim();
+        const summary = String(info.summary ?? "").trim();
         out.push({
           kind: "status",
-          id: String(msg.id),
+          id: String(info.id),
           text: `Context compacted${summary ? `: ${summary}` : ""}`,
           tone: "info"
         });
@@ -247,8 +251,8 @@ export class OpenShellBackend {
         }
         for await (const evt of this.client!.event.subscribe()) {
           if (this.stopped) return;
-          const typed = evt as { type?: string; data?: unknown };
-          const type = typed.type ?? "unknown";
+          const typed = evt as { type?: string; event?: string; data?: unknown };
+          const type = typed.type ?? typed.event ?? "unknown";
           this.emit({ kind: "event", type, data: evt });
           await this.handleServerEvent(type, typed.data).catch(() => {});
         }

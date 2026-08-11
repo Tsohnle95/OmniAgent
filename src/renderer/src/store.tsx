@@ -153,6 +153,43 @@ function outputSummary(output: unknown): string {
   return String(output);
 }
 
+function partText(part: Record<string, any>): string {
+  return typeof part.text === "string" ? part.text : "";
+}
+
+function toolInputText(input: unknown): string {
+  if (input == null) return "";
+  if (typeof input === "string") return input;
+  try {
+    return JSON.stringify(input, null, 2);
+  } catch {
+    return String(input);
+  }
+}
+
+function partTool(part: Record<string, any>): ToolCallView | null {
+  if (part.type !== "tool") return null;
+  const state = (part.state ?? {}) as Record<string, any>;
+  const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
+  const input = state.input;
+  const output = Array.isArray(state.content)
+    ? state.content.filter((c: any) => c?.type === "text").map((c: any) => String(c.text ?? "")).join("\n")
+    : outputSummary(state.error ?? "");
+  const created = Number(part.time?.created ?? Date.now());
+  const completed = Number(part.time?.completed ?? 0);
+  return {
+    id: String(part.callID ?? part.id),
+    title: String(part.tool ?? "tool"),
+    detail: toolDetail(input),
+    status,
+    input: typeof input === "string" ? input : input == null ? "" : toolInputText(input),
+    output,
+    startedAt: created,
+    ...(completed ? { duration: Math.max(0, completed - created) } : {}),
+    paths: collectFilePaths(input)
+  };
+}
+
 let toastId = 0;
 
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
@@ -188,6 +225,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const toolNamesRef = useRef<Map<string, string>>(new Map());
   const toolInputsRef = useRef<Map<string, string>>(new Map());
   const toolStartRef = useRef<Map<string, number>>(new Map());
+  const partKindsRef = useRef<Map<string, string>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
   const agentsRef = useRef<AgentOption[]>([]);
@@ -211,6 +249,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setExpanded(new Set());
     agentFilesRef.current = new Map();
     lastAssistantRef.current = null;
+    partKindsRef.current = new Map();
   }, []);
 
   const loadModels = useCallback(async () => {
@@ -636,10 +675,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
       if (msg.kind !== "event") return;
       const evt = msg.data as Record<string, any>;
-      const data = evt?.data as Record<string, any> | undefined;
+      const data = (evt?.data ?? evt?.properties ?? evt) as Record<string, any> | undefined;
       if (!data) return;
       if (data.sessionID && session && data.sessionID !== session.id) return;
-      const type = msg.type ?? "";
+      const type = msg.type ?? evt?.type ?? evt?.event ?? "";
 
       switch (type) {
         case "session.execution.started": {
@@ -731,10 +770,75 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           );
           break;
         }
+        case "message.part.delta": {
+          const messageID = String(data.messageID ?? "");
+          const partType = String(data.partType ?? partKindsRef.current.get(String(data.partID)) ?? "text");
+          const delta = String(data.delta ?? "");
+          if (!messageID || !delta || (data.field && data.field !== "text")) break;
+          setTranscript((prev) => {
+            const index = prev.findIndex((item) => item.kind === "assistant" && item.messageID === messageID);
+            const next = [...prev];
+            if (index === -1) {
+              next.push({
+                kind: "assistant",
+                id: messageID,
+                messageID,
+                text: partType === "reasoning" ? "" : delta,
+                reasoning: partType === "reasoning" ? delta : "",
+                reasoningOpen: false
+              });
+              return next;
+            }
+            const item = next[index];
+            if (item.kind !== "assistant") return prev;
+            next[index] = {
+              ...item,
+              text: partType === "reasoning" ? item.text : item.text + delta,
+              reasoning: partType === "reasoning" ? item.reasoning + delta : item.reasoning
+            };
+            return next;
+          });
+          break;
+        }
+        case "message.part.updated": {
+          const part = (data.part ?? data) as Record<string, any>;
+          const messageID = String(part.messageID ?? data.messageID ?? "");
+          if (part.id && part.type) partKindsRef.current.set(String(part.id), String(part.type));
+          if (part.type === "text" || part.type === "reasoning") {
+            const text = partText(part);
+            setTranscript((prev) => {
+              const index = prev.findIndex((item) => item.kind === "assistant" && item.messageID === messageID);
+              const next = [...prev];
+              if (index === -1) {
+                next.push({
+                  kind: "assistant",
+                  id: messageID,
+                  messageID,
+                  text: part.type === "text" ? text : "",
+                  reasoning: part.type === "reasoning" ? text : "",
+                  reasoningOpen: false
+                });
+                return next;
+              }
+              const item = next[index];
+              if (item.kind !== "assistant") return prev;
+              next[index] = {
+                ...item,
+                text: part.type === "text" ? text : item.text,
+                reasoning: part.type === "reasoning" ? text : item.reasoning
+              };
+              return next;
+            });
+          }
+          const tool = partTool(part);
+          if (tool) upsertTool(tool.id, tool);
+          break;
+        }
         case "session.tool.input.started": {
           const id = String(data.id);
           const name = String(data.name ?? "");
           if (name) toolNamesRef.current.set(id, name);
+          toolStartRef.current.set(id, Date.now());
           upsertTool(id, { title: name || "tool" });
           break;
         }

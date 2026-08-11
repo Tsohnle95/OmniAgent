@@ -105,7 +105,7 @@ for (const m of preloadTable) {
 // -------------------------------------------------------------- events.md
 
 const storeSrc = await read("src/renderer/src/store.tsx");
-const eventCases = [...storeSrc.matchAll(/\n\s{8}case "((?:session|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell)\.[\w.-]+)":/g)]
+const eventCases = [...storeSrc.matchAll(/\n\s{8}case "((?:session|message|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell)\.[\w.-]+)":/g)]
   .map((m) => m[1]);
 
 const eventsDoc = await read("docs/events.md");

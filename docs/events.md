@@ -21,6 +21,8 @@ All events carry `data.sessionID`; the store ignores events whose
 | `session.text.delta` | Appends `data.delta` to the assistant text |
 | `session.reasoning.started` | Starts an assistant block with reasoning |
 | `session.reasoning.delta` | Appends `data.delta` to the collapsible "thinking" `<details>` |
+| `message.part.delta` | Appends current V2 text or reasoning part deltas to the assistant block |
+| `message.part.updated` | Reconciles the V2 text, reasoning, or tool part projection; tool state is authoritative for status and output |
 | `session.tool.input.started` | Records `data.id → data.name` (the tool name — the `.called` event does NOT include it) and upserts a running tool card |
 | `session.tool.input.delta` | Appends `data.delta` to the card's live input stream (what the model is writing as args) |
 | `session.tool.called` | Upserts the card: title from the recorded name, else inferred from input shape; detail from `filePath`/`file_path`/`command`; `paths` collected from the input for clickable chips |
@@ -49,6 +51,11 @@ by the switch statement. Revisit when adding features:
   `websearch.*`, `pty.*`, `question.*`, `form.*`, `tui.*`
 - `models-dev.refreshed` (fired when the model catalog changes; the app
   only reloads models on session open)
+
+The main process accepts both `type` and the V2 SSE `event` field when it
+forwards an event. The renderer accepts the legacy `data` envelope and the V2
+`properties` envelope. This lets the same timeline work with the current
+OpenCode client while older opencode2 services are still in use.
 
 ## Main-process event handling
 
