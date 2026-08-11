@@ -38,6 +38,12 @@ function stringify(value: unknown): string {
   }
 }
 
+function metadata(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
 function toolOutput(data: Record<string, any>): string {
   const content = data.content ?? data.output;
   if (Array.isArray(content)) {
@@ -230,7 +236,8 @@ function partFromProjection(part: Record<string, any>, created: number): Assista
       output,
       startedAt,
       ...(completedAt ? { duration: Math.max(0, completedAt - startedAt) } : {}),
-      paths: paths(input)
+      paths: paths(input),
+      metadata: metadata(state.metadata)
     }
   };
 }
@@ -346,17 +353,23 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
           detail: toolDetail(input),
           input: stringify(input),
           paths: paths(input),
+          metadata: metadata(data.metadata) ?? tool.metadata,
           startedAt: tool.startedAt ?? event.created
         };
       });
     case "session.tool.progress":
-      return updateTool(items, event, (tool) => ({ ...tool, progress: stringify(data.metadata ?? data.progress) }));
+      return updateTool(items, event, (tool) => ({
+        ...tool,
+        progress: stringify(data.progress ?? data.metadata),
+        metadata: metadata(data.metadata) ?? tool.metadata
+      }));
     case "session.tool.success":
       return updateTool(items, event, (tool) => tool.status === "running"
         ? {
             ...tool,
             status: "success",
             output: toolOutput(data),
+            metadata: metadata(data.metadata) ?? tool.metadata,
             progress: undefined,
             duration: Math.max(0, event.created - (tool.startedAt ?? event.created))
           }
@@ -367,6 +380,7 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
             ...tool,
             status: "failed",
             output: toolOutput(data) || errorText(data.error) || "Tool failed",
+            metadata: metadata(data.metadata) ?? tool.metadata,
             progress: undefined,
             duration: Math.max(0, event.created - (tool.startedAt ?? event.created))
           }

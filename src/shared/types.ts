@@ -13,6 +13,7 @@ export interface SessionSummary {
 export interface ReopenedSession {
   session: SessionInfo;
   transcript: TranscriptItem[];
+  todos: TodoItem[];
 }
 
 export interface TreeEntry {
@@ -43,6 +44,16 @@ export interface ModelOption {
 export interface AgentOption {
   id: string;
   name: string;
+  color?: string;
+}
+
+export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
+
+export interface TodoItem {
+  id: string;
+  content: string;
+  status: TodoStatus;
+  priority?: string;
 }
 
 export interface SessionSelection {
@@ -83,6 +94,7 @@ export interface ToolCallView {
   startedAt?: number;
   duration?: number;
   paths?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export type AssistantPartView =

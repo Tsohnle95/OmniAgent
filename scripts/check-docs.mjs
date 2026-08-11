@@ -107,7 +107,7 @@ for (const m of preloadTable) {
 const storeSrc = await read("src/renderer/src/store.tsx");
 const chatStreamSrc = await read("src/renderer/src/chat-stream.ts");
 const eventSources = `${storeSrc}\n${chatStreamSrc}`;
-const eventCases = [...eventSources.matchAll(/\n\s+case "((?:session|message|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell)\.[\w.-]+)":/g)]
+const eventCases = [...eventSources.matchAll(/\n\s+case "((?:session|message|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell|todo)\.[\w.-]+)":/g)]
   .map((m) => m[1]);
 
 const eventsDoc = await read("docs/events.md");

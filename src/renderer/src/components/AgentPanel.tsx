@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
+import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 import type { ModelOption } from "@shared/types";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
@@ -288,7 +289,7 @@ function Composer(): ReactNode {
           ref={inputRef}
           className="composer-input"
           rows={1}
-          placeholder="Describe what you want to build"
+          placeholder="Ask anything, / for commands, @ for context..."
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
@@ -533,7 +534,7 @@ function Composer(): ReactNode {
 }
 
 export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNode {
-  const { busy, transcript } = useStore();
+  const { busy, todos, transcript } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -579,7 +580,10 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
         <OpenCodeTimeline transcript={transcript} busy={busy} lastAssistantId={lastAssistantId} />
       </div>
 
-      <Composer />
+      <div data-component="session-prompt-dock">
+        <OpenCodeTodoDock todos={busy ? todos : []} />
+        <Composer />
+      </div>
     </div>
   );
 }

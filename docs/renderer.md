@@ -13,6 +13,7 @@ Exposed via `useStore()` (context). State:
 | `session` | `SessionInfo \| null` | null → Welcome screen |
 | `connected` | `boolean` | from `health()` on mount |
 | `busy` | `boolean` | true while the agent executes |
+| `todos` | `TodoItem[]` | live OpenCode todo state shown in the prompt dock while the session executes |
 | `transcript` | `TranscriptItem[]` | the agent panel feed |
 | `tabs` | `Tab[]` | open editor tabs, one per path |
 | `activePath` | `string \| null` | active tab path |
@@ -78,8 +79,11 @@ Key mechanisms:
   current OpenCode timeline rows and message-part slots to React. User messages
   use the subtle right-aligned layer bubble; assistant markdown is flat and
   paced while streaming; reasoning stays hidden while its extracted heading
-  appears beside the active TextShimmer Thinking row; read/glob/grep/list parts
-  group into Exploring/Explored; remaining tools use flat BasicTool triggers.
+  appears beside the active TextShimmer Thinking row; adjacent read/glob/grep/list
+  parts group across assistant messages into Exploring/Explored; task calls use
+  OpenCode's agent-colored delegation card and todo writes are hidden from the
+  transcript in favor of the live prompt-dock checklist; remaining tools use
+  flat BasicTool triggers.
   There is no assistant bubble, custom tool card, typing-dot placeholder, or
   stream cursor path.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
@@ -93,8 +97,9 @@ Key mechanisms:
 | `Welcome` | `Welcome.tsx` | Folder pick + recent projects (`projects()`) |
 | `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff, always present above the explorer section) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree with VS Code-style codicon file/folder icons and per-level indent guide lines (`.tree-children` wrappers); rows show VS Code-style hover actions (New File / New Folder / ellipsis menu, via `RowActions`), right-click opens a context menu (New File / New Folder / Rename / Delete, trash on macOS) with inline name inputs (`.tree-input`), Enter commits / Esc cancels; header arrow collapses it to an activity bar with a single Explorer icon button, whose divider can drag it open |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | Hosts the OpenCode timeline and integrated composer: neutral prompt placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, circular send button, and smart auto-scroll; header arrow collapses it at the same time as the resize gesture reaches the model strip width |
-| `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | React port of OpenCode's web timeline/message-part presentation, including row grouping, paced markdown, TextShimmer, Thinking headings, context-tool aggregation, BasicTool triggers, errors, compaction dividers, and docked permissions |
+| `AgentPanel` | `AgentPanel.tsx` | Hosts the OpenCode timeline and V2 prompt dock: todo checklist, exact web placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, compact send/stop button, and smart auto-scroll; header arrow collapses it at the same time as the resize gesture reaches the model strip width |
+| `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | React port of OpenCode's web timeline/message-part presentation, including turn-wide grouping, paced markdown, TextShimmer, Thinking headings, context-tool aggregation, specialized task cards, BasicTool triggers, errors, compaction dividers, and docked permissions |
+| `OpenCodeTodoDock` | `OpenCodeTodoDock.tsx` | OpenCode prompt-dock todo progress and checklist surface driven by `todo.updated`; `todowrite` calls never appear as transcript tools |
 | `AgentTray` | `AgentTray.tsx` | Shown when the agent panel is collapsed: transparent 44px strip mirroring the left activity bar, with a busy dot and model icon button that expands the panel back |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
 

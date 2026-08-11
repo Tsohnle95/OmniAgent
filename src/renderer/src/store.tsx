@@ -18,6 +18,7 @@ import type {
   SessionInfo,
   SessionSummary,
   Tab,
+  TodoItem,
   TranscriptItem,
   TreeEntry,
   UserAttachment
@@ -52,6 +53,7 @@ interface Store {
   session: SessionInfo | null;
   connected: boolean;
   busy: boolean;
+  todos: TodoItem[];
   transcript: TranscriptItem[];
   tabs: Tab[];
   activePath: string | null;
@@ -105,6 +107,26 @@ const HIDDEN_DIRS = new Set([
 ]);
 
 const MAX_EDITABLE_BYTES = 4 * 1024 * 1024;
+
+function normalizeTodos(value: unknown): TodoItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw, index) => {
+    if (!raw || typeof raw !== "object") return [];
+    const item = raw as Record<string, unknown>;
+    const content = typeof item.content === "string" ? item.content : "";
+    const rawStatus = typeof item.status === "string" ? item.status : "pending";
+    const status = ["pending", "in_progress", "completed", "cancelled"].includes(rawStatus)
+      ? rawStatus as TodoItem["status"]
+      : "pending";
+    if (!content) return [];
+    return [{
+      id: typeof item.id === "string" && item.id ? item.id : `todo-${index}`,
+      content,
+      status,
+      ...(typeof item.priority === "string" ? { priority: item.priority } : {})
+    }];
+  });
+}
 
 function sortEntries(entries: TreeEntry[]): TreeEntry[] {
   return [...entries].sort((a, b) => {
@@ -175,6 +197,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -224,6 +247,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const resetAll = useCallback(() => {
     setBusy(false);
+    setTodos([]);
     setTranscript([]);
     setTabs([]);
     setActivePath(null);
@@ -363,6 +387,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         resetAll();
         setSession(reopened.session);
         setTranscript(reopened.transcript);
+        setTodos(reopened.todos);
         toast(`Reopened session in ${reopened.session.directory}`);
         void loadModels();
         void loadAgents();
@@ -388,6 +413,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         ...(attachments.length > 0 ? { attachments } : {})
       };
       setTranscript((prev) => [...prev, userItem]);
+      setTodos([]);
       try {
         await window.openshell.prompt(promptText, files);
       } catch (err) {
@@ -782,6 +808,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.execution.failed":
         case "session.execution.interrupted": {
           setBusy(false);
+          setTodos([]);
           const ok = type === "session.execution.succeeded";
           if (!ok) {
             setTranscript((prev) => [
@@ -798,6 +825,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         case "session.idle": {
           setBusy(false);
+          setTodos([]);
+          break;
+        }
+        case "todo.updated": {
+          setTodos(normalizeTodos(data.todos));
           break;
         }
         case "session.model.selected": {
@@ -949,6 +981,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       session,
       connected,
       busy,
+      todos,
       transcript,
       tabs,
       activePath,
@@ -995,7 +1028,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       deleteEntry
     }),
     [
-      session, connected, busy, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
+      session, connected, busy, todos, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
       ctxMenu, pendingCreate, pendingRename,
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,

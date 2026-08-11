@@ -48,6 +48,7 @@ is backgrounded.
 | `message.part.removed` | Removes the projected part |
 | `session.model.selected` | `currentModel` updated from `data.model { id, providerID }` |
 | `session.agent.selected` | `currentAgent` updated from `data.agent` (agent id) |
+| `todo.updated` | Replaces the active session todo list rendered in the dock above the composer |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
 | `permission.replied` | Marks `data.requestID` resolved, recording `resolvedWith` from `data.reply` |
 

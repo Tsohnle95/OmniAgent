@@ -16,6 +16,7 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
+  TodoItem,
   ToolCallView,
   TranscriptItem,
   TreeEntry,
@@ -128,8 +129,59 @@ function replayToolCard(part: Record<string, unknown>): ToolCallView {
       String(state.output ?? (state.error as { message?: string } | undefined)?.message ?? state.error ?? ""),
     startedAt: time.created ?? Date.now(),
     duration: completed ? Math.max(0, completed - ran) : undefined,
-    paths: collectFilePaths(input)
+    paths: collectFilePaths(input),
+    metadata: state.metadata && typeof state.metadata === "object" && !Array.isArray(state.metadata)
+      ? state.metadata as Record<string, unknown>
+      : undefined
   };
+}
+
+function todoItems(value: unknown): TodoItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw, index) => {
+    if (!raw || typeof raw !== "object") return [];
+    const item = raw as Record<string, unknown>;
+    const content = typeof item.content === "string" ? item.content : "";
+    const rawStatus = typeof item.status === "string" ? item.status : "pending";
+    const status = ["pending", "in_progress", "completed", "cancelled"].includes(rawStatus)
+      ? rawStatus as TodoItem["status"]
+      : "pending";
+    if (!content) return [];
+    return [{
+      id: typeof item.id === "string" && item.id ? item.id : `todo-${index}`,
+      content,
+      status,
+      ...(typeof item.priority === "string" ? { priority: item.priority } : {})
+    }];
+  });
+}
+
+function replayTodos(messages: unknown[]): TodoItem[] {
+  let result: TodoItem[] = [];
+  for (const raw of messages) {
+    const msg = raw as Record<string, unknown>;
+    const info = (msg.info ?? msg) as Record<string, unknown>;
+    const parts = Array.isArray(msg.parts)
+      ? msg.parts as Record<string, unknown>[]
+      : Array.isArray(info.content)
+        ? info.content as Record<string, unknown>[]
+        : [];
+    for (const part of parts) {
+      if (part.type !== "tool" || String(part.tool ?? part.name).toLowerCase() !== "todowrite") continue;
+      const state = part.state && typeof part.state === "object"
+        ? part.state as Record<string, unknown>
+        : {};
+      const metadata = state.metadata && typeof state.metadata === "object"
+        ? state.metadata as Record<string, unknown>
+        : {};
+      const input = state.input && typeof state.input === "object"
+        ? state.input as Record<string, unknown>
+        : {};
+      const next = todoItems(metadata.todos ?? input.todos);
+      if (next.length > 0) result = next;
+    }
+  }
+  return result;
 }
 
 function replayTranscript(messages: unknown[]): TranscriptItem[] {
@@ -558,7 +610,8 @@ export class OpenShellBackend {
     const messages = messagesRes
       ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
       : [];
-    return { session, transcript: replayTranscript(messages as unknown[]) };
+    const history = messages as unknown[];
+    return { session, transcript: replayTranscript(history), todos: replayTodos(history) };
   }
 
   async getState(): Promise<SessionInfo | null> {
@@ -645,8 +698,12 @@ export class OpenShellBackend {
       this.directory ? { location: { directory: this.directory } } : undefined
     );
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as { id?: string; name?: string }[])
-      .map((a) => ({ id: a.id ?? "", name: a.name ?? a.id ?? "agent" }))
+    return (arr as { id?: string; name?: string; color?: string }[])
+      .map((a) => ({
+        id: a.id ?? "",
+        name: a.name ?? a.id ?? "agent",
+        ...(a.color ? { color: a.color } : {})
+      }))
       .filter((a) => a.id);
   }
 

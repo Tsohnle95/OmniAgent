@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
@@ -12,6 +12,36 @@ const TEXT_RENDER_SNAP = /[\s.,!?;:)\]]/;
 
 type AssistantItem = Extract<TranscriptItem, { kind: "assistant" }>;
 type AssistantPart = AssistantItem["parts"][number];
+
+const AGENT_TONES: Record<string, string> = {
+  build: "#c3d4fd",
+  explore: "#f3da9b",
+  plan: "#f7bcd8",
+  review: "#cbb9ff"
+};
+
+const AGENT_PALETTE = [
+  "#2090f5", "#9dbefe", "#fbb73c", "#edb2f1", "#93e9f6", "#35c02d",
+  "#f5b238", "#ff9ae2", "#93e9f6", "#9bcd97", "#fc533a", "#fbb73c"
+];
+
+function agentTone(name: string, configured?: string): string {
+  const aliases: Record<string, string> = {
+    primary: "#a2bcff",
+    secondary: "#aeaeae",
+    accent: "#a2bcff",
+    success: "#78d38b",
+    warning: "#f3da9b",
+    error: "#f17471",
+    info: "#93e9f6"
+  };
+  if (configured) return aliases[configured] ?? configured;
+  const key = name.toLowerCase();
+  if (AGENT_TONES[key]) return AGENT_TONES[key];
+  let hash = 0;
+  for (const char of key) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return AGENT_PALETTE[hash % AGENT_PALETTE.length];
+}
 
 function TextShimmer({ text, active = true }: { text: string; active?: boolean }): ReactNode {
   const [run, setRun] = useState(active);
@@ -183,7 +213,7 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   let path: string | undefined;
   if (name === "read") {
     title = "Read";
-    path = typeof input.filePath === "string" ? input.filePath : tool.paths?.[0];
+    path = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : tool.paths?.[0];
     subtitle = fileName(path);
   } else if (name === "list") {
     title = "List";
@@ -209,23 +239,77 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
     subtitle = typeof input.command === "string" ? input.command : subtitle;
   } else if (name === "edit") {
     title = "Edit";
-    path = typeof input.filePath === "string" ? input.filePath : tool.paths?.[0];
+    path = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : tool.paths?.[0];
     subtitle = fileName(path);
   } else if (name === "write") {
     title = "Write";
-    path = typeof input.filePath === "string" ? input.filePath : tool.paths?.[0];
+    path = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : tool.paths?.[0];
     subtitle = fileName(path);
   } else if (name === "patch" || name === "apply_patch") {
     title = "Patch";
   } else if (name === "question") {
     title = "Questions";
   }
-  const skipped = new Set(["description", "query", "url", "filePath", "path", "pattern", "name", "command"]);
+  const skipped = new Set(["description", "query", "url", "filePath", "file_path", "path", "pattern", "name", "command"]);
   const args = Object.entries(input)
     .filter(([key, child]) => !skipped.has(key) && ["string", "number", "boolean"].includes(typeof child))
     .map(([key, child]) => `${key}=${String(child)}`)
     .slice(0, 3);
   return { title, subtitle, args, path };
+}
+
+function SessionProgressIndicator(): ReactNode {
+  const dots = Array.from({ length: 25 }, (_, index) => ({
+    index,
+    x: 1.5 + (index % 5) * 3,
+    y: 1.5 + Math.floor(index / 5) * 3
+  }));
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" data-component="session-progress-indicator-v2" aria-hidden="true">
+      {dots.map((dot) => <rect data-dot={dot.index} x={dot.x} y={dot.y} width="2" height="2" key={dot.index} />)}
+    </svg>
+  );
+}
+
+function SubagentIcon(): ReactNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4.5 5C4.5 4.72386 4.72386 4.5 5 4.5H11C11.2761 4.5 11.5 4.72386 11.5 5V11C11.5 11.2761 11.2761 11.5 11 11.5H5C4.72386 11.5 4.5 11.2761 4.5 11V5Z" fill="currentColor" />
+      <path d="M13.5 2C13.7761 2 14 2.22386 14 2.5V13.5C14 13.7761 13.7761 14 13.5 14H2.5C2.22386 14 2 13.7761 2 13.5V2.5C2 2.22386 2.22386 2 2.5 2H13.5ZM3 13H13V3H3V13Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
+  const { agents } = useStore();
+  const input = parseInput(tool.input);
+  const requested = typeof input.subagent_type === "string" ? input.subagent_type : "";
+  const configured = agents.find((agent) =>
+    agent.id.toLowerCase() === requested.toLowerCase() || agent.name.toLowerCase() === requested.toLowerCase()
+  );
+  const title = configured?.name ?? titleCase(requested || "Task");
+  const childSession = typeof tool.metadata?.sessionId === "string" ? tool.metadata.sessionId : "";
+  const detail = typeof input.description === "string" && input.description ? input.description : childSession;
+  const subtitle = tool.metadata?.background === true && detail ? `${detail} (background)` : detail;
+  const running = tool.status === "running";
+  const style = { "--task-agent-color": agentTone(requested, configured?.color) } as CSSProperties;
+  return (
+    <div data-component="task-tool-card" style={style} data-timeline-part-id={tool.id}>
+      <div data-component="task-tool-surface">
+        <div data-slot="basic-tool-tool-info-structured">
+          <div data-slot="basic-tool-tool-info-main">
+            {running ? (
+              <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
+            ) : (
+              <span data-component="task-tool-icon"><SubagentIcon /></span>
+            )}
+            <span data-component="task-tool-title">{title}</span>
+            {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
@@ -238,6 +322,9 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
   const activateSubtitle = (): void => {
     if (presentation.path) void openFile(presentation.path);
   };
+
+  if (tool.title.toLowerCase() === "todowrite") return null;
+  if (tool.title.toLowerCase() === "task") return <TaskTool tool={tool} />;
 
   return (
     <div data-component="tool-part-wrapper" data-timeline-part-id={tool.id}>
@@ -413,16 +500,25 @@ function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }>
   );
 }
 
-function AssistantMessage({ item, streaming }: { item: AssistantItem; streaming: boolean }): ReactNode {
+type TurnPart = { item: AssistantItem; part: AssistantPart };
+
+function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming: boolean }): ReactNode {
   const rows: ReactNode[] = [];
-  const parts = item.parts.filter((part) => part.kind !== "reasoning");
+  const parts: TurnPart[] = items.flatMap((item) => item.parts
+    .filter((part) => part.kind !== "reasoning")
+    .filter((part) => part.kind !== "tool" || part.tool.title.toLowerCase() !== "todowrite")
+    .map((part) => ({ item, part })));
+  const contextStarts = parts
+    .map(({ part }, index) => part.kind === "tool" && CONTEXT_TOOLS.has(part.tool.title.toLowerCase()) ? index : -1)
+    .filter((index) => index >= 0);
+  const finalContextIndex = contextStarts.at(-1);
   let previous = false;
   for (let index = 0; index < parts.length; index += 1) {
-    const part = parts[index];
+    const { item, part } = parts[index];
     if (part.kind === "tool" && CONTEXT_TOOLS.has(part.tool.title.toLowerCase())) {
       const tools = [part.tool];
       while (index + 1 < parts.length) {
-        const next = parts[index + 1];
+        const next = parts[index + 1].part;
         if (next.kind !== "tool" || !CONTEXT_TOOLS.has(next.tool.title.toLowerCase())) break;
         tools.push(next.tool);
         index += 1;
@@ -430,7 +526,7 @@ function AssistantMessage({ item, streaming }: { item: AssistantItem; streaming:
       rows.push(
         <TimelineRow tag="AssistantPart" previous={previous} key={`context:${tools[0].id}`}>
           <div data-slot="session-turn-assistant-content">
-            <ContextToolGroup tools={tools} busy={streaming} />
+            <ContextToolGroup tools={tools} busy={streaming && index >= (finalContextIndex ?? -1) && index === parts.length - 1} />
           </div>
         </TimelineRow>
       );
@@ -446,11 +542,11 @@ function AssistantMessage({ item, streaming }: { item: AssistantItem; streaming:
       previous = true;
       continue;
     }
-    if (!part.text) continue;
+    if (part.kind !== "text" || !part.text) continue;
     rows.push(
       <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
         <div data-slot="session-turn-assistant-content">
-          <TextPart part={part} streaming={streaming} />
+          <TextPart part={part} streaming={streaming && item.id === items.at(-1)?.id} />
         </div>
       </TimelineRow>
     );
@@ -458,12 +554,12 @@ function AssistantMessage({ item, streaming }: { item: AssistantItem; streaming:
   }
 
   if (streaming) {
-    const heading = item.parts
+    const heading = items.flatMap((item) => item.parts)
       .filter((part): part is Extract<AssistantPart, { kind: "reasoning" }> => part.kind === "reasoning")
       .map((part) => reasoningHeading(part.text))
       .find(Boolean);
     rows.push(
-      <TimelineRow tag="Thinking" previous={previous} key={`${item.id}:thinking`}>
+      <TimelineRow tag="Thinking" previous={previous} key={`${items.at(-1)?.id ?? "assistant"}:thinking`}>
         <div data-slot="session-turn-thinking">
           <TextShimmer text="Thinking" />
           {heading && <span className="session-turn-thinking-heading">{heading}</span>}
@@ -471,27 +567,52 @@ function AssistantMessage({ item, streaming }: { item: AssistantItem; streaming:
       </TimelineRow>
     );
   }
-  if (item.retry) {
+  const latest = items.at(-1);
+  if (latest?.retry) {
     rows.push(
-      <TimelineRow tag="Retry" previous key={`${item.id}:retry`}>
+      <TimelineRow tag="Retry" previous key={`${latest.id}:retry`}>
         <div data-slot="session-turn-retry" className="error-card">
           <span className="spinner" />
           <div>
-            <div data-slot="session-turn-retry-message">{item.retry.message.slice(0, 80)}</div>
-            <div data-slot="session-turn-retry-info">Retrying · attempt {item.retry.attempt}</div>
+            <div data-slot="session-turn-retry-message">{latest.retry.message.slice(0, 80)}</div>
+            <div data-slot="session-turn-retry-info">Retrying · attempt {latest.retry.attempt}</div>
           </div>
         </div>
       </TimelineRow>
     );
   }
-  if (item.error) {
+  if (latest?.error) {
     rows.push(
-      <TimelineRow tag="Error" previous key={`${item.id}:error`}>
-        <div className="error-card">{item.error.replace(/^Error:\s*/, "")}</div>
+      <TimelineRow tag="Error" previous key={`${latest.id}:error`}>
+        <div className="error-card">{latest.error.replace(/^Error:\s*/, "")}</div>
       </TimelineRow>
     );
   }
   return <>{rows}</>;
+}
+
+type TimelineTurn = {
+  id: string;
+  user?: Extract<TranscriptItem, { kind: "user" }>;
+  body: Exclude<TranscriptItem, { kind: "user" | "permission" }>[];
+};
+
+function buildTurns(timeline: Exclude<TranscriptItem, { kind: "permission" }>[]): TimelineTurn[] {
+  const turns: TimelineTurn[] = [];
+  let current: TimelineTurn | undefined;
+  for (const item of timeline) {
+    if (item.kind === "user") {
+      current = { id: item.id, user: item, body: [] };
+      turns.push(current);
+      continue;
+    }
+    if (!current) {
+      current = { id: item.id, body: [] };
+      turns.push(current);
+    }
+    current.body.push(item);
+  }
+  return turns;
 }
 
 function PermissionPrompt({ item }: { item: Extract<TranscriptItem, { kind: "permission" }> }): ReactNode {
@@ -524,6 +645,7 @@ export function OpenCodeTimeline({
     () => transcript.filter((item) => item.kind !== "permission"),
     [transcript]
   );
+  const turns = useMemo(() => buildTurns(timeline), [timeline]);
   const pendingPermission = [...transcript]
     .reverse()
     .find((item): item is Extract<TranscriptItem, { kind: "permission" }> => item.kind === "permission" && item.pending);
@@ -531,29 +653,30 @@ export function OpenCodeTimeline({
   return (
     <>
       <div data-slot="session-turn-list" className="opencode-timeline">
-        {timeline.map((item, index) => (
-          <Fragment key={item.id}>
-            {item.kind === "user" && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
-            {item.kind === "user" && <UserMessage item={item} />}
-            {item.kind === "assistant" && (
-              <AssistantMessage item={item} streaming={busy && item.id === lastAssistantId} />
-            )}
-            {item.kind === "status" && (
-              <TimelineRow tag="Error">
-                <div className={`error-card ${item.tone}`}>{item.text}</div>
-              </TimelineRow>
-            )}
-            {item.kind === "divider" && (
-              <TimelineRow tag="TurnDivider">
-                <div data-component="compaction-part">
-                  <span data-slot="compaction-part-line" />
-                  <span data-slot="compaction-part-label">Session compacted</span>
-                  <span data-slot="compaction-part-line" />
-                </div>
-              </TimelineRow>
-            )}
-          </Fragment>
-        ))}
+        {turns.map((turn, index) => {
+          const assistants = turn.body.filter((item): item is AssistantItem => item.kind === "assistant");
+          const live = busy && assistants.some((item) => item.id === lastAssistantId);
+          return (
+            <div data-component="session-turn-group" key={turn.id}>
+              {turn.user && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
+              {turn.user && <UserMessage item={turn.user} />}
+              {assistants.length > 0 && <AssistantTurn items={assistants} streaming={live} />}
+              {turn.body.filter((item) => item.kind !== "assistant").map((item) => item.kind === "status" ? (
+                <TimelineRow tag="Error" key={item.id}>
+                  <div className={`error-card ${item.tone}`}>{item.text}</div>
+                </TimelineRow>
+              ) : (
+                <TimelineRow tag="TurnDivider" key={item.id}>
+                  <div data-component="compaction-part">
+                    <span data-slot="compaction-part-line" />
+                    <span data-slot="compaction-part-label">Session compacted</span>
+                    <span data-slot="compaction-part-line" />
+                  </div>
+                </TimelineRow>
+              ))}
+            </div>
+          );
+        })}
       </div>
       {pendingPermission && <PermissionPrompt item={pendingPermission} />}
     </>

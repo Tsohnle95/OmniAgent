@@ -89,7 +89,8 @@ Open requests from real usage live in `TODO.md` — pick them up in a fresh
 session. Delivered so far (see `git log`):
 
 - **OpenCode web chat streaming** — OpenCode's timeline row construction,
-  message-part DOM structure, dark V2 tokens, markdown typography, paced text,
+  message-part DOM structure, turn-wide context grouping, specialized task and
+  todo surfaces, dark V2 tokens, markdown typography, paced text,
   TextShimmer animation, context-tool grouping, and flat BasicTool triggers are
   ported to React on top of the ordered 16ms event reducer and session replay.
 - **Session history / reopen** — recent sessions appear on the Welcome screen;
