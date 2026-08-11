@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
-import type { ModelOption, TranscriptItem } from "@shared/types";
+import type { ModelOption, ToolCallView, TranscriptItem } from "@shared/types";
 
 const OUTPUT_LIMIT = 6000;
 
@@ -21,35 +21,9 @@ function useNow(active: boolean): number {
   return now;
 }
 
-function collapseAssistantItems(items: TranscriptItem[]): TranscriptItem[] {
-  const positions = new Map<string, number>();
-  const result: TranscriptItem[] = [];
-  for (const item of items) {
-    if (item.kind !== "assistant") {
-      result.push(item);
-      continue;
-    }
-    const key = !item.text && item.reasoning ? "__thought-process__" : item.messageID;
-    const existingPosition = positions.get(key);
-    if (existingPosition === undefined) {
-      positions.set(key, result.length);
-      result.push(item);
-      continue;
-    }
-    const existing = result[existingPosition];
-    if (existing.kind !== "assistant") continue;
-    result[existingPosition] = {
-      ...existing,
-      text: item.text.length >= existing.text.length ? item.text : existing.text,
-      reasoning: item.reasoning.length >= existing.reasoning.length ? item.reasoning : existing.reasoning
-    };
-  }
-  return result;
-}
-
 const CONTEXT_TOOLS = new Set(["read", "glob", "grep", "list"]);
 
-function contextToolLabel(tool: Extract<TranscriptItem, { kind: "tool" }>['tool']): string {
+function contextToolLabel(tool: ToolCallView): string {
   const title = tool.title.toLowerCase();
   if (title.includes("glob")) return "search";
   if (title.includes("grep")) return "search";
@@ -57,11 +31,11 @@ function contextToolLabel(tool: Extract<TranscriptItem, { kind: "tool" }>['tool'
   return "read";
 }
 
-function ContextToolGroup({ items }: { items: Extract<TranscriptItem, { kind: "tool" }>[] }): ReactNode {
+function ContextToolGroup({ tools }: { tools: ToolCallView[] }): ReactNode {
   const [open, setOpen] = useState(false);
-  const pending = items.some((item) => item.tool.status === "running");
-  const counts = items.reduce<Record<string, number>>((result, item) => {
-    const label = contextToolLabel(item.tool);
+  const pending = tools.some((tool) => tool.status === "running");
+  const counts = tools.reduce<Record<string, number>>((result, tool) => {
+    const label = contextToolLabel(tool);
     result[label] = (result[label] ?? 0) + 1;
     return result;
   }, {});
@@ -77,10 +51,10 @@ function ContextToolGroup({ items }: { items: Extract<TranscriptItem, { kind: "t
       </button>
       {open && (
         <div className="context-tool-list">
-          {items.map((item) => (
-            <div className="context-tool-item" key={item.tool.id}>
-              <span>{item.tool.title}</span>
-              {item.tool.detail && <span>{item.tool.detail.split(/[\\/]/).pop()}</span>}
+          {tools.map((tool) => (
+            <div className="context-tool-item" key={tool.id}>
+              <span>{tool.title}</span>
+              {tool.detail && <span>{tool.detail.split(/[\\/]/).pop()}</span>}
             </div>
           ))}
         </div>
@@ -90,29 +64,13 @@ function ContextToolGroup({ items }: { items: Extract<TranscriptItem, { kind: "t
 }
 
 function renderTranscript(items: TranscriptItem[], busy: boolean, lastAssistantId: string | null): ReactNode[] {
-  const output: ReactNode[] = [];
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    if (item.kind === "tool" && CONTEXT_TOOLS.has(item.tool.title.toLowerCase())) {
-      const group: Extract<TranscriptItem, { kind: "tool" }>[] = [item];
-      while (index + 1 < items.length) {
-        const next = items[index + 1];
-        if (next.kind !== "tool" || !CONTEXT_TOOLS.has(next.tool.title.toLowerCase())) break;
-        group.push(next);
-        index += 1;
-      }
-      output.push(<ContextToolGroup key={`context-${group[0].tool.id}`} items={group} />);
-      continue;
-    }
-    output.push(
-      <TranscriptItemView
-        key={item.kind === "tool" ? item.tool.id : item.id}
-        item={item}
-        streaming={busy && item.kind === "assistant" && item.id === lastAssistantId}
-      />
-    );
-  }
-  return output;
+  return items.map((item) => (
+    <TranscriptItemView
+      key={item.id}
+      item={item}
+      streaming={busy && item.kind === "assistant" && item.id === lastAssistantId}
+    />
+  ));
 }
 
 function toolIcon(title: string): string {
@@ -130,10 +88,9 @@ function isCommandTool(title: string): boolean {
   return t.includes("bash") || t.includes("shell") || t.includes("terminal");
 }
 
-function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> }): ReactNode {
+function ToolCard({ tool }: { tool: ToolCallView }): ReactNode {
   const { openFile } = useStore();
-  const [open, setOpen] = useState(item.tool.status === "failed");
-  const { tool } = item;
+  const [open, setOpen] = useState(tool.status === "failed");
   const output = tool.output ?? "";
   const showOutput = output.length > 0;
   const truncated = output.length > OUTPUT_LIMIT;
@@ -173,6 +130,7 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
           ))}
         </div>
       )}
+      {tool.progress && <pre className="tool-progress">{tool.progress}</pre>}
       {showOutput && (
         <button className="tool-output-toggle" onClick={() => setOpen((o) => !o)}>
           {tool.status === "failed"
@@ -251,6 +209,82 @@ function PermissionCard({
   );
 }
 
+function AssistantParts({
+  item,
+  streaming
+}: {
+  item: Extract<TranscriptItem, { kind: "assistant" }>;
+  streaming: boolean;
+}): ReactNode {
+  const output: ReactNode[] = [];
+  for (let index = 0; index < item.parts.length; index += 1) {
+    const part = item.parts[index];
+    if (part.kind === "tool" && CONTEXT_TOOLS.has(part.tool.title.toLowerCase())) {
+      const tools = [part.tool];
+      while (index + 1 < item.parts.length) {
+        const next = item.parts[index + 1];
+        if (next.kind !== "tool" || !CONTEXT_TOOLS.has(next.tool.title.toLowerCase())) break;
+        tools.push(next.tool);
+        index += 1;
+      }
+      output.push(<ContextToolGroup key={`context-${tools[0].id}`} tools={tools} />);
+      continue;
+    }
+    if (part.kind === "tool") {
+      output.push(<ToolCard key={part.id} tool={part.tool} />);
+      continue;
+    }
+    if (part.kind === "reasoning") {
+      if (!part.text.trim() && !streaming) continue;
+      const active = streaming && !part.complete;
+      output.push(
+        <details className={`reasoning ${active ? "streaming" : ""}`} open={active || undefined} key={part.id}>
+          <summary>
+            <span className="reasoning-dot" />
+            {active ? "thinking" : "thought process"}
+          </summary>
+          {part.text && <pre>{part.text}</pre>}
+        </details>
+      );
+      continue;
+    }
+    if (!part.text && !streaming) continue;
+    output.push(
+      <div className="assistant-bubble" key={part.id}>
+        {part.text ? (
+          <div className="assistant-md">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>
+            {streaming && !part.complete && <span className="assistant-cursor">▌</span>}
+          </div>
+        ) : (
+          <span className="typing-dots" aria-label="Agent is typing">
+            <span />
+            <span />
+            <span />
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (output.length === 0 && streaming) {
+    output.push(
+      <div className="assistant-thinking" key="thinking">
+        <span className="spinner" />
+        Thinking
+      </div>
+    );
+  }
+  if (item.retry) {
+    output.push(
+      <div className="assistant-retry" key="retry">
+        Retry {item.retry.attempt}: {item.retry.message}
+      </div>
+    );
+  }
+  if (item.error) output.push(<div className="status-line error" key="error">{item.error}</div>);
+  return <div className="assistant-parts">{output}</div>;
+}
+
 function TranscriptItemView({
   item,
   streaming
@@ -278,35 +312,9 @@ function TranscriptItemView({
     case "assistant":
       return (
         <div className="assistant-block">
-          {item.reasoning.trim() && (
-            <details className={`reasoning ${streaming ? "streaming" : ""}`} open={item.reasoningOpen}>
-              <summary>
-                <span className="reasoning-dot" />
-                {streaming ? "thinking" : "thought process"}
-              </summary>
-              <pre>{item.reasoning}</pre>
-            </details>
-          )}
-          {(item.text || streaming) && (
-            <div className="assistant-bubble">
-              {item.text ? (
-                <div className="assistant-md">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
-                  {streaming && <span className="assistant-cursor">▌</span>}
-                </div>
-              ) : (
-                <span className="typing-dots" aria-label="Agent is typing">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              )}
-            </div>
-          )}
+          <AssistantParts item={item} streaming={streaming} />
         </div>
       );
-    case "tool":
-      return <ToolCard item={item} />;
     case "permission":
       return <PermissionCard item={item} />;
     case "status":
@@ -859,8 +867,6 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
     return null;
   }, [transcript]);
 
-  const visibleTranscript = useMemo(() => collapseAssistantItems(transcript), [transcript]);
-
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stickRef.current) el.scrollTop = el.scrollHeight;
@@ -883,7 +889,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
       </div>
 
       <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
-        {visibleTranscript.length === 0 && (
+        {transcript.length === 0 && (
           <div className="agent-empty">
             <p>Tell the agent what to work on.</p>
             <p className="agent-empty-sub">
@@ -892,7 +898,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
             </p>
           </div>
         )}
-        {renderTranscript(visibleTranscript, busy, lastAssistantId)}
+        {renderTranscript(transcript, busy, lastAssistantId)}
       </div>
 
       <Composer />

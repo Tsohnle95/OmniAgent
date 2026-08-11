@@ -35,9 +35,11 @@ All API traffic happens in the Electron **main process** using
 - Sessions: `client.session.create({ location: { directory } })`,
   `client.session.prompt`, `client.session.interrupt`.
 - Streaming: `client.event.subscribe()` (SSE) — events forwarded to the renderer
-  over IPC. Handled event types: `session.text.delta`, `session.reasoning.delta`,
-  `session.tool.called/success/failed`, `session.execution.*`, `session.idle`,
-  `permission.asked/replied`, …
+  over IPC, batched at OpenCode's 16ms cadence, and folded into ordered text,
+  reasoning, and tool parts. The renderer handles the full
+  `session.text.*`, `session.reasoning.*`, `session.tool.*`, `session.step.*`,
+  retry/execution/status lifecycle, legacy `message.*` projections, and
+  permission events.
 - Permissions: `client.permission.reply({ sessionID, requestID, reply })`
   (once / always / reject).
 - Files: `client.file.list/read`; writes go through Node `fs` in the main
@@ -82,6 +84,9 @@ npm start          # run the production build
 Open requests from real usage live in `TODO.md` — pick them up in a fresh
 session. Delivered so far (see `git log`):
 
+- **OpenCode-parity chat streaming** — ordered message parts, 16ms delta
+  coalescing, live reasoning/tool progress, lifecycle and retry state, and
+  lossless session replay replace the previous flattened transcript path.
 - **Tool cards** got a richer pass: per-tool icons, status-colored borders,
   clickable file-path chips, inline output previews, and a permission UX that
   shows the resolved reply.

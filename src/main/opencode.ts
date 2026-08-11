@@ -8,6 +8,7 @@ import { app, shell } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
 import type {
+  AssistantPartView,
   AgentOption,
   PermissionReply,
   ProjectInfo,
@@ -113,16 +114,18 @@ function replayToolCard(part: Record<string, unknown>): ToolCallView {
   const state = (part.state ?? {}) as Record<string, unknown>;
   const input = state.input;
   const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
-  const time = (part.time ?? {}) as Record<string, number | undefined>;
+  const time = (part.time ?? state.time ?? {}) as Record<string, number | undefined>;
   const ran = time.ran ?? time.created ?? Date.now();
   const completed = time.completed;
   return {
-    id: String(part.id),
-    title: toolTitleText(input, String(part.name ?? "")),
+    id: String(part.callID ?? part.id),
+    title: toolTitleText(input, String(part.name ?? part.tool ?? "")),
     detail: toolDetailText(input),
     status,
     input: toolInputText(input),
-    output: toolContentText(state.content as unknown[] | undefined) || String((state.error as { message?: string } | undefined)?.message ?? ""),
+    output:
+      toolContentText(state.content as unknown[] | undefined) ||
+      String(state.output ?? (state.error as { message?: string } | undefined)?.message ?? state.error ?? ""),
     startedAt: time.created ?? Date.now(),
     duration: completed ? Math.max(0, completed - ran) : undefined,
     paths: collectFilePaths(input)
@@ -135,9 +138,11 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
     const msg = raw as Record<string, unknown>;
     const info = (msg.info ?? msg) as Record<string, unknown>;
     const parts = Array.isArray(msg.parts) ? (msg.parts as Record<string, unknown>[]) : [];
-    const type = info.type;
+    const type = info.type ?? info.role;
     if (type === "user") {
-      const text = String(info.text ?? "");
+      const text = String(
+        info.text ?? parts.filter((part) => part.type === "text").map((part) => part.text ?? "").join("\n")
+      );
       if (text.trim()) out.push({ kind: "user", id: String(info.id), text });
       continue;
     }
@@ -145,26 +150,42 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
       const content = parts.length > 0
         ? parts
         : Array.isArray(info.content) ? (info.content as Record<string, unknown>[]) : [];
-      const text = content
-        .filter((c) => c.type === "text")
-        .map((c) => String(c.text ?? ""))
-        .join("");
-      const reasoning = content
-        .filter((c) => c.type === "reasoning")
-        .map((c) => String(c.text ?? ""))
-        .join("");
-      if (text || reasoning) {
+      const completed = Boolean((info.time as Record<string, unknown> | undefined)?.completed ?? info.finish);
+      const assistantParts = content.flatMap((part, index): AssistantPartView[] => {
+        const id = String(part.id ?? `${String(info.id)}:${String(part.type)}:${index}`);
+        if (part.type === "text" || part.type === "reasoning") {
+          const time = (part.time ?? {}) as Record<string, unknown>;
+          return [{
+            kind: part.type,
+            id,
+            text: String(part.text ?? ""),
+            complete: Boolean(time.end ?? time.completed ?? completed)
+          }];
+        }
+        if (part.type === "tool") return [{ kind: "tool", id, tool: replayToolCard(part) }];
+        return [];
+      });
+      if (assistantParts.length > 0 || !completed || info.retry || info.error) {
         out.push({
           kind: "assistant",
-           id: String(info.id),
-           messageID: String(info.id),
-          text,
-          reasoning,
-          reasoningOpen: false
+          id: String(info.id),
+          messageID: String(info.id),
+          parts: assistantParts,
+          completed,
+          ...(info.retry && typeof info.retry === "object"
+            ? {
+                retry: {
+                  attempt: Number((info.retry as Record<string, unknown>).attempt ?? 1),
+                  message: String(
+                    ((info.retry as Record<string, unknown>).error as { message?: unknown } | undefined)?.message ??
+                    "Retrying"
+                  ),
+                  next: Number((info.retry as Record<string, unknown>).at ?? 0) || undefined
+                }
+              }
+            : {}),
+          ...(info.error ? { error: String((info.error as { message?: unknown }).message ?? info.error) } : {})
         });
-      }
-      for (const part of content.filter((c) => c.type === "tool")) {
-        out.push({ kind: "tool", tool: replayToolCard(part) });
       }
       continue;
     }
@@ -262,10 +283,10 @@ export class OpenShellBackend {
         }
         for await (const evt of this.client!.event.subscribe()) {
           if (this.stopped) return;
-          const typed = evt as { type?: string; event?: string; data?: unknown };
+          const typed = evt as { type?: string; event?: string; data?: unknown; properties?: unknown };
           const type = typed.type ?? typed.event ?? "unknown";
           this.emit({ kind: "event", type, data: evt });
-          await this.handleServerEvent(type, typed.data).catch(() => {});
+          await this.handleServerEvent(type, typed.data ?? typed.properties).catch(() => {});
         }
       } catch (err) {
         console.error("[openshell] event loop error:", err);

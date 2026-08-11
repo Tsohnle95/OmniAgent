@@ -47,14 +47,18 @@ Key mechanisms:
 
 - **Event dispatch** — the `onMessage` effect handles `session` /
   `file-update` / `event` messages. The event switch is documented in
-  `docs/events.md`. Events are filtered by `data.sessionID`; current V2
-  `message.part.delta` and `message.part.updated` envelopes are normalized from
-  `properties` as well as the legacy `data` envelope.
-- **Tool tracking refs** — `toolNamesRef`, `toolInputsRef`, `toolStartRef`
-  back the upsert-based tool cards (order-independent; see events doc).
-  `upsertTool` never lets a terminal (`success`/`failed`) status regress
-  to `running`, so a late-arriving `session.tool.called` can't reset a
-  finished card.
+  `docs/events.md`. Events are filtered through the active-session ref;
+  current V2 `data` and legacy `properties` envelopes are normalized before
+  dispatch. OpenCode's V2 permission names are adapted to the common names.
+- **OpenCode stream batching** — events queue for a 16ms frame and adjacent
+  text, reasoning, and tool-input deltas are coalesced before React updates.
+  Adjacent authoritative snapshots of the same legacy part collapse to the
+  latest snapshot. A timer is used instead of animation frames so background
+  windows continue draining the stream.
+- **Ordered assistant reducer** — `chat-stream.ts` folds V2 lifecycle events
+  and legacy `message.*` projections into one assistant message whose ordered
+  parts are text, reasoning, and tool calls. Durable end/snapshot events are
+  authoritative; terminal tool states cannot regress when events arrive late.
 - **Editor vs. watcher dedupe** — `expectedRef` holds the last content the
   editor wrote or the store applied; `editContent` and the file-update
   handler both consult it so the editor's own echoes don't mark tabs
@@ -66,13 +70,14 @@ Key mechanisms:
   surface external changes.
 
 - **V2 transcript replay** — reopened sessions accept OpenCode's `info` plus
-  `parts` message projection and reconstruct text, reasoning, and tool cards
-  from the persisted state rather than depending on the live event order.
+  `parts`/`content` message projection and reconstruct the same ordered
+  assistant parts, tool output, retry, error, and completion state used by the
+  live reducer.
 
-- **Transcript presentation** — duplicate assistant lifecycle updates are
-  collapsed before rendering; reasoning-only fragments share one thought
-  process section, and its animation is enabled only while the session is
-  busy.
+- **Transcript presentation** — assistant parts render in their original
+  sequence. Active reasoning is open and updates live; completed reasoning
+  collapses, tool calls remain inline, and the generic “Thinking” placeholder
+  appears only while the active assistant has no renderable parts.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 

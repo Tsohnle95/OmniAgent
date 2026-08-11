@@ -105,7 +105,9 @@ for (const m of preloadTable) {
 // -------------------------------------------------------------- events.md
 
 const storeSrc = await read("src/renderer/src/store.tsx");
-const eventCases = [...storeSrc.matchAll(/\n\s{8}case "((?:session|message|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell)\.[\w.-]+)":/g)]
+const chatStreamSrc = await read("src/renderer/src/chat-stream.ts");
+const eventSources = `${storeSrc}\n${chatStreamSrc}`;
+const eventCases = [...eventSources.matchAll(/\n\s+case "((?:session|message|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell)\.[\w.-]+)":/g)]
   .map((m) => m[1]);
 
 const eventsDoc = await read("docs/events.md");
@@ -129,13 +131,13 @@ for (const evt of eventCases) {
 for (const evt of handledEvents) {
   check(
     eventCases.includes(evt),
-    `docs/events.md claims the store handles ${evt} but there is no such case in store.tsx`
+    `docs/events.md claims the renderer handles ${evt} but there is no such case in store.tsx or chat-stream.ts`
   );
 }
 for (const evt of notHandledEvents) {
   check(
     !eventCases.includes(evt),
-    `docs/events.md lists ${evt} as NOT handled, but store.tsx now has a case for it (move it to the handled table)`
+    `docs/events.md lists ${evt} as NOT handled, but the renderer now has a case for it (move it to the handled table)`
   );
 }
 

@@ -61,11 +61,11 @@ Internals:
   `openSessionById`: sets the active session, resets baselines, restarts
   the watcher, emits `{kind:"session"}`.
 - `replayTranscript(messages)` — converts `message.list` output to
-  `TranscriptItem[]`: user text, assistant text/reasoning (joined per
-  message), tool parts → `ToolCallView` (status from
-  streaming/running/completed/error, output from text content +
-  error message, duration from `time.ran`→`time.completed`), compaction
-  running → a status line.
+  `TranscriptItem[]`: user text plus assistant text/reasoning/tool parts in
+  persisted order. Tool status comes from streaming/running/completed/error,
+  output accepts both content blocks and legacy output/error fields, duration
+  comes from `time.ran`→`time.completed`, and assistant retry/error/completion
+  state is restored. A running compaction becomes a status line.
 - `snapshotInputs(input)` — recursively walks the tool-call input for
   `filePath`/`file_path`/`path` keys and snapshots those files
   (skips http URLs, dedupes).

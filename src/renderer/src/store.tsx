@@ -18,11 +18,11 @@ import type {
   SessionInfo,
   SessionSummary,
   Tab,
-  ToolCallView,
   TranscriptItem,
   TreeEntry,
   UserAttachment
 } from "@shared/types";
+import { coalesceChatStream, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
 
 export interface Toast {
   id: number;
@@ -121,100 +121,51 @@ function filterEntries(entries: TreeEntry[]): TreeEntry[] {
   });
 }
 
-function toolTitle(input: unknown): string {
-  if (!input || typeof input !== "object") return "tool";
-  const o = input as Record<string, unknown>;
-  if (typeof o.tool === "string" && o.tool) return o.tool;
-  if (typeof o.name === "string" && o.name) return o.name;
-  if ("command" in o) return "bash";
-  if ("filePath" in o || "file_path" in o) return "file";
-  if ("query" in o) return "search";
-  if ("url" in o) return "web";
-  if ("prompt" in o) return "prompt";
-  return "tool";
-}
+const CHAT_STREAM_TYPES = new Set([
+  "session.step.started",
+  "session.step.ended",
+  "session.step.failed",
+  "session.text.started",
+  "session.text.delta",
+  "session.text.ended",
+  "session.reasoning.started",
+  "session.reasoning.delta",
+  "session.reasoning.ended",
+  "session.tool.input.started",
+  "session.tool.input.delta",
+  "session.tool.input.ended",
+  "session.tool.called",
+  "session.tool.progress",
+  "session.tool.success",
+  "session.tool.failed",
+  "session.retry.scheduled",
+  "message.updated",
+  "message.removed",
+  "message.part.updated",
+  "message.part.delta",
+  "message.part.removed",
+  "session.execution.succeeded",
+  "session.execution.failed",
+  "session.execution.interrupted",
+  "session.idle"
+]);
 
-function toolDetail(input: unknown): string {
-  if (!input || typeof input !== "object") return "";
-  const o = input as Record<string, unknown>;
-  if (typeof o.filePath === "string") return o.filePath;
-  if (typeof o.file_path === "string") return o.file_path;
-  if (typeof o.command === "string") return `$ ${o.command}`;
-  return "";
-}
-
-function collectFilePaths(input: unknown): string[] {
-  const out: string[] = [];
-  const walk = (o: unknown): void => {
-    if (!o || typeof o !== "object") return;
-    if (Array.isArray(o)) {
-      o.forEach(walk);
-      return;
-    }
-    for (const [k, v] of Object.entries(o)) {
-      if ((k === "filePath" || k === "file_path" || k === "path") && typeof v === "string" && !v.startsWith("http")) {
-        out.push(v);
-      } else if (typeof v === "object") {
-        walk(v);
-      }
-    }
-  };
-  walk(input);
-  return [...new Set(out)];
-}
-
-function outputSummary(output: unknown): string {
-  if (output == null) return "";
-  if (typeof output === "string") return output;
-  if (typeof output === "object") {
-    const o = output as Record<string, unknown>;
-    if (typeof o.content === "string") return o.content;
-    if (typeof o.message === "string") return o.message;
-    if (typeof o.error === "string") return o.error;
-    if (typeof o.output === "string") return o.output;
-    try {
-      return JSON.stringify(o, null, 2);
-    } catch {
-      return String(output);
-    }
-  }
-  return String(output);
-}
-
-function partText(part: Record<string, any>): string {
-  return typeof part.text === "string" ? part.text : "";
-}
-
-function toolInputText(input: unknown): string {
-  if (input == null) return "";
-  if (typeof input === "string") return input;
-  try {
-    return JSON.stringify(input, null, 2);
-  } catch {
-    return String(input);
-  }
-}
-
-function partTool(part: Record<string, any>): ToolCallView | null {
-  if (part.type !== "tool") return null;
-  const state = (part.state ?? {}) as Record<string, any>;
-  const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
-  const input = state.input;
-  const output = Array.isArray(state.content)
-    ? state.content.filter((c: any) => c?.type === "text").map((c: any) => String(c.text ?? "")).join("\n")
-    : outputSummary(state.error ?? "");
-  const created = Number(part.time?.created ?? Date.now());
-  const completed = Number(part.time?.completed ?? 0);
+function normalizeStreamEvent(msg: BackendMessage): ChatStreamEvent | null {
+  if (msg.kind !== "event") return null;
+  const event = msg.data as Record<string, any> | undefined;
+  const data = (event?.data ?? event?.properties ?? event) as Record<string, any> | undefined;
+  const rawType = msg.type ?? event?.type ?? event?.event ?? "";
+  const type = rawType === "permission.v2.asked"
+    ? "permission.asked"
+    : rawType === "permission.v2.replied"
+      ? "permission.replied"
+      : rawType;
+  if (!data || !type) return null;
   return {
-    id: String(part.callID ?? part.id),
-    title: String(part.tool ?? "tool"),
-    detail: toolDetail(input),
-    status,
-    input: typeof input === "string" ? input : input == null ? "" : toolInputText(input),
-    output,
-    startedAt: created,
-    ...(completed ? { duration: Math.max(0, completed - created) } : {}),
-    paths: collectFilePaths(input)
+    id: String(event?.id ?? `${type}-${Date.now()}`),
+    type,
+    created: Number(event?.created ?? Date.now()),
+    data
   };
 }
 
@@ -255,18 +206,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const pendingRenameRef = useRef(pendingRename);
   pendingRenameRef.current = pendingRename;
   const expectedRef = useRef<Map<string, string>>(new Map());
-  const lastAssistantRef = useRef<string | null>(null);
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const toolNamesRef = useRef<Map<string, string>>(new Map());
-  const toolInputsRef = useRef<Map<string, string>>(new Map());
-  const toolStartRef = useRef<Map<string, number>>(new Map());
-  const partKindsRef = useRef<Map<string, string>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
   const agentsRef = useRef<AgentOption[]>([]);
   agentsRef.current = agents;
   const approvalModeRef = useRef<ApprovalMode>(approvalMode);
   approvalModeRef.current = approvalMode;
+  const sessionRef = useRef<SessionInfo | null>(session);
+  sessionRef.current = session;
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -286,8 +234,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setPendingCreate(null);
     setPendingRename(null);
     agentFilesRef.current = new Map();
-    lastAssistantRef.current = null;
-    partKindsRef.current = new Map();
   }, []);
 
   const loadModels = useCallback(async () => {
@@ -368,38 +314,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const next = !prev;
       window.localStorage.setItem("wordWrap", next ? "on" : "off");
       return next;
-    });
-  }, []);
-
-  const upsertTool = useCallback((id: string, patch: Partial<ToolCallView>) => {
-    setTranscript((prev) => {
-      const idx = prev.findIndex((i) => i.kind === "tool" && i.tool.id === id);
-      if (idx === -1) {
-        return [
-          ...prev,
-          {
-            kind: "tool",
-            tool: {
-              id,
-              title: "tool",
-              detail: "",
-              status: "running",
-              startedAt: Date.now(),
-              ...patch
-            }
-          }
-        ];
-      }
-      const existing = (prev[idx] as Extract<TranscriptItem, { kind: "tool" }>).tool;
-      const merged =
-        patch.status === "running" && existing.status !== "running"
-          ? { ...patch, status: existing.status }
-          : patch;
-      return prev.map((item) =>
-        item.kind === "tool" && item.tool.id === id
-          ? { ...item, tool: { ...item.tool, ...merged } }
-          : item
-      );
     });
   }, []);
 
@@ -796,9 +710,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
 
   useEffect(() => {
-    const off = window.openshell.onMessage((msg: BackendMessage) => {
+    const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
-        setSession(msg.session ?? null);
+        sessionRef.current = msg.session ?? null;
+        setSession(sessionRef.current);
         resetAll();
         if (msg.session) {
           void loadModels();
@@ -850,11 +765,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         return;
       }
       if (msg.kind !== "event") return;
-      const evt = msg.data as Record<string, any>;
-      const data = (evt?.data ?? evt?.properties ?? evt) as Record<string, any> | undefined;
-      if (!data) return;
-      if (data.sessionID && session && data.sessionID !== session.id) return;
-      const type = msg.type ?? evt?.type ?? evt?.event ?? "";
+      const streamEvent = normalizeStreamEvent(msg);
+      if (!streamEvent) return;
+      const { data, type } = streamEvent;
+      if (data.sessionID && sessionRef.current && data.sessionID !== sessionRef.current.id) return;
+      if (CHAT_STREAM_TYPES.has(type)) {
+        setTranscript((prev) => reduceChatStream(prev, streamEvent));
+      }
 
       switch (type) {
         case "session.execution.started": {
@@ -871,7 +788,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               ...prev,
               {
                 kind: "status",
-                id: `${evt.id}-end`,
+                id: `${streamEvent.id}-end`,
                 text: type === "session.execution.interrupted" ? "Interrupted" : "Failed",
                 tone: "error"
               }
@@ -881,173 +798,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         case "session.idle": {
           setBusy(false);
-          break;
-        }
-        case "session.text.started": {
-          const messageID = data.assistantMessageID as string;
-          if (lastAssistantRef.current !== messageID) {
-            lastAssistantRef.current = messageID;
-            setTranscript((prev) => [
-              ...prev,
-              { kind: "assistant", id: messageID, messageID, text: "", reasoning: "", reasoningOpen: false }
-            ]);
-          }
-          break;
-        }
-        case "session.text.delta": {
-          const messageID = data.assistantMessageID as string;
-          const delta = String(data.delta ?? "");
-          setTranscript((prev) => {
-            if (lastAssistantRef.current !== messageID) {
-              lastAssistantRef.current = messageID;
-              return [
-                ...prev,
-                {
-                  kind: "assistant",
-                  id: messageID,
-                  messageID,
-                  text: delta,
-                  reasoning: "",
-                  reasoningOpen: false
-                }
-              ];
-            }
-            return prev.map((item) =>
-              item.kind === "assistant" && item.messageID === messageID
-                ? { ...item, text: item.text + delta }
-                : item
-            );
-          });
-          break;
-        }
-        case "session.reasoning.started": {
-          const messageID = data.assistantMessageID as string;
-          if (lastAssistantRef.current !== messageID) {
-            lastAssistantRef.current = messageID;
-            setTranscript((prev) => [
-              ...prev,
-              { kind: "assistant", id: messageID, messageID, text: "", reasoning: "", reasoningOpen: false }
-            ]);
-          }
-          break;
-        }
-        case "session.reasoning.delta": {
-          const messageID = data.assistantMessageID as string;
-          const delta = String(data.delta ?? "");
-          setTranscript((prev) =>
-            prev.map((item) =>
-              item.kind === "assistant" && item.messageID === messageID
-                ? { ...item, reasoning: item.reasoning + delta }
-                : item
-            )
-          );
-          break;
-        }
-        case "message.part.delta": {
-          const messageID = String(data.messageID ?? "");
-          const partType = String(data.partType ?? partKindsRef.current.get(String(data.partID)) ?? "text");
-          const delta = String(data.delta ?? "");
-          if (!messageID || !delta || (data.field && data.field !== "text")) break;
-          setTranscript((prev) => {
-            const index = prev.findIndex((item) => item.kind === "assistant" && item.messageID === messageID);
-            const next = [...prev];
-            if (index === -1) {
-              next.push({
-                kind: "assistant",
-                id: messageID,
-                messageID,
-                text: partType === "reasoning" ? "" : delta,
-                reasoning: partType === "reasoning" ? delta : "",
-                reasoningOpen: false
-              });
-              return next;
-            }
-            const item = next[index];
-            if (item.kind !== "assistant") return prev;
-            next[index] = {
-              ...item,
-              text: partType === "reasoning" ? item.text : item.text + delta,
-              reasoning: partType === "reasoning" ? item.reasoning + delta : item.reasoning
-            };
-            return next;
-          });
-          break;
-        }
-        case "message.part.updated": {
-          const part = (data.part ?? data) as Record<string, any>;
-          const messageID = String(part.messageID ?? data.messageID ?? "");
-          if (part.id && part.type) partKindsRef.current.set(String(part.id), String(part.type));
-          if (part.type === "text" || part.type === "reasoning") {
-            const text = partText(part);
-            setTranscript((prev) => {
-              const index = prev.findIndex((item) => item.kind === "assistant" && item.messageID === messageID);
-              const next = [...prev];
-              if (index === -1) {
-                next.push({
-                  kind: "assistant",
-                  id: messageID,
-                  messageID,
-                  text: part.type === "text" ? text : "",
-                  reasoning: part.type === "reasoning" ? text : "",
-                  reasoningOpen: false
-                });
-                return next;
-              }
-              const item = next[index];
-              if (item.kind !== "assistant") return prev;
-              next[index] = {
-                ...item,
-                text: part.type === "text" ? text : item.text,
-                reasoning: part.type === "reasoning" ? text : item.reasoning
-              };
-              return next;
-            });
-          }
-          const tool = partTool(part);
-          if (tool) upsertTool(tool.id, tool);
-          break;
-        }
-        case "session.tool.input.started": {
-          const id = String(data.id);
-          const name = String(data.name ?? "");
-          if (name) toolNamesRef.current.set(id, name);
-          toolStartRef.current.set(id, Date.now());
-          upsertTool(id, { title: name || "tool" });
-          break;
-        }
-        case "session.tool.input.delta": {
-          const id = String(data.id);
-          const delta = String(data.delta ?? "");
-          if (!delta) break;
-          const acc = (toolInputsRef.current.get(id) ?? "") + delta;
-          toolInputsRef.current.set(id, acc);
-          upsertTool(id, { input: acc });
-          break;
-        }
-        case "session.tool.called": {
-          const input = data.input;
-          const id = String(data.id);
-          const name = toolNamesRef.current.get(id);
-          const title = name ?? toolTitle(input);
-          const detail = toolDetail(input);
-          upsertTool(id, {
-            title,
-            status: "running",
-            ...(detail ? { detail } : {}),
-            ...(collectFilePaths(input).length > 0 ? { paths: collectFilePaths(input) } : {})
-          });
-          break;
-        }
-        case "session.tool.success":
-        case "session.tool.failed": {
-          const id = String(data.id);
-          const ok = type === "session.tool.success";
-          const output = ok ? outputSummary(data.output) : outputSummary(data.error ?? "Tool failed");
-          upsertTool(id, {
-            status: ok ? "success" : "failed",
-            output,
-            duration: Date.now() - (toolStartRef.current.get(id) ?? Date.now())
-          });
           break;
         }
         case "session.model.selected": {
@@ -1067,18 +817,33 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           const agent = data.agent as string | undefined;
           if (agent) {
             setCurrentAgent(
-              agents.find((a) => a.id === agent) ?? { id: agent, name: agent }
+              agentsRef.current.find((a) => a.id === agent) ?? { id: agent, name: agent }
             );
           }
           break;
         }
         case "session.status": {
-          const status = data.status as { type?: string } | undefined;
-          if (status?.type === "error") {
-            setTranscript((prev) => [
-              ...prev,
-              { kind: "status", id: `${evt.id}-err`, text: "Session error", tone: "error" }
-            ]);
+          const status = data.status as { type?: string; attempt?: number; message?: string; next?: number } | undefined;
+          if (status?.type === "busy") setBusy(true);
+          if (status?.type === "idle") setBusy(false);
+          if (status?.type === "retry") {
+            setBusy(true);
+            setTranscript((prev) => {
+              const assistant = [...prev].reverse().find((item) => item.kind === "assistant");
+              if (!assistant || assistant.kind !== "assistant") return prev;
+              return prev.map((item) =>
+                item.kind === "assistant" && item.messageID === assistant.messageID
+                  ? {
+                      ...item,
+                      retry: {
+                        attempt: Number(status.attempt ?? 1),
+                        message: String(status.message ?? "Retrying"),
+                        next: status.next
+                      }
+                    }
+                  : item
+              );
+            });
           }
           break;
         }
@@ -1093,8 +858,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
                 kind: "permission",
                 id: requestID,
                 requestID,
-                action: String(data.action ?? "unknown"),
-                resources: Array.isArray(data.resources) ? data.resources.map(String) : [],
+                action: String(data.action ?? data.permission ?? "unknown"),
+                resources: Array.isArray(data.resources ?? data.patterns)
+                  ? (data.resources ?? data.patterns).map(String)
+                  : [],
                 pending: true
               }
             ];
@@ -1103,7 +870,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           break;
         }
         case "permission.replied": {
-          const requestID = String(data.id);
+          const requestID = String(data.requestID ?? data.id);
           const reply = (data.reply as PermissionReply | undefined) ?? "reject";
           setTranscript((prev) =>
             prev.map((item) =>
@@ -1115,11 +882,36 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           break;
         }
       }
+    };
+
+    let queued: ChatStreamEvent[] = [];
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastFlush = 0;
+    const flushEvents = (): void => {
+      timer = null;
+      const events = coalesceChatStream(queued);
+      queued = [];
+      lastFlush = Date.now();
+      for (const event of events) {
+        processMessage({ kind: "event", type: event.type, data: event });
+      }
+    };
+    const off = window.openshell.onMessage((msg: BackendMessage) => {
+      const event = normalizeStreamEvent(msg);
+      if (!event) {
+        processMessage(msg);
+        return;
+      }
+      queued.push(event);
+      if (timer === null) {
+        timer = setTimeout(flushEvents, Math.max(0, 16 - (Date.now() - lastFlush)));
+      }
     });
 
     void window.openshell.health().then(setConnected);
     void window.openshell.state().then((s) => {
       if (!s) return;
+      sessionRef.current = s;
       setSession((prev) => (prev && prev.id === s.id && prev.directory === s.directory ? prev : s));
       void loadModels();
       void loadAgents();
@@ -1140,16 +932,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
       });
     });
-    return off;
+    return () => {
+      off();
+      if (timer !== null) clearTimeout(timer);
+    };
   }, [
-    session,
     resetAll,
     loadModels,
-    upsertTool,
     toggleWordWrap,
     loadAgents,
-    agents,
-    approvalMode,
     replyPermission
   ]);
 

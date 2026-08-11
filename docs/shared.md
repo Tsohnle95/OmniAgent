@@ -27,16 +27,22 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 Union discriminated on `kind`:
 
 - `user` — `{ id, text }` prompt bubble
-- `assistant` — `{ id, messageID, text, reasoning, reasoningOpen }`
-  streamed text + collapsible thinking; `messageID` de-dupes starts
-- `tool` — `{ tool: ToolCallView }` (below)
+- `assistant` — `{ id, messageID, parts, completed, retry?, error? }`;
+  `parts` is the ordered OpenCode content stream (`AssistantPartView[]`)
 - `permission` — `{ id, requestID, action, resources, pending }`
 - `status` — `{ id, text, tone: "info" \| "success" \| "error" }`
 - `divider` — `{ id }` visual separator per execution
 
+`AssistantPartView` is discriminated on `kind`: `text` and `reasoning`
+parts carry `{ id, text, complete }`; `tool` parts carry
+`{ id, tool: ToolCallView }`. Keeping these parts in event order lets the
+panel render reasoning, tools, and responses exactly where OpenCode emitted
+them instead of flattening each category into a separate block.
+
 `ToolCallView`: `{ id, title, detail, status: "running" \| "success" \|
-"failed", input?, output?, startedAt?, duration? }` — `input` is the
-live-streamed arguments, `startedAt`/`duration` feed the elapsed timer.
+"failed", input?, output?, progress?, startedAt?, duration?, paths? }` —
+`input` is the live-streamed argument buffer, `progress` is current tool
+metadata, and `startedAt`/`duration` feed the elapsed timer.
 
 ## UI state
 

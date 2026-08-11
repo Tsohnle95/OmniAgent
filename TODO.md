@@ -31,18 +31,20 @@ the README roadmap; this file is the actionable queue.
 
 ## Reliability / correctness
 
+- [x] Replace the custom flattened chat stream with OpenCode's stream model.
+      Done: events are batched/coalesced at 16ms, V2 session lifecycle events
+      reduce into ordered text/reasoning/tool parts, legacy message projections
+      use the same model, and session replay restores that exact structure.
 - [x] Confirm `session.model.selected` always fires on session create, or
       rely fully on the `modelDefault()` seed (currently both exist).
       Both paths kept: the model is passed to `session.create` so
       `session.model.selected` fires reliably; `modelDefault()` remains
       the fallback seed for sessions created without an explicit model.
 - [x] Verify tool-card behavior when events arrive out of order or when
-      a session is opened mid-run (upsert logic assumes order-independence).
-      Fixed: `upsertTool` never lets a terminal status regress to
-      "running", so a late `session.tool.called` can't reset a finished
-      card; replayed tool cards carry their final status directly.
-      Mid-run reopen: transcript is replayed and live events continue
-      updating `busy` (execution.failed/interrupted/idle cover the tail).
+      a session is opened mid-run. Fixed: the ordered reducer never lets a
+      terminal status regress to "running", authoritative snapshots replace
+      deltas cleanly, and replayed tool cards carry their final status directly.
+      Mid-run reopen restores persisted parts before live events continue.
 
 
 ## My todo as i think of them:

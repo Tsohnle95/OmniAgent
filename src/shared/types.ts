@@ -79,15 +79,28 @@ export interface ToolCallView {
   status: "running" | "success" | "failed";
   input?: string;
   output?: string;
+  progress?: string;
   startedAt?: number;
   duration?: number;
   paths?: string[];
 }
 
+export type AssistantPartView =
+  | { kind: "text"; id: string; text: string; complete: boolean }
+  | { kind: "reasoning"; id: string; text: string; complete: boolean }
+  | { kind: "tool"; id: string; tool: ToolCallView };
+
 export type TranscriptItem =
   | { kind: "user"; id: string; text: string; attachments?: UserAttachment[] }
-  | { kind: "assistant"; id: string; messageID: string; text: string; reasoning: string; reasoningOpen: boolean }
-  | { kind: "tool"; tool: ToolCallView }
+  | {
+      kind: "assistant";
+      id: string;
+      messageID: string;
+      parts: AssistantPartView[];
+      completed: boolean;
+      retry?: { attempt: number; message: string; next?: number };
+      error?: string;
+    }
   | {
       kind: "permission";
       id: string;
