@@ -17,8 +17,10 @@ State:
 - `watcher` — recursive `fs.watch` on the session directory
 - `hasGit` — lazily probed (`.git` presence), cached tri-state
 - `settingsPath` — `app.getPath("userData")/settings.json`, holds the
-  last-used `{model:{id,providerID}}` so new sessions start on the same model
-- `stopped` — set by `stop()`; the event loop exits
+  last-used `{model:{id,providerID}}` and `{agent:{id}}` so new sessions
+  start on the same model/agent
+- `stopped` — set by `stop()`; the event loop exits (`start()` resets it
+  so the backend can be restarted after the window is re-created)
 
 Public methods (all used by IPC):
 
@@ -28,7 +30,7 @@ Public methods (all used by IPC):
 | `start()` | Start the SSE event loop |
 | `stop()` | Stop the event loop + fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
-| `openSession(directory)` | `session.create({location:{directory}, model?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
+| `openSession(directory)` | `session.create({location:{directory}, model?: saved, agent?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt}` |
 | `openSessionById(sessionID)` | `session.get` to recover the directory, activates it, then `message.list` → replay transcript |
 | `prompt(text)` | `session.prompt({sessionID, text})` |
@@ -41,6 +43,8 @@ Public methods (all used by IPC):
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name}` |
 | `modelDefault()` | `model.default`, maps the same |
 | `switchModel(id, providerID)` | `session.switchModel`; persists the choice to `settings.json` |
+| `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
+| `switchAgent(id)` | `session.switchAgent`; persists the choice to `settings.json` |
 | `getState()` | `{id, directory}` or null |
 
 Internals:
@@ -87,6 +91,12 @@ Internals:
 | `shell:models` | `() → ModelOption[]` |
 | `shell:model-default` | `() → ModelOption \| null` |
 | `shell:switch-model` | `(id, providerID) → void` |
+| `shell:agents` | `() → AgentOption[]` |
+| `shell:switch-agent` | `(id) → void` |
+| `shell:terminal-start` | `(directory \| null) → { id }` (spawns a PTY login shell) |
+| `shell:terminal-input` | `(id, data) → void` |
+| `shell:terminal-resize` | `(id, cols, rows) → void` |
+| `shell:terminal-stop` | `(id) → void` |
 | `shell:permission-reply` | `(requestID, reply) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:health` | `() → boolean` |
@@ -96,6 +106,15 @@ message. External links open via `shell.openExternal`. The window is
 `contextIsolation: true`, `nodeIntegration: false`, macOS
 `titleBarStyle: "hiddenInset"`.
 
+PTY messages come from a second emitter, `TerminalManager`
+(`src/main/terminal.ts`): it forwards `{kind:"terminal-data",
+terminal:{id,data}}` and `{kind:"terminal-exit", terminal:{id,exitCode}}`
+over the same `shell:message` channel. `before-input-event` intercepts
+⌘W / Ctrl+W (so it never closes the window) and forwards
+`{kind:"ui-command", command:"close-tab"}` to the renderer instead.
+
 Startup (`app.whenReady`): connect → `start()` → register IPC →
-`createWindow()`. On `window-all-closed`: `backend.stop()`; on non-darwin
-also quits. On macOS activate: re-creates the window.
+`createWindow()`. On `window-all-closed` non-darwin quits; the backend is
+stopped in `before-quit` (window close on macOS no longer tears the
+session down). On macOS activate: re-creates the window and calls
+`backend.start()` again (it is restartable).

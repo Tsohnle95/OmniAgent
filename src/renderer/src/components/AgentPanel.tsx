@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
-import type { TranscriptItem } from "@shared/types";
+import type { ModelOption, TranscriptItem } from "@shared/types";
 
 const OUTPUT_LIMIT = 6000;
 const INPUT_LIMIT = 3000;
@@ -32,6 +32,11 @@ function toolIcon(title: string): string {
   return "◆";
 }
 
+function isCommandTool(title: string): boolean {
+  const t = title.toLowerCase();
+  return t.includes("bash") || t.includes("shell") || t.includes("terminal");
+}
+
 function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> }): ReactNode {
   const { openFile } = useStore();
   const [open, setOpen] = useState(item.tool.status === "failed");
@@ -40,6 +45,7 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
   const showOutput = output.length > 0;
   const truncated = output.length > OUTPUT_LIMIT;
   const input = tool.input ?? "";
+  const command = isCommandTool(tool.title) && input ? input.replace(/\s+/g, " ").slice(0, 240) : "";
   const preview = showOutput && tool.status === "success" ? output.replace(/\s+/g, " ").slice(0, 160) : "";
   const now = useNow(tool.status === "running");
   const elapsed =
@@ -64,7 +70,7 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
         <span className="tool-title">{tool.title}</span>
         {elapsed && <span className="tool-time">{elapsed}</span>}
       </div>
-      {tool.detail && <div className="tool-detail">{tool.detail}</div>}
+      {command && <div className="tool-command">$ {command}</div>}
       {paths.length > 0 && (
         <div className="tool-paths">
           {paths.map((p) => (
@@ -73,11 +79,6 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
             </button>
           ))}
         </div>
-      )}
-      {input.length > 0 && (
-        <pre className="tool-input">
-          {input.length > INPUT_LIMIT ? `…${input.slice(-INPUT_LIMIT)}` : input}
-        </pre>
       )}
       {showOutput && (
         <button className="tool-output-toggle" onClick={() => setOpen((o) => !o)}>
@@ -203,17 +204,54 @@ function useElapsed(running: boolean): number {
   return secs;
 }
 
+function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
+  return useMemo(() => {
+    const map = new Map<string, ModelOption[]>();
+    for (const m of models) {
+      const arr = map.get(m.providerID) ?? [];
+      arr.push(m);
+      map.set(m.providerID, arr);
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([provider, list]) => [
+        provider,
+        list.sort((a, b) => a.name.localeCompare(b.name))
+      ]) as [string, ModelOption[]][];
+  }, [models]);
+}
+
 export function AgentPanel(): ReactNode {
-  const { session, busy, transcript, models, currentModel, switchModel, sendPrompt, stop } = useStore();
+  const {
+    session,
+    busy,
+    transcript,
+    models,
+    currentModel,
+    switchModel,
+    agents,
+    currentAgent,
+    switchAgent,
+    sendPrompt,
+    stop
+  } = useStore();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const stickRef = useRef(true);
   const secs = useElapsed(busy);
+  const groups = useModelGroups(models);
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [transcript]);
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
+  }, [transcript, busy]);
+
+  const onScroll = (): void => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  };
 
   const send = (): void => {
     if (!input.trim()) return;
@@ -225,39 +263,66 @@ export function AgentPanel(): ReactNode {
   return (
     <div className="agent-panel">
       <div className="agent-header">
-        <span className={`agent-dot ${busy ? "busy" : ""}`} />
-        <span className="agent-title">Agent</span>
-        {session && models.length > 0 && (
-          <select
-            className="agent-model"
-            title="Model"
-            value={currentModel ? `${currentModel.id}::${currentModel.providerID}` : ""}
-            onChange={(e) => {
-              const [id, providerID] = e.target.value.split("::");
-              if (id && providerID) void switchModel(id, providerID);
-            }}
-          >
-            {!currentModel && <option value="">Choose model…</option>}
-            {models.map((m) => (
-              <option key={`${m.id}::${m.providerID}`} value={`${m.id}::${m.providerID}`}>
-                {m.name} · {m.providerID}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="agent-header-row">
+          <span className={`agent-dot ${busy ? "busy" : ""}`} />
+          <span className="agent-title">Agent</span>
+          {session && (
+            <span className="agent-session" title={session.id}>
+              {session.id}
+            </span>
+          )}
+          {busy && (
+            <button className="icon-btn stop" title="Stop the agent" onClick={() => void stop()}>
+              ■
+            </button>
+          )}
+        </div>
         {session && (
-          <span className="agent-session" title={session.id}>
-            {session.id}
-          </span>
-        )}
-        {busy && (
-          <button className="icon-btn stop" title="Stop the agent" onClick={() => void stop()}>
-            ■
-          </button>
+          <div className="agent-header-row picks">
+            {agents.length > 0 && (
+              <select
+                className="agent-pick agent-agent"
+                title="Agent"
+                value={currentAgent?.id ?? ""}
+                onChange={(e) => {
+                  if (e.target.value) void switchAgent(e.target.value);
+                }}
+              >
+                {!currentAgent && <option value="">Agent…</option>}
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {models.length > 0 && (
+              <select
+                className="agent-pick agent-model"
+                title="Model"
+                value={currentModel ? `${currentModel.id}::${currentModel.providerID}` : ""}
+                onChange={(e) => {
+                  const [id, providerID] = e.target.value.split("::");
+                  if (id && providerID) void switchModel(id, providerID);
+                }}
+              >
+                {!currentModel && <option value="">Choose model…</option>}
+                {groups.map(([provider, list]) => (
+                  <optgroup key={provider} label={provider}>
+                    {list.map((m) => (
+                      <option key={`${m.id}::${m.providerID}`} value={`${m.id}::${m.providerID}`}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="agent-scroll" ref={scrollRef}>
+      <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
         {transcript.length === 0 && (
           <div className="agent-empty">
             <p>Tell the agent what to work on.</p>

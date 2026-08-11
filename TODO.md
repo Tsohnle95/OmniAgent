@@ -47,15 +47,34 @@ the README roadmap; this file is the actionable queue.
 
 ## My todo as i think of them:
 
-- [ ] Need to add word-wrap feature in the app. I tried to use my muscle memory cmd + w to enable word-wrap, and it closed the app and destroyed my session. 
-- Also, for the right-hand panel in the model message view, make it mimic like open code desktop type logic or open code V2. No, let's go open code desktop type message logic, to which it shows and think and display all the information in the style that Open Code Desktop does. Right now it's displaying like every read path inside of a giant rectangle and it's kind of an eyesore.
-- I can't currently scroll in the right-hand panel model message view. So, as it fills up with messages, it doesn't auto-scroll to the bottom, and I'm not able to actually scroll, so let's fix that.
-- In the file panel on the left tray, I can't drag the changes bottom panel away to see all the changes that are buried in there. And also, the files, I still can't see any folders, they're just they represent they rep'reresented as periods. Please revamp and increase the attention to detail for the UI of the left-hand file panel.
-- I need to be able to sort the models by providers. So if you can add that into the model selection area
-- The app is not draggable or movable. I can't move the app to a different screen or anything like that, so please make sure everything is completely movable and responsive.
-- The app is not very responsive right now. If I close the tray, uh the bottom part of the app disappears, for example. So make sure it's all responsive and that none of the functionality or the UI disappears if it shouldn't.
-- I want to be able to add a terminal into this uh this app, just like in VS Code. I can like pull up the bottom tray and I can select a terminal and I can work in there. I want to be able to add that functionality here as well.
-- Also, the title of the app and then the file path and the very top left with the tray, it's literally overlapping the Mac, close, expand, and minimize area. So, can you shift that over a bit so I can actually see the closing and whatever buttons.
+- [x] Word-wrap: Wrap toolbar button + ⌥Z (VS Code shortcut); ⌘W no longer
+      closes the window (main intercepts it and closes the active tab
+      instead — your session survives).
+- [x] Right-hand panel restyled to opencode-desktop-ish message layout:
+      compact tool cards with `$ command` lines and clickable file chips
+      instead of giant JSON/read-path rectangles, cleaner thinking block,
+      statuses inline.
+- [x] Smart auto-scroll: the transcript only auto-scrolls while you're at
+      the bottom; scrolling up pauses it so you can read freely.
+- [x] Left file panel revamped: CHANGES is now a drag-resizable bottom
+      section with its own scroll, rows show the folder context
+      (`file · src/foo`), deleted/modified styled, explorer unchanged.
+- [x] Models grouped by provider (`<optgroup>`) in the picker.
+- [x] Window is explicitly movable/resizable; grid uses `minmax(0,1fr)`
+      so no panel gets pushed off-screen; closing the tray no longer
+      hides anything (tray is a real layout row).
+- [x] Terminal in the bottom tray (xterm.js + node-pty PTY), toggled
+      from the titlebar (⌥O), drag-resizable, restarts with the session
+      directory as cwd.
+- [x] Titlebar shifted right on macOS so it never overlaps the traffic
+      lights.
+- [x] Agent picker next to the model picker (agent.list / switchAgent,
+      persisted). Model strength (high/low) is not exposed by the
+      opencode2 API, so it can't be wired up yet.
+- [x] Code cards redesigned (see "Right-hand panel restyled" above).
+- [x] ⌘S saves; dirty tab dot + "unsaved" / "changed on disk" labels
+      show save state.
+
 
       
 

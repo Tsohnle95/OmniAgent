@@ -10,7 +10,6 @@ const EDITOR_OPTIONS = {
   minimap: { enabled: false },
   automaticLayout: true,
   tabSize: 2,
-  wordWrap: "off" as const,
   scrollBeyondLastLine: false,
   smoothScrolling: true,
   cursorBlinking: "smooth" as const,
@@ -70,7 +69,7 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
-  const { editContent, setTabMode, saveTab } = useStore();
+  const { editContent, setTabMode, saveTab, wordWrap, toggleWordWrap } = useStore();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -86,6 +85,10 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   const language = useMemo(() => languageForPath(tab.path), [tab.path]);
   const diffAvailable = tab.baseline !== null;
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;
+  const options = useMemo(
+    () => ({ ...EDITOR_OPTIONS, wordWrap: (wordWrap ? "on" : "off") as "on" | "off" }),
+    [wordWrap]
+  );
 
   return (
     <div className="editor-wrap">
@@ -99,6 +102,13 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           {tab.deleted && <span className="editor-deleted">deleted on disk</span>}
         </div>
         <div className="editor-toolbar-right">
+          <button
+            className={`toolbar-btn ${wordWrap ? "on" : ""}`}
+            title="Toggle word wrap (⌥Z)"
+            onClick={toggleWordWrap}
+          >
+            Wrap
+          </button>
           {diffAvailable && (
             <>
               <button
@@ -131,7 +141,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           original={tab.baseline ?? ""}
           modified={tab.content}
           options={{
-            ...EDITOR_OPTIONS,
+            ...options,
             readOnly: true,
             renderSideBySide: true,
             ignoreTrimWhitespace: false,
@@ -144,7 +154,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           language={language}
           path={tab.path}
           value={tab.content}
-          options={EDITOR_OPTIONS}
+          options={options}
           onChange={(value) => {
             if (value !== undefined) editContent(tab.path, value);
           }}

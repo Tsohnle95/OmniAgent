@@ -26,9 +26,10 @@ npm start          # run the production build
 |---|---|---|
 | Main process | `src/main/index.ts` | Window, IPC handlers, backend wiring |
 | Backend | `src/main/opencode.ts` | All opencode2 API traffic, session state, fs watching, baselines |
+| Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
 | Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
 | Renderer store | `src/renderer/src/store.tsx` | All UI state; subscribes to backend events |
-| Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panel, welcome |
+| Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panel, welcome, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
 

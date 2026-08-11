@@ -27,6 +27,7 @@ All events carry `data.sessionID`; the store ignores events whose
 | `session.tool.success` | Card → `success`, sets `output`, records `duration` (startedAt from card creation) |
 | `session.tool.failed` | Card → `failed`, sets `output` from error, auto-expands output in the UI |
 | `session.model.selected` | `currentModel` updated from `data.model { id, providerID }` |
+| `session.agent.selected` | `currentAgent` updated from `data.agent` (agent id) |
 | `session.status` | Only `status.type === "error"` handled → "Session error" status line |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
 | `permission.replied` | Marks the matching card resolved, recording `resolvedWith` from `data.reply` |
@@ -36,7 +37,7 @@ All events carry `data.sessionID`; the store ignores events whose
 The store has no case for these; they arrive on the wire and are dropped
 by the switch statement. Revisit when adding features:
 
-- `session.created`, `session.agent.selected`, `session.moved`,
+- `session.created`, `session.moved`,
   `session.renamed`, `session.deleted`, `session.forked`
 - `session.input.*`, `session.step.*`, `session.shell.*`
 - `session.tool.input.ended`, `session.tool.progress`

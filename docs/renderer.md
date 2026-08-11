@@ -22,12 +22,16 @@ Exposed via `useStore()` (context). State:
 | `toasts` | `Toast[]` | transient notifications |
 | `models` | `ModelOption[]` | for the agent-header picker |
 | `currentModel` | `ModelOption \| null` | seeded from `modelDefault()`, live-updated by `session.model.selected` |
+| `agents` | `AgentOption[]` | for the agent-header picker |
+| `currentAgent` | `AgentOption \| null` | live-updated by `session.agent.selected` |
+| `wordWrap` | `boolean` | Monaco `wordWrap` setting, persisted to `localStorage` ("wordWrap") |
 | `sessions` | `SessionSummary[]` | recent sessions for the Welcome screen |
 
 Actions: `openSession`, `selectFolder`, `reopenSession(id)`,
 `loadSessions`, `sendPrompt`, `stop`, `loadModels`, `switchModel`,
-`openFile(path, {mode})`, `closeTab`, `setActive`, `setTabMode`,
-`editContent`, `saveTab`, `toggleDir`, `replyPermission`.
+`loadAgents`, `switchAgent`, `toggleWordWrap`, `openFile(path, {mode})`,
+`closeTab`, `setActive`, `setTabMode`, `editContent`, `saveTab`,
+`toggleDir`, `replyPermission`.
 
 Key mechanisms:
 
@@ -55,19 +59,27 @@ Key mechanisms:
 
 | Component | File | Role |
 |---|---|---|
-| `App` | `App.tsx` | Grid layout, `useDragResize` (flip=true for the right panel), titlebar with busy/idle status, toasts |
+| `App` | `App.tsx` | Layout: titlebar + 3-pane grid (`useDragResize`; `minmax(0,1fr)` center so panels never overflow) + optional bottom tray; titlebar shows a tray toggle and busy/idle status; ⌥Z word-wrap shortcut; darwin class for the traffic-light inset |
 | `Welcome` | `Welcome.tsx` | Folder pick + recent projects (`projects()`) |
-| `FileSidebar` | `FileSidebar.tsx` | CHANGES list (agent-touched files, click → diff) + EXPLORER tree; dirs auto-expand root on session open |
-| `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles, assistant markdown + collapsible thinking, tool cards with live input/elapsed time, permission cards, status lines), model picker, stop button, input box, "working… Ns" line |
+| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree; dirs auto-expand root on session open |
+| `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
+| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines), agent + model pickers (models grouped by provider), smart auto-scroll (sticks to bottom only when already near it), stop button, input box, "working… Ns" line |
+| `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
 
 Tool cards (`ToolCard`): show status spinner/check/cross, per-tool icon,
-real tool name (from `session.tool.input.started`), `detail` (file path
-or `$ command`), clickable file-path chips (open the file), live streamed
-args, elapsed/duration timer, and collapsible output (up to 6000 chars) —
-failed tools auto-expand, successful tools show a one-line preview with a
-"show output" toggle. Permission cards show an action icon, resource list,
-and a resolved state naming the reply (`Allowed · always` / `Denied`).
+real tool name (from `session.tool.input.started`), a single-line
+`$ command` for shell tools (no giant JSON input rectangles — read paths
+appear as clickable file-path chips), elapsed/duration timer, and
+collapsible output (up to 6000 chars) — failed tools auto-expand,
+successful tools show a one-line preview with a "show output" toggle.
+Permission cards show an action icon, resource list, and a resolved state
+naming the reply (`Allowed · always` / `Denied`).
+
+Terminal input flows: keystrokes → `terminalInput(id, data)`; output
+streams back via `onMessage` (`terminal-data`). The xterm `fit` addon +
+`ResizeObserver` keep the PTY dimensions in sync (`terminalResize`).
+The tray is toggled from the titlebar (⌥O) and drag-resized via the
+`tray-divider`.
 
 ## Monaco (`monaco.ts`)
 

@@ -38,7 +38,26 @@ export interface ModelOption {
   name: string;
 }
 
+export interface AgentOption {
+  id: string;
+  name: string;
+}
+
 export type PermissionReply = "once" | "always" | "reject";
+
+export interface TerminalStartResult {
+  id: string;
+}
+
+export interface TerminalData {
+  id: string;
+  data: string;
+}
+
+export interface TerminalExit {
+  id: string;
+  exitCode: number | null;
+}
 
 export interface ToolCallView {
   id: string;
@@ -87,10 +106,16 @@ export interface AgentFileState {
   deleted: boolean;
 }
 
-export interface BackendMessage {
-  kind: "event" | "file-update" | "session";
+export interface BackendMessageBase {
+  kind: "event" | "file-update" | "session" | "ui-command";
   type?: string;
   data?: unknown;
   file?: FileUpdate;
   session?: SessionInfo;
+  command?: string;
 }
+
+export type BackendMessage =
+  | BackendMessageBase
+  | { kind: "terminal-data"; terminal: TerminalData }
+  | { kind: "terminal-exit"; terminal: TerminalExit };

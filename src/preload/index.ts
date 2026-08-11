@@ -1,15 +1,18 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AgentOption,
   BackendMessage,
   ModelOption,
   PermissionReply,
   ProjectInfo,
   ReopenedSession,
   SessionInfo,
-  SessionSummary
+  SessionSummary,
+  TerminalStartResult
 } from "@shared/types";
 
 const api = {
+  platform: process.platform,
   onMessage: (cb: (msg: BackendMessage) => void): (() => void) => {
     const listener = (_e: unknown, msg: BackendMessage): void => cb(msg);
     ipcRenderer.on("shell:message", listener);
@@ -32,6 +35,15 @@ const api = {
   modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),
   switchModel: (id: string, providerID: string): Promise<void> =>
     ipcRenderer.invoke("shell:switch-model", id, providerID),
+  agents: (): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents"),
+  switchAgent: (id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", id),
+  terminalStart: (directory: string | null): Promise<TerminalStartResult> =>
+    ipcRenderer.invoke("shell:terminal-start", directory),
+  terminalInput: (id: string, data: string): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-input", id, data),
+  terminalResize: (id: string, cols: number, rows: number): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-resize", id, cols, rows),
+  terminalStop: (id: string): Promise<void> => ipcRenderer.invoke("shell:terminal-stop", id),
   permissionReply: (requestID: string, reply: PermissionReply): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", requestID, reply),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),

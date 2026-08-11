@@ -7,6 +7,7 @@ import { app } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
 import type {
+  AgentOption,
   PermissionReply,
   ProjectInfo,
   ReopenedSession,
@@ -231,6 +232,7 @@ export class OpenShellBackend {
   }
 
   start(): void {
+    this.stopped = false;
     void this.runEventLoop();
   }
 
@@ -421,12 +423,27 @@ export class OpenShellBackend {
     return null;
   }
 
-  private async persistModel(id: string, providerID: string): Promise<void> {
+  private async savedAgent(): Promise<string | null> {
+    try {
+      const raw = await fsp.readFile(this.settingsPath, "utf8");
+      const parsed = JSON.parse(raw) as { agent?: { id?: string } };
+      if (parsed.agent?.id) return parsed.agent.id;
+    } catch {
+      /* no settings yet */
+    }
+    return null;
+  }
+
+  private async persistSettings(patch: { model?: { id: string; providerID: string }; agent?: string }): Promise<void> {
     try {
       await fsp.mkdir(path.dirname(this.settingsPath), { recursive: true });
-      await fsp.writeFile(this.settingsPath, JSON.stringify({ model: { id, providerID } }, null, 2), "utf8");
+      const existing = (await this.savedModel()) ?? null;
+      const prev = existing ? { model: existing } : {};
+      const agent = await this.savedAgent();
+      const base = { ...prev, ...(agent ? { agent: { id: agent } } : {}) };
+      await fsp.writeFile(this.settingsPath, JSON.stringify({ ...base, ...patch }, null, 2), "utf8");
     } catch (err) {
-      console.error("[openshell] failed to persist model:", err);
+      console.error("[openshell] failed to persist settings:", err);
     }
   }
 
@@ -444,10 +461,11 @@ export class OpenShellBackend {
 
   async openSession(directory: string): Promise<SessionInfo> {
     if (!this.client) throw new Error("not connected to opencode service");
-    const saved = await this.savedModel();
+    const [saved, agent] = await Promise.all([this.savedModel(), this.savedAgent()]);
     const res = await this.client.session.create({
       location: { directory },
-      ...(saved ? { model: saved } : {})
+      ...(saved ? { model: saved } : {}),
+      ...(agent ? { agent } : {})
     });
     const info = res as { id?: string; data?: { id?: string } };
     const id = info.id ?? info.data?.id;
@@ -534,7 +552,24 @@ export class OpenShellBackend {
       sessionID: this.sessionID,
       model: { id, providerID }
     });
-    void this.persistModel(id, providerID);
+    void this.persistSettings({ model: { id, providerID } });
+  }
+
+  async listAgents(): Promise<AgentOption[]> {
+    if (!this.client) return [];
+    const res = await this.client.agent.list(
+      this.directory ? { location: { directory: this.directory } } : undefined
+    );
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as { id?: string; name?: string }[])
+      .map((a) => ({ id: a.id ?? "", name: a.name ?? a.id ?? "agent" }))
+      .filter((a) => a.id);
+  }
+
+  async switchAgent(id: string): Promise<void> {
+    if (!this.client || !this.sessionID) throw new Error("no active session");
+    await this.client.session.switchAgent({ sessionID: this.sessionID, agent: id });
+    void this.persistSettings({ agent: id });
   }
 
   async modelDefault(): Promise<ModelOption | null> {

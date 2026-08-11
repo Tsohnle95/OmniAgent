@@ -44,7 +44,7 @@ its work while live diffs of changed files appear in the editor.
 
 ## Message flow
 
-All three backend→renderer message kinds are defined in
+All backend→renderer message kinds are defined in
 `src/shared/types.ts` (`BackendMessage`):
 
 - `{ kind: "event", type, data }` — every opencode2 SSE event forwarded
@@ -54,6 +54,10 @@ All three backend→renderer message kinds are defined in
   emitted by the fs watcher (below).
 - `{ kind: "session", session: { id, directory } }` — emitted when a
   session is opened.
+- `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
+  exit from the terminal tray (`src/main/terminal.ts`).
+- `{ kind: "ui-command", command }` — main-process requests to the
+  renderer (currently `close-tab` when ⌘W / Ctrl+W is pressed).
 
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.
@@ -62,12 +66,18 @@ table is in `docs/main.md`.
 
 1. User picks a folder (renderer → `shell:select-folder` / `shell:open-session`).
 2. `openSession(directory)` creates the session via
-   `client.session.create({ location: { directory } })`, stores
-   `sessionID`/`directory`, clears baseline state, starts the fs watcher.
+   `client.session.create({ location: { directory }, model?, agent? })` —
+   the last-used model and agent are read from `settings.json` (userData)
+   and passed along; stores `sessionID`/`directory`, clears baseline
+   state, starts the fs watcher.
 3. Emits `{ kind: "session" }`; renderer resets all UI state.
 4. Prompts go through `client.session.prompt({ sessionID, text })`;
    interrupt through `client.session.interrupt`.
-5. Only ONE session exists per app run (no history/reopen yet — roadmap).
+5. Only ONE session exists per app run (history/reopen exists via
+   `openSessionById`, see `docs/main.md`).
+6. Closing the window on macOS keeps the backend alive (it is only torn
+   down in `before-quit`); re-activating re-creates the window and
+   restarts the event loop via `backend.start()`.
 
 ## Diffs and baselines (how the diff view works)
 
@@ -97,13 +107,28 @@ changed (`dirty`/`stale` flags on `Tab`). Writes go through Node `fs` in
 the main process (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching.
 
-## Models
+## Models and agents
 
-The header of the agent panel lists models from `client.model.list()`
-(63+ enabled models, filtered to `{ id, providerID, name }`). The current
-model is seeded from `client.model.default()` and updated live by the
-`session.model.selected` event. Switching calls
-`client.session.switchModel({ sessionID, model: { id, providerID } })`.
+The header of the agent panel has two pickers. Models come from
+`client.model.list()` (filtered to `{ id, providerID, name }`) and are
+grouped by provider in the dropdown. The current model is seeded from
+`client.model.default()` and updated live by `session.model.selected`.
+Switching calls `client.session.switchModel({ sessionID, model })`.
+Agents come from `client.agent.list()`; the selection is updated live by
+`session.agent.selected` and switched via
+`client.session.switchAgent({ sessionID, agent })`. Both choices are
+persisted to `settings.json` so new sessions start with them.
+
+## Terminal tray
+
+The bottom tray (`src/main/terminal.ts` + `TerminalTray.tsx`) runs a real
+PTY via `node-pty` (rebuilt against Electron's ABI by `@electron/rebuild`;
+see `scripts`). The main process spawns the login shell (`zsh -l` on
+macOS, `$SHELL` elsewhere) in the session directory and forwards PTY
+output to the renderer as `terminal-data` messages; keystrokes go back
+via `shell:terminal-input`. Resizes are handled with the xterm `fit`
+addon + `shell:terminal-resize`. The tray is toggled from the titlebar
+(⌥O) and its height is drag-resizable.
 
 ## Permissions
 

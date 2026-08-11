@@ -10,6 +10,7 @@ import {
 } from "react";
 import type {
   AgentFileState,
+  AgentOption,
   BackendMessage,
   ModelOption,
   PermissionReply,
@@ -40,6 +41,9 @@ interface Store {
   toasts: Toast[];
   models: ModelOption[];
   currentModel: ModelOption | null;
+  agents: AgentOption[];
+  currentAgent: AgentOption | null;
+  wordWrap: boolean;
   sessions: SessionSummary[];
   openSession: (dir: string) => Promise<void>;
   selectFolder: () => Promise<void>;
@@ -49,6 +53,9 @@ interface Store {
   stop: () => Promise<void>;
   loadModels: () => Promise<void>;
   switchModel: (id: string, providerID: string) => Promise<void>;
+  loadAgents: () => Promise<void>;
+  switchAgent: (id: string) => Promise<void>;
+  toggleWordWrap: () => void;
   openFile: (path: string, opts?: { mode?: "edit" | "diff" }) => Promise<void>;
   closeTab: (path: string) => void;
   setActive: (path: string) => void;
@@ -157,6 +164,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [currentModel, setCurrentModel] = useState<ModelOption | null>(null);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [currentAgent, setCurrentAgent] = useState<AgentOption | null>(null);
+  const [wordWrap, setWordWrap] = useState<boolean>(
+    () => window.localStorage.getItem("wordWrap") === "on"
+  );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
 
   const agentFilesRef = useRef(agentFiles);
@@ -171,6 +183,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const toolStartRef = useRef<Map<string, number>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
+  const activePathRef = useRef<string | null>(null);
+  activePathRef.current = activePath;
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -226,6 +240,35 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [toast]
   );
 
+  const loadAgents = useCallback(async () => {
+    try {
+      const list = await window.openshell.agents();
+      setAgents(list);
+      setCurrentAgent((cur) => (cur ? (list.find((a) => a.id === cur.id) ?? cur) : null));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [toast]);
+
+  const switchAgent = useCallback(
+    async (id: string) => {
+      try {
+        await window.openshell.switchAgent(id);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [toast]
+  );
+
+  const toggleWordWrap = useCallback(() => {
+    setWordWrap((prev) => {
+      const next = !prev;
+      window.localStorage.setItem("wordWrap", next ? "on" : "off");
+      return next;
+    });
+  }, []);
+
   const upsertTool = useCallback((id: string, patch: Partial<ToolCallView>) => {
     setTranscript((prev) => {
       const idx = prev.findIndex((i) => i.kind === "tool" && i.tool.id === id);
@@ -266,11 +309,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setSession(info);
         toast(`Opened ${info.directory}`);
         void loadModels();
+        void loadAgents();
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels]
+    [resetAll, toast, loadModels, loadAgents]
   );
 
   const selectFolder = useCallback(async () => {
@@ -281,11 +325,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setSession(info);
         toast(`Opened ${info.directory}`);
         void loadModels();
+        void loadAgents();
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [resetAll, toast, loadModels]);
+  }, [resetAll, toast, loadModels, loadAgents]);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -304,11 +349,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setTranscript(reopened.transcript);
         toast(`Reopened session in ${reopened.session.directory}`);
         void loadModels();
+        void loadAgents();
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels]
+    [resetAll, toast, loadModels, loadAgents]
   );
 
   const sendPrompt = useCallback(
@@ -495,7 +541,16 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (msg.kind === "session") {
         setSession(msg.session ?? null);
         resetAll();
-        if (msg.session) void loadModels();
+        if (msg.session) {
+          void loadModels();
+          void loadAgents();
+        }
+        return;
+      }
+      if (msg.kind === "ui-command") {
+        if (msg.command === "close-tab" && activePathRef.current) {
+          closeTab(activePathRef.current);
+        }
         return;
       }
       if (msg.kind === "file-update") {
@@ -685,6 +740,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           }
           break;
         }
+        case "session.agent.selected": {
+          const agent = data.agent as string | undefined;
+          if (agent) {
+            setCurrentAgent(
+              agents.find((a) => a.id === agent) ?? { id: agent, name: agent }
+            );
+          }
+          break;
+        }
         case "session.status": {
           const status = data.status as { type?: string } | undefined;
           if (status?.type === "error") {
@@ -734,7 +798,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (s) setSession(s);
     });
     return off;
-  }, [session, resetAll, loadModels, upsertTool]);
+  }, [session, resetAll, loadModels, upsertTool, closeTab, loadAgents, agents]);
 
   const value = useMemo<Store>(
     () => ({
@@ -750,6 +814,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       toasts,
       models,
       currentModel,
+      agents,
+      currentAgent,
+      wordWrap,
       sessions,
       openSession,
       selectFolder,
@@ -759,6 +826,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       stop,
       loadModels,
       switchModel,
+      loadAgents,
+      switchAgent,
+      toggleWordWrap,
       openFile,
       closeTab,
       setActive,
@@ -770,8 +840,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }),
     [
       session, connected, busy, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
-      models, currentModel, sessions,
+      models, currentModel, agents, currentAgent, wordWrap, sessions,
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,
+      loadAgents, switchAgent, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, toggleDir, replyPermission
     ]

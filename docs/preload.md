@@ -12,6 +12,7 @@ automatically.
 
 | Member | Type |
 |---|---|
+| `platform()` | `string` — `process.platform` (not an invoke; the renderer uses it for the darwin titlebar inset) |
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
 | `selectFolder()` | `Promise<SessionInfo \| null>` |
 | `openSession(dir)` | `Promise<SessionInfo>` |
@@ -26,6 +27,12 @@ automatically.
 | `models()` | `Promise<ModelOption[]>` |
 | `modelDefault()` | `Promise<ModelOption \| null>` |
 | `switchModel(id, providerID)` | `Promise<void>` |
+| `agents()` | `Promise<AgentOption[]>` |
+| `switchAgent(id)` | `Promise<void>` |
+| `terminalStart(directory \| null)` | `Promise<{ id }>` |
+| `terminalInput(id, data)` | `Promise<void>` |
+| `terminalResize(id, cols, rows)` | `Promise<void>` |
+| `terminalStop(id)` | `Promise<void>` |
 | `permissionReply(requestID, reply)` | `Promise<void>` |
 | `state()` | `Promise<SessionInfo \| null>` |
 | `health()` | `Promise<boolean>` |

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { TreeEntry } from "@shared/types";
 
@@ -76,8 +76,33 @@ function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactN
   );
 }
 
+function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void] {
+  const [height, setHeight] = useState(initial);
+  const startRef = useRef<{ y: number; height: number } | null>(null);
+
+  const onMouseDown = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    startRef.current = { y: e.clientY, height };
+    const move = (ev: MouseEvent): void => {
+      if (!startRef.current) return;
+      const dy = startRef.current.y - ev.clientY;
+      setHeight(Math.min(520, Math.max(90, startRef.current.height + dy)));
+    };
+    const up = (): void => {
+      startRef.current = null;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
+  return [height, onMouseDown];
+}
+
 export function FileSidebar(): ReactNode {
   const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
+  const [changesH, changesDrag] = useChangesDrag(200);
   const root = tree[""] ?? [];
   const rootLoaded = useRef(false);
 
@@ -102,26 +127,38 @@ export function FileSidebar(): ReactNode {
       </div>
 
       {changes.length > 0 && (
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">
-            <span>CHANGES</span>
-            <span className="sidebar-count">{changes.length}</span>
+        <>
+          <div className="sidebar-section changes" style={{ height: changesH }}>
+            <div className="sidebar-section-title">
+              <span>CHANGES</span>
+              <span className="sidebar-count">{changes.length}</span>
+            </div>
+            <div className="changes-list">
+              {changes.map(([path, state]) => {
+                const name = path.split("/").pop() ?? path;
+                const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+                return (
+                  <div
+                    key={path}
+                    className={`tree-row file ${state.deleted ? "deleted" : ""}`}
+                    onClick={() => void openFile(path, { mode: "diff" })}
+                    title={path}
+                  >
+                    <FileIcon name={name} isDir={false} />
+                    <span className="tree-name">
+                      {name}
+                      {dir && <span className="tree-dir-suffix"> · {dir}</span>}
+                    </span>
+                    <span className={`tree-meta ${state.deleted ? "deleted" : ""}`}>
+                      {state.deleted ? "deleted" : "modified"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="changes-list">
-            {changes.map(([path, state]) => (
-              <div
-                key={path}
-                className={`tree-row file ${state.deleted ? "deleted" : ""}`}
-                onClick={() => void openFile(path, { mode: "diff" })}
-                title={path}
-              >
-                <FileIcon name={path.split("/").pop() ?? ""} isDir={false} />
-                <span className="tree-name">{path.split("/").pop()}</span>
-                <span className="tree-meta">{state.deleted ? "deleted" : "modified"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+          <div className="sidebar-vdivider" onMouseDown={changesDrag} title="Drag to resize changes panel" />
+        </>
       )}
 
       <div className="sidebar-section explorer">

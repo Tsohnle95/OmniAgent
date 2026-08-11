@@ -13,6 +13,10 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `FileUpdate` | `{ path, baseline: string \| null, content: string \| null, deleted }` | Watcher payload; `baseline` is what the agent started from |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
 | `ModelOption` | `{ id, providerID, name }` | Model picker options + current selection |
+| `AgentOption` | `{ id, name }` | Agent picker options + current selection |
+| `TerminalStartResult` | `{ id }` | PTY id returned by `terminalStart` |
+| `TerminalData` | `{ id, data }` | PTY output chunk (`terminal-data` message) |
+| `TerminalExit` | `{ id, exitCode }` | PTY exit (`terminal-exit` message) |
 | `PermissionReply` | `"once" \| "always" \| "reject"` | Permission card buttons |
 
 ## TranscriptItem (agent panel feed)
@@ -42,9 +46,16 @@ live-streamed arguments, `startedAt`/`duration` feed the elapsed timer.
 
 ## IPC envelope
 
-`BackendMessage` — `{ kind: "event" \| "file-update" \| "session",
-type?, data?, file?, session? }`; the wire format for
-`shell:message` from main → renderer.
+`BackendMessage` is a discriminated union on `kind`:
+
+- `"event"` / `"file-update"` / `"session"` — shared base
+  (`BackendMessageBase`): `{ kind, type?, data?, file?, session? }` plus
+  `{ kind: "ui-command", command }` (main→renderer requests, e.g.
+  `close-tab` on ⌘W).
+- `{ kind: "terminal-data", terminal: TerminalData }`
+- `{ kind: "terminal-exit", terminal: TerminalExit }`
+
+This is the wire format for `shell:message` from main → renderer.
 
 ## Rules
 

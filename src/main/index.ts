@@ -1,9 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import { OpenShellBackend } from "./opencode";
+import { TerminalManager } from "./terminal";
 import type { PermissionReply } from "@shared/types";
 
 const backend = new OpenShellBackend();
+const terminals = new TerminalManager();
 let win: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
@@ -15,6 +17,9 @@ function createWindow(): BrowserWindow {
     title: "OpenShell",
     backgroundColor: "#111114",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    movable: true,
+    resizable: true,
+    fullscreenable: true,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -25,6 +30,14 @@ function createWindow(): BrowserWindow {
   win.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  win.webContents.on("before-input-event", (event, input) => {
+    const mod = process.platform === "darwin" ? input.meta : input.control;
+    if (input.type === "keyDown" && mod && !input.alt && !input.shift && input.key.toLowerCase() === "w") {
+      event.preventDefault();
+      win?.webContents.send("shell:message", { kind: "ui-command", command: "close-tab" });
+    }
   });
 
   if (process.env["ELECTRON_RENDERER_URL"]) {
@@ -80,6 +93,27 @@ function registerIpc(): void {
     backend.replyPermission(requestID, reply)
   );
 
+  ipcMain.handle("shell:agents", async () => backend.listAgents());
+
+  ipcMain.handle("shell:switch-agent", async (_e, id: string) => backend.switchAgent(id));
+
+  ipcMain.handle("shell:terminal-start", async (_e, directory: string | null) => {
+    const id = await terminals.start(directory);
+    return { id };
+  });
+
+  ipcMain.handle("shell:terminal-input", async (_e, id: string, data: string) => {
+    terminals.write(id, data);
+  });
+
+  ipcMain.handle("shell:terminal-resize", async (_e, id: string, cols: number, rows: number) => {
+    terminals.resize(id, cols, rows);
+  });
+
+  ipcMain.handle("shell:terminal-stop", async (_e, id: string) => {
+    terminals.stop(id);
+  });
+
   ipcMain.handle("shell:state", async () => backend.getState());
 
   ipcMain.handle("shell:health", async () => backend.connect().catch(() => false));
@@ -100,20 +134,29 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     app.setName("OpenShell");
     backend.start();
-    backend.onMessage((msg) => {
+    const fwd = (msg: unknown): void => {
       win?.webContents.send("shell:message", msg);
-    });
+    };
+    backend.onMessage(fwd);
+    terminals.onMessage(fwd);
     registerIpc();
     createWindow();
     void backend.connect().catch(() => {});
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (BrowserWindow.getAllWindows().length === 0) {
+        backend.start();
+        createWindow();
+      }
     });
   });
 }
 
 app.on("window-all-closed", () => {
-  backend.stop();
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  backend.stop();
+  terminals.stopAll();
 });
