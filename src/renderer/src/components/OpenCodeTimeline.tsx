@@ -15,9 +15,10 @@ type AssistantPart = AssistantItem["parts"][number];
 
 const AGENT_TONES: Record<string, string> = {
   build: "#c3d4fd",
-  explore: "#f3da9b",
-  plan: "#f7bcd8",
-  review: "#cbb9ff"
+  explore: "#f7e5b5",
+  plan: "#f799c6",
+  review: "#b8e9c1",
+  writer: "#9e99f7"
 };
 
 const AGENT_PALETTE = [
@@ -205,8 +206,12 @@ function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function toolKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
 function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; args: string[]; path?: string } {
-  const name = tool.title.toLowerCase();
+  const name = toolKey(tool.title);
   const input = parseInput(tool.input);
   let title = titleCase(tool.title);
   let subtitle = tool.detail.replace(/^\$\s*/, "");
@@ -323,8 +328,8 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
     if (presentation.path) void openFile(presentation.path);
   };
 
-  if (tool.title.toLowerCase() === "todowrite") return null;
-  if (tool.title.toLowerCase() === "task") return <TaskTool tool={tool} />;
+  if (toolKey(tool.title) === "todowrite") return null;
+  if (toolKey(tool.title) === "task") return <TaskTool tool={tool} />;
 
   return (
     <div data-component="tool-part-wrapper" data-timeline-part-id={tool.id}>
@@ -381,7 +386,7 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
 }
 
 function contextKind(tool: ToolCallView): "read" | "search" | "list" {
-  const name = tool.title.toLowerCase();
+  const name = toolKey(tool.title);
   if (name === "list") return "list";
   if (name === "glob" || name === "grep") return "search";
   return "read";
@@ -506,20 +511,20 @@ function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming
   const rows: ReactNode[] = [];
   const parts: TurnPart[] = items.flatMap((item) => item.parts
     .filter((part) => part.kind !== "reasoning")
-    .filter((part) => part.kind !== "tool" || part.tool.title.toLowerCase() !== "todowrite")
+    .filter((part) => part.kind !== "tool" || toolKey(part.tool.title) !== "todowrite")
     .map((part) => ({ item, part })));
   const contextStarts = parts
-    .map(({ part }, index) => part.kind === "tool" && CONTEXT_TOOLS.has(part.tool.title.toLowerCase()) ? index : -1)
+    .map(({ part }, index) => part.kind === "tool" && CONTEXT_TOOLS.has(toolKey(part.tool.title)) ? index : -1)
     .filter((index) => index >= 0);
   const finalContextIndex = contextStarts.at(-1);
   let previous = false;
   for (let index = 0; index < parts.length; index += 1) {
     const { item, part } = parts[index];
-    if (part.kind === "tool" && CONTEXT_TOOLS.has(part.tool.title.toLowerCase())) {
+    if (part.kind === "tool" && CONTEXT_TOOLS.has(toolKey(part.tool.title))) {
       const tools = [part.tool];
       while (index + 1 < parts.length) {
         const next = parts[index + 1].part;
-        if (next.kind !== "tool" || !CONTEXT_TOOLS.has(next.tool.title.toLowerCase())) break;
+        if (next.kind !== "tool" || !CONTEXT_TOOLS.has(toolKey(next.tool.title))) break;
         tools.push(next.tool);
         index += 1;
       }

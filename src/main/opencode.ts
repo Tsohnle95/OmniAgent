@@ -167,7 +167,8 @@ function replayTodos(messages: unknown[]): TodoItem[] {
         ? info.content as Record<string, unknown>[]
         : [];
     for (const part of parts) {
-      if (part.type !== "tool" || String(part.tool ?? part.name).toLowerCase() !== "todowrite") continue;
+      const name = String(part.tool ?? part.name).toLowerCase().replace(/[^a-z]/g, "");
+      if (part.type !== "tool" || name !== "todowrite") continue;
       const state = part.state && typeof part.state === "object"
         ? part.state as Record<string, unknown>
         : {};

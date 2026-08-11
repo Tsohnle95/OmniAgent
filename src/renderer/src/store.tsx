@@ -128,6 +128,32 @@ function normalizeTodos(value: unknown): TodoItem[] {
   });
 }
 
+function todoToolName(value: string): boolean {
+  return value.toLowerCase().replace(/[^a-z]/g, "") === "todowrite";
+}
+
+function todoSnapshotFromTranscript(items: TranscriptItem[]): { key: string; todos: TodoItem[] } | null {
+  for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
+    const item = items[itemIndex];
+    if (item.kind !== "assistant") continue;
+    for (let partIndex = item.parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = item.parts[partIndex];
+      if (part.kind !== "tool" || !todoToolName(part.tool.title)) continue;
+      const metadataTodos = part.tool.metadata?.todos;
+      if (Array.isArray(metadataTodos)) {
+        return { key: `${part.id}:${JSON.stringify(metadataTodos)}`, todos: normalizeTodos(metadataTodos) };
+      }
+      try {
+        const input = JSON.parse(part.tool.input ?? "{}") as { todos?: unknown };
+        return { key: `${part.id}:${part.tool.input ?? ""}`, todos: normalizeTodos(input.todos) };
+      } catch {
+        return { key: `${part.id}:${part.tool.input ?? ""}`, todos: [] };
+      }
+    }
+  }
+  return null;
+}
+
 function sortEntries(entries: TreeEntry[]): TreeEntry[] {
   return [...entries].sort((a, b) => {
     if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
@@ -234,6 +260,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   modelsRef.current = models;
   const agentsRef = useRef<AgentOption[]>([]);
   agentsRef.current = agents;
+  const todoToolRef = useRef("");
   const approvalModeRef = useRef<ApprovalMode>(approvalMode);
   approvalModeRef.current = approvalMode;
   const sessionRef = useRef<SessionInfo | null>(session);
@@ -258,13 +285,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setPendingCreate(null);
     setPendingRename(null);
     agentFilesRef.current = new Map();
+    todoToolRef.current = "";
   }, []);
 
   const loadModels = useCallback(async () => {
     try {
-      const [list, def] = await Promise.all([
+      const [list, def, selection] = await Promise.all([
         window.openshell.models(),
-        window.openshell.modelDefault()
+        window.openshell.modelDefault(),
+        window.openshell.sessionSelection()
       ]);
       setModels((prev) => {
         if (
@@ -278,13 +307,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         return list;
       });
       setCurrentModel((cur) => {
-        if (cur) {
-          const match = list.find((m) => m.id === cur.id && m.providerID === cur.providerID);
-          return match ? { ...match, ...(cur.variant ? { variant: cur.variant } : {}) } : cur;
-        }
-        if (!def) return null;
-        const match = list.find((m) => m.id === def.id && m.providerID === def.providerID);
-        return match ? { ...match, ...(def.variant ? { variant: def.variant } : {}) } : def;
+        const target = selection?.model ?? cur ?? def;
+        if (!target) return null;
+        const match = list.find((m) => m.id === target.id && m.providerID === target.providerID);
+        return match ? { ...match, ...(target.variant ? { variant: target.variant } : {}) } : target;
       });
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
@@ -306,17 +332,24 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const loadAgents = useCallback(async () => {
     try {
-      const list = await window.openshell.agents();
+      const [list, selection] = await Promise.all([
+        window.openshell.agents(),
+        window.openshell.sessionSelection()
+      ]);
       setAgents((prev) => {
         if (
           prev.length === list.length &&
-          prev.every((a, i) => a.id === list[i].id && a.name === list[i].name)
+          prev.every((a, i) => a.id === list[i].id && a.name === list[i].name && a.color === list[i].color)
         ) {
           return prev;
         }
         return list;
       });
-      setCurrentAgent((cur) => (cur ? (list.find((a) => a.id === cur.id) ?? cur) : null));
+      setCurrentAgent((cur) => {
+        const id = selection?.agent?.id ?? cur?.id;
+        if (!id) return null;
+        return list.find((agent) => agent.id === id) ?? selection?.agent ?? cur ?? null;
+      });
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
@@ -427,6 +460,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setBusy(false);
     await window.openshell.interrupt().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!busy) return;
+    const snapshot = todoSnapshotFromTranscript(transcript);
+    if (!snapshot || snapshot.key === todoToolRef.current) return;
+    todoToolRef.current = snapshot.key;
+    setTodos(snapshot.todos);
+  }, [busy, transcript]);
 
   const replyPermission = useCallback(
     async (requestID: string, reply: PermissionReply) => {

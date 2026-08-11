@@ -22,7 +22,7 @@ Exposed via `useStore()` (context). State:
 | `expanded` | `Set<relPath>` | open tree directories |
 | `toasts` | `Toast[]` | transient notifications |
 | `models` | `ModelOption[]` | for the composer model/strength picker |
-| `currentModel` | `ModelOption \| null` | seeded from `modelDefault()`, live-updated by `session.model.selected`; includes selected `variant` |
+| `currentModel` | `ModelOption \| null` | seeded from the active session selection (falling back to `modelDefault()`), live-updated by `session.model.selected`; includes selected `variant` |
 | `agents` | `AgentOption[]` | for the composer agent picker |
 | `currentAgent` | `AgentOption \| null` | live-updated by `session.agent.selected` |
 | `approvalMode` | `ApprovalMode` | `ask` shows permission cards; `approve` automatically replies `once` |
@@ -56,6 +56,10 @@ Key mechanisms:
   Adjacent authoritative snapshots of the same legacy part collapse to the
   latest snapshot. A timer is used instead of animation frames so background
   windows continue draining the stream.
+- **Selection parity** — catalog refreshes reconcile against
+  `sessionSelection()` before falling back to `modelDefault()`, so a newly
+  created or reopened GPT/agent session cannot be mislabeled with the previous
+  session's model in the composer.
 - **Ordered assistant reducer** — `chat-stream.ts` folds V2 lifecycle events
   and legacy `message.*` projections into one assistant message whose ordered
   parts are text, reasoning, and tool calls. Durable end/snapshot events are
@@ -99,7 +103,7 @@ Key mechanisms:
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
 | `AgentPanel` | `AgentPanel.tsx` | Hosts the OpenCode timeline and V2 prompt dock: todo checklist, exact web placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, compact send/stop button, and smart auto-scroll; header arrow collapses it at the same time as the resize gesture reaches the model strip width |
 | `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | React port of OpenCode's web timeline/message-part presentation, including turn-wide grouping, paced markdown, TextShimmer, Thinking headings, context-tool aggregation, specialized task cards, BasicTool triggers, errors, compaction dividers, and docked permissions |
-| `OpenCodeTodoDock` | `OpenCodeTodoDock.tsx` | OpenCode prompt-dock todo progress and checklist surface driven by `todo.updated`; `todowrite` calls never appear as transcript tools |
+| `OpenCodeTodoDock` | `OpenCodeTodoDock.tsx` | OpenCode prompt-dock todo progress and checklist surface driven by `todo.updated` plus `todowrite` tool-state fallback; `todowrite` calls never appear as transcript tools |
 | `AgentTray` | `AgentTray.tsx` | Shown when the agent panel is collapsed: transparent 44px strip mirroring the left activity bar, with a busy dot and model icon button that expands the panel back |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
 
