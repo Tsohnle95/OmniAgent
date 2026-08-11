@@ -217,6 +217,34 @@
   font-size: 12px;
 }
 
+.context-tool-group {
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.context-tool-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.context-tool-trigger:hover { color: var(--text); }
+.context-tool-check { color: var(--green); }
+.context-tool-summary { color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.context-tool-arrow { margin-left: auto; color: var(--text-faint); }
+.context-tool-spinner { width: 10px; height: 10px; border: 1px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.context-tool-list { padding: 0 0 6px 19px; display: flex; flex-direction: column; gap: 3px; }
+.context-tool-item { display: flex; gap: 8px; color: var(--text-faint); font-size: 11px; }
+.context-tool-item span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .tool-card.running { border-left-color: var(--accent); background: #141824; }
 
 .tool-card.success { border-left-color: var(--green); }

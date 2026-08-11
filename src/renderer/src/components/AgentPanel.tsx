@@ -47,6 +47,74 @@ function collapseAssistantItems(items: TranscriptItem[]): TranscriptItem[] {
   return result;
 }
 
+const CONTEXT_TOOLS = new Set(["read", "glob", "grep", "list"]);
+
+function contextToolLabel(tool: Extract<TranscriptItem, { kind: "tool" }>['tool']): string {
+  const title = tool.title.toLowerCase();
+  if (title.includes("glob")) return "search";
+  if (title.includes("grep")) return "search";
+  if (title.includes("list")) return "list";
+  return "read";
+}
+
+function ContextToolGroup({ items }: { items: Extract<TranscriptItem, { kind: "tool" }>[] }): ReactNode {
+  const [open, setOpen] = useState(false);
+  const pending = items.some((item) => item.tool.status === "running");
+  const counts = items.reduce<Record<string, number>>((result, item) => {
+    const label = contextToolLabel(item.tool);
+    result[label] = (result[label] ?? 0) + 1;
+    return result;
+  }, {});
+  const summary = Object.entries(counts).map(([name, count]) => `${count} ${name}`).join(" · ");
+
+  return (
+    <div className={`context-tool-group ${pending ? "running" : ""}`}>
+      <button className="context-tool-trigger" onClick={() => setOpen((value) => !value)}>
+        <span className={pending ? "context-tool-spinner" : "context-tool-check"}>{pending ? "" : "✓"}</span>
+        <span>{pending ? "Gathering context" : "Gathered context"}</span>
+        <span className="context-tool-summary">{summary}</span>
+        <span className="context-tool-arrow">{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && (
+        <div className="context-tool-list">
+          {items.map((item) => (
+            <div className="context-tool-item" key={item.tool.id}>
+              <span>{item.tool.title}</span>
+              {item.tool.detail && <span>{item.tool.detail.split(/[\\/]/).pop()}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderTranscript(items: TranscriptItem[], busy: boolean, lastAssistantId: string | null): ReactNode[] {
+  const output: ReactNode[] = [];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    if (item.kind === "tool" && CONTEXT_TOOLS.has(item.tool.title.toLowerCase())) {
+      const group: Extract<TranscriptItem, { kind: "tool" }>[] = [item];
+      while (index + 1 < items.length) {
+        const next = items[index + 1];
+        if (next.kind !== "tool" || !CONTEXT_TOOLS.has(next.tool.title.toLowerCase())) break;
+        group.push(next);
+        index += 1;
+      }
+      output.push(<ContextToolGroup key={`context-${group[0].tool.id}`} items={group} />);
+      continue;
+    }
+    output.push(
+      <TranscriptItemView
+        key={item.kind === "tool" ? item.tool.id : item.id}
+        item={item}
+        streaming={busy && item.kind === "assistant" && item.id === lastAssistantId}
+      />
+    );
+  }
+  return output;
+}
+
 function toolIcon(title: string): string {
   const t = title.toLowerCase();
   if (t.includes("bash") || t.includes("shell") || t.includes("terminal")) return "⌁";
@@ -210,7 +278,7 @@ function TranscriptItemView({
     case "assistant":
       return (
         <div className="assistant-block">
-          {item.reasoning && (
+          {item.reasoning.trim() && (
             <details className={`reasoning ${streaming ? "streaming" : ""}`} open={item.reasoningOpen}>
               <summary>
                 <span className="reasoning-dot" />
@@ -812,13 +880,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
             </p>
           </div>
         )}
-        {visibleTranscript.map((item) => (
-          <TranscriptItemView
-            key={item.kind === "tool" ? item.tool.id : item.id}
-            item={item}
-            streaming={busy && item.kind === "assistant" && item.id === lastAssistantId}
-          />
-        ))}
+        {renderTranscript(visibleTranscript, busy, lastAssistantId)}
       </div>
 
       <Composer />
