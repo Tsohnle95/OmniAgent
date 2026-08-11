@@ -59,6 +59,11 @@ Key mechanisms:
 - **V2 transcript replay** — reopened sessions accept OpenCode's `info` plus
   `parts` message projection and reconstruct text, reasoning, and tool cards
   from the persisted state rather than depending on the live event order.
+
+- **Transcript presentation** — duplicate assistant lifecycle updates are
+  collapsed before rendering; reasoning-only fragments share one thought
+  process section, and its animation is enabled only while the session is
+  busy.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 

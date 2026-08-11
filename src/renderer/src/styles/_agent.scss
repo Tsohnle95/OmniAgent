@@ -193,8 +193,9 @@
   border-radius: 50%;
   background: var(--accent);
   flex-shrink: 0;
-  animation: pulse 1.2s ease-in-out infinite;
 }
+
+.reasoning.streaming .reasoning-dot { animation: pulse 1.2s ease-in-out infinite; }
 
 .reasoning pre {
   margin: 0;
@@ -408,4 +409,3 @@
 .agent-input-actions { display: flex; align-items: center; justify-content: space-between; }
 
 .agent-hint { color: var(--text-faint); font-size: 11px; }
-

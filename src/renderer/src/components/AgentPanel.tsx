@@ -21,6 +21,32 @@ function useNow(active: boolean): number {
   return now;
 }
 
+function collapseAssistantItems(items: TranscriptItem[]): TranscriptItem[] {
+  const positions = new Map<string, number>();
+  const result: TranscriptItem[] = [];
+  for (const item of items) {
+    if (item.kind !== "assistant") {
+      result.push(item);
+      continue;
+    }
+    const key = !item.text && item.reasoning ? "__thought-process__" : item.messageID;
+    const existingPosition = positions.get(key);
+    if (existingPosition === undefined) {
+      positions.set(key, result.length);
+      result.push(item);
+      continue;
+    }
+    const existing = result[existingPosition];
+    if (existing.kind !== "assistant") continue;
+    result[existingPosition] = {
+      ...existing,
+      text: item.text.length >= existing.text.length ? item.text : existing.text,
+      reasoning: item.reasoning.length >= existing.reasoning.length ? item.reasoning : existing.reasoning
+    };
+  }
+  return result;
+}
+
 function toolIcon(title: string): string {
   const t = title.toLowerCase();
   if (t.includes("bash") || t.includes("shell") || t.includes("terminal")) return "⌁";
@@ -185,10 +211,10 @@ function TranscriptItemView({
       return (
         <div className="assistant-block">
           {item.reasoning && (
-            <details className="reasoning" open={item.reasoningOpen}>
+            <details className={`reasoning ${streaming ? "streaming" : ""}`} open={item.reasoningOpen}>
               <summary>
                 <span className="reasoning-dot" />
-                thinking
+                {streaming ? "thinking" : "thought process"}
               </summary>
               <pre>{item.reasoning}</pre>
             </details>
@@ -751,6 +777,8 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
     return null;
   }, [transcript]);
 
+  const visibleTranscript = useMemo(() => collapseAssistantItems(transcript), [transcript]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stickRef.current) el.scrollTop = el.scrollHeight;
@@ -773,7 +801,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
       </div>
 
       <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
-        {transcript.length === 0 && (
+        {visibleTranscript.length === 0 && (
           <div className="agent-empty">
             <p>Tell the agent what to work on.</p>
             <p className="agent-empty-sub">
@@ -782,7 +810,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
             </p>
           </div>
         )}
-        {transcript.map((item) => (
+        {visibleTranscript.map((item) => (
           <TranscriptItemView
             key={item.kind === "tool" ? item.tool.id : item.id}
             item={item}
