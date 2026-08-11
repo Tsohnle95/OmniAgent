@@ -38,7 +38,7 @@ function useDragResize(
       lastRawWRef.current = rawW;
 
       if (!startRef.current.open) {
-        if (rawW >= min) {
+        if (rawW > COLLAPSED_PANEL_W) {
           setWidth(Math.min(max, rawW));
           onOpen();
         }
@@ -52,7 +52,7 @@ function useDragResize(
         const started = startRef.current;
         startRef.current = null;
         if (!started.open) {
-          if (lastRawWRef.current >= min) {
+          if (lastRawWRef.current > COLLAPSED_PANEL_W) {
             setWidth(Math.min(max, lastRawWRef.current));
             onOpen();
           }
@@ -147,7 +147,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       <div className="main-row" style={{ gridTemplateColumns: cols }}>
-        <FileSidebar collapsed={!sideOpen} onCollapse={setSideOpen} />
+        <FileSidebar collapsed={!sideOpen} onCollapse={setSideOpen} onDrag={sideDrag} />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         <EditorPane />
         {agentOpen ? (

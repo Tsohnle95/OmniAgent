@@ -165,10 +165,12 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
 
 export function FileSidebar({
   collapsed,
-  onCollapse
+  onCollapse,
+  onDrag
 }: {
   collapsed: boolean;
   onCollapse: (open: boolean) => void;
+  onDrag: (e: React.MouseEvent) => void;
 }): ReactNode {
   const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
@@ -189,7 +191,7 @@ export function FileSidebar({
 
   if (collapsed) {
     return (
-      <div className="sidebar collapsed">
+      <div className="sidebar collapsed" onMouseDown={onDrag}>
         <button
           className="activity-btn"
           title="Explorer"
