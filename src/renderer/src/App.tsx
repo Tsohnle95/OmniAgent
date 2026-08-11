@@ -45,16 +45,6 @@ function useDragResize(
         return;
       }
 
-      if (onCollapse && rawW <= COLLAPSED_PANEL_W) {
-        const previousWidth = startRef.current.width;
-        startRef.current = null;
-        setWidth(previousWidth);
-        onCollapse();
-        window.removeEventListener("mousemove", move);
-        window.removeEventListener("mouseup", up);
-        return;
-      }
-
       setWidth(Math.min(max, Math.max(onCollapse ? COLLAPSED_PANEL_W : min, rawW)));
     };
     const up = (): void => {
@@ -66,8 +56,9 @@ function useDragResize(
             setWidth(Math.min(max, lastRawWRef.current));
             onOpen();
           }
-        } else if (lastRawWRef.current < min) {
-          setWidth(min);
+        } else if (onCollapse && lastRawWRef.current <= COLLAPSED_PANEL_W) {
+          setWidth(COLLAPSED_PANEL_W);
+          onCollapse();
         }
       }
       window.removeEventListener("mousemove", move);
@@ -134,9 +125,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   const cols = [
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
-    "8px",
+    "1px",
     "minmax(0,1fr)",
-    "8px",
+    "1px",
     agentOpen ? `${agentW}px` : `${COLLAPSED_PANEL_W}px`
   ].join(" ");
 
@@ -167,7 +158,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         ) : (
           <>
             <div className="divider collapsed" onMouseDown={agentDrag} />
-            <AgentTray onExpand={() => setAgentOpen(true)} />
+            <AgentTray onExpand={() => setAgentOpen(true)} onDrag={agentDrag} />
           </>
         )}
       </div>
