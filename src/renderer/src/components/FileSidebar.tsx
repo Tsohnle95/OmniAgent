@@ -139,33 +139,10 @@ function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactN
   );
 }
 
-function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void] {
-  const [height, setHeight] = useState(initial);
-  const startRef = useRef<{ y: number; height: number } | null>(null);
-
-  const onMouseDown = (e: React.MouseEvent): void => {
-    e.preventDefault();
-    startRef.current = { y: e.clientY, height };
-    const move = (ev: MouseEvent): void => {
-      if (!startRef.current) return;
-      const dy = startRef.current.y - ev.clientY;
-      setHeight(Math.min(520, Math.max(90, startRef.current.height + dy)));
-    };
-    const up = (): void => {
-      startRef.current = null;
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-  };
-
-  return [height, onMouseDown];
-}
-
 export function FileSidebar(): ReactNode {
   const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
-  const [changesH, changesDrag] = useChangesDrag(200);
+  const [changesOpen, setChangesOpen] = useState(false);
+  const changesRef = useRef<HTMLDivElement>(null);
   const root = tree[""] ?? [];
   const loadedSessionKey = useRef<string | null>(null);
 
@@ -176,6 +153,15 @@ export function FileSidebar(): ReactNode {
       void toggleDir("");
     }
   }, [session, toggleDir]);
+
+  useEffect(() => {
+    if (!changesOpen) return;
+    const onDown = (e: MouseEvent): void => {
+      if (!changesRef.current?.contains(e.target as Node)) setChangesOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [changesOpen]);
 
   const changes = [...agentFiles.entries()];
 
@@ -191,13 +177,18 @@ export function FileSidebar(): ReactNode {
       </div>
 
       {changes.length > 0 && (
-        <>
-          <div className="sidebar-section changes" style={{ height: changesH }}>
-            <div className="sidebar-section-title">
-              <span>CHANGES</span>
-              <span className="sidebar-count">{changes.length}</span>
-            </div>
-            <div className="changes-list">
+        <div className="changes-trigger" ref={changesRef}>
+          <button
+            className={`changes-toggle ${changesOpen ? "open" : ""}`}
+            aria-expanded={changesOpen}
+            onClick={() => setChangesOpen((o) => !o)}
+          >
+            <span>CHANGES</span>
+            <span className="sidebar-count">{changes.length}</span>
+            <span className={`codicon ${changesOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
+          </button>
+          {changesOpen && (
+            <div className="changes-dropdown">
               {changes.map(([path, state]) => {
                 const name = path.split("/").pop() ?? path;
                 const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
@@ -205,7 +196,10 @@ export function FileSidebar(): ReactNode {
                   <div
                     key={path}
                     className={`tree-row file ${state.deleted ? "deleted" : ""}`}
-                    onClick={() => void openFile(path, { mode: "diff" })}
+                    onClick={() => {
+                      void openFile(path, { mode: "diff" });
+                      setChangesOpen(false);
+                    }}
                     title={path}
                   >
                     <FileIcon name={name} isDir={false} />
@@ -220,9 +214,8 @@ export function FileSidebar(): ReactNode {
                 );
               })}
             </div>
-          </div>
-          <div className="sidebar-vdivider" onMouseDown={changesDrag} title="Drag to resize changes panel" />
-        </>
+          )}
+        </div>
       )}
 
       <div className="sidebar-section explorer">

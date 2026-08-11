@@ -153,8 +153,6 @@ body {
 
 .sidebar-section { display: flex; flex-direction: column; min-height: 0; }
 
-.sidebar-section.changes { flex-shrink: 0; }
-
 .sidebar-section.explorer { flex: 1; min-height: 0; }
 
 .sidebar-section-title {
@@ -175,23 +173,53 @@ body {
   font-size: 10px;
 }
 
-.changes-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 2px 0 6px;
-}
-
-.sidebar-vdivider {
-  height: 5px;
-  cursor: row-resize;
-  background: transparent;
-  border-top: 1px solid var(--border);
+.changes-trigger {
+  position: relative;
+  padding: 4px 10px 2px 14px;
   flex-shrink: 0;
-  transition: background 0.15s;
 }
 
-.sidebar-vdivider:hover, .sidebar-vdivider:active {
-  background: var(--accent-dim);
+.changes-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 6px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.changes-toggle:hover, .changes-toggle.open {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.changes-toggle .sidebar-count { margin-left: auto; }
+
+.changes-toggle .codicon { font-size: 11px; flex-shrink: 0; }
+
+.changes-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 8px;
+  right: 8px;
+  z-index: 40;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 4px;
 }
 
 .tree {
