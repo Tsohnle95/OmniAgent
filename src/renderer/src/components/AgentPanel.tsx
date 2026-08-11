@@ -410,7 +410,7 @@ function Composer(): ReactNode {
   const [favorites, setFavorites] = useState<Set<string>>(() => readModelKeys("favoriteModels"));
   const [hiddenModels, setHiddenModels] = useState<Set<string>>(() => readModelKeys("hiddenModels"));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [modelView, setModelView] = useState<"list" | "settings">("list");
+  const [modelView, setModelView] = useState<"list" | "settings" | "strength">("list");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceRecognition | null>(null);
@@ -654,7 +654,7 @@ function Composer(): ReactNode {
               title="Change response strength"
               onClick={() => {
                 setMenu("model");
-                setModelView("list");
+                setModelView("strength");
               }}
             >
               <span>{variantLabel}</span>
@@ -702,9 +702,9 @@ function Composer(): ReactNode {
             <>
               <div className="composer-menu-header">
                 <span className="composer-menu-title">
-                  {modelView === "settings" ? "Model settings" : "Model selection"}
+                  {modelView === "settings" ? "Model settings" : modelView === "strength" ? "Response strength" : "Model selection"}
                 </span>
-                {modelView === "settings" ? (
+                {modelView === "settings" || modelView === "strength" ? (
                   <button
                     className="composer-menu-tool"
                     title="Back to model list"
@@ -743,6 +743,23 @@ function Composer(): ReactNode {
                         );
                       })}
                     </div>
+                  ))}
+                </div>
+              ) : modelView === "strength" ? (
+                <div className="composer-menu-group variant-menu">
+                  <button className="composer-menu-item" onClick={() => chooseVariant()}>
+                    <span className="composer-menu-check">{!currentModel?.variant ? "✓" : ""}</span>
+                    Auto
+                  </button>
+                  {currentModel?.variants?.map((variant) => (
+                    <button
+                      key={variant}
+                      className={`composer-menu-item ${currentModel.variant === variant ? "selected" : ""}`}
+                      onClick={() => chooseVariant(variant)}
+                    >
+                      <span className="composer-menu-check">{currentModel.variant === variant ? "✓" : ""}</span>
+                      {formatVariant(variant)}
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -815,28 +832,6 @@ function Composer(): ReactNode {
                         })}
                     </div>
                   ))}
-                  {currentModel && currentModel.variants && currentModel.variants.length > 0 && (
-                    <div className="composer-menu-group variant-menu">
-                      <div className="composer-menu-head">Response strength</div>
-                      <button
-                        className={`composer-menu-item ${!currentModel.variant ? "selected" : ""}`}
-                        onClick={() => chooseVariant()}
-                      >
-                        <span className="composer-menu-check">{!currentModel.variant ? "✓" : ""}</span>
-                        Auto
-                      </button>
-                      {currentModel.variants.map((variant) => (
-                        <button
-                          key={variant}
-                          className={`composer-menu-item ${currentModel.variant === variant ? "selected" : ""}`}
-                          onClick={() => chooseVariant(variant)}
-                        >
-                          <span className="composer-menu-check">{currentModel.variant === variant ? "✓" : ""}</span>
-                          {formatVariant(variant)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </>
               )}
             </>
