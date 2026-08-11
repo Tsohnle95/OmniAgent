@@ -167,11 +167,12 @@ export function FileSidebar(): ReactNode {
   const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
   const [changesH, changesDrag] = useChangesDrag(200);
   const root = tree[""] ?? [];
-  const rootLoaded = useRef(false);
+  const loadedSessionKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!rootLoaded.current && session) {
-      rootLoaded.current = true;
+    const key = session ? `${session.id}::${session.directory}` : null;
+    if (key && loadedSessionKey.current !== key) {
+      loadedSessionKey.current = key;
       void toggleDir("");
     }
   }, [session, toggleDir]);

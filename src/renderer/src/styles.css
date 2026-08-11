@@ -1012,8 +1012,8 @@ body {
 .composer-body {
   min-height: 0;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
+  gap: 6px;
+  padding: 6px 8px;
   background: #29292c;
   border: 1px solid #37373c;
   border-radius: 18px;
@@ -1025,8 +1025,8 @@ body {
 .composer-input {
   flex: 1 1 60px;
   min-width: 40px;
-  min-height: 30px;
-  max-height: 96px;
+  min-height: 36px;
+  max-height: 110px;
   padding: 6px 4px;
   overflow-y: auto;
   color: var(--text);
@@ -1086,8 +1086,8 @@ body {
 .composer-attachment-remove:hover { color: var(--text); }
 
 .composer-icon-button {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1108,8 +1108,8 @@ body {
 .composer-icon-button.stop { color: var(--red); }
 
 .composer-approval {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1174,8 +1174,8 @@ body {
 }
 
 .composer-send {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border-radius: 50%;
   border: 1px solid #b4b5b8;
