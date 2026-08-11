@@ -521,30 +521,26 @@ function Composer(): ReactNode {
           {notice && <span className="composer-notice">{notice}</span>}
         </div>
         <div className="composer-controls">
-          {agents.length > 0 && (
-            <button
-              className={`composer-selector ${menu === "agent" ? "open" : ""}`}
-              title="Change agent"
-              onClick={() => setMenu(menu === "agent" ? null : "agent")}
-            >
-              <span className="codicon codicon-git-branch" />
-              <span>{currentAgent?.name ?? "Agent"}</span>
-              <span className="codicon codicon-chevron-down" />
-            </button>
-          )}
-          {models.length > 0 && (
-            <button
-              className={`composer-selector model ${menu === "model" ? "open" : ""}`}
-              title="Change model and response strength"
-              onClick={() => {
-                setMenu(menu === "model" ? null : "model");
-                if (menu !== "model") setModelView("list");
-              }}
-            >
-              <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
-              <span className="codicon codicon-chevron-down" />
-            </button>
-          )}
+          <button
+            className={`composer-selector ${menu === "agent" ? "open" : ""}`}
+            title="Change agent"
+            onClick={() => setMenu(menu === "agent" ? null : "agent")}
+          >
+            <span className="codicon codicon-git-branch" />
+            <span>{currentAgent?.name ?? "Agent"}</span>
+            <span className="codicon codicon-chevron-down" />
+          </button>
+          <button
+            className={`composer-selector model ${menu === "model" ? "open" : ""}`}
+            title="Change model and response strength"
+            onClick={() => {
+              setMenu(menu === "model" ? null : "model");
+              if (menu !== "model") setModelView("list");
+            }}
+          >
+            <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
+            <span className="codicon codicon-chevron-down" />
+          </button>
           <button
             className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
             title={voiceActive ? "Stop voice input" : "Use voice input"}

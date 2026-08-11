@@ -950,23 +950,24 @@ body {
 
 .composer {
   flex-shrink: 0;
-  margin: 6px 10px;
-  padding: 5px 10px 3px;
-  gap: 4px;
+  margin: 6px 10px 4px;
+  padding: 0;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.composer-body {
+  min-height: 0;
+  padding: 6px 10px;
   background: #29292c;
   border: 1px solid #37373c;
   border-radius: 16px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
-.composer-body {
-  min-height: 0;
-  padding: 0 2px;
-  background: transparent;
-  border: none;
-}
-
-.composer-body:focus-within { border-color: transparent; }
+.composer-body:focus-within { border-color: #4a4a52; }
 
 .composer-input {
   min-height: 30px;
@@ -1021,8 +1022,8 @@ body {
 .composer-attachment-remove:hover { color: var(--text); }
 
 .composer-footer {
-  min-height: 0;
-  padding: 0 1px;
+  min-height: 26px;
+  padding: 0 4px;
   flex-wrap: nowrap;
 }
 

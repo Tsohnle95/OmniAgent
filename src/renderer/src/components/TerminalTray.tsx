@@ -32,9 +32,11 @@ interface TermInstanceProps {
   id: string;
   active: boolean;
   height: number;
+  onRegister: (id: string, writer: (data: string) => void) => void;
+  onUnregister: (id: string) => void;
 }
 
-function TermInstance({ id, active, height }: TermInstanceProps): ReactNode {
+function TermInstance({ id, active, height, onRegister, onUnregister }: TermInstanceProps): ReactNode {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -65,11 +67,7 @@ function TermInstance({ id, active, height }: TermInstanceProps): ReactNode {
       void window.openshell.terminalInput(id, data);
     });
 
-    const off = window.openshell.onMessage((msg) => {
-      if (msg.kind === "terminal-data" && msg.terminal?.id === id) {
-        term.write(msg.terminal.data);
-      }
-    });
+    onRegister(id, (data) => term.write(data));
 
     const ro = new ResizeObserver(() => {
       try {
@@ -84,14 +82,14 @@ function TermInstance({ id, active, height }: TermInstanceProps): ReactNode {
     void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
 
     return () => {
-      off();
+      onUnregister(id);
       ro.disconnect();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
       void window.openshell.terminalStop(id);
     };
-  }, [id]);
+  }, [id, onRegister, onUnregister]);
 
   useEffect(() => {
     if (!active) return;
@@ -126,6 +124,39 @@ export function TerminalTray({ height, onClose }: { height: number; onClose: () 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const counterRef = useRef(0);
+  const bootTokenRef = useRef(0);
+  const writersRef = useRef<Map<string, (data: string) => void>>(new Map());
+  const bufferRef = useRef<Map<string, string[]>>(new Map());
+
+  const onRegister = useCallback((id: string, writer: (data: string) => void): void => {
+    writersRef.current.set(id, writer);
+    const buffered = bufferRef.current.get(id);
+    if (buffered) {
+      bufferRef.current.delete(id);
+      for (const data of buffered) writer(data);
+    }
+  }, []);
+
+  const onUnregister = useCallback((id: string): void => {
+    writersRef.current.delete(id);
+    bufferRef.current.delete(id);
+  }, []);
+
+  useEffect(() => {
+    const off = window.openshell.onMessage((msg) => {
+      if (msg.kind !== "terminal-data") return;
+      const terminal = msg.terminal!;
+      const writer = writersRef.current.get(terminal.id);
+      if (writer) {
+        writer(terminal.data);
+      } else {
+        const arr = bufferRef.current.get(terminal.id) ?? [];
+        arr.push(terminal.data);
+        bufferRef.current.set(terminal.id, arr);
+      }
+    });
+    return off;
+  }, []);
 
   const createTerminal = useCallback(async (): Promise<void> => {
     setNotice("");
@@ -140,10 +171,29 @@ export function TerminalTray({ height, onClose }: { height: number; onClose: () 
   }, [directory]);
 
   useEffect(() => {
+    const token = ++bootTokenRef.current;
     setTerms([]);
     setActiveId(null);
-    void createTerminal();
-  }, [createTerminal]);
+    void (async () => {
+      try {
+        const { id } = await window.openshell.terminalStart(directory);
+        if (token !== bootTokenRef.current) {
+          void window.openshell.terminalStop(id);
+          return;
+        }
+        const name = `Terminal ${++counterRef.current}`;
+        setTerms([{ id, name }]);
+        setActiveId(id);
+      } catch (err) {
+        if (token === bootTokenRef.current) {
+          setNotice(err instanceof Error ? err.message : "Could not start a terminal");
+        }
+      }
+    })();
+    return () => {
+      bootTokenRef.current++;
+    };
+  }, [directory]);
 
   const closeTerminal = (id: string): void => {
     void window.openshell.terminalStop(id);
@@ -191,7 +241,14 @@ export function TerminalTray({ height, onClose }: { height: number; onClose: () 
       </div>
       <div className="terminal-body">
         {terms.map((term) => (
-          <TermInstance key={term.id} id={term.id} active={term.id === activeId} height={height} />
+          <TermInstance
+            key={term.id}
+            id={term.id}
+            active={term.id === activeId}
+            height={height}
+            onRegister={onRegister}
+            onUnregister={onUnregister}
+          />
         ))}
         {terms.length === 0 && <div className="terminal-empty">No terminal open — press + to start one.</div>}
       </div>

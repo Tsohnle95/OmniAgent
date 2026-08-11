@@ -47,8 +47,14 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
       const dy = startRef.current.y - ev.clientY;
-      const h = Math.min(520, Math.max(120, startRef.current.height + dy));
-      setHeight(h);
+      const h = startRef.current.height + dy;
+      if (h < 40) {
+        setOpen(false);
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        return;
+      }
+      setHeight(Math.min(520, Math.max(120, h)));
       setOpen(true);
     };
     const up = (): void => {
