@@ -111,7 +111,9 @@ PTY messages come from a second emitter, `TerminalManager`
 terminal:{id,data}}` and `{kind:"terminal-exit", terminal:{id,exitCode}}`
 over the same `shell:message` channel. `before-input-event` intercepts
 ⌘W / Ctrl+W (so it never closes the window) and forwards
-`{kind:"ui-command", command:"close-tab"}` to the renderer instead.
+`{kind:"ui-command", command:"toggle-word-wrap"}` to the renderer instead
+(the user's muscle memory maps ⌘W to word wrap, and the window must never
+die on it).
 
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is

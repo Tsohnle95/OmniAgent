@@ -47,18 +47,24 @@ the README roadmap; this file is the actionable queue.
 
 ## My todo as i think of them:
 
-- [x] Word-wrap: Wrap toolbar button + ⌥Z (VS Code shortcut); ⌘W no longer
-      closes the window (main intercepts it and closes the active tab
-      instead — your session survives).
+- [x] Word-wrap: Wrap toolbar button + ⌥Z + ⌘W (the muscle-memory
+      shortcut — main intercepts ⌘W so it toggles wrap instead of closing
+      the window; ⌥Z uses `e.code` so it works with Option+Z).
+- [x] Agent panel composer redesigned like Codex: `›` prompt with "Ask
+      Codex to do anything" placeholder, circular send button, footer
+      with "? for shortcuts" hint and model/agent pills that open popup
+      pickers (models grouped by provider, ✓ on current).
 - [x] Right-hand panel restyled to opencode-desktop-ish message layout:
       compact tool cards with `$ command` lines and clickable file chips
       instead of giant JSON/read-path rectangles, cleaner thinking block,
       statuses inline.
 - [x] Smart auto-scroll: the transcript only auto-scrolls while you're at
       the bottom; scrolling up pauses it so you can read freely.
-- [x] Left file panel revamped: CHANGES is now a drag-resizable bottom
+- [x] Left file panel revamped: CHANGES is a drag-resizable bottom
       section with its own scroll, rows show the folder context
-      (`file · src/foo`), deleted/modified styled, explorer unchanged.
+      (`file · src/foo`), deleted/modified styled; EXPLORER now uses
+      VS Code-style codicon icons (folder/folder-opened, per-type file
+      icons) with per-level indent guide lines.
 - [x] Models grouped by provider (`<optgroup>`) in the picker.
 - [x] Window is explicitly movable/resizable; grid uses `minmax(0,1fr)`
       so no panel gets pushed off-screen; closing the tray no longer

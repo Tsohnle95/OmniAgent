@@ -221,11 +221,11 @@ function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   }, [models]);
 }
 
-export function AgentPanel(): ReactNode {
+type MenuKind = "model" | "agent" | null;
+
+function Composer(): ReactNode {
   const {
-    session,
     busy,
-    transcript,
     models,
     currentModel,
     switchModel,
@@ -236,11 +236,139 @@ export function AgentPanel(): ReactNode {
     stop
   } = useStore();
   const [input, setInput] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<MenuKind>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const stickRef = useRef(true);
+  const menuRef = useRef<HTMLDivElement>(null);
   const secs = useElapsed(busy);
   const groups = useModelGroups(models);
+  const canSend = input.trim().length > 0;
+
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (e: MouseEvent): void => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(null);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setMenu(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+
+  const send = (): void => {
+    if (!input.trim()) return;
+    void sendPrompt(input);
+    setInput("");
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="composer">
+      <div className="composer-body">
+        <span className="composer-prompt">›</span>
+        <textarea
+          ref={inputRef}
+          className="composer-input"
+          rows={2}
+          placeholder="Ask Codex to do anything"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+        {canSend && (
+          <button className="composer-send" title="Send (Enter)" onClick={send}>
+            ➤
+          </button>
+        )}
+      </div>
+      <div className="composer-footer">
+        <span className="composer-hint">? for shortcuts</span>
+        <span className="composer-pills">
+          {agents.length > 0 && (
+            <button
+              className={`composer-pill ${menu === "agent" ? "open" : ""}`}
+              onClick={() => setMenu(menu === "agent" ? null : "agent")}
+            >
+              <span className="codicon codicon-git-branch" />
+              {currentAgent?.name ?? "agent"}
+              <span className="codicon codicon-chevron-down" />
+            </button>
+          )}
+          {models.length > 0 && (
+            <button
+              className={`composer-pill ${menu === "model" ? "open" : ""}`}
+              onClick={() => setMenu(menu === "model" ? null : "model")}
+            >
+              <span className="codicon codicon-symbol-class" />
+              {currentModel?.name ?? "model"}
+              <span className="codicon codicon-chevron-down" />
+            </button>
+          )}
+        </span>
+        {busy && (
+          <button className="composer-stop" title="Stop the agent" onClick={() => void stop()}>
+            <span className="codicon codicon-stop" />
+          </button>
+        )}
+      </div>
+
+      {menu && (
+        <div className="composer-menu" ref={menuRef}>
+          {menu === "agent" ? (
+            agents.map((a) => (
+              <button
+                key={a.id}
+                className={`composer-menu-item ${currentAgent?.id === a.id ? "selected" : ""}`}
+                onClick={() => {
+                  void switchAgent(a.id);
+                  setMenu(null);
+                }}
+              >
+                <span className="composer-menu-check">{currentAgent?.id === a.id ? "✓" : ""}</span>
+                {a.name}
+              </button>
+            ))
+          ) : (
+            groups.map(([provider, list]) => (
+              <div key={provider} className="composer-menu-group">
+                <div className="composer-menu-head">{provider}</div>
+                {list.map((m) => (
+                  <button
+                    key={`${m.id}::${m.providerID}`}
+                    className={`composer-menu-item ${currentModel?.id === m.id && currentModel?.providerID === m.providerID ? "selected" : ""}`}
+                    onClick={() => {
+                      void switchModel(m.id, m.providerID);
+                      setMenu(null);
+                    }}
+                  >
+                    <span className="composer-menu-check">
+                      {currentModel?.id === m.id && currentModel?.providerID === m.providerID ? "✓" : ""}
+                    </span>
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AgentPanel(): ReactNode {
+  const { session, busy, transcript } = useStore();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -253,72 +381,15 @@ export function AgentPanel(): ReactNode {
     stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
   };
 
-  const send = (): void => {
-    if (!input.trim()) return;
-    void sendPrompt(input);
-    setInput("");
-    inputRef.current?.focus();
-  };
-
   return (
     <div className="agent-panel">
       <div className="agent-header">
-        <div className="agent-header-row">
-          <span className={`agent-dot ${busy ? "busy" : ""}`} />
-          <span className="agent-title">Agent</span>
-          {session && (
-            <span className="agent-session" title={session.id}>
-              {session.id}
-            </span>
-          )}
-          {busy && (
-            <button className="icon-btn stop" title="Stop the agent" onClick={() => void stop()}>
-              ■
-            </button>
-          )}
-        </div>
+        <span className={`agent-dot ${busy ? "busy" : ""}`} />
+        <span className="agent-title">Agent</span>
         {session && (
-          <div className="agent-header-row picks">
-            {agents.length > 0 && (
-              <select
-                className="agent-pick agent-agent"
-                title="Agent"
-                value={currentAgent?.id ?? ""}
-                onChange={(e) => {
-                  if (e.target.value) void switchAgent(e.target.value);
-                }}
-              >
-                {!currentAgent && <option value="">Agent…</option>}
-                {agents.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {models.length > 0 && (
-              <select
-                className="agent-pick agent-model"
-                title="Model"
-                value={currentModel ? `${currentModel.id}::${currentModel.providerID}` : ""}
-                onChange={(e) => {
-                  const [id, providerID] = e.target.value.split("::");
-                  if (id && providerID) void switchModel(id, providerID);
-                }}
-              >
-                {!currentModel && <option value="">Choose model…</option>}
-                {groups.map(([provider, list]) => (
-                  <optgroup key={provider} label={provider}>
-                    {list.map((m) => (
-                      <option key={`${m.id}::${m.providerID}`} value={`${m.id}::${m.providerID}`}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            )}
-          </div>
+          <span className="agent-session" title={session.id}>
+            {session.id}
+          </span>
         )}
       </div>
 
@@ -337,33 +408,7 @@ export function AgentPanel(): ReactNode {
         ))}
       </div>
 
-      <div className="agent-input-wrap">
-        {busy && (
-          <div className="agent-busy-line">
-            <span className="spinner" /> working… {secs > 0 ? `${secs}s` : ""}
-          </div>
-        )}
-        <textarea
-          ref={inputRef}
-          className="agent-input"
-          rows={3}
-          placeholder="Tell the agent what to do… (Enter to send)"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-        />
-        <div className="agent-input-actions">
-          <span className="agent-hint">Enter to send · Shift+Enter for newline</span>
-          <button className="btn btn-primary" disabled={!input.trim()} onClick={send}>
-            Send
-          </button>
-        </div>
-      </div>
+      <Composer />
     </div>
   );
 }

@@ -183,8 +183,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const toolStartRef = useRef<Map<string, number>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
-  const activePathRef = useRef<string | null>(null);
-  activePathRef.current = activePath;
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -548,8 +546,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         return;
       }
       if (msg.kind === "ui-command") {
-        if (msg.command === "close-tab" && activePathRef.current) {
-          closeTab(activePathRef.current);
+        if (msg.command === "toggle-word-wrap") {
+          toggleWordWrap();
         }
         return;
       }
@@ -798,7 +796,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (s) setSession(s);
     });
     return off;
-  }, [session, resetAll, loadModels, upsertTool, closeTab, loadAgents, agents]);
+  }, [session, resetAll, loadModels, upsertTool, toggleWordWrap, loadAgents, agents]);
 
   const value = useMemo<Store>(
     () => ({

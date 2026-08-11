@@ -146,7 +146,7 @@ function Root(): ReactNode {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.altKey && !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "z") {
+      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === "KeyZ") {
         e.preventDefault();
         toggleWordWrap();
       }

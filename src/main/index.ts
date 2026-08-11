@@ -36,7 +36,7 @@ function createWindow(): BrowserWindow {
     const mod = process.platform === "darwin" ? input.meta : input.control;
     if (input.type === "keyDown" && mod && !input.alt && !input.shift && input.key.toLowerCase() === "w") {
       event.preventDefault();
-      win?.webContents.send("shell:message", { kind: "ui-command", command: "close-tab" });
+      win?.webContents.send("shell:message", { kind: "ui-command", command: "toggle-word-wrap" });
     }
   });
 

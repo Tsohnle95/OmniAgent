@@ -57,7 +57,7 @@ All backend→renderer message kinds are defined in
 - `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
   exit from the terminal tray (`src/main/terminal.ts`).
 - `{ kind: "ui-command", command }` — main-process requests to the
-  renderer (currently `close-tab` when ⌘W / Ctrl+W is pressed).
+  renderer (currently `toggle-word-wrap` when ⌘W / Ctrl+W is pressed).
 
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.

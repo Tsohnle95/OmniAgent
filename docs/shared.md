@@ -51,7 +51,7 @@ live-streamed arguments, `startedAt`/`duration` feed the elapsed timer.
 - `"event"` / `"file-update"` / `"session"` — shared base
   (`BackendMessageBase`): `{ kind, type?, data?, file?, session? }` plus
   `{ kind: "ui-command", command }` (main→renderer requests, e.g.
-  `close-tab` on ⌘W).
+  `toggle-word-wrap` when ⌘W is pressed).
 - `{ kind: "terminal-data", terminal: TerminalData }`
 - `{ kind: "terminal-exit", terminal: TerminalExit }`
 

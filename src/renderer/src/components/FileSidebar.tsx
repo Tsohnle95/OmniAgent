@@ -2,27 +2,87 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { TreeEntry } from "@shared/types";
 
-const FILE_COLORS: Record<string, string> = {
-  ts: "#3178c6", tsx: "#3178c6", js: "#e8c766", jsx: "#e8c766", mjs: "#e8c766",
-  json: "#cbcb41", css: "#42a5f5", scss: "#cf649a", html: "#e44d26", md: "#7e9fd4",
-  py: "#4b8bbe", go: "#00add8", rs: "#dea584", rb: "#cc342d", java: "#e76f00",
-  c: "#5c6bc0", h: "#5c6bc0", cpp: "#5c6bc0", cs: "#68217a", php: "#787cb4",
-  sh: "#89e051", yml: "#cb171e", yaml: "#cb171e", toml: "#9f9f9f", xml: "#e8a33d",
-  sql: "#e38c00", dockerfile: "#2496ed", txt: "#9aa0a6", log: "#9aa0a6", gitignore: "#9aa0a6"
+const FILE_ICONS: Record<string, [string, string]> = {
+  ts: ["codicon-file-code", "#569cd6"],
+  tsx: ["codicon-file-code", "#569cd6"],
+  js: ["codicon-file-code", "#e8c766"],
+  jsx: ["codicon-file-code", "#e8c766"],
+  mjs: ["codicon-file-code", "#e8c766"],
+  cjs: ["codicon-file-code", "#e8c766"],
+  json: ["codicon-json", "#cbcb41"],
+  jsonc: ["codicon-json", "#cbcb41"],
+  md: ["codicon-markdown", "#519aba"],
+  mdx: ["codicon-markdown", "#519aba"],
+  css: ["codicon-symbol-color", "#42a5f5"],
+  scss: ["codicon-symbol-color", "#cf649a"],
+  less: ["codicon-symbol-color", "#42a5f5"],
+  html: ["codicon-file-code", "#e44d26"],
+  py: ["codicon-python", "#4b8bbe"],
+  go: ["codicon-file-code", "#00add8"],
+  rs: ["codicon-file-code", "#dea584"],
+  rb: ["codicon-file-code", "#cc342d"],
+  java: ["codicon-file-code", "#e76f00"],
+  kt: ["codicon-file-code", "#7f52ff"],
+  c: ["codicon-file-code", "#5c6bc0"],
+  h: ["codicon-file-code", "#5c6bc0"],
+  cpp: ["codicon-file-code", "#5c6bc0"],
+  cs: ["codicon-file-code", "#68217a"],
+  php: ["codicon-file-code", "#787cb4"],
+  sh: ["codicon-terminal", "#89e051"],
+  zsh: ["codicon-terminal", "#89e051"],
+  bash: ["codicon-terminal", "#89e051"],
+  sql: ["codicon-database", "#e38c00"],
+  yml: ["codicon-file-code", "#cb171e"],
+  yaml: ["codicon-file-code", "#cb171e"],
+  toml: ["codicon-file-code", "#9f9f9f"],
+  xml: ["codicon-file-code", "#e8a33d"],
+  txt: ["codicon-file-text", "#9aa0a6"],
+  log: ["codicon-file-text", "#9aa0a6"],
+  csv: ["codicon-file-text", "#9aa0a6"],
+  ini: ["codicon-file-text", "#9aa0a6"],
+  conf: ["codicon-file-text", "#9aa0a6"],
+  env: ["codicon-file-text", "#9aa0a6"],
+  gitignore: ["codicon-file-text", "#9aa0a6"],
+  png: ["codicon-file-media", "#9aa0a6"],
+  jpg: ["codicon-file-media", "#9aa0a6"],
+  jpeg: ["codicon-file-media", "#9aa0a6"],
+  gif: ["codicon-file-media", "#9aa0a6"],
+  svg: ["codicon-file-media", "#9aa0a6"],
+  webp: ["codicon-file-media", "#9aa0a6"],
+  ico: ["codicon-file-media", "#9aa0a6"],
+  pdf: ["codicon-file-pdf", "#f85149"],
+  zip: ["codicon-file-zip", "#9aa0a6"],
+  tar: ["codicon-file-zip", "#9aa0a6"],
+  gz: ["codicon-file-zip", "#9aa0a6"],
+  tgz: ["codicon-file-zip", "#9aa0a6"],
+  dmg: ["codicon-file-zip", "#9aa0a6"],
+  pkg: ["codicon-file-zip", "#9aa0a6"],
+  bin: ["codicon-file-binary", "#9aa0a6"],
+  exe: ["codicon-file-binary", "#9aa0a6"],
+  dll: ["codicon-file-binary", "#9aa0a6"],
+  so: ["codicon-file-binary", "#9aa0a6"],
+  dylib: ["codicon-file-binary", "#9aa0a6"]
 };
 
-function fileColor(name: string): string {
-  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : "";
-  return FILE_COLORS[ext] ?? FILE_COLORS[name.toLowerCase()] ?? "#9aa0a6";
+function fileIcon(name: string): [string, string] {
+  if (name.includes(".")) {
+    const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+    const hit = FILE_ICONS[ext];
+    if (hit) return hit;
+  }
+  return FILE_ICONS[name.toLowerCase()] ?? ["codicon-file", "#8b8b94"];
 }
 
 function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: boolean }): ReactNode {
   if (isDir) {
-    return <span className={`fdir ${open ? "open" : ""}`}>▸</span>;
+    return (
+      <span className={`fdir ${open ? "open" : ""}`}>
+        <span className={`codicon ${open ? "codicon-folder-opened" : "codicon-folder"}`} />
+      </span>
+    );
   }
-  return (
-    <span className="fdot" style={{ backgroundColor: fileColor(name) }} />
-  );
+  const [icon, color] = fileIcon(name);
+  return <span className={`codicon ffile ${icon}`} style={{ color }} />;
 }
 
 function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
@@ -37,21 +97,24 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
     <div>
       <div
         className={`tree-row dir ${isOpen ? "open" : ""}`}
-        style={{ paddingLeft: 8 + depth * 14 }}
+        style={{ paddingLeft: 8 }}
         onClick={() => void toggleDir(entry.path)}
       >
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
         <span className="tree-name">{entry.path.split("/").pop()}</span>
         {hasChanges && <span className="tree-badge" />}
       </div>
-      {isOpen &&
-        (tree[entry.path] ?? []).map((child) =>
-          child.type === "directory" ? (
-            <DirNode key={child.path} entry={child} depth={depth + 1} />
-          ) : (
-            <FileNode key={child.path} entry={child} depth={depth + 1} />
-          )
-        )}
+      {isOpen && (
+        <div className="tree-children">
+          {(tree[entry.path] ?? []).map((child) =>
+            child.type === "directory" ? (
+              <DirNode key={child.path} entry={child} depth={depth + 1} />
+            ) : (
+              <FileNode key={child.path} entry={child} depth={depth + 1} />
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -65,7 +128,7 @@ function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactN
   return (
     <div
       className={`tree-row file ${active ? "active" : ""}`}
-      style={{ paddingLeft: 8 + depth * 14 }}
+      style={{ paddingLeft: 8 }}
       onClick={() => void openFile(entry.path)}
       title={entry.path}
     >

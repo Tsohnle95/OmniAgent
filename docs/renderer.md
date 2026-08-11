@@ -59,11 +59,11 @@ Key mechanisms:
 
 | Component | File | Role |
 |---|---|---|
-| `App` | `App.tsx` | Layout: titlebar + 3-pane grid (`useDragResize`; `minmax(0,1fr)` center so panels never overflow) + optional bottom tray; titlebar shows a tray toggle and busy/idle status; ⌥Z word-wrap shortcut; darwin class for the traffic-light inset |
+| `App` | `App.tsx` | Layout: titlebar + 3-pane grid (`useDragResize`; `minmax(0,1fr)` center so panels never overflow) + optional bottom tray; titlebar shows a tray toggle and busy/idle status; word-wrap shortcuts (⌘W intercepted in main, ⌥Z via `e.code`); darwin class for the traffic-light inset |
 | `Welcome` | `Welcome.tsx` | Folder pick + recent projects (`projects()`) |
-| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree; dirs auto-expand root on session open |
+| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree with VS Code-style codicon file/folder icons and per-level indent guide lines (`.tree-children` wrappers) |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines), agent + model pickers (models grouped by provider), smart auto-scroll (sticks to bottom only when already near it), stop button, input box, "working… Ns" line |
+| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines) + Codex-style composer: `›` prompt, "Ask Codex to do anything" placeholder, circular send button on non-empty input, footer with "? for shortcuts" hint and model/agent pills opening popup pickers (models grouped by provider with ✓), smart auto-scroll |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
 
 Tool cards (`ToolCard`): show status spinner/check/cross, per-tool icon,
