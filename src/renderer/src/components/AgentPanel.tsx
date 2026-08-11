@@ -653,6 +653,10 @@ function Composer(): ReactNode {
               className={`composer-selector strength ${menu === "model" ? "open" : ""}`}
               title="Change response strength"
               onClick={() => {
+                if (menu === "model" && modelView === "strength") {
+                  setMenu(null);
+                  return;
+                }
                 setMenu("model");
                 setModelView("strength");
               }}
