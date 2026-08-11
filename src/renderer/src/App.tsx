@@ -36,7 +36,7 @@ function useDragResize(
   return [width, onMouseDown];
 }
 
-function useTrayHeight(): [number, boolean, () => void, (e: React.MouseEvent) => void] {
+function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.MouseEvent) => void] {
   const [open, setOpen] = useState(false);
   const [height, setHeight] = useState(240);
   const startRef = useRef<{ y: number; height: number } | null>(null);
@@ -61,13 +61,14 @@ function useTrayHeight(): [number, boolean, () => void, (e: React.MouseEvent) =>
   };
 
   const toggle = (): void => setOpen((o) => !o);
-  return [height, open, toggle, onDrag];
+  const close = (): void => setOpen(false);
+  return [height, open, toggle, close, onDrag];
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, sideDrag] = useDragResize(250, 170, 520);
   const [agentW, agentDrag] = useDragResize(420, 300, 760, true);
-  const [trayH, trayOpen, toggleTray, trayDrag] = useTrayHeight();
+  const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
   const { session, busy } = useStore();
 
   return (
@@ -104,7 +105,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       {trayOpen && (
         <>
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
-          <TerminalTray height={trayH} />
+          <TerminalTray height={trayH} onClose={closeTray} />
         </>
       )}
 

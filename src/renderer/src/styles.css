@@ -972,6 +972,7 @@ body {
   min-height: 30px;
   max-height: 96px;
   padding: 6px 0;
+  overflow-y: auto;
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.4;
@@ -1309,21 +1310,49 @@ body {
 
 .welcome-warn { color: var(--yellow); font-size: 12px; margin: 0; }
 
-.welcome-projects {
+.welcome-sections {
   width: 100%;
   margin-top: 22px;
   text-align: left;
 }
 
-.welcome-projects-header {
-  font-size: 10.5px;
+.welcome-section { margin-bottom: 4px; }
+
+.welcome-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.8px;
-  color: var(--text-faint);
-  margin-bottom: 6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
 }
 
-.welcome-empty { color: var(--text-faint); font-size: 12px; padding: 4px 0; }
+.welcome-section-title:hover { background: var(--bg-hover); color: var(--text); }
+
+.welcome-section-title .codicon { font-size: 11px; flex-shrink: 0; }
+
+.welcome-section-count {
+  margin-left: auto;
+  background: var(--bg-active);
+  border-radius: 8px;
+  padding: 0 7px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.welcome-projects { width: 100%; text-align: left; }
+
+.welcome-empty { color: var(--text-faint); font-size: 12px; padding: 4px 8px; }
 
 .welcome-project {
   display: flex;
@@ -1446,6 +1475,26 @@ body {
 .terminal-add:hover { background: var(--bg-hover); color: var(--text); }
 
 .terminal-add .codicon { font-size: 13px; }
+
+.terminal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.terminal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+.terminal-close .codicon { font-size: 13px; }
 
 .terminal-notice {
   color: var(--yellow);

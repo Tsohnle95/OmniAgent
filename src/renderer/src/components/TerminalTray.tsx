@@ -89,6 +89,7 @@ function TermInstance({ id, active, height }: TermInstanceProps): ReactNode {
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
+      void window.openshell.terminalStop(id);
     };
   }, [id]);
 
@@ -118,7 +119,7 @@ interface TermView {
   name: string;
 }
 
-export function TerminalTray({ height }: { height: number }): ReactNode {
+export function TerminalTray({ height, onClose }: { height: number; onClose: () => void }): ReactNode {
   const { session } = useStore();
   const directory = session?.directory ?? null;
   const [terms, setTerms] = useState<TermView[]>([]);
@@ -146,14 +147,16 @@ export function TerminalTray({ height }: { height: number }): ReactNode {
 
   const closeTerminal = (id: string): void => {
     void window.openshell.terminalStop(id);
-    setTerms((prev) => {
-      const idx = prev.findIndex((t) => t.id === id);
-      const next = prev.filter((t) => t.id !== id);
-      if (activeId === id) {
-        setActiveId(next[Math.max(0, idx - 1)]?.id ?? next[0]?.id ?? null);
-      }
-      return next;
-    });
+    const idx = terms.findIndex((t) => t.id === id);
+    const next = terms.filter((t) => t.id !== id);
+    if (next.length === 0) {
+      onClose();
+      return;
+    }
+    setTerms(next);
+    if (activeId === id) {
+      setActiveId(next[Math.max(0, idx - 1)]?.id ?? next[0]?.id ?? null);
+    }
   };
 
   return (
@@ -182,6 +185,9 @@ export function TerminalTray({ height }: { height: number }): ReactNode {
           <span className="codicon codicon-add" />
         </button>
         {notice && <span className="terminal-notice" title={notice}>{notice}</span>}
+        <button className="terminal-close" title="Close the terminal panel (⌥O)" onClick={onClose}>
+          <span className="codicon codicon-chevron-down" />
+        </button>
       </div>
       <div className="terminal-body">
         {terms.map((term) => (

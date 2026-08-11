@@ -350,7 +350,11 @@ function Composer(): ReactNode {
     void sendPrompt(input, files.map((file) => file.path));
     setInput("");
     setFiles([]);
-    inputRef.current?.focus();
+    const el = inputRef.current;
+    if (el) {
+      el.style.height = "";
+      el.focus();
+    }
   };
 
   const attachFiles = async (): Promise<void> => {
@@ -485,10 +489,14 @@ function Composer(): ReactNode {
         <textarea
           ref={inputRef}
           className="composer-input"
-          rows={3}
+          rows={1}
           placeholder="Describe what you want to build"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            e.target.style.height = "0px";
+            e.target.style.height = `${e.target.scrollHeight}px`;
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
