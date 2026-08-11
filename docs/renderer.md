@@ -74,10 +74,14 @@ Key mechanisms:
   assistant parts, tool output, retry, error, and completion state used by the
   live reducer.
 
-- **Transcript presentation** — assistant parts render in their original
-  sequence. Active reasoning is open and updates live; completed reasoning
-  collapses, tool calls remain inline, and the generic “Thinking” placeholder
-  appears only while the active assistant has no renderable parts.
+- **OpenCode web transcript presentation** — `OpenCodeTimeline.tsx` ports the
+  current OpenCode timeline rows and message-part slots to React. User messages
+  use the subtle right-aligned layer bubble; assistant markdown is flat and
+  paced while streaming; reasoning stays hidden while its extracted heading
+  appears beside the active TextShimmer Thinking row; read/glob/grep/list parts
+  group into Exploring/Explored; remaining tools use flat BasicTool triggers.
+  There is no assistant bubble, custom tool card, typing-dot placeholder, or
+  stream cursor path.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 
@@ -89,24 +93,18 @@ Key mechanisms:
 | `Welcome` | `Welcome.tsx` | Folder pick + recent projects (`projects()`) |
 | `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff, always present above the explorer section) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree with VS Code-style codicon file/folder icons and per-level indent guide lines (`.tree-children` wrappers); rows show VS Code-style hover actions (New File / New Folder / ellipsis menu, via `RowActions`), right-click opens a context menu (New File / New Folder / Rename / Delete, trash on macOS) with inline name inputs (`.tree-input`), Enter commits / Esc cancels; header arrow collapses it to an activity bar with a single Explorer icon button, whose divider can drag it open |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles with attachment chips, assistant markdown, renderable reasoning, grouped context-tool rows, compact tool cards, permission cards, and error status lines) + integrated composer: neutral prompt placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, circular send button, and smart auto-scroll; header arrow collapses it at the same time as the resize gesture reaches the model strip width |
+| `AgentPanel` | `AgentPanel.tsx` | Hosts the OpenCode timeline and integrated composer: neutral prompt placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, circular send button, and smart auto-scroll; header arrow collapses it at the same time as the resize gesture reaches the model strip width |
+| `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | React port of OpenCode's web timeline/message-part presentation, including row grouping, paced markdown, TextShimmer, Thinking headings, context-tool aggregation, BasicTool triggers, errors, compaction dividers, and docked permissions |
 | `AgentTray` | `AgentTray.tsx` | Shown when the agent panel is collapsed: transparent 44px strip mirroring the left activity bar, with a busy dot and model icon button that expands the panel back |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
-
-Tool cards (`ToolCard`): show status spinner/check/cross, per-tool icon,
-real tool name (from `session.tool.input.started`), a single-line
-`$ command` for shell tools (no giant JSON input rectangles — read paths
-appear as clickable file-path chips), elapsed/duration timer, and
-collapsible output (up to 6000 chars) — failed tools auto-expand,
-successful tools show a one-line preview with a "show output" toggle.
-Permission cards show an action icon, resource list, and a resolved state
-naming the reply (`Allowed · always` / `Denied`).
 
 ## Styles (`src/renderer/src/styles/`)
 
 `main.scss` is the single renderer stylesheet entry and uses ordered Sass
-partials so the cascade stays explicit. Component rules are owned by
-`_sidebar.scss`, `_editor.scss`, `_agent.scss`, `_composer.scss`,
+partials so the cascade stays explicit. OpenCode's source-derived chat tokens,
+slots, typography, row geometry, and animations live in
+`_opencode-chat.scss`; other component rules are owned by `_sidebar.scss`,
+`_editor.scss`, `_agent.scss`, `_composer.scss`,
 `_welcome.scss`, and `_terminal.scss`; app-wide rules are separated into
 `_foundation.scss`, `_layout.scss`, `_buttons.scss`, `_toasts.scss`, and
 `_scrollbars.scss`. Vite CSS source maps are enabled in development, so

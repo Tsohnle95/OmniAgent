@@ -14,9 +14,11 @@ red/green diff.
   (debounced) and ⌘S/Ctrl+S. Every tab has an **Edit / Diff** toggle: the diff
   view is a Monaco diff editor showing exactly what the agent changed this
   session, updating in real time as files change.
-- **Agent panel (right)** — streaming assistant text, collapsible reasoning,
-  tool call cards with output, permission allow/deny prompts, status, and a
-  prompt input. Stop button interrupts the session.
+- **Agent panel (right)** — OpenCode's web timeline presentation: flat
+  streaming markdown, hidden reasoning with the active Thinking heading,
+  grouped Exploring/Explored context activity, borderless tool triggers,
+  docked permission prompts, and the integrated prompt input. Stop interrupts
+  the session.
 - **Changes list** — files the agent has touched, listed at the top of the
   sidebar; click any file to jump straight into its diff.
 - **Real-time updates** — the main process watches the repo with `fs.watch`
@@ -84,12 +86,10 @@ npm start          # run the production build
 Open requests from real usage live in `TODO.md` — pick them up in a fresh
 session. Delivered so far (see `git log`):
 
-- **OpenCode-parity chat streaming** — ordered message parts, 16ms delta
-  coalescing, live reasoning/tool progress, lifecycle and retry state, and
-  lossless session replay replace the previous flattened transcript path.
-- **Tool cards** got a richer pass: per-tool icons, status-colored borders,
-  clickable file-path chips, inline output previews, and a permission UX that
-  shows the resolved reply.
+- **OpenCode web chat streaming** — OpenCode's timeline row construction,
+  message-part DOM structure, dark V2 tokens, markdown typography, paced text,
+  TextShimmer animation, context-tool grouping, and flat BasicTool triggers are
+  ported to React on top of the ordered 16ms event reducer and session replay.
 - **Session history / reopen** — recent sessions appear on the Welcome screen;
   reopening resumes the same session context (transcript replayed from
   `message.list`).

@@ -6,11 +6,12 @@ the README roadmap; this file is the actionable queue.
 
 ## Agent panel UX polish
 
-- [x] Tool cards still feel "dry" — user wants Codex/Antigravity richness.
-      Done: per-tool icons, status-colored borders (running/success/failed),
-      clickable file-path chips (open the file), inline one-line output
-      preview for successes, auto-expanded error output, permission cards
-      with action icon + resolved state naming the reply.
+- [x] Replace custom chat visuals with OpenCode's web timeline presentation.
+      Done: the renderer uses source-derived timeline rows and message-part
+      slots, flat markdown, Thinking/TextShimmer, Exploring context groups,
+      borderless BasicTool triggers, and OpenCode V2 dark tokens. The old
+      bubbles, tool cards, reasoning accordions, typing dots, and cursor path
+      were removed.
 
 
 ## Sessions
@@ -55,10 +56,7 @@ the README roadmap; this file is the actionable queue.
 - [x] Agent panel composer redesigned as a neutral integrated prompt box:
       attachment picker, approval toggle, agent/model/variant menus,
       microphone, circular send control, and clear prompt placeholder.
-- [x] Right-hand panel restyled to opencode-desktop-ish message layout:
-      compact tool cards with `$ command` lines and clickable file chips
-      instead of giant JSON/read-path rectangles, cleaner thinking block,
-      statuses inline.
+- [x] Right-hand panel uses the OpenCode web timeline and message-part layout.
 - [x] Smart auto-scroll: the transcript only auto-scrolls while you're at
       the bottom; scrolling up pauses it so you can read freely.
 - [x] Left file panel revamped: CHANGES is a drag-resizable bottom
