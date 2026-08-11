@@ -33,7 +33,7 @@ function useDragResize(
       if (!startRef.current) return;
       const dx = ev.clientX - startRef.current.x;
       const rawW = startRef.current.width + (flip ? -dx : dx);
-      if (onCollapse && rawW <= min) {
+      if (onCollapse && rawW <= COLLAPSED_PANEL_W) {
         if (startRef.current.open) {
           startRef.current.open = false;
           onCollapse();
@@ -41,8 +41,9 @@ function useDragResize(
         return;
       }
 
-      if (rawW > (onCollapse ? min : COLLAPSED_PANEL_W) || !onCollapse) {
-        setWidth(Math.min(max, Math.max(min, rawW)));
+      if (rawW > COLLAPSED_PANEL_W || !onCollapse) {
+        const nextW = onCollapse && startRef.current.open ? rawW : Math.max(min, rawW);
+        setWidth(Math.min(max, nextW));
         if (!startRef.current.open) {
           startRef.current.open = true;
           onOpen();
