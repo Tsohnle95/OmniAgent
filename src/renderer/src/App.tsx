@@ -8,16 +8,20 @@ import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 
 const SIDE_COLLAPSED_W = 44;
-const AGENT_TRAY_W = 150;
+const AGENT_TRAY_W = 44;
+const COLLAPSE_DRAG_W = 60;
 
 function useDragResize(
   initial: number,
   min: number,
   max: number,
-  flip = false
+  flip = false,
+  onCollapse?: () => void
 ): [number, (e: React.MouseEvent) => void] {
   const [width, setWidth] = useState(initial);
   const startRef = useRef<{ x: number; width: number } | null>(null);
+  const lastWRef = useRef(initial);
+  const collapseRef = useRef(false);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -25,11 +29,23 @@ function useDragResize(
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
       const dx = ev.clientX - startRef.current.x;
-      const w = Math.min(max, Math.max(min, startRef.current.width + (flip ? -dx : dx)));
-      setWidth(w);
+      const w = startRef.current.width + (flip ? -dx : dx);
+      collapseRef.current = w < COLLAPSE_DRAG_W;
+      lastWRef.current = Math.min(max, Math.max(SIDE_COLLAPSED_W, w));
+      setWidth(lastWRef.current);
     };
     const up = (): void => {
-      startRef.current = null;
+      if (startRef.current) {
+        const start = startRef.current;
+        startRef.current = null;
+        if (collapseRef.current) {
+          setWidth(start.width);
+          onCollapse?.();
+        } else if (lastWRef.current < min) {
+          setWidth(min);
+        }
+      }
+      collapseRef.current = false;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
@@ -78,9 +94,9 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const [sideW, sideDrag] = useDragResize(250, 170, 520);
+  const [sideW, sideDrag] = useDragResize(250, 170, 520, false, () => setSideOpen(false));
   const [sideOpen, setSideOpen] = useState(true);
-  const [agentW, agentDrag] = useDragResize(420, 300, 760, true);
+  const [agentW, agentDrag] = useDragResize(420, 300, 760, true, () => setAgentOpen(false));
   const [agentOpen, setAgentOpen] = useState(true);
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
 
