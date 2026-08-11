@@ -35,6 +35,8 @@ export interface ToolCallView {
   status: "running" | "success" | "failed";
   input?: string;
   output?: string;
+  startedAt?: number;
+  duration?: number;
 }
 
 export type TranscriptItem =

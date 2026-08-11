@@ -143,6 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const toolNamesRef = useRef<Map<string, string>>(new Map());
   const toolInputsRef = useRef<Map<string, string>>(new Map());
+  const toolStartRef = useRef<Map<string, number>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
 
@@ -166,13 +167,22 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const loadModels = useCallback(async () => {
     try {
-      const list = await window.openshell.models();
+      const [list, def] = await Promise.all([
+        window.openshell.models(),
+        window.openshell.modelDefault()
+      ]);
       setModels(list);
       setCurrentModel((cur) => {
-        if (!cur) return null;
+        if (cur) {
+          return (
+            list.find((m) => m.id === cur.id && m.providerID === cur.providerID) ??
+            cur
+          );
+        }
+        if (!def) return null;
         return (
-          list.find((m) => m.id === cur.id && m.providerID === cur.providerID) ??
-          cur
+          list.find((m) => m.id === def.id && m.providerID === def.providerID) ??
+          def
         );
       });
     } catch (err) {
@@ -199,7 +209,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           ...prev,
           {
             kind: "tool",
-            tool: { id, title: "tool", detail: "", status: "running", ...patch }
+            tool: {
+              id,
+              title: "tool",
+              detail: "",
+              status: "running",
+              startedAt: Date.now(),
+              ...patch
+            }
           }
         ];
       }
@@ -595,7 +612,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           const id = String(data.id);
           const ok = type === "session.tool.success";
           const output = ok ? outputSummary(data.output) : outputSummary(data.error ?? "Tool failed");
-          upsertTool(id, { status: ok ? "success" : "failed", output });
+          upsertTool(id, {
+            status: ok ? "success" : "failed",
+            output,
+            duration: Date.now() - (toolStartRef.current.get(id) ?? Date.now())
+          });
           break;
         }
         case "session.model.selected": {

@@ -5,7 +5,12 @@ import { FileSidebar } from "./components/FileSidebar";
 import { EditorPane } from "./components/EditorPane";
 import { AgentPanel } from "./components/AgentPanel";
 
-function useDragResize(initial: number, min: number, max: number): [number, (e: React.MouseEvent) => void] {
+function useDragResize(
+  initial: number,
+  min: number,
+  max: number,
+  flip = false
+): [number, (e: React.MouseEvent) => void] {
   const [width, setWidth] = useState(initial);
   const startRef = useRef<{ x: number; width: number } | null>(null);
 
@@ -15,7 +20,7 @@ function useDragResize(initial: number, min: number, max: number): [number, (e: 
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
       const dx = ev.clientX - startRef.current.x;
-      const w = Math.min(max, Math.max(min, startRef.current.width + dx));
+      const w = Math.min(max, Math.max(min, startRef.current.width + (flip ? -dx : dx)));
       setWidth(w);
     };
     const up = (): void => {
@@ -32,7 +37,7 @@ function useDragResize(initial: number, min: number, max: number): [number, (e: 
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, sideDrag] = useDragResize(250, 170, 520);
-  const [agentW, agentDrag] = useDragResize(420, 300, 760);
+  const [agentW, agentDrag] = useDragResize(420, 300, 760, true);
   const { session, busy } = useStore();
 
   return (

@@ -7,13 +7,35 @@ import type { TranscriptItem } from "@shared/types";
 const OUTPUT_LIMIT = 6000;
 const INPUT_LIMIT = 3000;
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function useNow(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [active]);
+  return now;
+}
+
 function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> }): ReactNode {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(item.tool.status === "failed");
   const { tool } = item;
   const output = tool.output ?? "";
   const showOutput = output.length > 0;
   const truncated = output.length > OUTPUT_LIMIT;
   const input = tool.input ?? "";
+  const now = useNow(tool.status === "running");
+  const elapsed =
+    tool.status === "running" && tool.startedAt
+      ? formatDuration(now - tool.startedAt)
+      : tool.duration !== undefined
+        ? formatDuration(tool.duration)
+        : null;
 
   return (
     <div className={`tool-card ${tool.status}`}>
@@ -24,6 +46,7 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
           <span className={`tool-status ${tool.status}`}>{tool.status === "success" ? "✓" : "✕"}</span>
         )}
         <span className="tool-title">{tool.title}</span>
+        {elapsed && <span className="tool-time">{elapsed}</span>}
       </div>
       {tool.detail && <div className="tool-detail">{tool.detail}</div>}
       {input.length > 0 && (

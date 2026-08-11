@@ -18,6 +18,7 @@ const api = {
     ipcRenderer.invoke("shell:fs-write", rel, content),
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
   models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
+  modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),
   switchModel: (id: string, providerID: string): Promise<void> =>
     ipcRenderer.invoke("shell:switch-model", id, providerID),
   permissionReply: (requestID: string, reply: PermissionReply): Promise<void> =>

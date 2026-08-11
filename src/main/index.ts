@@ -64,6 +64,8 @@ function registerIpc(): void {
 
   ipcMain.handle("shell:models", async () => backend.listModels());
 
+  ipcMain.handle("shell:model-default", async () => backend.modelDefault());
+
   ipcMain.handle("shell:switch-model", async (_e, id: string, providerID: string) =>
     backend.switchModel(id, providerID)
   );

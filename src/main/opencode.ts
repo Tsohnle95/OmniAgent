@@ -315,6 +315,17 @@ export class OpenShellBackend {
     });
   }
 
+  async modelDefault(): Promise<ModelOption | null> {
+    if (!this.client) return null;
+    const res = await this.client.model.default(
+      this.directory ? { location: { directory: this.directory } } : undefined
+    );
+    const data = res as { data?: { id?: string; providerID?: string; name?: string } };
+    const m = data?.data ?? (res as { id?: string; providerID?: string; name?: string });
+    if (!m?.id || !m.providerID) return null;
+    return { id: m.id, providerID: m.providerID, name: m.name ?? m.id };
+  }
+
   async replyPermission(requestID: string, reply: PermissionReply): Promise<void> {
     if (!this.client || !this.sessionID) throw new Error("no active session");
     await this.client.permission.reply({
@@ -331,7 +342,10 @@ export class OpenShellBackend {
       path: rel
     });
     const arr = Array.isArray(body) ? body : (body as { data?: TreeEntry[] }).data ?? [];
-    return arr;
+    return arr.map((e) => ({
+      ...e,
+      path: e.path.replace(/\/+$/, "")
+    }));
   }
 
   async readFile(rel: string): Promise<string | null> {
