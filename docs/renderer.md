@@ -22,10 +22,12 @@ Exposed via `useStore()` (context). State:
 | `toasts` | `Toast[]` | transient notifications |
 | `models` | `ModelOption[]` | for the agent-header picker |
 | `currentModel` | `ModelOption \| null` | seeded from `modelDefault()`, live-updated by `session.model.selected` |
+| `sessions` | `SessionSummary[]` | recent sessions for the Welcome screen |
 
-Actions: `openSession`, `selectFolder`, `sendPrompt`, `stop`, `loadModels`,
-`switchModel`, `openFile(path, {mode})`, `closeTab`, `setActive`,
-`setTabMode`, `editContent`, `saveTab`, `toggleDir`, `replyPermission`.
+Actions: `openSession`, `selectFolder`, `reopenSession(id)`,
+`loadSessions`, `sendPrompt`, `stop`, `loadModels`, `switchModel`,
+`openFile(path, {mode})`, `closeTab`, `setActive`, `setTabMode`,
+`editContent`, `saveTab`, `toggleDir`, `replyPermission`.
 
 Key mechanisms:
 
@@ -34,6 +36,9 @@ Key mechanisms:
   `docs/events.md`. Events are filtered by `data.sessionID`.
 - **Tool tracking refs** — `toolNamesRef`, `toolInputsRef`, `toolStartRef`
   back the upsert-based tool cards (order-independent; see events doc).
+  `upsertTool` never lets a terminal (`success`/`failed`) status regress
+  to `running`, so a late-arriving `session.tool.called` can't reset a
+  finished card.
 - **Editor vs. watcher dedupe** — `expectedRef` holds the last content the
   editor wrote or the store applied; `editContent` and the file-update
   handler both consult it so the editor's own echoes don't mark tabs
@@ -56,10 +61,13 @@ Key mechanisms:
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff toolbar, ⌘S save, 4 MiB/binary guards |
 | `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles, assistant markdown + collapsible thinking, tool cards with live input/elapsed time, permission cards, status lines), model picker, stop button, input box, "working… Ns" line |
 
-Tool cards (`ToolCard`): show status spinner/check/cross, real tool name
-(from `session.tool.input.started`), `detail` (file path or `$ command`),
-live streamed args, elapsed/duration timer, collapsible output (up to
-6000 chars) — failed tools auto-expand.
+Tool cards (`ToolCard`): show status spinner/check/cross, per-tool icon,
+real tool name (from `session.tool.input.started`), `detail` (file path
+or `$ command`), clickable file-path chips (open the file), live streamed
+args, elapsed/duration timer, and collapsible output (up to 6000 chars) —
+failed tools auto-expand, successful tools show a one-line preview with a
+"show output" toggle. Permission cards show an action icon, resource list,
+and a resolved state naming the reply (`Allowed · always` / `Denied`).
 
 ## Monaco (`monaco.ts`)
 

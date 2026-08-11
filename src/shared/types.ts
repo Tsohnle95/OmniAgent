@@ -3,6 +3,18 @@ export interface SessionInfo {
   directory: string;
 }
 
+export interface SessionSummary {
+  id: string;
+  title: string;
+  directory: string;
+  updatedAt: number;
+}
+
+export interface ReopenedSession {
+  session: SessionInfo;
+  transcript: TranscriptItem[];
+}
+
 export interface TreeEntry {
   path: string;
   type: "file" | "directory";
@@ -37,6 +49,7 @@ export interface ToolCallView {
   output?: string;
   startedAt?: number;
   duration?: number;
+  paths?: string[];
 }
 
 export type TranscriptItem =
@@ -50,6 +63,7 @@ export type TranscriptItem =
       action: string;
       resources: string[];
       pending: boolean;
+      resolvedWith?: PermissionReply;
     }
   | { kind: "status"; id: string; text: string; tone: "info" | "success" | "error" }
   | { kind: "divider"; id: string };

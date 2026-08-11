@@ -6,32 +6,44 @@ the README roadmap; this file is the actionable queue.
 
 ## Agent panel UX (Codex-style polish)
 
-- [ ] Tool cards still feel "dry" — user wants Codex/Antigravity richness.
-      Current: name, file/command detail, live args, elapsed time,
-      collapsible output (auto-open on failure). Ideas: file-path chips,
-      per-tool status colors, inline output preview, nicer permission UX.
+- [x] Tool cards still feel "dry" — user wants Codex/Antigravity richness.
+      Done: per-tool icons, status-colored borders (running/success/failed),
+      clickable file-path chips (open the file), inline one-line output
+      preview for successes, auto-expanded error output, permission cards
+      with action icon + resolved state naming the reply.
 
 
 ## Sessions
 
-- [ ] Session history / reopen — one session per app run today. The
-      client has `session.list`/`session.get` + message replay; would
-      survive app restarts and crashes without losing agent context.
-- [ ] Persist model choice across sessions (last-used or config default).
+- [x] Session history / reopen — done. `session.list` + `message.list`
+      replay; recent sessions shown on the Welcome screen; reopening
+      restores the transcript and resumes the same session context.
+- [x] Persist model choice across sessions — done. Last-used model is
+      saved to `settings.json` (userData) and passed to `session.create`
+      for every new session; manual switches update it too.
 
 ## Model picker
 
-- [ ] Dropdown is session-gated (`session && models.length > 0`) — decide
-      whether it should appear on the Welcome screen too.
-- [ ] Show provider alongside model name in the dropdown labels.
+- [x] Dropdown is session-gated — decided: keep it in the agent header
+      only. Model catalogs are directory-scoped, and the Welcome screen
+      has no agent panel; a picker there would be premature.
+- [x] Show provider alongside model name in the dropdown labels.
 
 ## Reliability / correctness
 
-- [ ] Confirm `session.model.selected` always fires on session create, or
+- [x] Confirm `session.model.selected` always fires on session create, or
       rely fully on the `modelDefault()` seed (currently both exist).
-- [ ] Verify tool-card behavior when events arrive out of order or when
+      Both paths kept: the model is passed to `session.create` so
+      `session.model.selected` fires reliably; `modelDefault()` remains
+      the fallback seed for sessions created without an explicit model.
+- [x] Verify tool-card behavior when events arrive out of order or when
       a session is opened mid-run (upsert logic assumes order-independence).
-      
+      Fixed: `upsertTool` never lets a terminal status regress to
+      "running", so a late `session.tool.called` can't reset a finished
+      card; replayed tool cards carry their final status directly.
+      Mid-run reopen: transcript is replayed and live events continue
+      updating `busy` (execution.failed/interrupted/idle cover the tail).
+
 
 ## My todo as i think of them:
 

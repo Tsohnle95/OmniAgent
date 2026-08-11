@@ -23,13 +23,13 @@ All events carry `data.sessionID`; the store ignores events whose
 | `session.reasoning.delta` | Appends `data.delta` to the collapsible "thinking" `<details>` |
 | `session.tool.input.started` | Records `data.id → data.name` (the tool name — the `.called` event does NOT include it) and upserts a running tool card |
 | `session.tool.input.delta` | Appends `data.delta` to the card's live input stream (what the model is writing as args) |
-| `session.tool.called` | Upserts the card: title from the recorded name, else inferred from input shape; detail from `filePath`/`file_path`/`command` |
+| `session.tool.called` | Upserts the card: title from the recorded name, else inferred from input shape; detail from `filePath`/`file_path`/`command`; `paths` collected from the input for clickable chips |
 | `session.tool.success` | Card → `success`, sets `output`, records `duration` (startedAt from card creation) |
 | `session.tool.failed` | Card → `failed`, sets `output` from error, auto-expands output in the UI |
 | `session.model.selected` | `currentModel` updated from `data.model { id, providerID }` |
 | `session.status` | Only `status.type === "error"` handled → "Session error" status line |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
-| `permission.replied` | Marks the matching card resolved |
+| `permission.replied` | Marks the matching card resolved, recording `resolvedWith` from `data.reply` |
 
 ## Events forwarded but NOT handled
 
@@ -65,8 +65,11 @@ two types before forwarding:
 input.started {id, name}  ──► toolNamesRef[id] = name
 input.delta   {id, delta} ──► toolInputsRef[id] += delta  ──► card.input
 called        {id, input} ──► card.title = name ?? infer(input)
+                              card.detail / card.paths (file chips)
 success/failed{id, output}─► card.status / card.output / card.duration
 ```
 
 `upsertTool(id, patch)` creates the card on first sight (with
-`startedAt = Date.now()`) or patches it, so event order does not matter.
+`startedAt = Date.now()`) or patches it, so event order does not matter;
+a patch that sets `status: "running"` is ignored once the card has
+already finished.

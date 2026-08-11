@@ -3,9 +3,20 @@ import { promises as fsp } from "node:fs";
 import { watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { app } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
-import type { PermissionReply, ProjectInfo, SessionInfo, TreeEntry, ModelOption } from "@shared/types";
+import type {
+  PermissionReply,
+  ProjectInfo,
+  ReopenedSession,
+  SessionInfo,
+  SessionSummary,
+  ToolCallView,
+  TranscriptItem,
+  TreeEntry,
+  ModelOption
+} from "@shared/types";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -45,6 +56,116 @@ function collectFilePaths(obj: unknown): string[] {
   return [...new Set(out)];
 }
 
+function toolDetailText(input: unknown): string {
+  if (!input || typeof input !== "object") return "";
+  const o = input as Record<string, unknown>;
+  if (typeof o.filePath === "string") return o.filePath;
+  if (typeof o.file_path === "string") return o.file_path;
+  if (typeof o.command === "string") return `$ ${o.command}`;
+  return "";
+}
+
+function toolInputText(input: unknown): string {
+  if (input == null) return "";
+  try {
+    return JSON.stringify(input, null, 2);
+  } catch {
+    return String(input);
+  }
+}
+
+function toolTitleText(input: unknown, name: string): string {
+  if (name) return name;
+  if (!input || typeof input !== "object") return "tool";
+  const o = input as Record<string, unknown>;
+  if (typeof o.tool === "string" && o.tool) return o.tool;
+  if ("command" in o) return "bash";
+  if ("filePath" in o || "file_path" in o) return "file";
+  if ("query" in o) return "search";
+  if ("url" in o) return "web";
+  if ("prompt" in o) return "prompt";
+  return "tool";
+}
+
+function toolContentText(content: unknown[] | undefined): string {
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((c) => (c as { type?: string })?.type === "text")
+    .map((c) => String((c as { text?: unknown }).text ?? ""))
+    .join("\n");
+}
+
+function replayToolCard(part: Record<string, unknown>): ToolCallView {
+  const state = (part.state ?? {}) as Record<string, unknown>;
+  const input = state.input;
+  const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
+  const time = (part.time ?? {}) as Record<string, number | undefined>;
+  const ran = time.ran ?? time.created ?? Date.now();
+  const completed = time.completed;
+  return {
+    id: String(part.id),
+    title: toolTitleText(input, String(part.name ?? "")),
+    detail: toolDetailText(input),
+    status,
+    input: toolInputText(input),
+    output: toolContentText(state.content as unknown[] | undefined) || String((state.error as { message?: string } | undefined)?.message ?? ""),
+    startedAt: time.created ?? Date.now(),
+    duration: completed ? Math.max(0, completed - ran) : undefined,
+    paths: collectFilePaths(input)
+  };
+}
+
+function replayTranscript(messages: unknown[]): TranscriptItem[] {
+  const out: TranscriptItem[] = [];
+  for (const raw of messages) {
+    const msg = raw as Record<string, unknown>;
+    const type = msg.type;
+    if (type === "user") {
+      const text = String(msg.text ?? "");
+      if (text.trim()) out.push({ kind: "user", id: String(msg.id), text });
+      continue;
+    }
+    if (type === "assistant") {
+      const content = Array.isArray(msg.content) ? (msg.content as Record<string, unknown>[]) : [];
+      const text = content
+        .filter((c) => c.type === "text")
+        .map((c) => String(c.text ?? ""))
+        .join("");
+      const reasoning = content
+        .filter((c) => c.type === "reasoning")
+        .map((c) => String(c.text ?? ""))
+        .join("");
+      if (text || reasoning) {
+        out.push({
+          kind: "assistant",
+          id: String(msg.id),
+          messageID: String(msg.id),
+          text,
+          reasoning,
+          reasoningOpen: false
+        });
+      }
+      for (const part of content.filter((c) => c.type === "tool")) {
+        out.push({ kind: "tool", tool: replayToolCard(part) });
+      }
+      continue;
+    }
+    if (type === "compaction") {
+      const status = (msg.status ?? "") as string;
+      if (status === "running") {
+        const summary = String(msg.summary ?? "").trim();
+        out.push({
+          kind: "status",
+          id: String(msg.id),
+          text: `Context compacted${summary ? `: ${summary}` : ""}`,
+          tone: "info"
+        });
+      }
+    }
+  }
+  return out;
+}
+
 type Client = ReturnType<typeof OpenCode.make>;
 
 export class OpenShellBackend {
@@ -60,6 +181,7 @@ export class OpenShellBackend {
   private stopped = false;
   private lastEnsureAt = 0;
   private readonly ensureCooldownMs = 30_000;
+  private readonly settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   onMessage(cb: (msg: unknown) => void): () => void {
     this.listeners.add(cb);
@@ -286,12 +408,29 @@ export class OpenShellBackend {
 
   // ---------- session + API ----------
 
-  async openSession(directory: string): Promise<SessionInfo> {
-    if (!this.client) throw new Error("not connected to opencode service");
-    const res = await this.client.session.create({ location: { directory } });
-    const info = res as { id?: string; data?: { id?: string } };
-    const id = info.id ?? info.data?.id;
-    if (!id) throw new Error("session create returned no id");
+  private async savedModel(): Promise<{ id: string; providerID: string } | null> {
+    try {
+      const raw = await fsp.readFile(this.settingsPath, "utf8");
+      const parsed = JSON.parse(raw) as { model?: { id?: string; providerID?: string } };
+      if (parsed.model?.id && parsed.model.providerID) {
+        return { id: parsed.model.id, providerID: parsed.model.providerID };
+      }
+    } catch {
+      /* no settings yet */
+    }
+    return null;
+  }
+
+  private async persistModel(id: string, providerID: string): Promise<void> {
+    try {
+      await fsp.mkdir(path.dirname(this.settingsPath), { recursive: true });
+      await fsp.writeFile(this.settingsPath, JSON.stringify({ model: { id, providerID } }, null, 2), "utf8");
+    } catch (err) {
+      console.error("[openshell] failed to persist model:", err);
+    }
+  }
+
+  private async activateSession(id: string, directory: string): Promise<SessionInfo> {
     this.sessionID = id;
     this.directory = directory;
     this.snapshots.clear();
@@ -301,6 +440,62 @@ export class OpenShellBackend {
     const session: SessionInfo = { id, directory };
     this.emit({ kind: "session", session });
     return session;
+  }
+
+  async openSession(directory: string): Promise<SessionInfo> {
+    if (!this.client) throw new Error("not connected to opencode service");
+    const saved = await this.savedModel();
+    const res = await this.client.session.create({
+      location: { directory },
+      ...(saved ? { model: saved } : {})
+    });
+    const info = res as { id?: string; data?: { id?: string } };
+    const id = info.id ?? info.data?.id;
+    if (!id) throw new Error("session create returned no id");
+    return this.activateSession(id, directory);
+  }
+
+  async listSessions(): Promise<SessionSummary[]> {
+    if (!this.client) return [];
+    const res = await this.client.session.list({ limit: 30, order: "desc" });
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as {
+      id?: string;
+      title?: string;
+      location?: { directory?: string };
+      time?: { updated?: number; created?: number };
+    }[])
+      .map((s) => {
+        const directory = s.location?.directory;
+        if (!s.id || !directory) return null;
+        const updated = s.time?.updated ?? s.time?.created ?? 0;
+        return {
+          id: s.id,
+          title: s.title?.trim() ? s.title : path.basename(directory),
+          directory,
+          updatedAt: updated
+        };
+      })
+      .filter((s): s is SessionSummary => s !== null);
+  }
+
+  async openSessionById(sessionID: string): Promise<ReopenedSession> {
+    if (!this.client) throw new Error("not connected to opencode service");
+    const res = await this.client.session.get({ sessionID });
+    const info = res as {
+      id?: string;
+      location?: { directory?: string };
+      data?: { id?: string; location?: { directory?: string } };
+    };
+    const id = info.id ?? info.data?.id;
+    const directory = info.location?.directory ?? info.data?.location?.directory;
+    if (!id || !directory) throw new Error("session not found");
+    const session = await this.activateSession(id, directory);
+    const messagesRes = await this.client.message.list({ sessionID: id }).catch(() => null);
+    const messages = messagesRes
+      ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
+      : [];
+    return { session, transcript: replayTranscript(messages as unknown[]) };
   }
 
   getState(): SessionInfo | null {
@@ -339,6 +534,7 @@ export class OpenShellBackend {
       sessionID: this.sessionID,
       model: { id, providerID }
     });
+    void this.persistModel(id, providerID);
   }
 
   async modelDefault(): Promise<ModelOption | null> {

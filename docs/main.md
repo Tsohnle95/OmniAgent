@@ -16,6 +16,8 @@ State:
 - `lastKnown: Map<absPath, content>` — last content seen by the watcher
 - `watcher` — recursive `fs.watch` on the session directory
 - `hasGit` — lazily probed (`.git` presence), cached tri-state
+- `settingsPath` — `app.getPath("userData")/settings.json`, holds the
+  last-used `{model:{id,providerID}}` so new sessions start on the same model
 - `stopped` — set by `stop()`; the event loop exits
 
 Public methods (all used by IPC):
@@ -26,7 +28,9 @@ Public methods (all used by IPC):
 | `start()` | Start the SSE event loop |
 | `stop()` | Stop the event loop + fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
-| `openSession(directory)` | `session.create({location:{directory}})`, resets baselines, starts watcher, emits `{kind:"session"}` |
+| `openSession(directory)` | `session.create({location:{directory}, model?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
+| `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt}` |
+| `openSessionById(sessionID)` | `session.get` to recover the directory, activates it, then `message.list` → replay transcript |
 | `prompt(text)` | `session.prompt({sessionID, text})` |
 | `interrupt()` | `session.interrupt`, errors swallowed |
 | `replyPermission(requestID, reply)` | `permission.reply`, reply is `"once"|"always"|"reject"` |
@@ -36,7 +40,7 @@ Public methods (all used by IPC):
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name}` |
 | `modelDefault()` | `model.default`, maps the same |
-| `switchModel(id, providerID)` | `session.switchModel` |
+| `switchModel(id, providerID)` | `session.switchModel`; persists the choice to `settings.json` |
 | `getState()` | `{id, directory}` or null |
 
 Internals:
@@ -44,6 +48,15 @@ Internals:
 - `runEventLoop()` — reconnecting SSE loop; forwards every event as
   `{kind:"event", type, data}` then runs `handleServerEvent` (see
   `docs/events.md`).
+- `activateSession(id, directory)` — shared by `openSession` /
+  `openSessionById`: sets the active session, resets baselines, restarts
+  the watcher, emits `{kind:"session"}`.
+- `replayTranscript(messages)` — converts `message.list` output to
+  `TranscriptItem[]`: user text, assistant text/reasoning (joined per
+  message), tool parts → `ToolCallView` (status from
+  streaming/running/completed/error, output from text content +
+  error message, duration from `time.ran`→`time.completed`), compaction
+  running → a status line.
 - `snapshotInputs(input)` — recursively walks the tool-call input for
   `filePath`/`file_path`/`path` keys and snapshots those files
   (skips http URLs, dedupes).
@@ -63,6 +76,8 @@ Internals:
 |---|---|
 | `shell:select-folder` | `() → SessionInfo \| null` (native dialog) |
 | `shell:open-session` | `(dir) → SessionInfo` |
+| `shell:sessions` | `() → SessionSummary[]` |
+| `shell:open-session-id` | `(sessionID) → ReopenedSession` |
 | `shell:prompt` | `(text) → void` |
 | `shell:interrupt` | `() → void` |
 | `shell:fs-list` | `(rel) → TreeEntry[]` |

@@ -22,13 +22,25 @@ function useNow(active: boolean): number {
   return now;
 }
 
+function toolIcon(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes("bash") || t.includes("shell") || t.includes("terminal")) return "⌁";
+  if (t.includes("read") || t.includes("file") || t.includes("write") || t.includes("edit")) return "📄";
+  if (t.includes("search") || t.includes("grep")) return "🔍";
+  if (t.includes("web") || t.includes("fetch") || t.includes("url")) return "🌐";
+  if (t.includes("glob") || t.includes("list")) return "🗂";
+  return "◆";
+}
+
 function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> }): ReactNode {
+  const { openFile } = useStore();
   const [open, setOpen] = useState(item.tool.status === "failed");
   const { tool } = item;
   const output = tool.output ?? "";
   const showOutput = output.length > 0;
   const truncated = output.length > OUTPUT_LIMIT;
   const input = tool.input ?? "";
+  const preview = showOutput && tool.status === "success" ? output.replace(/\s+/g, " ").slice(0, 160) : "";
   const now = useNow(tool.status === "running");
   const elapsed =
     tool.status === "running" && tool.startedAt
@@ -36,6 +48,7 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
       : tool.duration !== undefined
         ? formatDuration(tool.duration)
         : null;
+  const paths = tool.paths ?? [];
 
   return (
     <div className={`tool-card ${tool.status}`}>
@@ -45,10 +58,22 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
         ) : (
           <span className={`tool-status ${tool.status}`}>{tool.status === "success" ? "✓" : "✕"}</span>
         )}
+        <span className="tool-icon" aria-hidden>
+          {toolIcon(tool.title)}
+        </span>
         <span className="tool-title">{tool.title}</span>
         {elapsed && <span className="tool-time">{elapsed}</span>}
       </div>
       {tool.detail && <div className="tool-detail">{tool.detail}</div>}
+      {paths.length > 0 && (
+        <div className="tool-paths">
+          {paths.map((p) => (
+            <button key={p} className="tool-path-chip" onClick={() => void openFile(p)} title={p}>
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
       {input.length > 0 && (
         <pre className="tool-input">
           {input.length > INPUT_LIMIT ? `…${input.slice(-INPUT_LIMIT)}` : input}
@@ -56,16 +81,32 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
       )}
       {showOutput && (
         <button className="tool-output-toggle" onClick={() => setOpen((o) => !o)}>
-          {open ? "hide output" : "show output"}
+          {tool.status === "failed"
+            ? open
+              ? "hide error"
+              : "show error"
+            : open
+              ? "hide output"
+              : "show output"}
         </button>
       )}
+      {showOutput && !open && preview && <div className="tool-output-preview">{preview}</div>}
       {showOutput && open && (
-        <pre className="tool-output">
+        <pre className={`tool-output ${tool.status === "failed" ? "failed" : ""}`}>
           {truncated ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output}
         </pre>
       )}
     </div>
   );
+}
+
+function permissionIcon(action: string): string {
+  const a = action.toLowerCase();
+  if (a.includes("bash") || a.includes("command")) return "⌁";
+  if (a.includes("write") || a.includes("edit") || a.includes("create")) return "✎";
+  if (a.includes("read") || a.includes("open")) return "👁";
+  if (a.includes("delete") || a.includes("remove")) return "✕";
+  return "?";
 }
 
 function PermissionCard({
@@ -76,14 +117,19 @@ function PermissionCard({
   const { replyPermission } = useStore();
   return (
     <div className="permission-card">
-      <div className="permission-title">Permission required</div>
+      <div className="permission-head">
+        <span className="permission-icon" aria-hidden>
+          {permissionIcon(item.action)}
+        </span>
+        <span className="permission-title">Permission required</span>
+      </div>
       <div className="permission-action">{item.action}</div>
       {item.resources.length > 0 && (
         <div className="permission-resources">
           {item.resources.slice(0, 4).map((r) => (
             <code key={r}>{r}</code>
           ))}
-          {item.resources.length > 4 && <code>+{item.resources.length - 4} more</code>}
+          {item.resources.length > 4 && <code className="permission-more">+{item.resources.length - 4} more</code>}
         </div>
       )}
       {item.pending ? (
@@ -99,7 +145,13 @@ function PermissionCard({
           </button>
         </div>
       ) : (
-        <div className="permission-resolved">Resolved</div>
+        <div className={`permission-resolved ${item.resolvedWith === "reject" ? "rejected" : ""}`}>
+          {item.resolvedWith === "reject"
+            ? "Denied"
+            : item.resolvedWith === "always"
+              ? "Allowed · always"
+              : "Allowed"}
+        </div>
       )}
     </div>
   );
@@ -188,7 +240,7 @@ export function AgentPanel(): ReactNode {
             {!currentModel && <option value="">Choose model…</option>}
             {models.map((m) => (
               <option key={`${m.id}::${m.providerID}`} value={`${m.id}::${m.providerID}`}>
-                {m.name}
+                {m.name} · {m.providerID}
               </option>
             ))}
           </select>

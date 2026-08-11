@@ -72,6 +72,22 @@ After any change: `npm run typecheck` clean, `npm run build` succeeds,
 `npm run docs:check` passes. Commit buildable state; never commit a broken
 build.
 
+## Commits are the agent's job
+
+The agent owns version control — the user should never see a dirty tree.
+
+- Check `git status` at the start of a session and leave the tree exactly
+  as you found it; if the session starts clean, it must end clean.
+- Commit after each logically complete unit of work (a feature, a fix,
+  its docs) rather than once at the end — but only after that unit
+  passes typecheck/build/docs:check.
+- Include the doc/brain updates for a change in the same commit as the
+  code that makes them necessary (see Docs maintenance).
+- Write concise commit messages that match the repo's existing style.
+- Do not commit unrelated or experimental files; never commit secrets.
+- Only commit what you are confident is correct: a commit is the
+  checkpoint a future session (or `git revert`) may rely on.
+
 ## Docs maintenance (the project brain)
 
 The brain is `AGENTS.md` + `docs/`. It must never drift from the code.

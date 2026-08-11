@@ -15,6 +15,8 @@ automatically.
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
 | `selectFolder()` | `Promise<SessionInfo \| null>` |
 | `openSession(dir)` | `Promise<SessionInfo>` |
+| `sessions()` | `Promise<SessionSummary[]>` |
+| `openSessionById(sessionID)` | `Promise<ReopenedSession>` (session + replayed transcript) |
 | `prompt(text)` | `Promise<void>` |
 | `interrupt()` | `Promise<void>` |
 | `listDir(rel)` | `Promise<TreeEntry[]>` |

@@ -20,6 +20,9 @@ every file it touches appears with a live red/green diff in the center.
   sidebar; click any file to jump straight into its diff.
 - **Real-time updates** — the main process watches the repo with `fs.watch`
   and streams per-file `{baseline, content}` updates to the UI.
+- **Session history** — recent sessions are listed on the Welcome screen;
+  reopening one replays its transcript and resumes the same context.
+  The last-used model is remembered for new sessions.
 
 ## How it integrates with opencode2
 
@@ -76,21 +79,22 @@ npm start          # run the production build
 ## Notes / roadmap
 
 Open requests from real usage — pick these up in a fresh session.
-The working queue is `TODO.md` (add points there anytime):
+The working queue is `TODO.md` (add points there anytime); completed
+items are checked off there.
 
-- **Tool cards are still "dry"** — user wants Codex-style richness. Current
-  cards show name, file/command detail, live args, elapsed time, and
-  collapsible output. Candidate upgrades: file-path chips, per-tool
-  status colors, output preview inline, richer permission UX.
-- **Session history / reopen** — one session per app run today;
-  `session.list`/`session.get` + message replay exist in the client.
-  Would make the app survive restarts and crashes without losing the
-  agent's context (the original motivation for this project).
-- **Model picker polish** — dropdown is session-gated and does not
-  persist a choice across sessions; a saved `opencode.json`-style default
-  or a last-used model would be nicer.
-- **North star**: mimic the Codex/Antigravity feel — a calm, informative
-  streaming agent panel that always shows what the agent is doing.
+Delivered so far (see `git log`):
+
+- **Tool cards** got the Codex-style pass: per-tool icons, status-colored
+  borders, clickable file-path chips, inline output previews, and a
+  permission UX that shows the resolved reply.
+- **Session history / reopen** — recent sessions appear on the Welcome
+  screen; reopening resumes the same session context (transcript
+  replayed from `message.list`).
+- **Model choice persists** across sessions (last-used model is stored
+  and passed to `session.create`), and the picker labels show provider.
+
+North star: mimic the Codex/Antigravity feel — a calm, informative
+streaming agent panel that always shows what the agent is doing.
 
 Known constraints:
 

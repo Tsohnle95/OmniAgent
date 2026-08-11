@@ -14,6 +14,7 @@ import type {
   ModelOption,
   PermissionReply,
   SessionInfo,
+  SessionSummary,
   Tab,
   ToolCallView,
   TranscriptItem,
@@ -39,8 +40,11 @@ interface Store {
   toasts: Toast[];
   models: ModelOption[];
   currentModel: ModelOption | null;
+  sessions: SessionSummary[];
   openSession: (dir: string) => Promise<void>;
   selectFolder: () => Promise<void>;
+  reopenSession: (sessionID: string) => Promise<void>;
+  loadSessions: () => Promise<void>;
   sendPrompt: (text: string) => Promise<void>;
   stop: () => Promise<void>;
   loadModels: () => Promise<void>;
@@ -100,6 +104,26 @@ function toolDetail(input: unknown): string {
   return "";
 }
 
+function collectFilePaths(input: unknown): string[] {
+  const out: string[] = [];
+  const walk = (o: unknown): void => {
+    if (!o || typeof o !== "object") return;
+    if (Array.isArray(o)) {
+      o.forEach(walk);
+      return;
+    }
+    for (const [k, v] of Object.entries(o)) {
+      if ((k === "filePath" || k === "file_path" || k === "path") && typeof v === "string" && !v.startsWith("http")) {
+        out.push(v);
+      } else if (typeof v === "object") {
+        walk(v);
+      }
+    }
+  };
+  walk(input);
+  return [...new Set(out)];
+}
+
 function outputSummary(output: unknown): string {
   if (output == null) return "";
   if (typeof output === "string") return output;
@@ -133,6 +157,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [currentModel, setCurrentModel] = useState<ModelOption | null>(null);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
 
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;
@@ -220,9 +245,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           }
         ];
       }
+      const existing = (prev[idx] as Extract<TranscriptItem, { kind: "tool" }>).tool;
+      const merged =
+        patch.status === "running" && existing.status !== "running"
+          ? { ...patch, status: existing.status }
+          : patch;
       return prev.map((item) =>
         item.kind === "tool" && item.tool.id === id
-          ? { ...item, tool: { ...item.tool, ...patch } }
+          ? { ...item, tool: { ...item.tool, ...merged } }
           : item
       );
     });
@@ -257,6 +287,30 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }
   }, [resetAll, toast, loadModels]);
 
+  const loadSessions = useCallback(async () => {
+    try {
+      setSessions(await window.openshell.sessions());
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [toast]);
+
+  const reopenSession = useCallback(
+    async (sessionID: string) => {
+      try {
+        const reopened = await window.openshell.openSessionById(sessionID);
+        resetAll();
+        setSession(reopened.session);
+        setTranscript(reopened.transcript);
+        toast(`Reopened session in ${reopened.session.directory}`);
+        void loadModels();
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [resetAll, toast, loadModels]
+  );
+
   const sendPrompt = useCallback(
     async (text: string) => {
       const t = text.trim();
@@ -287,7 +341,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       setTranscript((prev) =>
         prev.map((item) =>
           item.kind === "permission" && item.requestID === requestID
-            ? { ...item, pending: false }
+            ? { ...item, pending: false, resolvedWith: reply }
             : item
         )
       );
@@ -603,7 +657,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           upsertTool(id, {
             title,
             status: "running",
-            ...(detail ? { detail } : {})
+            ...(detail ? { detail } : {}),
+            ...(collectFilePaths(input).length > 0 ? { paths: collectFilePaths(input) } : {})
           });
           break;
         }
@@ -661,10 +716,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         case "permission.replied": {
           const requestID = String(data.id);
+          const reply = (data.reply as PermissionReply | undefined) ?? "reject";
           setTranscript((prev) =>
             prev.map((item) =>
               item.kind === "permission" && item.requestID === requestID
-                ? { ...item, pending: false }
+                ? { ...item, pending: false, resolvedWith: reply }
                 : item
             )
           );
@@ -694,8 +750,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       toasts,
       models,
       currentModel,
+      sessions,
       openSession,
       selectFolder,
+      reopenSession,
+      loadSessions,
       sendPrompt,
       stop,
       loadModels,
@@ -711,8 +770,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }),
     [
       session, connected, busy, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
-      models, currentModel,
-      openSession, selectFolder, sendPrompt, stop, loadModels, switchModel,
+      models, currentModel, sessions,
+      openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, toggleDir, replyPermission
     ]

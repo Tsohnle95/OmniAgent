@@ -48,6 +48,12 @@ function registerIpc(): void {
 
   ipcMain.handle("shell:open-session", async (_e, dir: string) => backend.openSession(dir));
 
+  ipcMain.handle("shell:sessions", async () => backend.listSessions());
+
+  ipcMain.handle("shell:open-session-id", async (_e, sessionID: string) =>
+    backend.openSessionById(sessionID)
+  );
+
   ipcMain.handle("shell:prompt", async (_e, text: string) => backend.prompt(text));
 
   ipcMain.handle("shell:interrupt", async () => backend.interrupt());

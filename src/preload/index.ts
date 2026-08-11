@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { BackendMessage, ModelOption, PermissionReply, ProjectInfo, SessionInfo } from "@shared/types";
+import type {
+  BackendMessage,
+  ModelOption,
+  PermissionReply,
+  ProjectInfo,
+  ReopenedSession,
+  SessionInfo,
+  SessionSummary
+} from "@shared/types";
 
 const api = {
   onMessage: (cb: (msg: BackendMessage) => void): (() => void) => {
@@ -9,6 +17,9 @@ const api = {
   },
   selectFolder: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder"),
   openSession: (dir: string): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir),
+  sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
+  openSessionById: (sessionID: string): Promise<ReopenedSession> =>
+    ipcRenderer.invoke("shell:open-session-id", sessionID),
   prompt: (text: string): Promise<void> => ipcRenderer.invoke("shell:prompt", text),
   interrupt: (): Promise<void> => ipcRenderer.invoke("shell:interrupt"),
   listDir: (rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
