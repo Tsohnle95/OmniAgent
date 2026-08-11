@@ -66,5 +66,26 @@ agent changed this session.
 
 ## Definition of done
 
-After any change: `npm run typecheck` clean, `npm run build` succeeds.
-Commit buildable state; never commit a broken build.
+After any change: `npm run typecheck` clean, `npm run build` succeeds,
+`npm run docs:check` passes. Commit buildable state; never commit a broken
+build.
+
+## Docs maintenance (the project brain)
+
+The brain is `AGENTS.md` + `docs/`. It must never drift from the code.
+
+- `npm run docs:check` (see `scripts/check-docs.mjs`) verifies the
+  machine-checkable parts against the source and fails on drift:
+  IPC channels, `OpenShellBackend` public methods, the
+  `window.openshell` contract, handled/not-handled event types, and that
+  every file the docs link to exists.
+- **When you change code, update the brain in the same commit**: add the
+  new IPC channel / method / event to the relevant docs table. The check
+  will tell you exactly what is missing.
+- **When you add an event handler**, put it in the events.md handled
+  table; when the app starts ignoring an event, move it to the
+  not-handled list.
+- **When a change is pure refactoring with no observable surface**
+  (naming, internals, private helpers), no doc update is needed — the
+  check only tracks the public, verifiable surface so it never demands
+  noise.

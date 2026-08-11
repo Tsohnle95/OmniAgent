@@ -23,14 +23,16 @@ Public methods (all used by IPC):
 | Method | Purpose |
 |---|---|
 | `connect()` | `Service.discover()` → `Service.ensure({command:["opencode2","serve","--service"]})` → `OpenCode.make` |
-| `start()` / `stop()` | Start / stop the SSE event loop + watcher |
+| `start()` | Start the SSE event loop |
+| `stop()` | Stop the event loop + fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
 | `openSession(directory)` | `session.create({location:{directory}})`, resets baselines, starts watcher, emits `{kind:"session"}` |
 | `prompt(text)` | `session.prompt({sessionID, text})` |
 | `interrupt()` | `session.interrupt`, errors swallowed |
 | `replyPermission(requestID, reply)` | `permission.reply`, reply is `"once"|"always"|"reject"` |
 | `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
-| `readFile(rel)` / `writeFile(rel, content)` | read via API, write via Node `fs` (no API write endpoint); write updates snapshots and emits `file-update` |
+| `readFile(rel)` | Read a file via the API; `null` if unreadable |
+| `writeFile(rel, content)` | Write via Node `fs` (no API write endpoint); updates snapshots and emits `file-update` |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name}` |
 | `modelDefault()` | `model.default`, maps the same |
