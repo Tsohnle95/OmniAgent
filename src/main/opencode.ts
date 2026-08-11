@@ -13,6 +13,7 @@ import type {
   ProjectInfo,
   ReopenedSession,
   SessionInfo,
+  SessionSelection,
   SessionSummary,
   ToolCallView,
   TranscriptItem,
@@ -523,8 +524,22 @@ export class OpenShellBackend {
     return { session, transcript: replayTranscript(messages as unknown[]) };
   }
 
-  getState(): SessionInfo | null {
+  async getState(): Promise<SessionInfo | null> {
     return this.sessionID && this.directory ? { id: this.sessionID, directory: this.directory } : null;
+  }
+
+  async sessionSelection(): Promise<SessionSelection | null> {
+    if (!this.client || !this.sessionID) return null;
+    const res = await this.client.session.get({ sessionID: this.sessionID }).catch(() => null);
+    if (!res) return null;
+    const s = res as { agent?: string; model?: { id?: string; providerID?: string; variant?: string } };
+    const out: SessionSelection = {};
+    const m = s.model;
+    if (m?.id && m.providerID) {
+      out.model = { id: m.id, providerID: m.providerID, name: m.id, ...(m.variant ? { variant: m.variant } : {}) };
+    }
+    if (s.agent) out.agent = { id: s.agent, name: s.agent };
+    return out.model || out.agent ? out : null;
   }
 
   async prompt(text: string, filePaths: string[] = []): Promise<void> {

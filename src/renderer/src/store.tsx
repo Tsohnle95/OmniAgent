@@ -190,6 +190,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const toolStartRef = useRef<Map<string, number>>(new Map());
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
+  const agentsRef = useRef<AgentOption[]>([]);
+  agentsRef.current = agents;
   const approvalModeRef = useRef<ApprovalMode>(approvalMode);
   approvalModeRef.current = approvalMode;
 
@@ -840,9 +842,26 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
     void window.openshell.health().then(setConnected);
     void window.openshell.state().then((s) => {
-      if (s) {
-        setSession((prev) => (prev && prev.id === s.id && prev.directory === s.directory ? prev : s));
-      }
+      if (!s) return;
+      setSession((prev) => (prev && prev.id === s.id && prev.directory === s.directory ? prev : s));
+      void loadModels();
+      void loadAgents();
+      void window.openshell.sessionSelection().then((sel) => {
+        if (!sel) return;
+        if (sel.model) {
+          const base = modelsRef.current.find(
+            (m) => m.id === sel.model!.id && m.providerID === sel.model!.providerID
+          );
+          setCurrentModel({
+            ...(base ?? { id: sel.model!.id, providerID: sel.model!.providerID, name: sel.model!.id }),
+            ...(sel.model!.variant ? { variant: sel.model!.variant } : {})
+          });
+        }
+        if (sel.agent) {
+          const found = agentsRef.current.find((a) => a.id === sel.agent!.id);
+          setCurrentAgent(found ?? { ...sel.agent! });
+        }
+      });
     });
     return off;
   }, [

@@ -14,6 +14,7 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
 | `ModelOption` | `{ id, providerID, name, variants?, variant? }` | Model picker options + current model/strength selection |
 | `AgentOption` | `{ id, name }` | Agent picker options + current selection |
+| `SessionSelection` | `{ model?: ModelOption, agent?: AgentOption }` | Restores the active session's model/agent picks after a renderer reload |
 | `ApprovalMode` | `"ask" \| "approve"` | Composer permission behavior; approve mode replies `once` automatically |
 | `UserAttachment` | `{ name }` | Attachment chip rendered on a submitted user prompt |
 | `TerminalStartResult` | `{ id }` | PTY id returned by `terminalStart` |

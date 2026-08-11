@@ -45,6 +45,11 @@ export interface AgentOption {
   name: string;
 }
 
+export interface SessionSelection {
+  model?: ModelOption;
+  agent?: AgentOption;
+}
+
 export type ApprovalMode = "ask" | "approve";
 
 export interface UserAttachment {

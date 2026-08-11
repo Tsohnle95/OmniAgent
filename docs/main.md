@@ -46,6 +46,7 @@ Public methods (all used by IPC):
 | `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
 | `switchAgent(id)` | `session.switchAgent`; persists the choice to `settings.json` |
 | `getState()` | `{id, directory}` or null |
+| `sessionSelection()` | `session.get` → `{model?, agent?}` so the UI can restore the session's current picks |
 
 Internals:
 
@@ -100,6 +101,7 @@ Internals:
 | `shell:terminal-stop` | `(id) → void` |
 | `shell:permission-reply` | `(requestID, reply) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
+| `shell:session-selection` | `() → SessionSelection \| null` |
 | `shell:health` | `() → boolean` |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend

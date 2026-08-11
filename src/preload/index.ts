@@ -7,6 +7,7 @@ import type {
   ProjectInfo,
   ReopenedSession,
   SessionInfo,
+  SessionSelection,
   SessionSummary,
   TerminalStartResult
 } from "@shared/types";
@@ -49,6 +50,8 @@ const api = {
   permissionReply: (requestID: string, reply: PermissionReply): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", requestID, reply),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),
+  sessionSelection: (): Promise<SessionSelection | null> =>
+    ipcRenderer.invoke("shell:session-selection"),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health")
 };
 

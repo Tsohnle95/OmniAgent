@@ -133,6 +133,8 @@ function registerIpc(): void {
 
   ipcMain.handle("shell:state", async () => backend.getState());
 
+  ipcMain.handle("shell:session-selection", async () => backend.sessionSelection());
+
   ipcMain.handle("shell:health", async () => backend.connect().catch(() => false));
 }
 
