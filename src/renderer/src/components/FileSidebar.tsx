@@ -148,7 +148,7 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
     startRef.current = { y: e.clientY, height };
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
-      const dy = startRef.current.y - ev.clientY;
+      const dy = ev.clientY - startRef.current.y;
       setHeight(Math.min(520, Math.max(90, startRef.current.height + dy)));
     };
     const up = (): void => {
