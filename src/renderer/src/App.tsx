@@ -101,7 +101,7 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideOpen, setSideOpen] = useState(true);
-  const [sideW, sideDrag] = useDragResize(250, 170, 520, false, sideOpen, () => setSideOpen(true));
+  const [sideW, sideDrag] = useDragResize(250, 170, 520, false, sideOpen, () => setSideOpen(true), () => setSideOpen(false));
   const [agentOpen, setAgentOpen] = useState(true);
   const [agentW, agentDrag] = useDragResize(
     420,
