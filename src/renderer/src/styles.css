@@ -157,17 +157,6 @@ body {
 
 .sidebar-section.explorer { flex: 1; min-height: 0; }
 
-.sidebar-section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px 4px 14px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  color: var(--text-faint);
-}
-
 .sidebar-count {
   background: var(--bg-active);
   border-radius: 8px;
@@ -175,17 +164,17 @@ body {
   font-size: 10px;
 }
 
-.changes-trigger {
+.section-trigger {
   padding: 4px 10px 0 14px;
   flex-shrink: 0;
 }
 
-.changes-toggle {
+.section-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 5px 6px;
+  padding: 5px 0;
   background: none;
   border: none;
   border-radius: 6px;
@@ -199,14 +188,14 @@ body {
   text-align: left;
 }
 
-.changes-toggle:hover, .changes-toggle.open {
+.section-toggle:hover, .section-toggle.open {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.changes-toggle .sidebar-count { margin-left: auto; }
+.section-toggle .push { margin-left: auto; }
 
-.changes-toggle .codicon { font-size: 11px; flex-shrink: 0; }
+.section-toggle .codicon { font-size: 11px; flex-shrink: 0; }
 
 .changes-list {
   flex: 1;

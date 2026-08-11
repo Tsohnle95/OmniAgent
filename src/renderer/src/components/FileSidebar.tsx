@@ -166,6 +166,7 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
 export function FileSidebar(): ReactNode {
   const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(true);
   const [changesH, changesDrag] = useChangesDrag(200);
   const root = tree[""] ?? [];
   const loadedSessionKey = useRef<string | null>(null);
@@ -193,14 +194,14 @@ export function FileSidebar(): ReactNode {
 
       {changes.length > 0 && (
         <>
-          <div className="changes-trigger">
+          <div className="section-trigger">
             <button
-              className={`changes-toggle ${changesOpen ? "open" : ""}`}
+              className={`section-toggle ${changesOpen ? "open" : ""}`}
               aria-expanded={changesOpen}
               onClick={() => setChangesOpen((o) => !o)}
             >
               <span>CHANGES</span>
-              <span className="sidebar-count">{changes.length}</span>
+              <span className="sidebar-count push">{changes.length}</span>
               <span className={`codicon ${changesOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
             </button>
           </div>
@@ -237,21 +238,30 @@ export function FileSidebar(): ReactNode {
         </>
       )}
 
-      <div className="sidebar-section explorer">
-        <div className="sidebar-section-title">
+      <div className="section-trigger">
+        <button
+          className={`section-toggle ${explorerOpen ? "open" : ""}`}
+          aria-expanded={explorerOpen}
+          onClick={() => setExplorerOpen((o) => !o)}
+        >
           <span>EXPLORER</span>
-        </div>
-        <div className="tree">
-          {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
-          {root.map((child) =>
-            child.type === "directory" ? (
-              <DirNode key={child.path} entry={child} depth={0} />
-            ) : (
-              <FileNode key={child.path} entry={child} depth={0} />
-            )
-          )}
-        </div>
+          <span className={`codicon push ${explorerOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
+        </button>
       </div>
+      {explorerOpen && (
+        <div className="sidebar-section explorer">
+          <div className="tree">
+            {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
+            {root.map((child) =>
+              child.type === "directory" ? (
+                <DirNode key={child.path} entry={child} depth={0} />
+              ) : (
+                <FileNode key={child.path} entry={child} depth={0} />
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
