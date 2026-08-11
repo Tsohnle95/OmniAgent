@@ -87,11 +87,6 @@ body {
 .divider {
   cursor: col-resize;
   background: transparent;
-  transition: background 0.15s;
-}
-
-.divider:hover, .divider:active {
-  background: var(--accent-dim);
 }
 
 /* ---------- Sidebar ---------- */
@@ -155,21 +150,6 @@ body {
 }
 
 .activity-btn:hover { background: var(--bg-hover); color: var(--text); }
-
-.activity-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  min-width: 14px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
-}
 
 .icon-btn {
   background: none;
@@ -243,11 +223,6 @@ body {
   background: transparent;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.sidebar-vdivider:hover, .sidebar-vdivider:active {
-  background: var(--accent-dim);
 }
 
 .tree {
@@ -1518,11 +1493,6 @@ body {
   background: transparent;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.tray-divider:hover, .tray-divider:active {
-  background: var(--accent-dim);
 }
 
 .terminal-tray {

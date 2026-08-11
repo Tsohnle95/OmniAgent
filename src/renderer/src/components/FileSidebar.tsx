@@ -192,17 +192,6 @@ export function FileSidebar({
       <div className="sidebar collapsed">
         <button
           className="activity-btn"
-          title={`Changes (${changes.length})`}
-          onClick={() => {
-            setChangesOpen(true);
-            onCollapse(true);
-          }}
-        >
-          <span className="codicon codicon-diff" />
-          {changes.length > 0 && <span className="activity-badge">{changes.length}</span>}
-        </button>
-        <button
-          className="activity-btn"
           title="Explorer"
           onClick={() => {
             setExplorerOpen(true);
@@ -231,49 +220,46 @@ export function FileSidebar({
         </span>
       </div>
 
-      {changes.length > 0 && (
+      <div className="section-trigger">
+        <button
+          className={`section-toggle ${changesOpen ? "open" : ""}`}
+          aria-expanded={changesOpen}
+          onClick={() => setChangesOpen((o) => !o)}
+        >
+          <span>CHANGES</span>
+          <span className="sidebar-count push">{changes.length}</span>
+          <span className={`codicon ${changesOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
+        </button>
+      </div>
+      {changesOpen && (
         <>
-          <div className="section-trigger">
-            <button
-              className={`section-toggle ${changesOpen ? "open" : ""}`}
-              aria-expanded={changesOpen}
-              onClick={() => setChangesOpen((o) => !o)}
-            >
-              <span>CHANGES</span>
-              <span className="sidebar-count push">{changes.length}</span>
-              <span className={`codicon ${changesOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
-            </button>
+          <div className="sidebar-section changes" style={{ height: changesH }}>
+            <div className="changes-list">
+              {changes.length === 0 && <div className="tree-empty">No changes yet</div>}
+              {changes.map(([path, state]) => {
+                const name = path.split("/").pop() ?? path;
+                const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+                return (
+                  <div
+                    key={path}
+                    className={`tree-row file ${state.deleted ? "deleted" : ""}`}
+                    onClick={() => void openFile(path, { mode: "diff" })}
+                    title={path}
+                  >
+                    <FileIcon name={name} isDir={false} />
+                    <span className="tree-name">
+                      {name}
+                      {dir && <span className="tree-dir-suffix"> · {dir}</span>}
+                    </span>
+                    <span className={`tree-meta ${state.deleted ? "deleted" : ""}`}>
+                      {state.deleted ? "deleted" : "modified"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          {changesOpen && (
-            <>
-              <div className="sidebar-section changes" style={{ height: changesH }}>
-                <div className="changes-list">
-                  {changes.map(([path, state]) => {
-                    const name = path.split("/").pop() ?? path;
-                    const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
-                    return (
-                      <div
-                        key={path}
-                        className={`tree-row file ${state.deleted ? "deleted" : ""}`}
-                        onClick={() => void openFile(path, { mode: "diff" })}
-                        title={path}
-                      >
-                        <FileIcon name={name} isDir={false} />
-                        <span className="tree-name">
-                          {name}
-                          {dir && <span className="tree-dir-suffix"> · {dir}</span>}
-                        </span>
-                        <span className={`tree-meta ${state.deleted ? "deleted" : ""}`}>
-                          {state.deleted ? "deleted" : "modified"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="sidebar-vdivider" onMouseDown={changesDrag} title="Drag to resize changes panel" />
-            </>
-          )}
+          <div className="sidebar-vdivider" onMouseDown={changesDrag} title="Drag to resize changes panel" />
         </>
       )}
 

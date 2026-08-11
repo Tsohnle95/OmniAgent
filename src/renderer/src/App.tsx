@@ -55,7 +55,7 @@ function useDragResize(
         return;
       }
 
-      setWidth(Math.min(max, Math.max(min, rawW)));
+      setWidth(Math.min(max, Math.max(onCollapse ? COLLAPSED_PANEL_W : min, rawW)));
     };
     const up = (): void => {
       if (startRef.current) {
