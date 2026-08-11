@@ -648,6 +648,19 @@ function Composer(): ReactNode {
             <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
             <span className="codicon codicon-chevron-down" />
           </button>
+          {currentModel?.variants && currentModel.variants.length > 0 && (
+            <button
+              className={`composer-selector strength ${menu === "model" ? "open" : ""}`}
+              title="Change response strength"
+              onClick={() => {
+                setMenu("model");
+                setModelView("list");
+              }}
+            >
+              <span>{variantLabel}</span>
+              <span className="codicon codicon-chevron-down" />
+            </button>
+          )}
           <button
             className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
             title={voiceActive ? "Stop voice input" : "Use voice input"}

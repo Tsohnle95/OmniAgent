@@ -28,6 +28,17 @@ const SKIP_DIRS = new Set([
   ".svn", ".hg", ".idea", ".vscode", "dist", "out", "build", "target", "coverage", ".pytest_cache"
 ]);
 
+function modelID(model: { id?: string; modelID?: string }): string {
+  return model.id ?? model.modelID ?? "";
+}
+
+function variantIDs(variants: unknown): string[] {
+  if (!Array.isArray(variants)) return [];
+  return variants
+    .map((variant) => typeof variant === "string" ? variant : (variant as { id?: string })?.id ?? "")
+    .filter(Boolean);
+}
+
 function toText(res: unknown): string {
   const d = (res as { data?: unknown })?.data ?? res;
   if (typeof d === "string") return d;
@@ -491,6 +502,7 @@ export class OpenShellBackend {
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
     return (arr as {
       id?: string;
+      modelID?: string;
       title?: string;
       location?: { directory?: string };
       time?: { updated?: number; created?: number };
@@ -536,11 +548,12 @@ export class OpenShellBackend {
     if (!this.client || !this.sessionID) return null;
     const res = await this.client.session.get({ sessionID: this.sessionID }).catch(() => null);
     if (!res) return null;
-    const s = res as { agent?: string; model?: { id?: string; providerID?: string; variant?: string } };
+     const s = res as { agent?: string; model?: { id?: string; modelID?: string; providerID?: string; variant?: string } };
     const out: SessionSelection = {};
     const m = s.model;
-    if (m?.id && m.providerID) {
-      out.model = { id: m.id, providerID: m.providerID, name: m.id, ...(m.variant ? { variant: m.variant } : {}) };
+     const id = m ? modelID(m) : "";
+     if (id && m?.providerID) {
+       out.model = { id, providerID: m.providerID, name: id, ...(m.variant ? { variant: m.variant } : {}) };
     }
     if (s.agent) out.agent = { id: s.agent, name: s.agent };
     return out.model || out.agent ? out : null;
@@ -587,13 +600,11 @@ export class OpenShellBackend {
       variants?: { id?: string }[];
     }[])
       .filter((m) => m.enabled !== false)
-      .map((m) => ({
-        id: m.id ?? "",
-        providerID: m.providerID ?? "",
-        name: m.name ?? m.id ?? "model",
-        variants: Array.isArray(m.variants)
-          ? m.variants.map((variant) => variant.id ?? "").filter(Boolean)
-          : []
+       .map((m) => ({
+         id: modelID(m),
+         providerID: m.providerID ?? "",
+         name: m.name ?? modelID(m) ?? "model",
+         variants: variantIDs(m.variants)
       }))
       .filter((m) => m.id && m.providerID);
   }
@@ -632,21 +643,21 @@ export class OpenShellBackend {
     const data = res as {
       data?: { id?: string; providerID?: string; name?: string; variants?: { id?: string }[]; variant?: string };
     };
-    const m = data?.data ?? (res as {
-      id?: string;
+     const m = data?.data ?? (res as {
+       id?: string;
+       modelID?: string;
       providerID?: string;
       name?: string;
       variants?: { id?: string }[];
       variant?: string;
     });
-    if (!m?.id || !m.providerID) return null;
-    return {
-      id: m.id,
-      providerID: m.providerID,
-      name: m.name ?? m.id,
-      variants: Array.isArray(m.variants)
-        ? m.variants.map((variant) => variant.id ?? "").filter(Boolean)
-        : [],
+     const id = m ? modelID(m) : "";
+     if (!id || !m?.providerID) return null;
+     return {
+       id,
+       providerID: m.providerID,
+       name: m.name ?? id,
+       variants: variantIDs(m.variants),
       ...(m.variant ? { variant: m.variant } : {})
     };
   }
