@@ -33,8 +33,9 @@ npm start          # run the production build
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
 
-See `docs/` for full docs: `architecture.md` (system overview), `events.md`
-(opencode2 event protocol), `operations.md` (run/verify/debug playbook),
+See `docs/` for full docs: `architecture.md` (system overview),
+`walkthrough.md` (guided tour of the connections), `events.md` (opencode2
+event protocol), `operations.md` (run/verify/debug playbook),
 `main.md`, `preload.md`, `renderer.md`, `shared.md`. Open product
 requests live in the README's roadmap section; the actionable working
 queue is `TODO.md` — start a session by reading both.

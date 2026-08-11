@@ -76,6 +76,8 @@ npm start          # run the production build
   conventions any agent must follow.
 - `docs/architecture.md` — system overview: process model, IPC, data flow,
   diff/baseline mechanics.
+- `docs/walkthrough.md` — guided tour of the connections: boot, session,
+  streaming, diffs, and every flow traced across the three processes.
 - `docs/events.md` — the opencode2 event protocol: what the app handles, what
   it ignores, and how tool cards are assembled.
 - `docs/main.md`, `docs/preload.md`, `docs/renderer.md`, `docs/shared.md` —
