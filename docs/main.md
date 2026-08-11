@@ -1,0 +1,84 @@
+# Module: main process
+
+`src/main/index.ts` (window + IPC wiring) and
+`src/main/opencode.ts` (the `OpenShellBackend` — all opencode2 traffic).
+
+This is the only place that imports `@opencode-ai/client`. If the client
+API changes shape, only these two files change.
+
+## OpenShellBackend (`src/main/opencode.ts`)
+
+State:
+
+- `client` — `OpenCode.make()` result, null until connected
+- `sessionID`, `directory` — the active session
+- `snapshots: Map<absPath, baseline>` — per-file diff baselines
+- `lastKnown: Map<absPath, content>` — last content seen by the watcher
+- `watcher` — recursive `fs.watch` on the session directory
+- `hasGit` — lazily probed (`.git` presence), cached tri-state
+- `stopped` — set by `stop()`; the event loop exits
+
+Public methods (all used by IPC):
+
+| Method | Purpose |
+|---|---|
+| `connect()` | `Service.discover()` → `Service.ensure({command:["opencode2","serve","--service"]})` → `OpenCode.make` |
+| `start()` / `stop()` | Start / stop the SSE event loop + watcher |
+| `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
+| `openSession(directory)` | `session.create({location:{directory}})`, resets baselines, starts watcher, emits `{kind:"session"}` |
+| `prompt(text)` | `session.prompt({sessionID, text})` |
+| `interrupt()` | `session.interrupt`, errors swallowed |
+| `replyPermission(requestID, reply)` | `permission.reply`, reply is `"once"|"always"|"reject"` |
+| `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
+| `readFile(rel)` / `writeFile(rel, content)` | read via API, write via Node `fs` (no API write endpoint); write updates snapshots and emits `file-update` |
+| `listProjects()` | `project.list`, maps to `{directory, name}` |
+| `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name}` |
+| `modelDefault()` | `model.default`, maps the same |
+| `switchModel(id, providerID)` | `session.switchModel` |
+| `getState()` | `{id, directory}` or null |
+
+Internals:
+
+- `runEventLoop()` — reconnecting SSE loop; forwards every event as
+  `{kind:"event", type, data}` then runs `handleServerEvent` (see
+  `docs/events.md`).
+- `snapshotInputs(input)` — recursively walks the tool-call input for
+  `filePath`/`file_path`/`path` keys and snapshots those files
+  (skips http URLs, dedupes).
+- `gitShow(rel)` — `git show HEAD:<rel>` with a 10s timeout, 16 MiB
+  buffer; null on any failure.
+- `startWatcher()` / `scheduleWatch(abs)` / `onFsChanged()` — 200ms
+  debounced `fs.watch` pipeline; assigns baselines (snapshot → git →
+  first-seen), compares against `lastKnown`, emits `file-update`.
+- `emitFileUpdate(abs, content, baselineOverride?)` — the single writer
+  of `{kind:"file-update"}` messages.
+- `relKey(abs)` — absolute → `/`-separated path relative to the session
+  dir; `abs(rel)` the inverse. `shouldSkip` filters `SKIP_DIRS` roots.
+
+## IPC surface (`src/main/index.ts`)
+
+| Channel | Args → Returns |
+|---|---|
+| `shell:select-folder` | `() → SessionInfo \| null` (native dialog) |
+| `shell:open-session` | `(dir) → SessionInfo` |
+| `shell:prompt` | `(text) → void` |
+| `shell:interrupt` | `() → void` |
+| `shell:fs-list` | `(rel) → TreeEntry[]` |
+| `shell:fs-read` | `(rel) → string \| null` |
+| `shell:fs-write` | `(rel, content) → void` |
+| `shell:projects` | `() → ProjectInfo[]` |
+| `shell:models` | `() → ModelOption[]` |
+| `shell:model-default` | `() → ModelOption \| null` |
+| `shell:switch-model` | `(id, providerID) → void` |
+| `shell:permission-reply` | `(requestID, reply) → void` |
+| `shell:state` | `() → SessionInfo \| null` |
+| `shell:health` | `() → boolean` |
+
+Outbound: `webContents.send("shell:message", msg)` for every backend
+message. External links open via `shell.openExternal`. The window is
+`contextIsolation: true`, `nodeIntegration: false`, macOS
+`titleBarStyle: "hiddenInset"`.
+
+Startup (`app.whenReady`): connect → `start()` → register IPC →
+`createWindow()`. On `window-all-closed`: `backend.stop()`; on non-darwin
+also quits. On macOS activate: re-creates the window.

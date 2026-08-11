@@ -55,6 +55,17 @@ npm install
 npm run dev        # electron-vite dev with HMR
 ```
 
+## Documentation
+
+- `AGENTS.md` — the project brain: what this is, how it's organized, and
+  the conventions any agent must follow. Read this first.
+- `docs/architecture.md` — system overview: process model, IPC, data flow,
+  diff/baseline mechanics.
+- `docs/events.md` — the opencode2 event protocol: what the app handles,
+  what it ignores, and how tool cards are assembled.
+- `docs/main.md`, `docs/preload.md`, `docs/renderer.md`, `docs/shared.md` —
+  per-module references. Each is self-contained.
+
 ## Build
 
 ```sh

@@ -1,0 +1,70 @@
+# OpenShell — Agent Guide
+
+OpenShell is a VS Code-style desktop GUI for the opencode2 agent: an
+Electron + React + Monaco app that opens a repository, sends prompts to
+opencode2, streams the agent's progress, and shows live per-file diffs of
+everything the agent changed.
+
+Read this file first. For depth, read the module docs — each one is
+self-contained so you never need to crawl the whole repo.
+
+## Quick start
+
+```sh
+npm install
+npm run dev        # electron-vite dev with HMR
+npm run typecheck  # tsc --noEmit for node + web configs
+npm run build      # electron-vite build -> out/
+npm start          # run the production build
+```
+
+`opencode2` must be on PATH (or an opencode service already running).
+
+## Module map
+
+| Area | Path | Role |
+|---|---|---|
+| Main process | `src/main/index.ts` | Window, IPC handlers, backend wiring |
+| Backend | `src/main/opencode.ts` | All opencode2 API traffic, session state, fs watching, baselines |
+| Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
+| Renderer store | `src/renderer/src/store.tsx` | All UI state; subscribes to backend events |
+| Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panel, welcome |
+| Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
+| Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
+
+See `docs/` for full docs: `architecture.md` (system overview), `events.md`
+(opencode2 event protocol), `main.md`, `preload.md`, `renderer.md`,
+`shared.md`.
+
+## Architecture in one paragraph
+
+The Electron **main process** is the only thing that talks to opencode2
+(`@opencode-ai/client`). It spawns/connects to the service, creates a
+session for the opened directory, and runs an SSE event loop that forwards
+every server event to the renderer over IPC. The **renderer** (React) keeps
+all UI state in one store and renders a three-pane layout: file tree,
+Monaco editor with an Edit/Diff toggle, and the streaming agent panel. The
+main process also watches the repo with `fs.watch`; every change streams a
+`{baseline, content}` update so the diff view is always exactly what the
+agent changed this session.
+
+## Conventions (follow these)
+
+- **No code comments.** Code must be self-explanatory; put knowledge in
+  `docs/` instead.
+- TypeScript strict; shared shapes live in `src/shared/types.ts` and are
+  imported as `@shared/types` (alias configured in the tsconfigs and
+  `electron.vite.config.ts`).
+- IPC channels are named `shell:*`; backend messages to the renderer are
+  `{ kind: "event" | "file-update" | "session", ... }` (see
+  `src/shared/types.ts`).
+- All opencode2 API calls are isolated in `src/main/opencode.ts` — if the
+  client API shape changes, only that file changes.
+- Tree paths are relative to the session directory, always `/`-separated,
+  no trailing slashes.
+- Everything under `out/`, `node_modules/`, `*.tsbuildinfo` is gitignored.
+
+## Definition of done
+
+After any change: `npm run typecheck` clean, `npm run build` succeeds.
+Commit buildable state; never commit a broken build.
