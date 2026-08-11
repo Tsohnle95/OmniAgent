@@ -502,17 +502,6 @@ function Composer(): ReactNode {
         </div>
       )}
       <div className="composer-body">
-        <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
-          <span className="codicon codicon-add" />
-        </button>
-        <button
-          className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
-          aria-pressed={approvalMode === "approve"}
-          title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
-          onClick={toggleApprovalMode}
-        >
-          <span className="codicon codicon-shield" />
-        </button>
         <textarea
           ref={inputRef}
           className="composer-input"
@@ -531,42 +520,55 @@ function Composer(): ReactNode {
             }
           }}
         />
-        <button
-          className={`composer-selector ${menu === "agent" ? "open" : ""}`}
-          title="Change agent"
-          onClick={() => setMenu(menu === "agent" ? null : "agent")}
-        >
-          <span className="codicon codicon-git-branch" />
-          <span>{currentAgent?.name ?? "Agent"}</span>
-          <span className="codicon codicon-chevron-down" />
-        </button>
-        <button
-          className={`composer-selector model ${menu === "model" ? "open" : ""}`}
-          title="Change model and response strength"
-          onClick={() => {
-            setMenu(menu === "model" ? null : "model");
-            if (menu !== "model") setModelView("list");
-          }}
-        >
-          <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
-          <span className="codicon codicon-chevron-down" />
-        </button>
-        <button
-          className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
-          title={voiceActive ? "Stop voice input" : "Use voice input"}
-          aria-pressed={voiceActive}
-          onClick={toggleVoice}
-        >
-          <span className="codicon codicon-mic" />
-        </button>
-        {busy && (
-          <button className="composer-icon-button stop" title="Stop the agent" onClick={() => void stop()}>
-            <span className="codicon codicon-stop" />
+        <div className="composer-actions">
+          <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
+            <span className="codicon codicon-add" />
           </button>
-        )}
-        <button className="composer-send" title={canSend ? "Send (Enter)" : "Type a prompt first"} disabled={!canSend} onClick={send}>
-          <span className="codicon codicon-arrow-up" />
-        </button>
+          <button
+            className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
+            aria-pressed={approvalMode === "approve"}
+            title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
+            onClick={toggleApprovalMode}
+          >
+            <span className="codicon codicon-shield" />
+          </button>
+          <button
+            className={`composer-selector ${menu === "agent" ? "open" : ""}`}
+            title="Change agent"
+            onClick={() => setMenu(menu === "agent" ? null : "agent")}
+          >
+            <span className="codicon codicon-git-branch" />
+            <span>{currentAgent?.name ?? "Agent"}</span>
+            <span className="codicon codicon-chevron-down" />
+          </button>
+          <button
+            className={`composer-selector model ${menu === "model" ? "open" : ""}`}
+            title="Change model and response strength"
+            onClick={() => {
+              setMenu(menu === "model" ? null : "model");
+              if (menu !== "model") setModelView("list");
+            }}
+          >
+            <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
+            <span className="codicon codicon-chevron-down" />
+          </button>
+          <button
+            className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
+            title={voiceActive ? "Stop voice input" : "Use voice input"}
+            aria-pressed={voiceActive}
+            onClick={toggleVoice}
+          >
+            <span className="codicon codicon-mic" />
+          </button>
+          {busy && (
+            <button className="composer-icon-button stop" title="Stop the agent" onClick={() => void stop()}>
+              <span className="codicon codicon-stop" />
+            </button>
+          )}
+          <button className="composer-send" title={canSend ? "Send (Enter)" : "Type a prompt first"} disabled={!canSend} onClick={send}>
+            <span className="codicon codicon-arrow-up" />
+          </button>
+        </div>
       </div>
 
       {notice && <div className="composer-notice">{notice}</div>}
