@@ -739,7 +739,7 @@ function Composer(): ReactNode {
 }
 
 export function AgentPanel(): ReactNode {
-  const { session, busy, transcript } = useStore();
+  const { busy, transcript } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -767,11 +767,6 @@ export function AgentPanel(): ReactNode {
       <div className="agent-header">
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
         <span className="agent-title">Agent</span>
-        {session && (
-          <span className="agent-session" title={session.id}>
-            {session.id}
-          </span>
-        )}
       </div>
 
       <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>

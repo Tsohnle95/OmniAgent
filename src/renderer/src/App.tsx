@@ -75,20 +75,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, sideDrag] = useDragResize(250, 170, 520);
   const [agentW, agentDrag] = useDragResize(420, 300, 760, true);
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
-  const { session, busy } = useStore();
 
   return (
     <div className={`app ${trayOpen ? "tray-open" : ""}`}>
       <div className="titlebar">
         <span className="titlebar-title">OpenShell</span>
-        {session && (
-          <span className="titlebar-dir" title={session.directory}>
-            {session.directory}
-          </span>
-        )}
-        <span className={`titlebar-status ${busy ? "busy" : ""}`}>
-          {busy ? "● working" : session ? "○ idle" : "no session"}
-        </span>
         <span className="titlebar-actions">
           <button
             className={`icon-btn ${trayOpen ? "on" : ""}`}

@@ -70,24 +70,6 @@ body {
   color: var(--text);
 }
 
-.titlebar-dir {
-  color: var(--text-dim);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.titlebar-status {
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.titlebar-status.busy {
-  color: var(--green);
-}
-
 .titlebar-actions {
   display: flex;
   align-items: center;
@@ -468,16 +450,6 @@ body {
 }
 
 .agent-title { font-weight: 600; }
-
-.agent-session {
-  margin-left: auto;
-  font-size: 10.5px;
-  color: var(--text-faint);
-  font-family: monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .agent-scroll {
   flex: 1;
