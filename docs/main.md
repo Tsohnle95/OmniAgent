@@ -117,9 +117,9 @@ over the same `shell:message` channel. `before-input-event` intercepts
 `{kind:"ui-command", command:"toggle-word-wrap"}` to the renderer instead
 (the user's muscle memory maps ⌘W to word wrap, and the window must never
 die on it). DevTools follow the browser conventions: F12 toggles the
-inspector and ⌘⇧C (Ctrl+Shift+C) opens it already focused on the element
-under the cursor (via `inspectElement` at the pointer's content
-coordinates).
+inspector and ⌘⇧C (Ctrl+Shift+C) opens it in element-picking mode. The next
+left click in the app is intercepted and passed to `inspectElement` using the
+mouse event's content coordinates, which also works when DevTools is detached.
 
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is

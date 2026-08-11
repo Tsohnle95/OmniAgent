@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "node:path";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
@@ -28,6 +28,7 @@ function createWindow(): BrowserWindow {
     }
   });
   win = newWin;
+  let inspectOnNextClick = false;
 
   newWin.on("closed", () => {
     if (win === newWin) win = null;
@@ -52,18 +53,20 @@ function createWindow(): BrowserWindow {
     }
     if (input.type === "keyDown" && mod && input.shift && !input.alt && input.key.toLowerCase() === "c") {
       event.preventDefault();
-      const inspectAtCursor = (): void => {
-        const cursor = screen.getCursorScreenPoint();
-        const bounds = newWin.getContentBounds();
-        newWin.webContents.inspectElement(cursor.x - bounds.x, cursor.y - bounds.y);
-      };
+      inspectOnNextClick = true;
       if (newWin.webContents.isDevToolsOpened()) {
-        inspectAtCursor();
+        newWin.webContents.focus();
       } else {
-        newWin.webContents.openDevTools();
-        newWin.webContents.once("devtools-opened", inspectAtCursor);
+        newWin.webContents.openDevTools({ mode: "detach" });
       }
     }
+  });
+
+  newWin.webContents.on("before-mouse-event", (event, mouse) => {
+    if (!inspectOnNextClick || mouse.type !== "mouseDown" || mouse.button !== "left") return;
+    inspectOnNextClick = false;
+    event.preventDefault();
+    newWin.webContents.inspectElement(mouse.x, mouse.y);
   });
 
   if (process.env["ELECTRON_RENDERER_URL"]) {
