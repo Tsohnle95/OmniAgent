@@ -4,7 +4,11 @@ import { Welcome } from "./components/Welcome";
 import { FileSidebar } from "./components/FileSidebar";
 import { EditorPane } from "./components/EditorPane";
 import { AgentPanel } from "./components/AgentPanel";
+import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
+
+const SIDE_COLLAPSED_W = 44;
+const AGENT_TRAY_W = 150;
 
 function useDragResize(
   initial: number,
@@ -40,6 +44,7 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
   const [open, setOpen] = useState(false);
   const [height, setHeight] = useState(240);
   const startRef = useRef<{ y: number; height: number } | null>(null);
+  const belowThresholdRef = useRef(false);
 
   const onDrag = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -48,17 +53,18 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
       if (!startRef.current) return;
       const dy = startRef.current.y - ev.clientY;
       const h = startRef.current.height + dy;
-      if (h < 26) {
-        setOpen(false);
-        window.removeEventListener("mousemove", move);
-        window.removeEventListener("mouseup", up);
-        return;
-      }
-      setHeight(Math.min(520, Math.max(34, h)));
-      setOpen(true);
+      belowThresholdRef.current = h < 26;
+      setHeight(Math.min(520, Math.max(26, h)));
     };
     const up = (): void => {
-      startRef.current = null;
+      if (startRef.current) {
+        startRef.current = null;
+        if (belowThresholdRef.current) {
+          setHeight(240);
+          setOpen(false);
+        }
+      }
+      belowThresholdRef.current = false;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
@@ -73,8 +79,17 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, sideDrag] = useDragResize(250, 170, 520);
+  const [sideOpen, setSideOpen] = useState(true);
   const [agentW, agentDrag] = useDragResize(420, 300, 760, true);
+  const [agentOpen, setAgentOpen] = useState(true);
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
+
+  const cols = [
+    sideOpen ? `${sideW}px` : `${SIDE_COLLAPSED_W}px`,
+    ...(sideOpen ? ["8px"] : []),
+    "minmax(0,1fr)",
+    ...(agentOpen ? ["8px", `${agentW}px`] : [`${AGENT_TRAY_W}px`])
+  ].join(" ");
 
   return (
     <div className={`app ${trayOpen ? "tray-open" : ""}`}>
@@ -91,12 +106,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </span>
       </div>
 
-      <div className="main-row" style={{ gridTemplateColumns: `${sideW}px 8px minmax(0,1fr) 8px ${agentW}px` }}>
-        <FileSidebar />
-        <div className="divider" onMouseDown={sideDrag} />
+      <div className="main-row" style={{ gridTemplateColumns: cols }}>
+        <FileSidebar collapsed={!sideOpen} onCollapse={setSideOpen} />
+        {sideOpen && <div className="divider" onMouseDown={sideDrag} />}
         <EditorPane />
-        <div className="divider" onMouseDown={agentDrag} />
-        <AgentPanel />
+        {agentOpen ? (
+          <>
+            <div className="divider" onMouseDown={agentDrag} />
+            <AgentPanel onCollapse={() => setAgentOpen(false)} />
+          </>
+        ) : (
+          <AgentTray onExpand={() => setAgentOpen(true)} />
+        )}
       </div>
 
       {trayOpen && (

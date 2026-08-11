@@ -134,7 +134,8 @@ macOS, `$SHELL` elsewhere) in the session directory and forwards PTY
 output to the renderer as `terminal-data` messages; keystrokes go back
 via `shell:terminal-input`. Resizes are handled with the xterm `fit`
 addon + `shell:terminal-resize`. The tray is toggled from the titlebar
-(⌥O) and its height is drag-resizable.
+(⌥O), its height is drag-resizable, and dragging the divider to the
+window bottom closes it on mouse release rather than mid-drag.
 
 ## Permissions
 

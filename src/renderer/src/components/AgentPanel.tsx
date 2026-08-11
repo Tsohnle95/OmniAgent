@@ -738,7 +738,7 @@ function Composer(): ReactNode {
   );
 }
 
-export function AgentPanel(): ReactNode {
+export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNode {
   const { busy, transcript } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
@@ -767,6 +767,9 @@ export function AgentPanel(): ReactNode {
       <div className="agent-header">
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
         <span className="agent-title">Agent</span>
+        <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
+          »
+        </button>
       </div>
 
       <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>

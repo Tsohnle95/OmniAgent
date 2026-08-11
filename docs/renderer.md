@@ -60,11 +60,12 @@ Key mechanisms:
 
 | Component | File | Role |
 |---|---|---|
-| `App` | `App.tsx` | Layout: titlebar + 3-pane grid (`useDragResize`; `minmax(0,1fr)` center so panels never overflow) + optional bottom tray; titlebar shows a tray toggle and busy/idle status; word-wrap shortcuts (⌘W intercepted in main, ⌥Z via `e.code`); darwin class for the traffic-light inset |
+| `App` | `App.tsx` | Layout: titlebar + 3-pane grid (`useDragResize`; `minmax(0,1fr)` center so panels never overflow) + optional bottom tray; left panel collapses to a 44px activity bar, right panel to a 150px agent tray (model indicator); titlebar shows a tray toggle and busy/idle status; word-wrap shortcuts (⌘W intercepted in main, ⌥Z via `e.code`); darwin class for the traffic-light inset |
 | `Welcome` | `Welcome.tsx` | Folder pick + recent projects (`projects()`) |
-| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree with VS Code-style codicon file/folder icons and per-level indent guide lines (`.tree-children` wrappers) |
+| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel (agent-touched files, click → diff) as a drag-resizable bottom section with folder context in rows, + EXPLORER tree with VS Code-style codicon file/folder icons and per-level indent guide lines (`.tree-children` wrappers); collapses to an activity bar of Changes/Explorer icon buttons |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles with attachment chips, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines) + integrated composer: neutral prompt placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, circular send button, and smart auto-scroll |
+| `AgentPanel` | `AgentPanel.tsx` | Transcript (user bubbles with attachment chips, assistant markdown + collapsible thinking, compact tool cards, permission cards, status lines) + integrated composer: neutral prompt placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, circular send button, and smart auto-scroll; collapse button in the header |
+| `AgentTray` | `AgentTray.tsx` | Shown when the agent panel is collapsed: busy dot + model-name button that expands the panel back |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
 
 Tool cards (`ToolCard`): show status spinner/check/cross, per-tool icon,
@@ -80,7 +81,9 @@ Terminal input flows: keystrokes → `terminalInput(id, data)`; output
 streams back via `onMessage` (`terminal-data`). The xterm `fit` addon +
 `ResizeObserver` keep the PTY dimensions in sync (`terminalResize`).
 The tray is toggled from the titlebar (⌥O) and drag-resized via the
-`tray-divider`.
+`tray-divider`. Dragging the divider down to the bottom of the window
+shrinks the tray to a 26px minimum and closes it only when the mouse is
+released at that collapsed position.
 
 ## Monaco (`monaco.ts`)
 

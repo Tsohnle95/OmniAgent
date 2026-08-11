@@ -163,7 +163,13 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
   return [height, onMouseDown];
 }
 
-export function FileSidebar(): ReactNode {
+export function FileSidebar({
+  collapsed,
+  onCollapse
+}: {
+  collapsed: boolean;
+  onCollapse: (open: boolean) => void;
+}): ReactNode {
   const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -181,15 +187,48 @@ export function FileSidebar(): ReactNode {
 
   const changes = [...agentFiles.entries()];
 
+  if (collapsed) {
+    return (
+      <div className="sidebar collapsed">
+        <button
+          className="activity-btn"
+          title={`Changes (${changes.length})`}
+          onClick={() => {
+            setChangesOpen(true);
+            onCollapse(true);
+          }}
+        >
+          <span className="codicon codicon-diff" />
+          {changes.length > 0 && <span className="activity-badge">{changes.length}</span>}
+        </button>
+        <button
+          className="activity-btn"
+          title="Explorer"
+          onClick={() => {
+            setExplorerOpen(true);
+            onCollapse(true);
+          }}
+        >
+          <span className="codicon codicon-files" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-title" title={session?.directory}>
           {session?.directory.split("/").filter(Boolean).pop() ?? "workspace"}
         </span>
-        <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
-          ⧉
-        </button>
+        <span className="sidebar-header-actions">
+          <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
+            «
+          </button>
+          <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
+            ⧉
+          </button>
+        </span>
       </div>
 
       {changes.length > 0 && (
