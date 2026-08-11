@@ -138,6 +138,13 @@ function registerIpc(): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  process.on("uncaughtException", (err) => {
+    console.error("uncaughtException:", err);
+  });
+  process.on("unhandledRejection", (reason) => {
+    console.error("unhandledRejection:", reason);
+  });
+
   app.on("second-instance", () => {
     if (!win) {
       createWindow();
