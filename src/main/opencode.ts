@@ -4,7 +4,7 @@ import { watch, type FSWatcher } from "node:fs";
 import path from "node:path";
 import { OpenCode } from "@opencode-ai/client";
 import { Service } from "@opencode-ai/client/service";
-import type { PermissionReply, ProjectInfo, SessionInfo, TreeEntry } from "@shared/types";
+import type { PermissionReply, ProjectInfo, SessionInfo, TreeEntry, ModelOption } from "@shared/types";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -289,6 +289,30 @@ export class OpenShellBackend {
   async interrupt(): Promise<void> {
     if (!this.client || !this.sessionID) return;
     await this.client.session.interrupt({ sessionID: this.sessionID }).catch(() => {});
+  }
+
+  async listModels(): Promise<ModelOption[]> {
+    if (!this.client) return [];
+    const res = await this.client.model.list(
+      this.directory ? { location: { directory: this.directory } } : undefined
+    );
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as { id?: string; providerID?: string; name?: string; enabled?: boolean }[])
+      .filter((m) => m.enabled !== false)
+      .map((m) => ({
+        id: m.id ?? "",
+        providerID: m.providerID ?? "",
+        name: m.name ?? m.id ?? "model"
+      }))
+      .filter((m) => m.id && m.providerID);
+  }
+
+  async switchModel(id: string, providerID: string): Promise<void> {
+    if (!this.client || !this.sessionID) throw new Error("no active session");
+    await this.client.session.switchModel({
+      sessionID: this.sessionID,
+      model: { id, providerID }
+    });
   }
 
   async replyPermission(requestID: string, reply: PermissionReply): Promise<void> {

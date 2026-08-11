@@ -20,6 +20,12 @@ export interface ProjectInfo {
   name: string;
 }
 
+export interface ModelOption {
+  id: string;
+  providerID: string;
+  name: string;
+}
+
 export type PermissionReply = "once" | "always" | "reject";
 
 export interface ToolCallView {
@@ -27,6 +33,7 @@ export interface ToolCallView {
   title: string;
   detail: string;
   status: "running" | "success" | "failed";
+  input?: string;
   output?: string;
 }
 

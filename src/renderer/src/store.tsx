@@ -11,9 +11,11 @@ import {
 import type {
   AgentFileState,
   BackendMessage,
+  ModelOption,
   PermissionReply,
   SessionInfo,
   Tab,
+  ToolCallView,
   TranscriptItem,
   TreeEntry
 } from "@shared/types";
@@ -35,10 +37,14 @@ interface Store {
   tree: Record<string, TreeEntry[]>;
   expanded: Set<string>;
   toasts: Toast[];
+  models: ModelOption[];
+  currentModel: ModelOption | null;
   openSession: (dir: string) => Promise<void>;
   selectFolder: () => Promise<void>;
   sendPrompt: (text: string) => Promise<void>;
   stop: () => Promise<void>;
+  loadModels: () => Promise<void>;
+  switchModel: (id: string, providerID: string) => Promise<void>;
   openFile: (path: string, opts?: { mode?: "edit" | "diff" }) => Promise<void>;
   closeTab: (path: string) => void;
   setActive: (path: string) => void;
@@ -75,7 +81,14 @@ function filterEntries(entries: TreeEntry[]): TreeEntry[] {
 function toolTitle(input: unknown): string {
   if (!input || typeof input !== "object") return "tool";
   const o = input as Record<string, unknown>;
-  return typeof o.tool === "string" ? o.tool : typeof o.name === "string" ? o.name : "tool";
+  if (typeof o.tool === "string" && o.tool) return o.tool;
+  if (typeof o.name === "string" && o.name) return o.name;
+  if ("command" in o) return "bash";
+  if ("filePath" in o || "file_path" in o) return "file";
+  if ("query" in o) return "search";
+  if ("url" in o) return "web";
+  if ("prompt" in o) return "prompt";
+  return "tool";
 }
 
 function toolDetail(input: unknown): string {
@@ -118,6 +131,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [tree, setTree] = useState<Record<string, TreeEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [currentModel, setCurrentModel] = useState<ModelOption | null>(null);
 
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;
@@ -126,6 +141,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const expectedRef = useRef<Map<string, string>>(new Map());
   const lastAssistantRef = useRef<string | null>(null);
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const toolNamesRef = useRef<Map<string, string>>(new Map());
+  const toolInputsRef = useRef<Map<string, string>>(new Map());
+  const modelsRef = useRef<ModelOption[]>([]);
+  modelsRef.current = models;
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -145,6 +164,53 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     lastAssistantRef.current = null;
   }, []);
 
+  const loadModels = useCallback(async () => {
+    try {
+      const list = await window.openshell.models();
+      setModels(list);
+      setCurrentModel((cur) => {
+        if (!cur) return null;
+        return (
+          list.find((m) => m.id === cur.id && m.providerID === cur.providerID) ??
+          cur
+        );
+      });
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [toast]);
+
+  const switchModel = useCallback(
+    async (id: string, providerID: string) => {
+      try {
+        await window.openshell.switchModel(id, providerID);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [toast]
+  );
+
+  const upsertTool = useCallback((id: string, patch: Partial<ToolCallView>) => {
+    setTranscript((prev) => {
+      const idx = prev.findIndex((i) => i.kind === "tool" && i.tool.id === id);
+      if (idx === -1) {
+        return [
+          ...prev,
+          {
+            kind: "tool",
+            tool: { id, title: "tool", detail: "", status: "running", ...patch }
+          }
+        ];
+      }
+      return prev.map((item) =>
+        item.kind === "tool" && item.tool.id === id
+          ? { ...item, tool: { ...item.tool, ...patch } }
+          : item
+      );
+    });
+  }, []);
+
   const openSession = useCallback(
     async (dir: string) => {
       try {
@@ -152,11 +218,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         resetAll();
         setSession(info);
         toast(`Opened ${info.directory}`);
+        void loadModels();
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast]
+    [resetAll, toast, loadModels]
   );
 
   const selectFolder = useCallback(async () => {
@@ -166,11 +233,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         resetAll();
         setSession(info);
         toast(`Opened ${info.directory}`);
+        void loadModels();
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [resetAll, toast]);
+  }, [resetAll, toast, loadModels]);
 
   const sendPrompt = useCallback(
     async (text: string) => {
@@ -356,6 +424,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (msg.kind === "session") {
         setSession(msg.session ?? null);
         resetAll();
+        if (msg.session) void loadModels();
         return;
       }
       if (msg.kind === "file-update") {
@@ -492,14 +561,33 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           );
           break;
         }
+        case "session.tool.input.started": {
+          const id = String(data.id);
+          const name = String(data.name ?? "");
+          if (name) toolNamesRef.current.set(id, name);
+          upsertTool(id, { title: name || "tool" });
+          break;
+        }
+        case "session.tool.input.delta": {
+          const id = String(data.id);
+          const delta = String(data.delta ?? "");
+          if (!delta) break;
+          const acc = (toolInputsRef.current.get(id) ?? "") + delta;
+          toolInputsRef.current.set(id, acc);
+          upsertTool(id, { input: acc });
+          break;
+        }
         case "session.tool.called": {
           const input = data.input;
-          const title = toolTitle(input);
+          const id = String(data.id);
+          const name = toolNamesRef.current.get(id);
+          const title = name ?? toolTitle(input);
           const detail = toolDetail(input);
-          setTranscript((prev) => [
-            ...prev,
-            { kind: "tool", tool: { id: String(data.id), title, detail, status: "running" } }
-          ]);
+          upsertTool(id, {
+            title,
+            status: "running",
+            ...(detail ? { detail } : {})
+          });
           break;
         }
         case "session.tool.success":
@@ -507,13 +595,18 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           const id = String(data.id);
           const ok = type === "session.tool.success";
           const output = ok ? outputSummary(data.output) : outputSummary(data.error ?? "Tool failed");
-          setTranscript((prev) =>
-            prev.map((item) =>
-              item.kind === "tool" && item.tool.id === id
-                ? { ...item, tool: { ...item.tool, status: ok ? "success" : "failed", output } }
-                : item
-            )
-          );
+          upsertTool(id, { status: ok ? "success" : "failed", output });
+          break;
+        }
+        case "session.model.selected": {
+          const model = data.model as { id?: string; providerID?: string; variant?: string } | undefined;
+          if (model?.id && model.providerID) {
+            setCurrentModel(
+              modelsRef.current.find(
+                (m) => m.id === model.id && m.providerID === model.providerID
+              ) ?? { id: model.id, providerID: model.providerID, name: model.id }
+            );
+          }
           break;
         }
         case "session.status": {
@@ -564,7 +657,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (s) setSession(s);
     });
     return off;
-  }, [session, resetAll]);
+  }, [session, resetAll, loadModels, upsertTool]);
 
   const value = useMemo<Store>(
     () => ({
@@ -578,10 +671,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       tree,
       expanded,
       toasts,
+      models,
+      currentModel,
       openSession,
       selectFolder,
       sendPrompt,
       stop,
+      loadModels,
+      switchModel,
       openFile,
       closeTab,
       setActive,
@@ -593,7 +690,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }),
     [
       session, connected, busy, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
-      openSession, selectFolder, sendPrompt, stop, openFile, closeTab, setActive, setTabMode,
+      models, currentModel,
+      openSession, selectFolder, sendPrompt, stop, loadModels, switchModel,
+      openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, toggleDir, replyPermission
     ]
   );

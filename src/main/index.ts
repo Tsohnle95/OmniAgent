@@ -62,6 +62,12 @@ function registerIpc(): void {
 
   ipcMain.handle("shell:projects", async () => backend.listProjects());
 
+  ipcMain.handle("shell:models", async () => backend.listModels());
+
+  ipcMain.handle("shell:switch-model", async (_e, id: string, providerID: string) =>
+    backend.switchModel(id, providerID)
+  );
+
   ipcMain.handle("shell:permission-reply", async (_e, requestID: string, reply: PermissionReply) =>
     backend.replyPermission(requestID, reply)
   );

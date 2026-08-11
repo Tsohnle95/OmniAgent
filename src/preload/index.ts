@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { BackendMessage, PermissionReply, ProjectInfo, SessionInfo } from "@shared/types";
+import type { BackendMessage, ModelOption, PermissionReply, ProjectInfo, SessionInfo } from "@shared/types";
 
 const api = {
   onMessage: (cb: (msg: BackendMessage) => void): (() => void) => {
@@ -17,6 +17,9 @@ const api = {
   writeFile: (rel: string, content: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-write", rel, content),
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
+  models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
+  switchModel: (id: string, providerID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:switch-model", id, providerID),
   permissionReply: (requestID: string, reply: PermissionReply): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", requestID, reply),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),

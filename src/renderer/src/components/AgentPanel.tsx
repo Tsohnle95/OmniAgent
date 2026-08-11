@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import type { TranscriptItem } from "@shared/types";
 
 const OUTPUT_LIMIT = 6000;
+const INPUT_LIMIT = 3000;
 
 function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> }): ReactNode {
   const [open, setOpen] = useState(false);
@@ -12,6 +13,7 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
   const output = tool.output ?? "";
   const showOutput = output.length > 0;
   const truncated = output.length > OUTPUT_LIMIT;
+  const input = tool.input ?? "";
 
   return (
     <div className={`tool-card ${tool.status}`}>
@@ -24,6 +26,11 @@ function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> })
         <span className="tool-title">{tool.title}</span>
       </div>
       {tool.detail && <div className="tool-detail">{tool.detail}</div>}
+      {input.length > 0 && (
+        <pre className="tool-input">
+          {input.length > INPUT_LIMIT ? `…${input.slice(-INPUT_LIMIT)}` : input}
+        </pre>
+      )}
       {showOutput && (
         <button className="tool-output-toggle" onClick={() => setOpen((o) => !o)}>
           {open ? "hide output" : "show output"}
@@ -108,11 +115,25 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): ReactNode {
   }
 }
 
+function useElapsed(running: boolean): number {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!running) {
+      setSecs(0);
+      return;
+    }
+    const t = setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+  return secs;
+}
+
 export function AgentPanel(): ReactNode {
-  const { session, busy, transcript, sendPrompt, stop } = useStore();
+  const { session, busy, transcript, models, currentModel, switchModel, sendPrompt, stop } = useStore();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const secs = useElapsed(busy);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -131,6 +152,24 @@ export function AgentPanel(): ReactNode {
       <div className="agent-header">
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
         <span className="agent-title">Agent</span>
+        {session && models.length > 0 && (
+          <select
+            className="agent-model"
+            title="Model"
+            value={currentModel ? `${currentModel.id}::${currentModel.providerID}` : ""}
+            onChange={(e) => {
+              const [id, providerID] = e.target.value.split("::");
+              if (id && providerID) void switchModel(id, providerID);
+            }}
+          >
+            {!currentModel && <option value="">Choose model…</option>}
+            {models.map((m) => (
+              <option key={`${m.id}::${m.providerID}`} value={`${m.id}::${m.providerID}`}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        )}
         {session && (
           <span className="agent-session" title={session.id}>
             {session.id}
@@ -159,7 +198,11 @@ export function AgentPanel(): ReactNode {
       </div>
 
       <div className="agent-input-wrap">
-        {busy && <div className="agent-busy-line"><span className="spinner" /> working…</div>}
+        {busy && (
+          <div className="agent-busy-line">
+            <span className="spinner" /> working… {secs > 0 ? `${secs}s` : ""}
+          </div>
+        )}
         <textarea
           ref={inputRef}
           className="agent-input"

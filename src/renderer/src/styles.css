@@ -396,6 +396,20 @@ body {
 
 .agent-title { font-weight: 600; }
 
+.agent-model {
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11.5px;
+  padding: 2px 4px;
+  max-width: 180px;
+  outline: none;
+  cursor: pointer;
+}
+
+.agent-model:hover { border-color: var(--accent-dim); }
+
 .agent-session {
   margin-left: auto;
   font-size: 10.5px;
@@ -525,6 +539,20 @@ body {
   cursor: pointer;
   padding: 3px 0 0;
   text-decoration: underline;
+}
+
+.tool-input {
+  margin: 6px 0 0;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--accent);
+  border-left: 2px solid var(--accent-dim);
 }
 
 .tool-output {
