@@ -55,6 +55,7 @@
 .agent-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -107,13 +108,31 @@
 
 .assistant-bubble {
   max-width: 100%;
+  min-width: 0;
   background: #1e1e24;
   border: 1px solid #2f2f37;
   border-radius: 16px 16px 16px 4px;
   padding: 10px 14px;
 }
 
-.assistant-md { line-height: 1.5; }
+.assistant-md {
+  line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.assistant-md table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.assistant-md th, .assistant-md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+}
 .assistant-md p { margin: 0 0 8px; }
 .assistant-md p:last-child { margin-bottom: 0; }
 .assistant-md pre {
