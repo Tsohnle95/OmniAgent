@@ -119,6 +119,16 @@ function registerIpc(): void {
     backend.writeFile(rel, content)
   );
 
+  ipcMain.handle("shell:fs-create-file", async (_e, rel: string) => backend.createFile(rel));
+
+  ipcMain.handle("shell:fs-create-dir", async (_e, rel: string) => backend.createDir(rel));
+
+  ipcMain.handle("shell:fs-delete", async (_e, rel: string) => backend.deletePath(rel));
+
+  ipcMain.handle("shell:fs-rename", async (_e, rel: string, newName: string) =>
+    backend.renamePath(rel, newName)
+  );
+
   ipcMain.handle("shell:projects", async () => backend.listProjects());
 
   ipcMain.handle("shell:models", async () => backend.listModels());

@@ -24,6 +24,10 @@ automatically.
 | `listDir(rel)` | `Promise<TreeEntry[]>` |
 | `readFile(rel)` | `Promise<string \| null>` |
 | `writeFile(rel, content)` | `Promise<void>` |
+| `createFile(rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
+| `createDir(rel)` | `Promise<void>` — creates a folder, erroring if it exists |
+| `deletePath(rel)` | `Promise<void>` — moves to Trash (falls back to `rm`) |
+| `renamePath(rel, newName)` | `Promise<void>` — renames within the same folder |
 | `projects()` | `Promise<ProjectInfo[]>` |
 | `models()` | `Promise<ModelOption[]>` |
 | `modelDefault()` | `Promise<ModelOption \| null>` |

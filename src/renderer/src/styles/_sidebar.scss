@@ -215,3 +215,55 @@
 }
 
 .tree-badge.changed { margin-left: auto; }
+
+.ctx-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 176px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+}
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ctx-item .codicon { font-size: 14px; color: var(--text-dim); }
+
+.ctx-item:hover { background: var(--bg-hover); }
+
+.ctx-item.danger { color: var(--red); }
+
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+
+.tree-input-row { cursor: default; }
+
+.tree-input-row:hover { background: transparent; }
+
+.tree-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 12.5px;
+  padding: 2px 4px;
+  outline: none;
+  border-radius: 3px;
+}

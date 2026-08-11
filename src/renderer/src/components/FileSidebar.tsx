@@ -86,18 +86,43 @@ function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: 
 }
 
 function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
-  const { expanded, tree, toggleDir, agentFiles } = useStore();
+  const {
+    expanded,
+    tree,
+    toggleDir,
+    agentFiles,
+    openCtxMenu,
+    pendingRename,
+    pendingCreate,
+    commitName,
+    cancelPending
+  } = useStore();
   const isOpen = expanded.has(entry.path);
   const hasChanges = entry.path.split("/").some((_, i) => {
     const prefix = entry.path.split("/").slice(0, i + 1).join("/");
     return agentFiles.has(prefix);
   });
 
+  if (pendingRename?.path === entry.path) {
+    return (
+      <TreeNameInput
+        initial={entry.path.split("/").pop() ?? ""}
+        isDir
+        onCommit={(v) => void commitName(v)}
+        onCancel={cancelPending}
+      />
+    );
+  }
+
   return (
     <div>
       <div
         className={`tree-row dir ${isOpen ? "open" : ""}`}
         onClick={() => void toggleDir(entry.path)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          openCtxMenu(e.clientX, e.clientY, entry);
+        }}
       >
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
         <span className="tree-name">{entry.path.split("/").pop()}</span>
@@ -112,6 +137,14 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
               <FileNode key={child.path} entry={child} depth={depth + 1} />
             )
           )}
+          {pendingCreate?.parent === entry.path && (
+            <TreeNameInput
+              initial={pendingCreate.kind === "file" ? "untitled.txt" : "untitled folder"}
+              isDir={pendingCreate.kind === "dir"}
+              onCommit={(v) => void commitName(v)}
+              onCancel={cancelPending}
+            />
+          )}
         </div>
       )}
     </div>
@@ -119,20 +152,133 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
 }
 
 function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
-  const { openFile, activePath, agentFiles } = useStore();
+  const { openFile, activePath, agentFiles, openCtxMenu, pendingRename, commitName, cancelPending } =
+    useStore();
   const name = entry.path.split("/").pop() ?? entry.path;
   const changed = agentFiles.has(entry.path);
   const active = activePath === entry.path;
+
+  if (pendingRename?.path === entry.path) {
+    return (
+      <TreeNameInput
+        initial={name}
+        isDir={false}
+        onCommit={(v) => void commitName(v)}
+        onCancel={cancelPending}
+      />
+    );
+  }
 
   return (
     <div
       className={`tree-row file ${active ? "active" : ""}`}
       onClick={() => void openFile(entry.path)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openCtxMenu(e.clientX, e.clientY, entry);
+      }}
       title={entry.path}
     >
       <FileIcon name={name} isDir={false} />
       <span className="tree-name">{name}</span>
       {changed && <span className="tree-badge changed" />}
+    </div>
+  );
+}
+
+function TreeNameInput({
+  initial,
+  isDir,
+  onCommit,
+  onCancel
+}: {
+  initial: string;
+  isDir: boolean;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}): ReactNode {
+  const [value, setValue] = useState(initial);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  return (
+    <div className="tree-row tree-input-row">
+      <FileIcon name={value || initial} isDir={isDir} />
+      <input
+        ref={inputRef}
+        className="tree-input"
+        value={value}
+        spellCheck={false}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onCommit(value);
+          else if (e.key === "Escape") onCancel();
+        }}
+        onBlur={() => onCommit(value)}
+      />
+    </div>
+  );
+}
+
+function ExplorerMenu(): ReactNode {
+  const { ctxMenu, closeCtxMenu, startCreate, startRename, deleteEntry } = useStore();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const onDown = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeCtxMenu();
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") closeCtxMenu();
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [ctxMenu, closeCtxMenu]);
+
+  if (!ctxMenu) return null;
+  const target = ctxMenu.target;
+  const parent = target
+    ? target.type === "directory"
+      ? target.path
+      : target.path.includes("/")
+        ? target.path.slice(0, target.path.lastIndexOf("/"))
+        : ""
+    : "";
+  const left = Math.min(ctxMenu.x, window.innerWidth - 190);
+  const top = Math.min(ctxMenu.y, window.innerHeight - 150);
+
+  return (
+    <div className="ctx-menu" ref={menuRef} style={{ left, top }}>
+      <button className="ctx-item" onClick={() => startCreate(parent, "file")}>
+        <span className="codicon codicon-new-file" />
+        New File…
+      </button>
+      <button className="ctx-item" onClick={() => startCreate(parent, "dir")}>
+        <span className="codicon codicon-new-folder" />
+        New Folder…
+      </button>
+      {target && (
+        <>
+          <div className="ctx-sep" />
+          <button className="ctx-item" onClick={() => startRename(target.path)}>
+            <span className="codicon codicon-edit" />
+            Rename…
+          </button>
+          <button className="ctx-item danger" onClick={() => void deleteEntry(target.path)}>
+            <span className="codicon codicon-trash" />
+            Delete
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -170,7 +316,19 @@ export function FileSidebar({
   onCollapse: (open: boolean) => void;
   onDrag: (e: React.MouseEvent) => void;
 }): ReactNode {
-  const { session, selectFolder, tree, toggleDir, agentFiles, openFile, expanded } = useStore();
+  const {
+    session,
+    selectFolder,
+    tree,
+    toggleDir,
+    agentFiles,
+    openFile,
+    expanded,
+    openCtxMenu,
+    pendingCreate,
+    commitName,
+    cancelPending
+  } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [changesH, changesDrag] = useChangesDrag(200);
@@ -278,7 +436,14 @@ export function FileSidebar({
       </div>
       {explorerOpen && (
         <div className="sidebar-section explorer">
-          <div className="tree">
+          <div
+            className="tree"
+            onContextMenu={(e) => {
+              if ((e.target as HTMLElement).closest(".tree-row")) return;
+              e.preventDefault();
+              openCtxMenu(e.clientX, e.clientY, null);
+            }}
+          >
             {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
             {root.map((child) =>
               child.type === "directory" ? (
@@ -287,9 +452,18 @@ export function FileSidebar({
                 <FileNode key={child.path} entry={child} depth={0} />
               )
             )}
+            {pendingCreate?.parent === "" && (
+              <TreeNameInput
+                initial={pendingCreate.kind === "file" ? "untitled.txt" : "untitled folder"}
+                isDir={pendingCreate.kind === "dir"}
+                onCommit={(v) => void commitName(v)}
+                onCancel={cancelPending}
+              />
+            )}
           </div>
         </div>
       )}
+      <ExplorerMenu />
     </div>
   );
 }

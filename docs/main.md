@@ -39,6 +39,10 @@ Public methods (all used by IPC):
 | `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
 | `readFile(rel)` | Read a file via the API; `null` if unreadable |
 | `writeFile(rel, content)` | Write via Node `fs` (no API write endpoint); updates snapshots and emits `file-update` |
+| `createFile(rel)` | `mkdir -p` parents, write empty (fails if exists); snapshots as baseline and emits `file-update` |
+| `createDir(rel)` | `mkdir` (fails if exists); no `file-update` — the renderer re-lists after the call |
+| `deletePath(rel)` | `shell.trashItem` with `rm -rf` fallback; emits `file-update` (deleted) only for paths the app had tracked |
+| `renamePath(rel, newName)` | `rename` within the same folder; moves the snapshot baseline and emits `file-update` for the new path (tracked files only) |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
@@ -89,6 +93,10 @@ Internals:
 | `shell:fs-list` | `(rel) → TreeEntry[]` |
 | `shell:fs-read` | `(rel) → string \| null` |
 | `shell:fs-write` | `(rel, content) → void` |
+| `shell:fs-create-file` | `(rel) → void` |
+| `shell:fs-create-dir` | `(rel) → void` |
+| `shell:fs-delete` | `(rel) → void` |
+| `shell:fs-rename` | `(rel, newName) → void` |
 | `shell:projects` | `() → ProjectInfo[]` |
 | `shell:models` | `() → ModelOption[]` |
 | `shell:model-default` | `() → ModelOption \| null` |

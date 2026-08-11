@@ -4,7 +4,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { app } from "electron";
+import { app, shell } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
 import type {
@@ -701,6 +701,75 @@ export class OpenShellBackend {
     this.snapshots.set(abs, content);
     this.lastKnown.set(abs, content);
     this.emitFileUpdate(abs, content);
+  }
+
+  private safeRel(rel: string): string {
+    const root = this.directory;
+    if (!root) throw new Error("no active session");
+    const clean = rel.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!clean || clean === "." || clean === "..") throw new Error("invalid path");
+    const abs = path.resolve(root, clean);
+    const rootPrefix = `${path.resolve(root)}${path.sep}`;
+    if (abs !== path.resolve(root) && !abs.startsWith(rootPrefix)) {
+      throw new Error("path escapes session directory");
+    }
+    return clean;
+  }
+
+  async createFile(rel: string): Promise<void> {
+    if (!this.directory) throw new Error("no active session");
+    const abs = path.join(this.directory, this.safeRel(rel));
+    await fsp.mkdir(path.dirname(abs), { recursive: true });
+    await fsp.writeFile(abs, "", { flag: "wx" });
+    this.snapshots.set(abs, "");
+    this.lastKnown.set(abs, "");
+    this.emitFileUpdate(abs, "");
+  }
+
+  async createDir(rel: string): Promise<void> {
+    if (!this.directory) throw new Error("no active session");
+    await fsp.mkdir(path.join(this.directory, this.safeRel(rel)), { recursive: false });
+  }
+
+  async deletePath(rel: string): Promise<void> {
+    if (!this.directory) throw new Error("no active session");
+    const abs = this.abs(this.safeRel(rel));
+    try {
+      await shell.trashItem(abs);
+    } catch {
+      await fsp.rm(abs, { recursive: true, force: true });
+    }
+    if (this.snapshots.has(abs) || this.lastKnown.has(abs)) {
+      const baseline = this.snapshots.get(abs) ?? this.lastKnown.get(abs) ?? "";
+      this.snapshots.delete(abs);
+      this.lastKnown.delete(abs);
+      this.emitFileUpdate(abs, null, baseline);
+    }
+  }
+
+  async renamePath(rel: string, newName: string): Promise<void> {
+    if (!this.directory) throw new Error("no active session");
+    const abs = this.abs(this.safeRel(rel));
+    if (!newName || newName.includes("/") || newName === "." || newName === "..") {
+      throw new Error("invalid name");
+    }
+    const target = path.join(path.dirname(abs), newName);
+    const snapshot = this.snapshots.get(abs) ?? this.lastKnown.get(abs);
+    await fsp.rename(abs, target);
+    this.snapshots.delete(abs);
+    this.lastKnown.delete(abs);
+    if (snapshot !== undefined) {
+      this.snapshots.set(target, snapshot);
+      this.emitFileUpdate(abs, null, snapshot);
+      let content: string | null = null;
+      try {
+        content = await fsp.readFile(target, "utf8");
+      } catch {
+        /* unreadable */
+      }
+      this.lastKnown.set(target, content ?? "");
+      this.emitFileUpdate(target, content);
+    }
   }
 
   async listProjects(): Promise<ProjectInfo[]> {

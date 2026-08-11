@@ -30,6 +30,24 @@ export interface Toast {
   tone: "info" | "error";
 }
 
+export interface CtxMenuState {
+  x: number;
+  y: number;
+  target: TreeEntry | null;
+}
+
+export interface PendingCreate {
+  parent: string;
+  kind: "file" | "dir";
+}
+
+function ancestorDirs(path: string): string[] {
+  const parts = path.split("/");
+  const out: string[] = [];
+  for (let i = parts.length; i > 0; i--) out.push(parts.slice(0, i).join("/"));
+  return out;
+}
+
 interface Store {
   session: SessionInfo | null;
   connected: boolean;
@@ -68,6 +86,16 @@ interface Store {
   saveTab: (path: string) => Promise<void>;
   toggleDir: (path: string) => Promise<void>;
   replyPermission: (requestID: string, reply: PermissionReply) => Promise<void>;
+  ctxMenu: CtxMenuState | null;
+  pendingCreate: PendingCreate | null;
+  pendingRename: { path: string } | null;
+  openCtxMenu: (x: number, y: number, target: TreeEntry | null) => void;
+  closeCtxMenu: () => void;
+  startCreate: (parent: string, kind: "file" | "dir") => void;
+  startRename: (path: string) => void;
+  cancelPending: () => void;
+  commitName: (name: string) => Promise<void>;
+  deleteEntry: (path: string) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -214,11 +242,18 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     () => window.localStorage.getItem("wordWrap") === "on"
   );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
+  const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
+  const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
 
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
+  const pendingCreateRef = useRef(pendingCreate);
+  pendingCreateRef.current = pendingCreate;
+  const pendingRenameRef = useRef(pendingRename);
+  pendingRenameRef.current = pendingRename;
   const expectedRef = useRef<Map<string, string>>(new Map());
   const lastAssistantRef = useRef<string | null>(null);
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -247,6 +282,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setAgentFiles(new Map());
     setTree({});
     setExpanded(new Set());
+    setCtxMenu(null);
+    setPendingCreate(null);
+    setPendingRename(null);
     agentFilesRef.current = new Map();
     lastAssistantRef.current = null;
     partKindsRef.current = new Map();
@@ -500,6 +538,78 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [expanded, tree, toast]
   );
 
+  const refreshTree = useCallback(async (dirs: string[]): Promise<void> => {
+    const unique = [...new Set(dirs)];
+    if (expandedRef.current.has("") && !unique.includes("")) unique.push("");
+    await Promise.all(
+      unique.map(async (dir) => {
+        try {
+          const entries = await window.openshell.listDir(dir);
+          setTree((prev) => ({ ...prev, [dir]: sortEntries(filterEntries(entries)) }));
+        } catch {
+          /* keep previous listing */
+        }
+      })
+    );
+  }, []);
+
+  const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
+    setCtxMenu({ x, y, target });
+  }, []);
+
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
+
+  const startCreate = useCallback((parent: string, kind: "file" | "dir") => {
+    setCtxMenu(null);
+    setPendingRename(null);
+    setPendingCreate({ parent, kind });
+    setExpanded((prev) => {
+      if (prev.has(parent)) return prev;
+      const next = new Set(prev);
+      next.add(parent);
+      return next;
+    });
+  }, []);
+
+  const startRename = useCallback((path: string) => {
+    setCtxMenu(null);
+    setPendingCreate(null);
+    setPendingRename({ path });
+  }, []);
+
+  const cancelPending = useCallback(() => {
+    setPendingCreate(null);
+    setPendingRename(null);
+  }, []);
+
+  const deleteEntry = useCallback(
+    async (path: string) => {
+      setCtxMenu(null);
+      try {
+        await window.openshell.deletePath(path);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+        return;
+      }
+      const prefix = `${path}/`;
+      setTabs((prev) => {
+        const next = prev.filter((t) => t.path !== path && !t.path.startsWith(prefix));
+        if (next.length !== prev.length) {
+          setActivePath((active) => {
+            if (!active || (active !== path && !active.startsWith(prefix))) return active;
+            const idx = prev.findIndex((t) => t.path === active);
+            const neighbor = next[idx] ?? next[next.length - 1];
+            return neighbor ? neighbor.path : null;
+          });
+        }
+        return next;
+      });
+      const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+      void refreshTree(ancestorDirs(parent));
+    },
+    [toast, refreshTree]
+  );
+
   const openFile = useCallback(
     async (path: string, opts?: { mode?: "edit" | "diff" }) => {
       const existing = tabs.find((t) => t.path === path);
@@ -547,6 +657,72 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     },
     [tabs, toast]
+  );
+
+  const commitName = useCallback(
+    async (name: string) => {
+      const create = pendingCreateRef.current;
+      const rename = pendingRenameRef.current;
+      if (!create && !rename) return;
+      const trimmed = name.trim();
+      if (!trimmed) {
+        cancelPending();
+        return;
+      }
+      if (trimmed.includes("/") || trimmed === "." || trimmed === "..") {
+        toast("Invalid name", "error");
+        return;
+      }
+      try {
+        if (create) {
+          const target = create.parent ? `${create.parent}/${trimmed}` : trimmed;
+          await (create.kind === "file"
+            ? window.openshell.createFile(target)
+            : window.openshell.createDir(target));
+          void refreshTree(ancestorDirs(create.parent));
+          if (create.kind === "file") void openFile(target);
+        } else if (rename) {
+          const parent = rename.path.includes("/")
+            ? rename.path.slice(0, rename.path.lastIndexOf("/"))
+            : "";
+          const newPath = parent ? `${parent}/${trimmed}` : trimmed;
+          await window.openshell.renamePath(rename.path, trimmed);
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.path === rename.path || t.path.startsWith(`${rename.path}/`)
+                ? {
+                    ...t,
+                    path: t.path.replace(rename.path, newPath),
+                    name: t.path === rename.path ? trimmed : t.name
+                  }
+                : t
+            )
+          );
+          setActivePath((active) =>
+            active && (active === rename.path || active.startsWith(`${rename.path}/`))
+              ? active.replace(rename.path, newPath)
+              : active
+          );
+          setAgentFiles((prev) => {
+            const next = new Map<string, AgentFileState>();
+            for (const [p, state] of prev) {
+              if (p === rename.path || p.startsWith(`${rename.path}/`)) {
+                next.set(`${newPath}${p.slice(rename.path.length)}`, state);
+              } else {
+                next.set(p, state);
+              }
+            }
+            agentFilesRef.current = next;
+            return next;
+          });
+          void refreshTree(ancestorDirs(parent));
+        }
+        cancelPending();
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [toast, openFile, refreshTree, cancelPending]
   );
 
   const closeTab = useCallback((path: string) => {
@@ -1015,15 +1191,27 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       editContent,
       saveTab,
       toggleDir,
-      replyPermission
+      replyPermission,
+      ctxMenu,
+      pendingCreate,
+      pendingRename,
+      openCtxMenu,
+      closeCtxMenu,
+      startCreate,
+      startRename,
+      cancelPending,
+      commitName,
+      deleteEntry
     }),
     [
       session, connected, busy, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
+      ctxMenu, pendingCreate, pendingRename,
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
-      editContent, saveTab, toggleDir, replyPermission
+      editContent, saveTab, toggleDir, replyPermission,
+      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry
     ]
   );
 

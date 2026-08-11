@@ -33,6 +33,11 @@ const api = {
   readFile: (rel: string): Promise<string | null> => ipcRenderer.invoke("shell:fs-read", rel),
   writeFile: (rel: string, content: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-write", rel, content),
+  createFile: (rel: string): Promise<void> => ipcRenderer.invoke("shell:fs-create-file", rel),
+  createDir: (rel: string): Promise<void> => ipcRenderer.invoke("shell:fs-create-dir", rel),
+  deletePath: (rel: string): Promise<void> => ipcRenderer.invoke("shell:fs-delete", rel),
+  renamePath: (rel: string, newName: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-rename", rel, newName),
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
   models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
   modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),

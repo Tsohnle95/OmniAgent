@@ -105,7 +105,11 @@ The renderer is fully editable. Autosave is debounced (900ms) and also on
 the watcher's own `file-update` echo does not mark the tab as externally
 changed (`dirty`/`stale` flags on `Tab`). Writes go through Node `fs` in
 the main process (`shell:fs-write`); the opencode2 API has no write
-endpoint — the server sees the change via its own file watching.
+endpoint — the server sees the change via its own file watching. The
+explorer also supports create/rename/delete through `shell:fs-create-*`,
+`shell:fs-rename`, `shell:fs-delete` (delete moves to Trash); these are
+plain `fs` operations that run through the same watcher so baselines and
+the tree stay consistent.
 
 ## Models, agents, and composer controls
 
