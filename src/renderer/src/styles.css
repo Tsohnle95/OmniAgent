@@ -278,6 +278,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 
 .tabbar {
@@ -1454,6 +1455,8 @@ body {
   background: #131316;
   border-top: 1px solid var(--border);
   min-height: 0;
+  position: relative;
+  z-index: 70;
 }
 
 .terminal-header {
