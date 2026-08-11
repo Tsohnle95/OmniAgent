@@ -1,0 +1,186 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useStore } from "../store";
+import type { TranscriptItem } from "@shared/types";
+
+const OUTPUT_LIMIT = 6000;
+
+function ToolCard({ item }: { item: Extract<TranscriptItem, { kind: "tool" }> }): ReactNode {
+  const [open, setOpen] = useState(false);
+  const { tool } = item;
+  const output = tool.output ?? "";
+  const showOutput = output.length > 0;
+  const truncated = output.length > OUTPUT_LIMIT;
+
+  return (
+    <div className={`tool-card ${tool.status}`}>
+      <div className="tool-row">
+        {tool.status === "running" ? (
+          <span className="spinner" />
+        ) : (
+          <span className={`tool-status ${tool.status}`}>{tool.status === "success" ? "✓" : "✕"}</span>
+        )}
+        <span className="tool-title">{tool.title}</span>
+      </div>
+      {tool.detail && <div className="tool-detail">{tool.detail}</div>}
+      {showOutput && (
+        <button className="tool-output-toggle" onClick={() => setOpen((o) => !o)}>
+          {open ? "hide output" : "show output"}
+        </button>
+      )}
+      {showOutput && open && (
+        <pre className="tool-output">
+          {truncated ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function PermissionCard({
+  item
+}: {
+  item: Extract<TranscriptItem, { kind: "permission" }>;
+}): ReactNode {
+  const { replyPermission } = useStore();
+  return (
+    <div className="permission-card">
+      <div className="permission-title">Permission required</div>
+      <div className="permission-action">{item.action}</div>
+      {item.resources.length > 0 && (
+        <div className="permission-resources">
+          {item.resources.slice(0, 4).map((r) => (
+            <code key={r}>{r}</code>
+          ))}
+          {item.resources.length > 4 && <code>+{item.resources.length - 4} more</code>}
+        </div>
+      )}
+      {item.pending ? (
+        <div className="permission-buttons">
+          <button className="btn btn-primary" onClick={() => void replyPermission(item.requestID, "once")}>
+            Allow once
+          </button>
+          <button className="btn" onClick={() => void replyPermission(item.requestID, "always")}>
+            Always
+          </button>
+          <button className="btn btn-danger" onClick={() => void replyPermission(item.requestID, "reject")}>
+            Deny
+          </button>
+        </div>
+      ) : (
+        <div className="permission-resolved">Resolved</div>
+      )}
+    </div>
+  );
+}
+
+function TranscriptItemView({ item }: { item: TranscriptItem }): ReactNode {
+  switch (item.kind) {
+    case "user":
+      return <div className="user-bubble">{item.text}</div>;
+    case "assistant":
+      return (
+        <div className="assistant-block">
+          {item.reasoning && (
+            <details className="reasoning" open={item.reasoningOpen}>
+              <summary>thinking</summary>
+              <pre>{item.reasoning}</pre>
+            </details>
+          )}
+          {item.text ? (
+            <div className="assistant-md">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
+            </div>
+          ) : (
+            <span className="assistant-cursor">▌</span>
+          )}
+        </div>
+      );
+    case "tool":
+      return <ToolCard item={item} />;
+    case "permission":
+      return <PermissionCard item={item} />;
+    case "status":
+      return <div className={`status-line ${item.tone}`}>{item.text}</div>;
+    case "divider":
+      return <div className="transcript-divider" />;
+  }
+}
+
+export function AgentPanel(): ReactNode {
+  const { session, busy, transcript, sendPrompt, stop } = useStore();
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [transcript]);
+
+  const send = (): void => {
+    if (!input.trim()) return;
+    void sendPrompt(input);
+    setInput("");
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="agent-panel">
+      <div className="agent-header">
+        <span className={`agent-dot ${busy ? "busy" : ""}`} />
+        <span className="agent-title">Agent</span>
+        {session && (
+          <span className="agent-session" title={session.id}>
+            {session.id}
+          </span>
+        )}
+        {busy && (
+          <button className="icon-btn stop" title="Stop the agent" onClick={() => void stop()}>
+            ■
+          </button>
+        )}
+      </div>
+
+      <div className="agent-scroll" ref={scrollRef}>
+        {transcript.length === 0 && (
+          <div className="agent-empty">
+            <p>Tell the agent what to work on.</p>
+            <p className="agent-empty-sub">
+              It will stream its progress here, and every file it touches will show up under{" "}
+              <b>Changes</b> with a red/green diff.
+            </p>
+          </div>
+        )}
+        {transcript.map((item) => (
+          <TranscriptItemView key={item.kind === "tool" ? item.tool.id : item.id} item={item} />
+        ))}
+      </div>
+
+      <div className="agent-input-wrap">
+        {busy && <div className="agent-busy-line"><span className="spinner" /> working…</div>}
+        <textarea
+          ref={inputRef}
+          className="agent-input"
+          rows={3}
+          placeholder="Tell the agent what to do… (Enter to send)"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+        <div className="agent-input-actions">
+          <span className="agent-hint">Enter to send · Shift+Enter for newline</span>
+          <button className="btn btn-primary" disabled={!input.trim()} onClick={send}>
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
