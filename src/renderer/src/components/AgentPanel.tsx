@@ -157,7 +157,13 @@ function PermissionCard({
   );
 }
 
-function TranscriptItemView({ item, busy }: { item: TranscriptItem; busy: boolean }): ReactNode {
+function TranscriptItemView({
+  item,
+  streaming
+}: {
+  item: TranscriptItem;
+  streaming: boolean;
+}): ReactNode {
   switch (item.kind) {
     case "user":
       return (
@@ -180,17 +186,27 @@ function TranscriptItemView({ item, busy }: { item: TranscriptItem; busy: boolea
         <div className="assistant-block">
           {item.reasoning && (
             <details className="reasoning" open={item.reasoningOpen}>
-              <summary>thinking</summary>
+              <summary>
+                <span className="reasoning-dot" />
+                thinking
+              </summary>
               <pre>{item.reasoning}</pre>
             </details>
           )}
-          {item.text ? (
-            <div className="assistant-md">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
-            </div>
-          ) : busy ? (
-            <span className="assistant-cursor">▌</span>
-          ) : null}
+          <div className="assistant-bubble">
+            {item.text ? (
+              <div className="assistant-md">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
+                {streaming && <span className="assistant-cursor">▌</span>}
+              </div>
+            ) : streaming ? (
+              <span className="typing-dots" aria-label="Agent is typing">
+                <span />
+                <span />
+                <span />
+              </span>
+            ) : null}
+          </div>
         </div>
       );
     case "tool":
@@ -486,6 +502,17 @@ function Composer(): ReactNode {
         </div>
       )}
       <div className="composer-body">
+        <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
+          <span className="codicon codicon-add" />
+        </button>
+        <button
+          className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
+          aria-pressed={approvalMode === "approve"}
+          title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
+          onClick={toggleApprovalMode}
+        >
+          <span className="codicon codicon-shield" />
+        </button>
         <textarea
           ref={inputRef}
           className="composer-input"
@@ -504,61 +531,45 @@ function Composer(): ReactNode {
             }
           }}
         />
+        <button
+          className={`composer-selector ${menu === "agent" ? "open" : ""}`}
+          title="Change agent"
+          onClick={() => setMenu(menu === "agent" ? null : "agent")}
+        >
+          <span className="codicon codicon-git-branch" />
+          <span>{currentAgent?.name ?? "Agent"}</span>
+          <span className="codicon codicon-chevron-down" />
+        </button>
+        <button
+          className={`composer-selector model ${menu === "model" ? "open" : ""}`}
+          title="Change model and response strength"
+          onClick={() => {
+            setMenu(menu === "model" ? null : "model");
+            if (menu !== "model") setModelView("list");
+          }}
+        >
+          <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
+          <span className="codicon codicon-chevron-down" />
+        </button>
+        <button
+          className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
+          title={voiceActive ? "Stop voice input" : "Use voice input"}
+          aria-pressed={voiceActive}
+          onClick={toggleVoice}
+        >
+          <span className="codicon codicon-mic" />
+        </button>
+        {busy && (
+          <button className="composer-icon-button stop" title="Stop the agent" onClick={() => void stop()}>
+            <span className="codicon codicon-stop" />
+          </button>
+        )}
+        <button className="composer-send" title={canSend ? "Send (Enter)" : "Type a prompt first"} disabled={!canSend} onClick={send}>
+          <span className="codicon codicon-arrow-up" />
+        </button>
       </div>
-      <div className="composer-footer">
-        <div className="composer-tools">
-          <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
-            <span className="codicon codicon-add" />
-          </button>
-          <button
-            className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
-            aria-pressed={approvalMode === "approve"}
-            title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
-            onClick={toggleApprovalMode}
-          >
-            <span className="codicon codicon-shield" />
-          </button>
-          {notice && <span className="composer-notice">{notice}</span>}
-        </div>
-        <div className="composer-controls">
-          <button
-            className={`composer-selector ${menu === "agent" ? "open" : ""}`}
-            title="Change agent"
-            onClick={() => setMenu(menu === "agent" ? null : "agent")}
-          >
-            <span className="codicon codicon-git-branch" />
-            <span>{currentAgent?.name ?? "Agent"}</span>
-            <span className="codicon codicon-chevron-down" />
-          </button>
-          <button
-            className={`composer-selector model ${menu === "model" ? "open" : ""}`}
-            title="Change model and response strength"
-            onClick={() => {
-              setMenu(menu === "model" ? null : "model");
-              if (menu !== "model") setModelView("list");
-            }}
-          >
-            <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
-            <span className="codicon codicon-chevron-down" />
-          </button>
-          <button
-            className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
-            title={voiceActive ? "Stop voice input" : "Use voice input"}
-            aria-pressed={voiceActive}
-            onClick={toggleVoice}
-          >
-            <span className="codicon codicon-mic" />
-          </button>
-          {busy && (
-            <button className="composer-icon-button stop" title="Stop the agent" onClick={() => void stop()}>
-              <span className="codicon codicon-stop" />
-            </button>
-          )}
-          <button className="composer-send" title={canSend ? "Send (Enter)" : "Type a prompt first"} disabled={!canSend} onClick={send}>
-            <span className="codicon codicon-arrow-up" />
-          </button>
-        </div>
-      </div>
+
+      {notice && <div className="composer-notice">{notice}</div>}
 
       {menu && (
         <div className="composer-menu">
@@ -730,6 +741,14 @@ export function AgentPanel(): ReactNode {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
+  const lastAssistantId = useMemo(() => {
+    for (let i = transcript.length - 1; i >= 0; i -= 1) {
+      const item = transcript[i];
+      if (item.kind === "assistant") return item.id;
+    }
+    return null;
+  }, [transcript]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stickRef.current) el.scrollTop = el.scrollHeight;
@@ -764,7 +783,11 @@ export function AgentPanel(): ReactNode {
           </div>
         )}
         {transcript.map((item) => (
-          <TranscriptItemView key={item.kind === "tool" ? item.tool.id : item.id} item={item} busy={busy} />
+          <TranscriptItemView
+            key={item.kind === "tool" ? item.tool.id : item.id}
+            item={item}
+            streaming={busy && item.kind === "assistant" && item.id === lastAssistantId}
+          />
         ))}
       </div>
 
