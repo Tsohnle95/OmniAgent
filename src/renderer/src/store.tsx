@@ -217,7 +217,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         window.openshell.models(),
         window.openshell.modelDefault()
       ]);
-      setModels(list);
+      setModels((prev) => {
+        if (
+          prev.length === list.length &&
+          prev.every(
+            (m, i) => m.id === list[i].id && m.providerID === list[i].providerID && m.name === list[i].name
+          )
+        ) {
+          return prev;
+        }
+        return list;
+      });
       setCurrentModel((cur) => {
         if (cur) {
           const match = list.find((m) => m.id === cur.id && m.providerID === cur.providerID);
@@ -248,7 +258,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const loadAgents = useCallback(async () => {
     try {
       const list = await window.openshell.agents();
-      setAgents(list);
+      setAgents((prev) => {
+        if (
+          prev.length === list.length &&
+          prev.every((a, i) => a.id === list[i].id && a.name === list[i].name)
+        ) {
+          return prev;
+        }
+        return list;
+      });
       setCurrentAgent((cur) => (cur ? (list.find((a) => a.id === cur.id) ?? cur) : null));
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
@@ -822,7 +840,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
     void window.openshell.health().then(setConnected);
     void window.openshell.state().then((s) => {
-      if (s) setSession(s);
+      if (s) {
+        setSession((prev) => (prev && prev.id === s.id && prev.directory === s.directory ? prev : s));
+      }
     });
     return off;
   }, [

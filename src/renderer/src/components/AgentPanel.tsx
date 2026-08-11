@@ -509,7 +509,6 @@ function Composer(): ReactNode {
             onClick={toggleApprovalMode}
           >
             <span className="codicon codicon-shield" />
-            {approvalMode === "approve" ? "Auto-approve on" : "Approve for me"}
           </button>
           {notice && <span className="composer-notice">{notice}</span>}
         </div>

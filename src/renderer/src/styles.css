@@ -950,18 +950,18 @@ body {
 
 .composer {
   flex-shrink: 0;
-  margin: 10px 12px;
-  padding: 12px 12px 8px;
-  gap: 8px;
+  margin: 6px 10px;
+  padding: 5px 10px 3px;
+  gap: 4px;
   background: #29292c;
   border: 1px solid #37373c;
-  border-radius: 20px;
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.18);
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 .composer-body {
-  min-height: 58px;
-  padding: 2px 2px 0;
+  min-height: 0;
+  padding: 0 2px;
   background: transparent;
   border: none;
 }
@@ -969,11 +969,15 @@ body {
 .composer-body:focus-within { border-color: transparent; }
 
 .composer-input {
-  min-height: 58px;
+  min-height: 30px;
+  max-height: 96px;
+  padding: 6px 0;
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.4;
 }
+
+.composer-input:placeholder-shown { text-align: center; }
 
 .composer-input::placeholder { color: #77777e; }
 
@@ -1016,31 +1020,30 @@ body {
 .composer-attachment-remove:hover { color: var(--text); }
 
 .composer-footer {
-  min-height: 30px;
+  min-height: 0;
   padding: 0 1px;
-  flex-wrap: wrap;
-  row-gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .composer-tools, .composer-controls {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
 }
 
-.composer-tools { flex: 0 1 auto; }
+.composer-tools { flex: 0 0 auto; }
 
 .composer-controls {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   justify-content: flex-end;
-  margin-left: auto;
-  flex-wrap: wrap;
+  margin-left: 8px;
+  flex-wrap: nowrap;
 }
 
 .composer-icon-button {
-  width: 27px;
-  height: 27px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1061,18 +1064,18 @@ body {
 .composer-icon-button.stop { color: var(--red); }
 
 .composer-approval {
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-width: 0;
+  justify-content: center;
+  flex-shrink: 0;
   background: none;
   border: none;
-  border-radius: 6px;
-  color: #99999f;
+  border-radius: 50%;
+  color: #a3a3a9;
   cursor: pointer;
-  font-size: 11.5px;
-  padding: 5px 6px;
-  white-space: nowrap;
+  padding: 0;
 }
 
 .composer-approval:hover, .composer-approval.active {
@@ -1134,8 +1137,8 @@ body {
 }
 
 .composer-send {
-  width: 29px;
-  height: 29px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
   border-radius: 50%;
   border: 1px solid #b4b5b8;
@@ -1386,25 +1389,98 @@ body {
 }
 
 .terminal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.8px;
   color: var(--accent);
-  padding: 3px 10px;
+  padding: 3px 8px 3px 10px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 4px 4px 0 0;
   margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.terminal-tab.active {
+  background: #131316;
+  color: var(--text);
+}
+
+.terminal-tab-close {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.terminal-tab-close:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.terminal-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.terminal-add:hover { background: var(--bg-hover); color: var(--text); }
+
+.terminal-add .codicon { font-size: 13px; }
+
+.terminal-notice {
+  color: var(--yellow);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .terminal-host {
   flex: 1;
   min-height: 0;
   padding: 6px 8px;
+  display: flex;
 }
 
+.terminal-host.hidden { display: none; }
+
 .terminal-host .xterm { height: 100%; }
+
+.terminal-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 12px;
+}
 
 /* ---------- Toasts ---------- */
 

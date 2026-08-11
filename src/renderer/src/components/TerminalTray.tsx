@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -28,12 +28,16 @@ const THEME = {
   brightWhite: "#ffffff"
 };
 
-export function TerminalTray({ height }: { height: number }): ReactNode {
-  const { session } = useStore();
+interface TermInstanceProps {
+  id: string;
+  active: boolean;
+  height: number;
+}
+
+function TermInstance({ id, active, height }: TermInstanceProps): ReactNode {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  const termIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -56,46 +60,40 @@ export function TerminalTray({ height }: { height: number }): ReactNode {
     } catch {
       /* hidden */
     }
-    term.focus();
 
     term.onData((data) => {
-      if (termIdRef.current) void window.openshell.terminalInput(termIdRef.current, data);
-    });
-
-    void window.openshell.terminalStart(session?.directory ?? null).then(({ id }) => {
-      termIdRef.current = id;
-      void window.openshell.terminalResize(id, term.cols, term.rows);
+      void window.openshell.terminalInput(id, data);
     });
 
     const off = window.openshell.onMessage((msg) => {
-      if (msg.kind === "terminal-data" && msg.terminal?.id === termIdRef.current) {
+      if (msg.kind === "terminal-data" && msg.terminal?.id === id) {
         term.write(msg.terminal.data);
       }
     });
+
     const ro = new ResizeObserver(() => {
       try {
         fit.fit();
       } catch {
         /* hidden */
       }
-      if (termIdRef.current) {
-        void window.openshell.terminalResize(termIdRef.current, term.cols, term.rows);
-      }
+      void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
     });
     ro.observe(host);
+
+    void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
 
     return () => {
       off();
       ro.disconnect();
-      if (termIdRef.current) void window.openshell.terminalStop(termIdRef.current);
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
-      termIdRef.current = null;
     };
-  }, [session]);
+  }, [id]);
 
   useEffect(() => {
+    if (!active) return;
     const term = termRef.current;
     const fit = fitRef.current;
     if (!term || !fit) return;
@@ -105,18 +103,92 @@ export function TerminalTray({ height }: { height: number }): ReactNode {
       } catch {
         /* hidden */
       }
-      if (termIdRef.current) {
-        void window.openshell.terminalResize(termIdRef.current, term.cols, term.rows);
-      }
+      void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
     });
-  }, [height]);
+    term.focus();
+  }, [active, height, id]);
+
+  return (
+    <div className={`terminal-host ${active ? "" : "hidden"}`} ref={hostRef} />
+  );
+}
+
+interface TermView {
+  id: string;
+  name: string;
+}
+
+export function TerminalTray({ height }: { height: number }): ReactNode {
+  const { session } = useStore();
+  const directory = session?.directory ?? null;
+  const [terms, setTerms] = useState<TermView[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const counterRef = useRef(0);
+
+  const createTerminal = useCallback(async (): Promise<void> => {
+    setNotice("");
+    try {
+      const { id } = await window.openshell.terminalStart(directory);
+      const name = `Terminal ${++counterRef.current}`;
+      setTerms((prev) => [...prev, { id, name }]);
+      setActiveId(id);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Could not start a terminal");
+    }
+  }, [directory]);
+
+  useEffect(() => {
+    setTerms([]);
+    setActiveId(null);
+    void createTerminal();
+  }, [createTerminal]);
+
+  const closeTerminal = (id: string): void => {
+    void window.openshell.terminalStop(id);
+    setTerms((prev) => {
+      const idx = prev.findIndex((t) => t.id === id);
+      const next = prev.filter((t) => t.id !== id);
+      if (activeId === id) {
+        setActiveId(next[Math.max(0, idx - 1)]?.id ?? next[0]?.id ?? null);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="terminal-tray" style={{ height }}>
       <div className="terminal-header">
-        <span className="terminal-tab">TERMINAL</span>
+        {terms.map((term) => (
+          <span
+            key={term.id}
+            className={`terminal-tab ${term.id === activeId ? "active" : ""}`}
+            onClick={() => setActiveId(term.id)}
+          >
+            {term.name}
+            <button
+              className="terminal-tab-close"
+              title={`Close ${term.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTerminal(term.id);
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <button className="terminal-add" title="New terminal" onClick={() => void createTerminal()}>
+          <span className="codicon codicon-add" />
+        </button>
+        {notice && <span className="terminal-notice" title={notice}>{notice}</span>}
       </div>
-      <div className="terminal-host" ref={hostRef} />
+      <div className="terminal-body">
+        {terms.map((term) => (
+          <TermInstance key={term.id} id={term.id} active={term.id === activeId} height={height} />
+        ))}
+        {terms.length === 0 && <div className="terminal-empty">No terminal open — press + to start one.</div>}
+      </div>
     </div>
   );
 }
