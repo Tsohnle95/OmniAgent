@@ -1,30 +1,31 @@
 # OpenShell
 
 A VS Code–style desktop GUI for the [opencode2](https://opencode.ai/v2) agent,
-built on Electron + React + Monaco. Mimics the Antigravity IDE flow: open a
-repository, tell the agent to work, watch its text stream on the right while
-every file it touches appears with a live red/green diff in the center.
+built with Electron + React + Monaco. The idea is simple: point it at a repo,
+tell the agent what to do, and watch it work — the agent's text streams on the
+right while every file it touches shows up in the middle with a live
+red/green diff.
 
 ## Features
 
 - **File explorer (left)** — lazy-loaded tree of the repo via the opencode
-  filesystem API; hidden/build dirs (`node_modules`, `.git`, `dist`, …) filtered.
+  filesystem API. Hides the usual noise (`node_modules`, `.git`, `dist`, …).
 - **Editor (center)** — Monaco, fully editable like VS Code, with autosave
-  (debounced) and ⌘S/Ctrl+S. Every tab has an **Edit / Diff** toggle; the diff
+  (debounced) and ⌘S/Ctrl+S. Every tab has an **Edit / Diff** toggle: the diff
   view is a Monaco diff editor showing exactly what the agent changed this
-  session (red = removed, green = added), updating in real time as files change.
-- **Agent panel (right)** — streaming assistant text (`session.text.delta`),
-  collapsible thinking, tool call cards with output, permission allow/deny
-  prompts, status, and a prompt input. Stop button interrupts the session.
+  session, updating in real time as files change.
+- **Agent panel (right)** — streaming assistant text, collapsible reasoning,
+  tool call cards with output, permission allow/deny prompts, status, and a
+  prompt input. Stop button interrupts the session.
 - **Changes list** — files the agent has touched, listed at the top of the
   sidebar; click any file to jump straight into its diff.
 - **Real-time updates** — the main process watches the repo with `fs.watch`
-  and streams per-file `{baseline, content}` updates to the UI.
-- **Session history** — recent sessions are listed on the Welcome screen;
-  reopening one replays its transcript and resumes the same context.
-  The last-used model is remembered for new sessions.
+  and streams per-file updates to the UI.
+- **Session history** — recent sessions show up on the Welcome screen;
+  reopening one replays the transcript and resumes the same context. The
+  last-used model is remembered for new sessions.
 
-## How it integrates with opencode2
+## How it talks to opencode2
 
 All API traffic happens in the Electron **main process** using
 [`@opencode-ai/client`](https://opencode.ai/v2/docs/build/client):
@@ -44,7 +45,7 @@ All API traffic happens in the Electron **main process** using
 - Agent baselines: files are snapshotted **before** a tool executes
   (`session.tool.called` input paths); anything the agent changes via bash or
   other tools gets its baseline from `git show HEAD:<file>` (green for new
-  files). The diff is therefore "changes the agent made in this session".
+  files). So the diff always means "changes the agent made in this session".
 
 ## Requirements
 
@@ -58,17 +59,6 @@ npm install
 npm run dev        # electron-vite dev with HMR
 ```
 
-## Documentation
-
-- `AGENTS.md` — the project brain: what this is, how it's organized, and
-  the conventions any agent must follow. Read this first.
-- `docs/architecture.md` — system overview: process model, IPC, data flow,
-  diff/baseline mechanics.
-- `docs/events.md` — the opencode2 event protocol: what the app handles,
-  what it ignores, and how tool cards are assembled.
-- `docs/main.md`, `docs/preload.md`, `docs/renderer.md`, `docs/shared.md` —
-  per-module references. Each is self-contained.
-
 ## Build
 
 ```sh
@@ -76,24 +66,32 @@ npm run build      # typecheck + build
 npm start          # run the production build
 ```
 
+## Documentation
+
+- `AGENTS.md` — the project brain: what this is, how it's organized, and the
+  conventions any agent must follow.
+- `docs/architecture.md` — system overview: process model, IPC, data flow,
+  diff/baseline mechanics.
+- `docs/events.md` — the opencode2 event protocol: what the app handles, what
+  it ignores, and how tool cards are assembled.
+- `docs/main.md`, `docs/preload.md`, `docs/renderer.md`, `docs/shared.md` —
+  per-module references, each self-contained.
+
 ## Notes / roadmap
 
-Open requests from real usage — pick these up in a fresh session.
-The working queue is `TODO.md` (add points there anytime); completed
-items are checked off there.
+Open requests from real usage live in `TODO.md` — pick them up in a fresh
+session. Delivered so far (see `git log`):
 
-Delivered so far (see `git log`):
+- **Tool cards** got a richer pass: per-tool icons, status-colored borders,
+  clickable file-path chips, inline output previews, and a permission UX that
+  shows the resolved reply.
+- **Session history / reopen** — recent sessions appear on the Welcome screen;
+  reopening resumes the same session context (transcript replayed from
+  `message.list`).
+- **Model choice persists** across sessions (last-used model is stored and
+  passed to `session.create`), and the picker labels show the provider.
 
-- **Tool cards** got a richer pass: per-tool icons, status-colored
-  borders, clickable file-path chips, inline output previews, and a
-  permission UX that shows the resolved reply.
-- **Session history / reopen** — recent sessions appear on the Welcome
-  screen; reopening resumes the same session context (transcript
-  replayed from `message.list`).
-- **Model choice persists** across sessions (last-used model is stored
-  and passed to `session.create`), and the picker labels show provider.
-
-North star: mimic the Codex/Antigravity feel — a calm, informative
+The long-term goal is to feel like Codex/Antigravity: a calm, informative
 streaming agent panel that always shows what the agent is doing.
 
 Known constraints:
