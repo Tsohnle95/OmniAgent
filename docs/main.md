@@ -116,7 +116,10 @@ over the same `shell:message` channel. `before-input-event` intercepts
 ⌘W / Ctrl+W (so it never closes the window) and forwards
 `{kind:"ui-command", command:"toggle-word-wrap"}` to the renderer instead
 (the user's muscle memory maps ⌘W to word wrap, and the window must never
-die on it).
+die on it). DevTools follow the browser conventions: F12 toggles the
+inspector and ⌘⇧C (Ctrl+Shift+C) opens it already focused on the element
+under the cursor (via `inspectElement` at the pointer's content
+coordinates).
 
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is

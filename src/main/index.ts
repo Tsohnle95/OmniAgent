@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
 import path from "node:path";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
@@ -43,6 +43,26 @@ function createWindow(): BrowserWindow {
     if (input.type === "keyDown" && mod && !input.alt && !input.shift && input.key.toLowerCase() === "w") {
       event.preventDefault();
       win?.webContents.send("shell:message", { kind: "ui-command", command: "toggle-word-wrap" });
+      return;
+    }
+    if (input.type === "keyDown" && !mod && !input.alt && !input.shift && input.key === "F12") {
+      event.preventDefault();
+      newWin.webContents.toggleDevTools();
+      return;
+    }
+    if (input.type === "keyDown" && mod && input.shift && !input.alt && input.key.toLowerCase() === "c") {
+      event.preventDefault();
+      const inspectAtCursor = (): void => {
+        const cursor = screen.getCursorScreenPoint();
+        const bounds = newWin.getContentBounds();
+        newWin.webContents.inspectElement(cursor.x - bounds.x, cursor.y - bounds.y);
+      };
+      if (newWin.webContents.isDevToolsOpened()) {
+        inspectAtCursor();
+      } else {
+        newWin.webContents.openDevTools();
+        newWin.webContents.once("devtools-opened", inspectAtCursor);
+      }
     }
   });
 
