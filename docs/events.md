@@ -12,10 +12,10 @@ All events carry `data.sessionID`; the store ignores events whose
 
 | Event type | What the store does |
 |---|---|
-| `session.execution.started` | `busy = true`; appends a divider + "Working…" status line |
-| `session.execution.succeeded` | `busy = false`; "Completed" status line |
-| `session.execution.failed` | `busy = false`; "Failed" status line |
-| `session.execution.interrupted` | `busy = false`; "Interrupted" status line |
+| `session.execution.started` | Sets `busy = true`; activity is shown by the agent header rather than a transcript status bubble |
+| `session.execution.succeeded` | Sets `busy = false` without adding completion noise to the transcript |
+| `session.execution.failed` | Sets `busy = false` and adds an error status line |
+| `session.execution.interrupted` | Sets `busy = false` and adds an error status line |
 | `session.idle` | `busy = false` |
 | `session.text.started` | Starts a new assistant block (guarded by `lastAssistantRef` so repeated started events don't duplicate) |
 | `session.text.delta` | Appends `data.delta` to the assistant text |

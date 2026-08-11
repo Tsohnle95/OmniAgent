@@ -683,11 +683,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       switch (type) {
         case "session.execution.started": {
           setBusy(true);
-          setTranscript((prev) => [
-            ...prev,
-            { kind: "divider", id: String(evt.id) },
-            { kind: "status", id: `${evt.id}-start`, text: "Working…", tone: "info" }
-          ]);
           break;
         }
         case "session.execution.succeeded":
@@ -695,15 +690,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.execution.interrupted": {
           setBusy(false);
           const ok = type === "session.execution.succeeded";
-          setTranscript((prev) => [
-            ...prev,
-            {
-              kind: "status",
-              id: `${evt.id}-end`,
-              text: ok ? "Completed" : type === "session.execution.interrupted" ? "Interrupted" : "Failed",
-              tone: ok ? "success" : "error"
-            }
-          ]);
+          if (!ok) {
+            setTranscript((prev) => [
+              ...prev,
+              {
+                kind: "status",
+                id: `${evt.id}-end`,
+                text: type === "session.execution.interrupted" ? "Interrupted" : "Failed",
+                tone: "error"
+              }
+            ]);
+          }
           break;
         }
         case "session.idle": {

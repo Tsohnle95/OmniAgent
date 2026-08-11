@@ -219,20 +219,22 @@ function TranscriptItemView({
               <pre>{item.reasoning}</pre>
             </details>
           )}
-          <div className="assistant-bubble">
-            {item.text ? (
-              <div className="assistant-md">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
-                {streaming && <span className="assistant-cursor">▌</span>}
-              </div>
-            ) : streaming ? (
-              <span className="typing-dots" aria-label="Agent is typing">
-                <span />
-                <span />
-                <span />
-              </span>
-            ) : null}
-          </div>
+          {(item.text || streaming) && (
+            <div className="assistant-bubble">
+              {item.text ? (
+                <div className="assistant-md">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
+                  {streaming && <span className="assistant-cursor">▌</span>}
+                </div>
+              ) : (
+                <span className="typing-dots" aria-label="Agent is typing">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              )}
+            </div>
+          )}
         </div>
       );
     case "tool":
