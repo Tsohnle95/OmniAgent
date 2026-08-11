@@ -157,7 +157,7 @@ function PermissionCard({
   );
 }
 
-function TranscriptItemView({ item }: { item: TranscriptItem }): ReactNode {
+function TranscriptItemView({ item, busy }: { item: TranscriptItem; busy: boolean }): ReactNode {
   switch (item.kind) {
     case "user":
       return (
@@ -188,9 +188,9 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): ReactNode {
             <div className="assistant-md">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
             </div>
-          ) : (
+          ) : busy ? (
             <span className="assistant-cursor">▌</span>
-          )}
+          ) : null}
         </div>
       );
     case "tool":
@@ -219,6 +219,24 @@ function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
         list.sort((a, b) => a.name.localeCompare(b.name))
       ]) as [string, ModelOption[]][];
   }, [models]);
+}
+
+function modelKey(model: ModelOption): string {
+  return `${model.providerID}::${model.id}`;
+}
+
+function readModelKeys(storageKey: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeModelKeys(storageKey: string, keys: Set<string>): void {
+  window.localStorage.setItem(storageKey, JSON.stringify([...keys]));
 }
 
 type MenuKind = "model" | "agent" | null;
@@ -277,10 +295,31 @@ function Composer(): ReactNode {
   const [menu, setMenu] = useState<MenuKind>(null);
   const [voiceActive, setVoiceActive] = useState(false);
   const [notice, setNotice] = useState("");
+  const [favorites, setFavorites] = useState<Set<string>>(() => readModelKeys("favoriteModels"));
+  const [hiddenModels, setHiddenModels] = useState<Set<string>>(() => readModelKeys("hiddenModels"));
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [modelView, setModelView] = useState<"list" | "settings">("list");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceRecognition | null>(null);
   const groups = useModelGroups(models);
+  const visibleModels = useMemo(
+    () =>
+      models.filter(
+        (model) =>
+          !hiddenModels.has(modelKey(model)) ||
+          (currentModel?.id === model.id && currentModel?.providerID === model.providerID)
+      ),
+    [models, hiddenModels, currentModel]
+  );
+  const visibleGroups = useModelGroups(visibleModels);
+  const favoriteList = useMemo(
+    () =>
+      models
+        .filter((model) => favorites.has(modelKey(model)) && !hiddenModels.has(modelKey(model)))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [models, favorites, hiddenModels]
+  );
   const canSend = input.trim().length > 0 || files.length > 0;
   const variantLabel = currentModel?.variant
     ? formatVariant(currentModel.variant)
@@ -392,6 +431,37 @@ function Composer(): ReactNode {
     setMenu(null);
   };
 
+  const toggleFavorite = (model: ModelOption): void => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      const key = modelKey(model);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      writeModelKeys("favoriteModels", next);
+      return next;
+    });
+  };
+
+  const toggleModelVisible = (model: ModelOption): void => {
+    setHiddenModels((prev) => {
+      const next = new Set(prev);
+      const key = modelKey(model);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      writeModelKeys("hiddenModels", next);
+      return next;
+    });
+  };
+
+  const toggleCollapsed = (provider: string): void => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(provider)) next.delete(provider);
+      else next.add(provider);
+      return next;
+    });
+  };
+
   return (
     <div className="composer" ref={composerRef}>
       {files.length > 0 && (
@@ -459,7 +529,10 @@ function Composer(): ReactNode {
             <button
               className={`composer-selector model ${menu === "model" ? "open" : ""}`}
               title="Change model and response strength"
-              onClick={() => setMenu(menu === "model" ? null : "model")}
+              onClick={() => {
+                setMenu(menu === "model" ? null : "model");
+                if (menu !== "model") setModelView("list");
+              }}
             >
               <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
               <span className="codicon codicon-chevron-down" />
@@ -502,44 +575,144 @@ function Composer(): ReactNode {
             ))
           ) : (
             <>
-              {groups.map(([provider, list]) => (
-                <div key={provider} className="composer-menu-group">
-                  <div className="composer-menu-head">{provider}</div>
-                  {list.map((model) => (
-                    <button
-                      key={`${model.id}::${model.providerID}`}
-                      className={`composer-menu-item ${currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "selected" : ""}`}
-                      onClick={() => chooseModel(model)}
-                    >
-                      <span className="composer-menu-check">
-                        {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "✓" : ""}
-                      </span>
-                      {model.name}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              {currentModel && currentModel.variants && currentModel.variants.length > 0 && (
-                <div className="composer-menu-group variant-menu">
-                  <div className="composer-menu-head">Response strength</div>
+              <div className="composer-menu-header">
+                <span className="composer-menu-title">
+                  {modelView === "settings" ? "Model settings" : "Model selection"}
+                </span>
+                {modelView === "settings" ? (
                   <button
-                    className={`composer-menu-item ${!currentModel.variant ? "selected" : ""}`}
-                    onClick={() => chooseVariant()}
+                    className="composer-menu-tool"
+                    title="Back to model list"
+                    onClick={() => setModelView("list")}
                   >
-                    <span className="composer-menu-check">{!currentModel.variant ? "✓" : ""}</span>
-                    Auto
+                    <span className="codicon codicon-arrow-left" />
                   </button>
-                  {currentModel.variants.map((variant) => (
-                    <button
-                      key={variant}
-                      className={`composer-menu-item ${currentModel.variant === variant ? "selected" : ""}`}
-                      onClick={() => chooseVariant(variant)}
-                    >
-                      <span className="composer-menu-check">{currentModel.variant === variant ? "✓" : ""}</span>
-                      {formatVariant(variant)}
-                    </button>
+                ) : (
+                  <button
+                    className="composer-menu-tool"
+                    title="Choose which models appear here"
+                    onClick={() => setModelView("settings")}
+                  >
+                    <span className="codicon codicon-gear" />
+                  </button>
+                )}
+              </div>
+              {modelView === "settings" ? (
+                <div className="composer-menu-settings">
+                  {groups.map(([provider, list]) => (
+                    <div key={provider} className="composer-menu-group">
+                      <div className="composer-menu-head">{provider}</div>
+                      {list.map((model) => {
+                        const visible = !hiddenModels.has(modelKey(model));
+                        return (
+                          <button
+                            key={`${model.id}::${model.providerID}`}
+                            className={`composer-menu-item ${visible ? "" : "dimmed"}`}
+                            onClick={() => toggleModelVisible(model)}
+                          >
+                            <span className="composer-menu-check">
+                              <span className={`codicon ${visible ? "codicon-eye" : "codicon-eye-closed"}`} />
+                            </span>
+                            {model.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   ))}
                 </div>
+              ) : (
+                <>
+                  {favoriteList.length > 0 && (
+                    <div className="composer-menu-group">
+                      <div className="composer-menu-head">
+                        <span className="codicon codicon-star-full" />
+                        Favorites
+                      </div>
+                      {favoriteList.map((model) => (
+                        <button
+                          key={`fav::${model.id}::${model.providerID}`}
+                          className={`composer-menu-item ${currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "selected" : ""}`}
+                          onClick={() => chooseModel(model)}
+                        >
+                          <span className="composer-menu-check">
+                            {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "✓" : ""}
+                          </span>
+                          {model.name}
+                          <span
+                            className="composer-menu-star"
+                            title="Remove from favorites"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(model);
+                            }}
+                          >
+                            ★
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {visibleGroups.map(([provider, list]) => (
+                    <div key={provider} className="composer-menu-group">
+                      <button
+                        className="composer-menu-head"
+                        title={collapsed.has(provider) ? `Expand ${provider}` : `Collapse ${provider}`}
+                        onClick={() => toggleCollapsed(provider)}
+                      >
+                        <span className={`codicon ${collapsed.has(provider) ? "codicon-chevron-right" : "codicon-chevron-down"}`} />
+                        {provider}
+                      </button>
+                      {!collapsed.has(provider) &&
+                        list.map((model) => {
+                          const isFavorite = favorites.has(modelKey(model));
+                          return (
+                            <button
+                              key={`${model.id}::${model.providerID}`}
+                              className={`composer-menu-item ${currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "selected" : ""}`}
+                              onClick={() => chooseModel(model)}
+                            >
+                              <span className="composer-menu-check">
+                                {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "✓" : ""}
+                              </span>
+                              {model.name}
+                              <span
+                                className={`composer-menu-star ${isFavorite ? "on" : ""}`}
+                                title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(model);
+                                }}
+                              >
+                                {isFavorite ? "★" : "☆"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ))}
+                  {currentModel && currentModel.variants && currentModel.variants.length > 0 && (
+                    <div className="composer-menu-group variant-menu">
+                      <div className="composer-menu-head">Response strength</div>
+                      <button
+                        className={`composer-menu-item ${!currentModel.variant ? "selected" : ""}`}
+                        onClick={() => chooseVariant()}
+                      >
+                        <span className="composer-menu-check">{!currentModel.variant ? "✓" : ""}</span>
+                        Auto
+                      </button>
+                      {currentModel.variants.map((variant) => (
+                        <button
+                          key={variant}
+                          className={`composer-menu-item ${currentModel.variant === variant ? "selected" : ""}`}
+                          onClick={() => chooseVariant(variant)}
+                        >
+                          <span className="composer-menu-check">{currentModel.variant === variant ? "✓" : ""}</span>
+                          {formatVariant(variant)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -588,7 +761,7 @@ export function AgentPanel(): ReactNode {
           </div>
         )}
         {transcript.map((item) => (
-          <TranscriptItemView key={item.kind === "tool" ? item.tool.id : item.id} item={item} />
+          <TranscriptItemView key={item.kind === "tool" ? item.tool.id : item.id} item={item} busy={busy} />
         ))}
       </div>
 
