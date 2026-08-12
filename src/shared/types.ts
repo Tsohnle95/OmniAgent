@@ -1,9 +1,14 @@
 export interface SessionInfo {
   id: string;
   directory: string;
+  workspace: WorkspaceIdentity;
   parentID?: string;
   title?: string;
   agent?: string;
+}
+
+export interface WorkspaceIdentity {
+  id: string;
 }
 
 export interface SessionSummary {

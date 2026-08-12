@@ -11,7 +11,7 @@ API changes shape, only these two files change.
 State:
 
 - `client` — `OpenCode.make()` result, null until connected
-- `sessionID`, `directory`, `sessionInfo` — the active session plus optional parent/title/agent metadata
+- `sessionID`, canonical `directory`, `workspace`, `sessionInfo` — the active session and immutable activation identity plus optional parent/title/agent metadata
 - `snapshots: Map<absPath, baseline>` — per-file diff baselines
 - `lastKnown: Map<absPath, content>` — last content seen by the watcher
 - `watcher` — recursive `fs.watch` on the session directory
@@ -39,13 +39,13 @@ Public methods (all used by IPC):
 | `searchFiles(query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
 | `interrupt()` | `session.interrupt`, errors swallowed |
 | `replyPermission(requestID, reply, sessionID?)` | `permission.reply` against the supplied owning session (active session fallback); reply is `"once"|"always"|"reject"` |
-| `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
-| `readFile(rel)` | Read a file via the API; `null` if unreadable |
-| `writeFile(rel, content)` | Write via Node `fs` (no API write endpoint); updates snapshots and emits `file-update` |
-| `createFile(rel)` | `mkdir -p` parents, write empty (fails if exists); snapshots as baseline and emits `file-update` |
-| `createDir(rel)` | `mkdir` (fails if exists); no `file-update` — the renderer re-lists after the call |
-| `deletePath(rel)` | `shell.trashItem` with `rm -rf` fallback; emits `file-update` (deleted) only for paths the app had tracked |
-| `renamePath(rel, newName)` | `rename` within the same folder; moves the snapshot baseline and emits `file-update` for the new path (tracked files only) |
+| `listDir(workspace, rel)` | Validates active identity and confinement, then `file.list`; strips trailing slashes |
+| `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
+| `writeFile(workspace, rel, content)` | Confined bounded Node `fs` write; updates snapshots and emits `file-update` |
+| `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
+| `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
+| `deletePath(workspace, rel)` | Confined `shell.trashItem` with current `rm -rf` fallback; emits tracked deletion |
+| `renamePath(workspace, rel, newName)` | Confined same-folder rename; moves tracked snapshot state |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
@@ -110,23 +110,24 @@ Internals:
 | `shell:find-files` | `(query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |
 | `shell:select-files` | `() → string[]` (native multi-file dialog) |
 | `shell:interrupt` | `() → void` |
-| `shell:fs-list` | `(rel) → TreeEntry[]` |
-| `shell:fs-read` | `(rel) → string \| null` |
-| `shell:fs-write` | `(rel, content) → void` |
-| `shell:fs-create-file` | `(rel) → void` |
-| `shell:fs-create-dir` | `(rel) → void` |
-| `shell:fs-delete` | `(rel) → void` |
-| `shell:fs-rename` | `(rel, newName) → void` |
+| `shell:fs-list` | `(workspace, rel) → TreeEntry[]` |
+| `shell:fs-read` | `(workspace, rel) → string \| null` |
+| `shell:source-read` | `(absolutePath) → string \| null`; app-root-confined DevTools source view only |
+| `shell:fs-write` | `(workspace, rel, content) → void` |
+| `shell:fs-create-file` | `(workspace, rel) → void` |
+| `shell:fs-create-dir` | `(workspace, rel) → void` |
+| `shell:fs-delete` | `(workspace, rel) → void` |
+| `shell:fs-rename` | `(workspace, rel, newName) → void` |
 | `shell:projects` | `() → ProjectInfo[]` |
 | `shell:models` | `() → ModelOption[]` |
 | `shell:model-default` | `() → ModelOption \| null` |
 | `shell:switch-model` | `(id, providerID, variant?) → void` |
 | `shell:agents` | `() → AgentOption[]` |
 | `shell:switch-agent` | `(id) → void` |
-| `shell:terminal-start` | `(directory \| null) → { id }` (spawns a PTY login shell) |
-| `shell:terminal-input` | `(id, data) → void` |
-| `shell:terminal-resize` | `(id, cols, rows) → void` |
-| `shell:terminal-stop` | `(id) → void` |
+| `shell:terminal-start` | `(workspace) → { id }`; main supplies the canonical active workspace cwd |
+| `shell:terminal-input` | `(workspace, id, data) → void` |
+| `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |
+| `shell:terminal-stop` | `(workspace, id) → void` |
 | `shell:permission-reply` | `(requestID, reply, sessionID?) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `() → SessionSelection \| null` |
@@ -192,6 +193,18 @@ etc. If the file isn't in the session — DevTools always inspects
 OpenShell's own renderer, so the inspected stylesheets are the app's —
 resolution falls back to the app directory and the file is opened by
 absolute path.
+
+Workspace paths are strict `/`-separated relative paths: absolute paths,
+empty file paths, traversal, backslashes, NULs, duplicate separators, and
+oversized values are rejected. Main canonicalizes the root and rejects any
+existing symlink component, including intermediate symlink parents for new
+targets. This deliberately means Explorer workspace capabilities do not follow
+symlinks. File content is capped at 8 MiB. The separate `source-read` channel
+accepts only absolute descendants of the canonical application root and exists
+solely to preserve DevTools source navigation. Terminal ids use `term-N`, input
+is capped at 1 MiB per invoke, dimensions are positive integers bounded to
+1000 columns by 500 rows, unknown PTYs fail, and every PTY is owned by the
+workspace identity that created it.
 Picks are deduped (Chromium fires `inspectNodeRequested` twice per
 click, once from pointer events, once from mouse events) and the
 picker lifecycle is token-guarded so stale async arm calls can never

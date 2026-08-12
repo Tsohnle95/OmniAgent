@@ -8,7 +8,8 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 
 | Type | Shape | Used for |
 |---|---|---|
-| `SessionInfo` | `{ id, directory, parentID?, title?, agent? }` | The active opencode2 session and its parent/child navigation metadata |
+| `WorkspaceIdentity` | `{ id }` | Opaque immutable UUID assigned to one workspace activation; capability calls must echo it |
+| `SessionInfo` | `{ id, directory, workspace, parentID?, title?, agent? }` | The active opencode2 session, immutable workspace identity, and parent/child navigation metadata |
 | `SessionSummary` | `{ id, title, directory, updatedAt, parentID?, agent? }` | Recent-session graph used by Welcome and task/subagent links |
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
 | `FileUpdate` | `{ path, baseline: string \| null, content: string \| null, deleted }` | Watcher payload; `baseline` is what the agent started from |
@@ -89,5 +90,7 @@ This is the wire format for `shell:message` from main → renderer.
 
 - Keep IPC-shaped types here so main and renderer compile against one
   contract. Change a type here and both sides of the bridge update.
+- Treat `WorkspaceIdentity` as an opaque activation capability. It changes on
+  every new/reopened activation, even when the directory and session id match.
 - Never import renderer or main code from this file — it must stay
   dependency-free (types only).

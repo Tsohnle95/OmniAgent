@@ -82,8 +82,9 @@ models/agents, and re-reads the session's model/agent selection.
 2. The last-used model and agent are read from
    `userData/settings.json` and passed to
    `client.session.create({ location: { directory }, model?, agent? })`.
-3. `activateSession()` (`:494`) stores `sessionID`/`directory`, clears all
-   baseline state, starts the `fs.watch` watcher, and emits
+3. `activateSession()` (`:494`) canonicalizes and stores the directory, assigns
+   a fresh immutable workspace UUID, clears all baseline state, starts the
+   `fs.watch` watcher, and emits
    `{ kind: "session" }`.
 4. The opening action resets workspace state and the store reacts to the
    emitted session message with `setSession`, `loadModels()`, `loadAgents()`,
@@ -163,6 +164,12 @@ to Trash and re-emits a deleted `file-update` for tracked paths; rename
 moves the baseline snapshot along. The renderer refreshes the tree and
 rewrites tab/`agentFiles` paths to match.
 
+All filesystem calls include the activation's workspace identity. Main rejects
+stale identities, malformed/bounded relative paths, traversal, absolute paths,
+and every existing symlink component, including intermediate parents of new
+targets. DevTools app-source navigation uses a separate absolute read confined
+to the canonical application root.
+
 ## Permissions
 
 `permission.asked` (normalized from `permission.v2.asked`) appends a
@@ -186,7 +193,8 @@ Reopening a session restores the *session's* picks via
 
 ## Terminal tray
 
-`TerminalTray` mounts/restarts a PTY (`terminalStart(directory)`):
+`TerminalTray` mounts/restarts a PTY (`terminalStart(workspace)`): main verifies
+the activation identity and supplies the canonical active workspace cwd.
 `TerminalManager` resolves the login shell (`zsh -l -c 'echo $0'` on
 macOS), spawns it via `node-pty` with cwd = session directory (or home),
 and forwards PTY output as `terminal-data` over the same

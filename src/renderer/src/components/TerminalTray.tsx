@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
+import type { WorkspaceIdentity } from "@shared/types";
 
 const THEME = {
   background: "#131316",
@@ -32,11 +33,12 @@ interface TermInstanceProps {
   id: string;
   active: boolean;
   height: number;
+  workspace: WorkspaceIdentity;
   onRegister: (id: string, writer: (data: string) => void) => void;
   onUnregister: (id: string) => void;
 }
 
-function TermInstance({ id, active, height, onRegister, onUnregister }: TermInstanceProps): ReactNode {
+function TermInstance({ id, active, height, workspace, onRegister, onUnregister }: TermInstanceProps): ReactNode {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -64,7 +66,7 @@ function TermInstance({ id, active, height, onRegister, onUnregister }: TermInst
     }
 
     term.onData((data) => {
-      void window.openshell.terminalInput(id, data);
+      void window.openshell.terminalInput(workspace, id, data);
     });
 
     onRegister(id, (data) => term.write(data));
@@ -75,11 +77,11 @@ function TermInstance({ id, active, height, onRegister, onUnregister }: TermInst
       } catch {
         /* hidden */
       }
-      void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
+      void window.openshell.terminalResize(workspace, id, term.cols, term.rows).catch(() => {});
     });
     ro.observe(host);
 
-    void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
+    void window.openshell.terminalResize(workspace, id, term.cols, term.rows).catch(() => {});
 
     return () => {
       onUnregister(id);
@@ -87,9 +89,9 @@ function TermInstance({ id, active, height, onRegister, onUnregister }: TermInst
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
-      void window.openshell.terminalStop(id);
+      void window.openshell.terminalStop(workspace, id).catch(() => {});
     };
-  }, [id, onRegister, onUnregister]);
+  }, [id, workspace, onRegister, onUnregister]);
 
   useEffect(() => {
     if (!active) return;
@@ -102,10 +104,10 @@ function TermInstance({ id, active, height, onRegister, onUnregister }: TermInst
       } catch {
         /* hidden */
       }
-      void window.openshell.terminalResize(id, term.cols, term.rows).catch(() => {});
+      void window.openshell.terminalResize(workspace, id, term.cols, term.rows).catch(() => {});
     });
     term.focus();
-  }, [active, height, id]);
+  }, [active, height, id, workspace]);
 
   return (
     <div className={`terminal-host ${active ? "" : "hidden"}`} ref={hostRef} />
@@ -129,7 +131,7 @@ export function TerminalTray({
   onExpand: () => void;
 }): ReactNode {
   const { session } = useStore();
-  const directory = session?.directory ?? null;
+  const workspace = session!.workspace;
   const [terms, setTerms] = useState<TermView[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -171,14 +173,14 @@ export function TerminalTray({
   const createTerminal = useCallback(async (): Promise<void> => {
     setNotice("");
     try {
-      const { id } = await window.openshell.terminalStart(directory);
+      const { id } = await window.openshell.terminalStart(workspace);
       const name = `Terminal ${++counterRef.current}`;
       setTerms((prev) => [...prev, { id, name }]);
       setActiveId(id);
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "Could not start a terminal");
     }
-  }, [directory]);
+  }, [workspace]);
 
   useEffect(() => {
     const token = ++bootTokenRef.current;
@@ -186,9 +188,9 @@ export function TerminalTray({
     setActiveId(null);
     void (async () => {
       try {
-        const { id } = await window.openshell.terminalStart(directory);
+        const { id } = await window.openshell.terminalStart(workspace);
         if (token !== bootTokenRef.current) {
-          void window.openshell.terminalStop(id);
+          void window.openshell.terminalStop(workspace, id).catch(() => {});
           return;
         }
         const name = `Terminal ${++counterRef.current}`;
@@ -203,10 +205,10 @@ export function TerminalTray({
     return () => {
       bootTokenRef.current++;
     };
-  }, [directory]);
+  }, [workspace]);
 
   const closeTerminal = (id: string): void => {
-    void window.openshell.terminalStop(id);
+    void window.openshell.terminalStop(workspace, id).catch(() => {});
     const idx = terms.findIndex((t) => t.id === id);
     const next = terms.filter((t) => t.id !== id);
     if (next.length === 0) {
@@ -265,6 +267,7 @@ export function TerminalTray({
             id={term.id}
             active={term.id === activeId}
             height={height}
+            workspace={workspace}
             onRegister={onRegister}
             onUnregister={onUnregister}
           />

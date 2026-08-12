@@ -494,18 +494,18 @@ Scope: items 1 and 2 plus sender validation from item 5.
 
 Scope: items 5, 6, and the shared workspace contract required by items 3, 7, and 8.
 
-- [ ] Introduce an immutable workspace generation/identity in shared types.
-- [ ] Carry expected workspace identity on filesystem and terminal IPC.
-- [ ] Reject stale workspace operations in main.
-- [ ] Separate workspace-relative reads from privileged source-view reads.
-- [ ] Reject absolute paths, parent traversal, malformed values, and oversized payloads on workspace APIs.
-- [ ] Define and enforce an intermediate-symlink confinement policy.
-- [ ] Stop trusting renderer-provided terminal cwd for ordinary workspace terminals.
-- [ ] Validate terminal IDs, input size, rows, and columns.
-- [ ] Add path, symlink, stale-workspace, malformed-argument, and terminal-validation tests.
-- [ ] Update shared, preload, main, and security documentation.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Introduce an immutable workspace generation/identity in shared types.
+- [x] Carry expected workspace identity on filesystem and terminal IPC.
+- [x] Reject stale workspace operations in main.
+- [x] Separate workspace-relative reads from privileged source-view reads.
+- [x] Reject absolute paths, parent traversal, malformed values, and oversized payloads on workspace APIs.
+- [x] Define and enforce an intermediate-symlink confinement policy.
+- [x] Stop trusting renderer-provided terminal cwd for ordinary workspace terminals.
+- [x] Validate terminal IDs, input size, rows, and columns.
+- [x] Add path, symlink, stale-workspace, malformed-argument, and terminal-validation tests.
+- [x] Update shared, preload, main, and security documentation.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-04: Revision-safe saves and conflict handling
 

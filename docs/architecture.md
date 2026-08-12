@@ -52,7 +52,7 @@ All backend→renderer message kinds are defined in
   the full protocol map.
 - `{ kind: "file-update", file: { path, baseline, content, deleted } }` —
   emitted by the fs watcher (below).
-- `{ kind: "session", session: { id, directory } }` — emitted when a
+- `{ kind: "session", session: { id, directory, workspace } }` — emitted when a
   session is opened.
 - `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
   exit from the terminal tray (`src/main/terminal.ts`).
@@ -83,7 +83,8 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    `client.session.create({ location: { directory }, model?, agent? })` —
    the last-used model and agent are read from `settings.json` (userData)
    and passed along; stores `sessionID`/`directory`, clears baseline
-   state, starts the fs watcher.
+   state, canonicalizes the workspace root, assigns a fresh immutable workspace
+   UUID, and starts the fs watcher.
 3. Emits `{ kind: "session" }`; renderer resets all UI state.
 4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
@@ -125,6 +126,12 @@ explorer also supports create/rename/delete through `shell:fs-create-*`,
 plain `fs` operations that run through the same watcher so baselines and
 the tree stay consistent.
 
+Every workspace filesystem call carries the expected workspace UUID and main
+rejects stale generations. Paths are bounded strict relative paths and no
+existing symlink component may be traversed, including an intermediate parent
+of a new target. Absolute reads are not part of the workspace API; the separate
+app-root-confined source-view channel exists only for DevTools CSS navigation.
+
 ## Models, agents, and composer controls
 
 The header of the agent panel has two pickers. Models come from
@@ -146,14 +153,16 @@ provides it.
 ## Terminal tray
 
 The bottom tray (`src/main/terminal.ts` + `TerminalTray.tsx`) runs a real
-PTY via `node-pty` (rebuilt against Electron's ABI by `@electron/rebuild`;
-see `scripts`). The main process spawns the login shell (`zsh -l` on
-macOS, `$SHELL` elsewhere) in the session directory and forwards PTY
+PTY via `node-pty`. Main verifies the workspace identity and supplies the
+canonical active workspace as cwd rather than accepting one from the renderer.
+It spawns the selected shell in that directory and forwards PTY
 output to the renderer as `terminal-data` messages; keystrokes go back
 via `shell:terminal-input`. Resizes are handled with the xterm `fit`
 addon + `shell:terminal-resize`. The tray is toggled from the titlebar
 (⌥O), its height is drag-resizable, and dragging the divider to the
 window bottom closes it on mouse release rather than mid-drag.
+Terminal ids, ownership, input size, and bounded positive dimensions are
+validated before operations reach `node-pty`.
 
 ## Permissions
 

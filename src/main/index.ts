@@ -12,7 +12,15 @@ import {
   type TrustedApplicationLocation
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
-import type { CommandOption, PermissionReply, PromptFile, ReferenceOption } from "@shared/types";
+import type { CommandOption, PermissionReply, PromptFile, ReferenceOption, WorkspaceIdentity } from "@shared/types";
+import {
+  assertWorkspace,
+  confinedAbsolutePath,
+  fileContent,
+  terminalDimensions,
+  terminalId,
+  terminalInput
+} from "./workspace-security";
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
@@ -467,22 +475,41 @@ function registerIpc(): void {
 
   handleTrusted("shell:interrupt", async () => backend.interrupt());
 
-  handleTrusted("shell:fs-list", async (_e, rel: string) => backend.listDir(rel));
-
-  handleTrusted("shell:fs-read", async (_e, rel: string) => backend.readFile(rel));
-
-  handleTrusted("shell:fs-write", async (_e, rel: string, content: string) =>
-    backend.writeFile(rel, content)
+  handleTrusted("shell:fs-list", async (_e, workspace: WorkspaceIdentity, rel: string) =>
+    backend.listDir(workspace, rel)
   );
 
-  handleTrusted("shell:fs-create-file", async (_e, rel: string) => backend.createFile(rel));
+  handleTrusted("shell:fs-read", async (_e, workspace: WorkspaceIdentity, rel: string) =>
+    backend.readFile(workspace, rel)
+  );
 
-  handleTrusted("shell:fs-create-dir", async (_e, rel: string) => backend.createDir(rel));
+  handleTrusted("shell:source-read", async (_e, absolutePath: string) => {
+    const source = await confinedAbsolutePath(await fsp.realpath(app.getAppPath()), absolutePath);
+    try {
+      return await fsp.readFile(source, "utf8");
+    } catch {
+      return null;
+    }
+  });
 
-  handleTrusted("shell:fs-delete", async (_e, rel: string) => backend.deletePath(rel));
+  handleTrusted("shell:fs-write", async (_e, workspace: WorkspaceIdentity, rel: string, content: string) =>
+    backend.writeFile(workspace, rel, fileContent(content))
+  );
 
-  handleTrusted("shell:fs-rename", async (_e, rel: string, newName: string) =>
-    backend.renamePath(rel, newName)
+  handleTrusted("shell:fs-create-file", async (_e, workspace: WorkspaceIdentity, rel: string) =>
+    backend.createFile(workspace, rel)
+  );
+
+  handleTrusted("shell:fs-create-dir", async (_e, workspace: WorkspaceIdentity, rel: string) =>
+    backend.createDir(workspace, rel)
+  );
+
+  handleTrusted("shell:fs-delete", async (_e, workspace: WorkspaceIdentity, rel: string) =>
+    backend.deletePath(workspace, rel)
+  );
+
+  handleTrusted("shell:fs-rename", async (_e, workspace: WorkspaceIdentity, rel: string, newName: string) =>
+    backend.renamePath(workspace, rel, newName)
   );
 
   handleTrusted("shell:projects", async () => backend.listProjects());
@@ -508,21 +535,36 @@ function registerIpc(): void {
 
   handleTrusted("shell:switch-agent", async (_e, id: string) => backend.switchAgent(id));
 
-  handleTrusted("shell:terminal-start", async (_e, directory: string | null) => {
-    const id = await terminals.start(directory);
+  handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity) => {
+    const state = await backend.getState();
+    const active = assertWorkspace(workspace, state?.workspace ?? null);
+    const id = await terminals.start(state!.directory, active);
+    try {
+      assertWorkspace(workspace, (await backend.getState())?.workspace ?? null);
+    } catch (error) {
+      terminals.stop(id, active);
+      throw error;
+    }
     return { id };
   });
 
-  handleTrusted("shell:terminal-input", async (_e, id: string, data: string) => {
-    terminals.write(id, data);
+  handleTrusted("shell:terminal-input", async (_e, workspace: WorkspaceIdentity, id: string, data: string) => {
+    const state = await backend.getState();
+    const active = assertWorkspace(workspace, state?.workspace ?? null);
+    terminals.write(terminalId(id), terminalInput(data), active);
   });
 
-  handleTrusted("shell:terminal-resize", async (_e, id: string, cols: number, rows: number) => {
-    terminals.resize(id, cols, rows);
+  handleTrusted("shell:terminal-resize", async (_e, workspace: WorkspaceIdentity, id: string, cols: number, rows: number) => {
+    const state = await backend.getState();
+    const active = assertWorkspace(workspace, state?.workspace ?? null);
+    const dimensions = terminalDimensions(cols, rows);
+    terminals.resize(terminalId(id), dimensions.cols, dimensions.rows, active);
   });
 
-  handleTrusted("shell:terminal-stop", async (_e, id: string) => {
-    terminals.stop(id);
+  handleTrusted("shell:terminal-stop", async (_e, workspace: WorkspaceIdentity, id: string) => {
+    const state = await backend.getState();
+    const active = assertWorkspace(workspace, state?.workspace ?? null);
+    terminals.stop(terminalId(id), active);
   });
 
   handleTrusted("shell:state", async () => backend.getState());
@@ -564,6 +606,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     backend.start();
     const fwd = (msg: unknown): void => {
+      if ((msg as { kind?: string }).kind === "session") terminals.stopAll();
       if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
       win.webContents.send("shell:message", msg);
     };

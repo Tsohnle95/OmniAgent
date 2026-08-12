@@ -611,7 +611,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (isOpen) return;
       if (!tree[path]) {
         try {
-          const entries = await window.openshell.listDir(path);
+          const entries = await window.openshell.listDir(sessionRef.current!.workspace, path);
           setTree((prev) => ({ ...prev, [path]: sortEntries(filterEntries(entries)) }));
         } catch (err) {
           toast(err instanceof Error ? err.message : String(err), "error");
@@ -627,7 +627,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     await Promise.all(
       unique.map(async (dir) => {
         try {
-          const entries = await window.openshell.listDir(dir);
+          const entries = await window.openshell.listDir(sessionRef.current!.workspace, dir);
           setTree((prev) => ({ ...prev, [dir]: sortEntries(filterEntries(entries)) }));
         } catch {
           /* keep previous listing */
@@ -669,7 +669,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     async (path: string) => {
       setCtxMenu(null);
       try {
-        await window.openshell.deletePath(path);
+        await window.openshell.deletePath(sessionRef.current!.workspace, path);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
         return;
@@ -694,7 +694,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
 
   const openFile = useCallback(
-    async (path: string, opts?: { mode?: "edit" | "diff" }) => {
+    async (path: string, opts?: { mode?: "edit" | "diff"; source?: boolean }) => {
       const existing = tabs.find((t) => t.path === path);
       if (existing) {
         setActivePath(path);
@@ -705,7 +705,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
       try {
         const agentFile = agentFilesRef.current.get(path);
-        let content = await window.openshell.readFile(path);
+        let content = opts?.source
+          ? await window.openshell.readSourceFile(path)
+          : await window.openshell.readFile(sessionRef.current!.workspace, path);
         if (content === null && agentFile?.deleted) content = "";
         if (content === null) {
           toast(`Could not read ${path}`, "error");
@@ -762,8 +764,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (create) {
           const target = create.parent ? `${create.parent}/${trimmed}` : trimmed;
           await (create.kind === "file"
-            ? window.openshell.createFile(target)
-            : window.openshell.createDir(target));
+            ? window.openshell.createFile(sessionRef.current!.workspace, target)
+            : window.openshell.createDir(sessionRef.current!.workspace, target));
           void refreshTree(ancestorDirs(create.parent));
           if (create.kind === "file") void openFile(target);
         } else if (rename) {
@@ -771,7 +773,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             ? rename.path.slice(0, rename.path.lastIndexOf("/"))
             : "";
           const newPath = parent ? `${parent}/${trimmed}` : trimmed;
-          await window.openshell.renamePath(rename.path, trimmed);
+          await window.openshell.renamePath(sessionRef.current!.workspace, rename.path, trimmed);
           setTabs((prev) =>
             prev.map((t) =>
               t.path === rename.path || t.path.startsWith(`${rename.path}/`)
@@ -834,7 +836,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const tab = tabs.find((t) => t.path === path);
       if (!tab) return;
       try {
-        await window.openshell.writeFile(path, tab.content);
+        await window.openshell.writeFile(sessionRef.current!.workspace, path, tab.content);
         expectedRef.current.set(path, tab.content);
         setTabs((prev) =>
           prev.map((t) =>
@@ -898,7 +900,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         } else if (msg.command === "open-source" && typeof msg.path === "string" && typeof msg.line === "number") {
           const path = msg.path;
           const line = msg.line;
-          void openFileRef.current(path, { mode: "edit" }).then(() => requestReveal(path, line));
+          void openFileRef.current(path, { mode: "edit", source: path.startsWith("/") }).then(() => requestReveal(path, line));
         }
         return;
       }
@@ -931,7 +933,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         const parent = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
         if (parent !== f.path && expandedRef.current.has(parent)) {
           void window.openshell
-            .listDir(parent)
+            .listDir(sessionRef.current!.workspace, parent)
             .then((entries) =>
               setTree((prev) => ({ ...prev, [parent]: sortEntries(filterEntries(entries)) }))
             )

@@ -13,7 +13,8 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
-  TerminalStartResult
+  TerminalStartResult,
+  WorkspaceIdentity
 } from "@shared/types";
 
 const api = {
@@ -37,16 +38,22 @@ const api = {
     ipcRenderer.invoke("shell:find-files", query),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
   interrupt: (): Promise<void> => ipcRenderer.invoke("shell:interrupt"),
-  listDir: (rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
-    ipcRenderer.invoke("shell:fs-list", rel),
-  readFile: (rel: string): Promise<string | null> => ipcRenderer.invoke("shell:fs-read", rel),
-  writeFile: (rel: string, content: string): Promise<void> =>
-    ipcRenderer.invoke("shell:fs-write", rel, content),
-  createFile: (rel: string): Promise<void> => ipcRenderer.invoke("shell:fs-create-file", rel),
-  createDir: (rel: string): Promise<void> => ipcRenderer.invoke("shell:fs-create-dir", rel),
-  deletePath: (rel: string): Promise<void> => ipcRenderer.invoke("shell:fs-delete", rel),
-  renamePath: (rel: string, newName: string): Promise<void> =>
-    ipcRenderer.invoke("shell:fs-rename", rel, newName),
+  listDir: (workspace: WorkspaceIdentity, rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
+    ipcRenderer.invoke("shell:fs-list", workspace, rel),
+  readFile: (workspace: WorkspaceIdentity, rel: string): Promise<string | null> =>
+    ipcRenderer.invoke("shell:fs-read", workspace, rel),
+  readSourceFile: (absolutePath: string): Promise<string | null> =>
+    ipcRenderer.invoke("shell:source-read", absolutePath),
+  writeFile: (workspace: WorkspaceIdentity, rel: string, content: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-write", workspace, rel, content),
+  createFile: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-create-file", workspace, rel),
+  createDir: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-create-dir", workspace, rel),
+  deletePath: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-delete", workspace, rel),
+  renamePath: (workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-rename", workspace, rel, newName),
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
   models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
   modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),
@@ -54,13 +61,14 @@ const api = {
     ipcRenderer.invoke("shell:switch-model", id, providerID, variant),
   agents: (): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents"),
   switchAgent: (id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", id),
-  terminalStart: (directory: string | null): Promise<TerminalStartResult> =>
-    ipcRenderer.invoke("shell:terminal-start", directory),
-  terminalInput: (id: string, data: string): Promise<void> =>
-    ipcRenderer.invoke("shell:terminal-input", id, data),
-  terminalResize: (id: string, cols: number, rows: number): Promise<void> =>
-    ipcRenderer.invoke("shell:terminal-resize", id, cols, rows),
-  terminalStop: (id: string): Promise<void> => ipcRenderer.invoke("shell:terminal-stop", id),
+  terminalStart: (workspace: WorkspaceIdentity): Promise<TerminalStartResult> =>
+    ipcRenderer.invoke("shell:terminal-start", workspace),
+  terminalInput: (workspace: WorkspaceIdentity, id: string, data: string): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-input", workspace, id, data),
+  terminalResize: (workspace: WorkspaceIdentity, id: string, cols: number, rows: number): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-resize", workspace, id, cols, rows),
+  terminalStop: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-stop", workspace, id),
   permissionReply: (requestID: string, reply: PermissionReply, sessionID?: string): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", requestID, reply, sessionID),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),

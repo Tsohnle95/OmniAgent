@@ -47,6 +47,11 @@ ancestor dir of the touched path so the tree stays current (directories
 emit no `file-update`), move/close matching tabs, and move `agentFiles`
 entries on rename.
 
+Filesystem and terminal calls carry `session.workspace`, the immutable
+identity for that activation. Main rejects calls from stale renderer work after
+a workspace switch. `open-source` uses the separate privileged source-view read
+only for absolute app paths; normal editor reads are workspace-relative.
+
 Key mechanisms:
 
 - **Event dispatch** — the `onMessage` effect handles `session` /

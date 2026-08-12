@@ -1,6 +1,6 @@
 import { spawn, type IPty } from "node-pty";
-import { homedir } from "node:os";
 import { execFile } from "node:child_process";
+import type { WorkspaceIdentity } from "@shared/types";
 
 export interface PtyHandle {
   id: string;
@@ -8,7 +8,7 @@ export interface PtyHandle {
 }
 
 export class TerminalManager {
-  private terminals = new Map<string, IPty>();
+  private terminals = new Map<string, { pty: IPty; workspaceId: string }>();
   private counter = 0;
   private listeners = new Set<(msg: unknown) => void>();
 
@@ -37,15 +37,14 @@ export class TerminalManager {
     });
   }
 
-  async start(directory: string | null): Promise<string> {
+  async start(directory: string, workspace: WorkspaceIdentity): Promise<string> {
     const id = `term-${++this.counter}`;
     const shell = await TerminalManager.loginShell();
-    const cwd = directory ?? homedir();
     const pty = spawn(shell, [], {
       name: "xterm-256color",
       cols: 100,
       rows: 24,
-      cwd,
+      cwd: directory,
       env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" }
     });
     pty.onData((data) => {
@@ -55,27 +54,35 @@ export class TerminalManager {
       this.terminals.delete(id);
       this.emit({ kind: "terminal-exit", terminal: { id, exitCode } });
     });
-    this.terminals.set(id, pty);
+    this.terminals.set(id, { pty, workspaceId: workspace.id });
     return id;
   }
 
-  write(id: string, data: string): void {
-    this.terminals.get(id)?.write(data);
+  private get(id: string, workspace: WorkspaceIdentity): IPty {
+    const terminal = this.terminals.get(id);
+    if (!terminal) throw new Error("unknown terminal");
+    if (terminal.workspaceId !== workspace.id) throw new Error("stale terminal");
+    return terminal.pty;
   }
 
-  resize(id: string, cols: number, rows: number): void {
+  write(id: string, data: string, workspace: WorkspaceIdentity): void {
+    this.get(id, workspace).write(data);
+  }
+
+  resize(id: string, cols: number, rows: number, workspace: WorkspaceIdentity): void {
     try {
-      this.terminals.get(id)?.resize(cols, rows);
+      this.get(id, workspace).resize(cols, rows);
     } catch {
-      /* pty may be dead */
+      throw new Error("unknown or unavailable terminal");
     }
   }
 
-  stop(id: string): void {
-    const pty = this.terminals.get(id);
-    if (!pty) return;
+  stop(id: string, workspace?: WorkspaceIdentity): void {
+    const terminal = this.terminals.get(id);
+    if (!terminal) throw new Error("unknown terminal");
+    if (workspace && terminal.workspaceId !== workspace.id) throw new Error("stale terminal");
     try {
-      pty.kill();
+      terminal.pty.kill();
     } catch {
       /* already dead */
     }

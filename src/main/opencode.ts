@@ -4,6 +4,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { randomUUID } from "node:crypto";
 import { app, shell } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
@@ -28,7 +29,16 @@ import type {
   TreeEntry,
   ModelOption
 } from "@shared/types";
+import type { WorkspaceIdentity } from "@shared/types";
 import { fetchProviderUsage } from "./provider-usage";
+import {
+  assertWorkspace,
+  canonicalWorkspaceRoot,
+  confinedPath,
+  fileContent,
+  fileName,
+  relativePath
+} from "./workspace-security";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -372,6 +382,7 @@ export class OpenShellBackend {
   private client: Client | null = null;
   private sessionID: string | null = null;
   private directory: string | null = null;
+  private workspace: WorkspaceIdentity | null = null;
   private sessionInfo: SessionInfo | null = null;
   private snapshots = new Map<string, string | null>();
   private lastKnown = new Map<string, string>();
@@ -391,6 +402,12 @@ export class OpenShellBackend {
 
   private emit(msg: unknown): void {
     for (const cb of this.listeners) cb(msg);
+  }
+
+  private workspaceRoot(expected: WorkspaceIdentity): string {
+    assertWorkspace(expected, this.workspace);
+    if (!this.directory) throw new Error("no active session");
+    return this.directory;
   }
 
   private static discoverFiles(): string[] {
@@ -493,7 +510,7 @@ export class OpenShellBackend {
       const abs = this.abs(rel);
       if (this.snapshots.has(abs)) continue;
       try {
-        const content = await this.readFile(this.relKey(abs));
+        const content = await this.readFile(this.workspace!, this.relKey(abs));
         if (content !== null) this.snapshots.set(abs, content);
       } catch {
         /* ignore */
@@ -653,16 +670,20 @@ export class OpenShellBackend {
     }
   }
 
-  private async activateSession(info: SessionInfo): Promise<SessionInfo> {
+  private async activateSession(info: Omit<SessionInfo, "workspace">): Promise<SessionInfo> {
+    const directory = await canonicalWorkspaceRoot(info.directory);
+    const workspace = Object.freeze({ id: randomUUID() });
+    const activated = { ...info, directory, workspace };
     this.sessionID = info.id;
-    this.directory = info.directory;
-    this.sessionInfo = info;
+    this.directory = directory;
+    this.workspace = workspace;
+    this.sessionInfo = activated;
     this.snapshots.clear();
     this.lastKnown.clear();
     this.hasGit = null;
     this.startWatcher();
-    this.emit({ kind: "session", session: info });
-    return info;
+    this.emit({ kind: "session", session: activated });
+    return activated;
   }
 
   async openSession(directory: string): Promise<SessionInfo> {
@@ -991,11 +1012,15 @@ export class OpenShellBackend {
     });
   }
 
-  async listDir(rel: string): Promise<TreeEntry[]> {
-    if (!this.client || !this.directory) throw new Error("no active session");
+  async listDir(workspace: WorkspaceIdentity, rel: string): Promise<TreeEntry[]> {
+    if (!this.client) throw new Error("no active session");
+    const root = this.workspaceRoot(workspace);
+    const clean = relativePath(rel, true);
+    await confinedPath(root, clean, true);
+    assertWorkspace(workspace, this.workspace);
     const body = await this.client.file.list({
-      location: { directory: this.directory },
-      path: rel
+      location: { directory: root },
+      path: clean
     });
     const arr = Array.isArray(body) ? body : (body as { data?: TreeEntry[] }).data ?? [];
     return arr.map((e) => ({
@@ -1004,63 +1029,55 @@ export class OpenShellBackend {
     }));
   }
 
-  async readFile(rel: string): Promise<string | null> {
-    if (path.isAbsolute(rel)) {
-      try {
-        return await fsp.readFile(rel, "utf8");
-      } catch {
-        return null;
-      }
-    }
-    if (!this.client || !this.directory) throw new Error("no active session");
+  async readFile(workspace: WorkspaceIdentity, rel: string): Promise<string | null> {
+    if (!this.client) throw new Error("no active session");
+    const root = this.workspaceRoot(workspace);
+    const clean = relativePath(rel);
+    await confinedPath(root, clean);
+    assertWorkspace(workspace, this.workspace);
     const res = await this.client.file.read({
-      location: { directory: this.directory },
-      path: rel
+      location: { directory: root },
+      path: clean
     });
     return toText(res);
   }
 
-  async writeFile(rel: string, content: string): Promise<void> {
-    if (!this.directory) throw new Error("no active session");
-    const abs = this.abs(rel);
+  async writeFile(workspace: WorkspaceIdentity, rel: string, content: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const cleanContent = fileContent(content);
+    const abs = await confinedPath(root, relativePath(rel));
     await fsp.mkdir(path.dirname(abs), { recursive: true });
-    await fsp.writeFile(abs, content, "utf8");
-    this.snapshots.set(abs, content);
-    this.lastKnown.set(abs, content);
-    this.emitFileUpdate(abs, content);
+    await confinedPath(root, relativePath(rel));
+    assertWorkspace(workspace, this.workspace);
+    await fsp.writeFile(abs, cleanContent, "utf8");
+    this.snapshots.set(abs, cleanContent);
+    this.lastKnown.set(abs, cleanContent);
+    this.emitFileUpdate(abs, cleanContent);
   }
 
-  private safeRel(rel: string): string {
-    const root = this.directory;
-    if (!root) throw new Error("no active session");
-    const clean = rel.replace(/\\/g, "/").replace(/^\/+/, "");
-    if (!clean || clean === "." || clean === "..") throw new Error("invalid path");
-    const abs = path.resolve(root, clean);
-    const rootPrefix = `${path.resolve(root)}${path.sep}`;
-    if (abs !== path.resolve(root) && !abs.startsWith(rootPrefix)) {
-      throw new Error("path escapes session directory");
-    }
-    return clean;
-  }
-
-  async createFile(rel: string): Promise<void> {
-    if (!this.directory) throw new Error("no active session");
-    const abs = path.join(this.directory, this.safeRel(rel));
+  async createFile(workspace: WorkspaceIdentity, rel: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const abs = await confinedPath(root, relativePath(rel));
     await fsp.mkdir(path.dirname(abs), { recursive: true });
+    await confinedPath(root, relativePath(rel));
+    assertWorkspace(workspace, this.workspace);
     await fsp.writeFile(abs, "", { flag: "wx" });
     this.snapshots.set(abs, "");
     this.lastKnown.set(abs, "");
     this.emitFileUpdate(abs, "");
   }
 
-  async createDir(rel: string): Promise<void> {
-    if (!this.directory) throw new Error("no active session");
-    await fsp.mkdir(path.join(this.directory, this.safeRel(rel)), { recursive: false });
+  async createDir(workspace: WorkspaceIdentity, rel: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const abs = await confinedPath(root, relativePath(rel));
+    assertWorkspace(workspace, this.workspace);
+    await fsp.mkdir(abs, { recursive: false });
   }
 
-  async deletePath(rel: string): Promise<void> {
-    if (!this.directory) throw new Error("no active session");
-    const abs = this.abs(this.safeRel(rel));
+  async deletePath(workspace: WorkspaceIdentity, rel: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const abs = await confinedPath(root, relativePath(rel));
+    assertWorkspace(workspace, this.workspace);
     try {
       await shell.trashItem(abs);
     } catch {
@@ -1074,13 +1091,12 @@ export class OpenShellBackend {
     }
   }
 
-  async renamePath(rel: string, newName: string): Promise<void> {
-    if (!this.directory) throw new Error("no active session");
-    const abs = this.abs(this.safeRel(rel));
-    if (!newName || newName.includes("/") || newName === "." || newName === "..") {
-      throw new Error("invalid name");
-    }
-    const target = path.join(path.dirname(abs), newName);
+  async renamePath(workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const abs = await confinedPath(root, relativePath(rel));
+    const parent = this.relKey(path.dirname(abs));
+    const target = await confinedPath(root, parent ? `${parent}/${fileName(newName)}` : fileName(newName));
+    assertWorkspace(workspace, this.workspace);
     const snapshot = this.snapshots.get(abs) ?? this.lastKnown.get(abs);
     await fsp.rename(abs, target);
     this.snapshots.delete(abs);

@@ -24,23 +24,24 @@ automatically.
 | `references(query)` | `Promise<ReferenceOption[]>` — `file.find` search results for @-mentions, `rel` paths relative to the session directory |
 | `selectFiles()` | `Promise<string[]>` |
 | `interrupt()` | `Promise<void>` |
-| `listDir(rel)` | `Promise<TreeEntry[]>` |
-| `readFile(rel)` | `Promise<string \| null>` |
-| `writeFile(rel, content)` | `Promise<void>` |
-| `createFile(rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
-| `createDir(rel)` | `Promise<void>` — creates a folder, erroring if it exists |
-| `deletePath(rel)` | `Promise<void>` — moves to Trash (falls back to `rm`) |
-| `renamePath(rel, newName)` | `Promise<void>` — renames within the same folder |
+| `listDir(workspace, rel)` | `Promise<TreeEntry[]>` |
+| `readFile(workspace, rel)` | `Promise<string \| null>` — workspace-relative only |
+| `readSourceFile(absolutePath)` | `Promise<string \| null>` — privileged app-source read used only by DevTools source navigation |
+| `writeFile(workspace, rel, content)` | `Promise<void>` |
+| `createFile(workspace, rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
+| `createDir(workspace, rel)` | `Promise<void>` — creates a folder, erroring if it exists |
+| `deletePath(workspace, rel)` | `Promise<void>` — moves to Trash (falls back to `rm`) |
+| `renamePath(workspace, rel, newName)` | `Promise<void>` — renames within the same folder |
 | `projects()` | `Promise<ProjectInfo[]>` |
 | `models()` | `Promise<ModelOption[]>` |
 | `modelDefault()` | `Promise<ModelOption \| null>` |
 | `switchModel(id, providerID, variant?)` | `Promise<void>` |
 | `agents()` | `Promise<AgentOption[]>` |
 | `switchAgent(id)` | `Promise<void>` |
-| `terminalStart(directory \| null)` | `Promise<{ id }>` |
-| `terminalInput(id, data)` | `Promise<void>` |
-| `terminalResize(id, cols, rows)` | `Promise<void>` |
-| `terminalStop(id)` | `Promise<void>` |
+| `terminalStart(workspace)` | `Promise<{ id }>` |
+| `terminalInput(workspace, id, data)` | `Promise<void>` |
+| `terminalResize(workspace, id, cols, rows)` | `Promise<void>` |
+| `terminalStop(workspace, id)` | `Promise<void>` |
 | `permissionReply(requestID, reply, sessionID?)` | `Promise<void>` |
 | `state()` | `Promise<SessionInfo \| null>` |
 | `sessionSelection()` | `Promise<SessionSelection \| null>` |
@@ -56,4 +57,6 @@ Security posture: `contextIsolation: true`, `nodeIntegration: false`, and
 `sandbox: true`. The renderer has no direct Node or Electron access. Main
 accepts bridge invokes only from the active window's trusted main frame and
 trusted application URL; a document that navigates elsewhere or an untrusted
-subframe cannot use the exposed API.
+subframe cannot use the exposed API. Workspace filesystem and terminal calls
+also require the active immutable `WorkspaceIdentity`; stale activation tokens
+are rejected in main.
