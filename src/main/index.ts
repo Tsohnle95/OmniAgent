@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell, type WebContents } from "electron";
 import path from "node:path";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
@@ -7,6 +7,46 @@ import type { PermissionReply } from "@shared/types";
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
 let win: BrowserWindow | null = null;
+let inspectPickerActive = false;
+
+const INSPECT_HIGHLIGHT = {
+  showInfo: true,
+  showStyles: true,
+  contentColor: { r: 111, g: 168, b: 220, a: 0.66 },
+  paddingColor: { r: 147, g: 196, b: 125, a: 0.55 },
+  borderColor: { r: 255, g: 229, b: 153, a: 0.66 },
+  marginColor: { r: 246, g: 178, b: 107, a: 0.66 }
+} as const;
+
+async function startInspectPicker(wc: WebContents): Promise<void> {
+  if (inspectPickerActive) return;
+  inspectPickerActive = true;
+  if (!wc.isDevToolsOpened()) wc.openDevTools({ mode: "bottom" });
+  const dtc = wc.devToolsWebContents;
+  if (dtc && dtc.isLoading()) {
+    await new Promise<void>((resolve) => dtc.once("dom-ready", () => resolve()));
+  }
+  wc.focus();
+  try {
+    if (!wc.debugger.isAttached()) wc.debugger.attach("1.3");
+    await wc.debugger.sendCommand("DOM.enable");
+    await wc.debugger.sendCommand("Overlay.enable");
+    await wc.debugger.sendCommand("Overlay.setInspectMode", {
+      mode: "searchForNode",
+      highlightConfig: INSPECT_HIGHLIGHT
+    });
+  } catch (err) {
+    console.error("inspect picker failed:", err);
+    inspectPickerActive = false;
+  }
+}
+
+function stopInspectPicker(wc: WebContents): void {
+  if (!inspectPickerActive) return;
+  inspectPickerActive = false;
+  if (!wc.debugger.isAttached()) return;
+  void wc.debugger.sendCommand("Overlay.setInspectMode", { mode: "none" }).catch(() => {});
+}
 
 function createWindow(): BrowserWindow {
   const newWin = new BrowserWindow({
@@ -28,7 +68,8 @@ function createWindow(): BrowserWindow {
     }
   });
   win = newWin;
-  let inspectOnNextClick = false;
+  inspectPickerActive = false;
+  const wc = newWin.webContents;
 
   newWin.on("closed", () => {
     if (win === newWin) win = null;
@@ -39,6 +80,13 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
+  wc.debugger.on("message", (_e, method) => {
+    if (method === "Overlay.inspectNodeRequested" || method === "Overlay.inspectModeCanceled") {
+      stopInspectPicker(wc);
+    }
+  });
+  wc.on("devtools-closed", () => stopInspectPicker(wc));
+
   newWin.webContents.on("before-input-event", (event, input) => {
     const mod = process.platform === "darwin" ? input.meta : input.control;
     if (input.type === "keyDown" && mod && !input.alt && !input.shift && input.key.toLowerCase() === "w") {
@@ -48,25 +96,21 @@ function createWindow(): BrowserWindow {
     }
     if (input.type === "keyDown" && !mod && !input.alt && !input.shift && input.key === "F12") {
       event.preventDefault();
-      newWin.webContents.toggleDevTools();
+      if (newWin.webContents.isDevToolsOpened()) {
+        newWin.webContents.closeDevTools();
+      } else {
+        newWin.webContents.openDevTools({ mode: "bottom" });
+      }
       return;
     }
     if (input.type === "keyDown" && mod && input.shift && !input.alt && input.key.toLowerCase() === "c") {
       event.preventDefault();
-      inspectOnNextClick = true;
-      if (newWin.webContents.isDevToolsOpened()) {
-        newWin.webContents.focus();
+      if (inspectPickerActive) {
+        stopInspectPicker(newWin.webContents);
       } else {
-        newWin.webContents.openDevTools({ mode: "detach" });
+        void startInspectPicker(newWin.webContents);
       }
     }
-  });
-
-  newWin.webContents.on("before-mouse-event", (event, mouse) => {
-    if (!inspectOnNextClick || mouse.type !== "mouseDown" || mouse.button !== "left") return;
-    inspectOnNextClick = false;
-    event.preventDefault();
-    newWin.webContents.inspectElement(mouse.x, mouse.y);
   });
 
   if (process.env["ELECTRON_RENDERER_URL"]) {
