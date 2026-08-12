@@ -629,7 +629,6 @@ if (!app.requestSingleInstanceLock()) {
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        backend.start();
         createWindow();
       }
     });

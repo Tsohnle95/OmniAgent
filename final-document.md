@@ -527,18 +527,18 @@ Scope: items 3, 4, and 10.
 
 Scope: items 7, 8, and 9.
 
-- [ ] Define latest-request-wins activation semantics.
-- [ ] Assign activation generations at request acceptance.
-- [ ] Serialize/cancel activation work and discard stale main and renderer completions.
-- [ ] Guard file, tree, model, agent, and selection responses by generation.
-- [ ] Capture watcher root/session/generation and workspace-scoped maps.
-- [ ] Check watcher generation after awaits and before mutation/emission.
-- [ ] Include identity on session and file-update messages and reject stale renderer updates.
-- [ ] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
-- [ ] Add deterministic activation, watcher-phase, reopen, startup-restoration, and macOS-reactivation tests.
-- [ ] Update session, watcher, startup, and event-loop documentation.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Define latest-request-wins activation semantics.
+- [x] Assign activation generations at request acceptance.
+- [x] Serialize/cancel activation work and discard stale main and renderer completions.
+- [x] Guard file, tree, model, agent, and selection responses by generation.
+- [x] Capture watcher root/session/generation and workspace-scoped maps.
+- [x] Check watcher generation after awaits and before mutation/emission.
+- [x] Include identity on session and file-update messages and reject stale renderer updates.
+- [x] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
+- [x] Add deterministic activation, watcher-phase, reopen, startup-restoration, and macOS-reactivation tests.
+- [x] Update session, watcher, startup, and event-loop documentation.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-06: Observed-change baselines and timeline chronology
 

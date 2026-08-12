@@ -11,8 +11,16 @@ export const MAX_TERMINAL_ROWS = 500;
 export function workspaceId(value: unknown): string {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid workspace identity");
   const keys = Object.keys(value);
-  const id = (value as { id?: unknown }).id;
-  if (keys.length !== 1 || keys[0] !== "id" || typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id)) {
+  const { id, generation } = value as { id?: unknown; generation?: unknown };
+  if (
+    keys.length !== 2 ||
+    !keys.includes("id") ||
+    !keys.includes("generation") ||
+    typeof id !== "string" ||
+    !/^[a-f0-9-]{36}$/.test(id) ||
+    !Number.isSafeInteger(generation) ||
+    Number(generation) < 1
+  ) {
     throw new Error("invalid workspace identity");
   }
   return id;
@@ -20,7 +28,8 @@ export function workspaceId(value: unknown): string {
 
 export function assertWorkspace(expected: unknown, active: WorkspaceIdentity | null): WorkspaceIdentity {
   const id = workspaceId(expected);
-  if (!active || id !== active.id) throw new Error("stale workspace");
+  const generation = (expected as WorkspaceIdentity).generation;
+  if (!active || id !== active.id || generation !== active.generation) throw new Error("stale workspace");
   return active;
 }
 

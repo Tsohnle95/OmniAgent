@@ -9,6 +9,7 @@ export interface SessionInfo {
 
 export interface WorkspaceIdentity {
   id: string;
+  generation: number;
 }
 
 export interface SessionSummary {
@@ -88,6 +89,8 @@ export interface TreeEntry {
 }
 
 export interface FileUpdate {
+  workspace: WorkspaceIdentity;
+  sessionID: string;
   path: string;
   baseline: string | null;
   content: string | null;

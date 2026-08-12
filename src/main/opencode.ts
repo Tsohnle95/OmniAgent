@@ -31,6 +31,7 @@ import type {
   ModelOption
 } from "@shared/types";
 import type { WorkspaceIdentity } from "@shared/types";
+import { LatestGeneration, sameWorkspace, SingleFlight } from "@shared/generation";
 import { fetchProviderUsage } from "./provider-usage";
 import {
   assertWorkspace,
@@ -379,19 +380,28 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
 
 type Client = ReturnType<typeof OpenCode.make>;
 
+interface WatchContext {
+  root: string;
+  sessionID: string;
+  workspace: WorkspaceIdentity;
+  snapshots: Map<string, string | null>;
+  lastKnown: Map<string, string>;
+  hasGit: boolean | null;
+}
+
 export class OpenShellBackend {
   private client: Client | null = null;
   private sessionID: string | null = null;
   private directory: string | null = null;
   private workspace: WorkspaceIdentity | null = null;
   private sessionInfo: SessionInfo | null = null;
-  private snapshots = new Map<string, string | null>();
-  private lastKnown = new Map<string, string>();
+  private watchContext: WatchContext | null = null;
   private watcher: FSWatcher | null = null;
   private watchTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private hasGit: boolean | null = null;
   private listeners = new Set<(msg: unknown) => void>();
   private stopped = false;
+  private readonly eventLoop = new SingleFlight();
+  private readonly activations = new LatestGeneration();
   private lastEnsureAt = 0;
   private readonly ensureCooldownMs = 30_000;
   private readonly settingsPath = path.join(app.getPath("userData"), "settings.json");
@@ -451,7 +461,7 @@ export class OpenShellBackend {
 
   start(): void {
     this.stopped = false;
-    void this.runEventLoop();
+    this.eventLoop.start(() => this.runEventLoop());
   }
 
   private async runEventLoop(): Promise<void> {
@@ -485,48 +495,59 @@ export class OpenShellBackend {
       await this.snapshotInputs(input);
     } else if (type === "filesystem.changed") {
       const f = data as { file: string; event: "add" | "change" | "unlink" };
-      if (typeof f?.file === "string") await this.onFsChanged(this.abs(f.file), f.event);
+      const context = this.watchContext;
+      if (context && typeof f?.file === "string") {
+        await this.onFsChanged(context, this.abs(f.file, context.root), f.event);
+      }
     }
   }
 
   // ---------- filesystem watching + agent baselines ----------
 
-  private abs(rel: string): string {
-    return path.isAbsolute(rel) ? rel : path.join(this.directory!, rel);
+  private currentWatch(context: WatchContext): boolean {
+    return this.watchContext === context && sameWorkspace(context.workspace, this.workspace);
   }
 
-  private relKey(abs: string): string {
-    const rel = path.isAbsolute(abs) ? path.relative(this.directory!, abs) : abs;
+  private abs(rel: string, root = this.directory!): string {
+    return path.isAbsolute(rel) ? rel : path.join(root, rel);
+  }
+
+  private relKey(abs: string, root = this.directory!): string {
+    const rel = path.isAbsolute(abs) ? path.relative(root, abs) : abs;
     return rel.split(path.sep).join("/");
   }
 
-  private shouldSkip(abs: string): boolean {
-    const rel = path.relative(this.directory!, abs);
+  private shouldSkip(abs: string, root = this.directory!): boolean {
+    const rel = path.relative(root, abs);
     const first = rel.split(path.sep)[0];
     return SKIP_DIRS.has(first);
   }
 
   private async snapshotInputs(input: unknown): Promise<void> {
+    const context = this.watchContext;
+    if (!context) return;
     for (const rel of collectFilePaths(input)) {
-      const abs = this.abs(rel);
-      if (this.snapshots.has(abs)) continue;
+      const abs = this.abs(rel, context.root);
+      if (context.snapshots.has(abs)) continue;
       try {
-        const content = await this.readFile(this.workspace!, this.relKey(abs));
-        if (content !== null) this.snapshots.set(abs, content);
+        const content = await this.readFile(context.workspace, this.relKey(abs, context.root));
+        if (this.currentWatch(context) && content !== null) context.snapshots.set(abs, content);
       } catch {
         /* ignore */
       }
     }
   }
 
-  private async gitShow(rel: string): Promise<string | null> {
-    if (this.hasGit === false) return null;
-    if (this.hasGit === null) {
+  private async gitShow(context: WatchContext, rel: string): Promise<string | null> {
+    if (context.hasGit === false) return null;
+    if (context.hasGit === null) {
       try {
-        await fsp.access(path.join(this.directory!, ".git"));
-        this.hasGit = true;
+        await fsp.access(path.join(context.root, ".git"));
+        if (!this.currentWatch(context)) return null;
+        context.hasGit = true;
       } catch {
-        this.hasGit = false;
+        if (!this.currentWatch(context)) return null;
+        context.hasGit = false;
         return null;
       }
     }
@@ -534,7 +555,7 @@ export class OpenShellBackend {
       execFile(
         "git",
         ["show", `HEAD:${rel}`],
-        { cwd: this.directory!, maxBuffer: 16 * 1024 * 1024, timeout: 10_000 },
+        { cwd: context.root, maxBuffer: 16 * 1024 * 1024, timeout: 10_000 },
         (err, stdout) => {
           resolve(err ? null : stdout);
         }
@@ -542,18 +563,18 @@ export class OpenShellBackend {
     });
   }
 
-  private startWatcher(): void {
+  private startWatcher(context: WatchContext): void {
     this.stopWatcher();
-    if (!this.directory) return;
     try {
-      this.watcher = watch(this.directory, { recursive: true }, (_event, filename) => {
+      this.watcher = watch(context.root, { recursive: true }, (_event, filename) => {
+        if (!this.currentWatch(context)) return;
         if (!filename || typeof filename !== "string") return;
-        const abs = this.abs(filename);
-        if (this.shouldSkip(abs)) return;
-        this.scheduleWatch(abs);
+        const abs = this.abs(filename, context.root);
+        if (this.shouldSkip(abs, context.root)) return;
+        this.scheduleWatch(context, abs);
       });
       this.watcher.on("error", (err) => console.error("[openshell] watcher error:", err));
-      console.log("[openshell] watching", this.directory);
+      console.log("[openshell] watching", context.root);
     } catch (err) {
       console.error("[openshell] fs.watch unavailable, live updates disabled:", err);
     }
@@ -566,36 +587,38 @@ export class OpenShellBackend {
     this.watcher = null;
   }
 
-  private scheduleWatch(abs: string): void {
+  private scheduleWatch(context: WatchContext, abs: string): void {
     const existing = this.watchTimers.get(abs);
     if (existing) clearTimeout(existing);
     this.watchTimers.set(
       abs,
       setTimeout(() => {
         this.watchTimers.delete(abs);
-        void this.onFsChanged(abs, "change");
+        if (this.currentWatch(context)) void this.onFsChanged(context, abs, "change");
       }, 200)
     );
   }
 
-  private async onFsChanged(abs: string, event: string): Promise<void> {
-    if (this.shouldSkip(abs)) return;
+  private async onFsChanged(context: WatchContext, abs: string, event: string): Promise<void> {
+    if (!this.currentWatch(context) || this.shouldSkip(abs, context.root)) return;
     let stat: Awaited<ReturnType<typeof fsp.stat>> | null = null;
     try {
       stat = await fsp.stat(abs);
     } catch {
       /* missing */
     }
+    if (!this.currentWatch(context)) return;
     if (!stat || !stat.isFile()) {
-      if (this.lastKnown.has(abs) || this.snapshots.has(abs)) {
+      if (context.lastKnown.has(abs) || context.snapshots.has(abs)) {
         const baseline =
-          this.snapshots.get(abs) ??
-          this.lastKnown.get(abs) ??
-          (await this.gitShow(this.relKey(abs))) ??
+          context.snapshots.get(abs) ??
+          context.lastKnown.get(abs) ??
+          (await this.gitShow(context, this.relKey(abs, context.root))) ??
           "";
-        this.snapshots.set(abs, baseline);
-        this.lastKnown.delete(abs);
-        this.emitFileUpdate(abs, null, baseline);
+        if (!this.currentWatch(context)) return;
+        context.snapshots.set(abs, baseline);
+        context.lastKnown.delete(abs);
+        this.emitFileUpdate(context, abs, null, baseline);
       }
       return;
     }
@@ -605,17 +628,19 @@ export class OpenShellBackend {
     } catch {
       return;
     }
-    if (content === this.lastKnown.get(abs)) return;
-    this.lastKnown.set(abs, content);
-    if (!this.snapshots.has(abs)) {
-      const git = await this.gitShow(this.relKey(abs));
-      const baseline = this.hasGit === false ? content : (git ?? "");
-      this.snapshots.set(abs, baseline);
+    if (!this.currentWatch(context) || content === context.lastKnown.get(abs)) return;
+    context.lastKnown.set(abs, content);
+    if (!context.snapshots.has(abs)) {
+      const git = await this.gitShow(context, this.relKey(abs, context.root));
+      if (!this.currentWatch(context)) return;
+      const baseline = context.hasGit === false ? content : (git ?? "");
+      context.snapshots.set(abs, baseline);
     }
-    this.emitFileUpdate(abs, content);
+    this.emitFileUpdate(context, abs, content);
   }
 
   private emitFileUpdate(
+    context: WatchContext,
     abs: string,
     content: string | null,
     baselineOverride?: string,
@@ -624,10 +649,19 @@ export class OpenShellBackend {
     const baseline =
       baselineOverride !== undefined
         ? baselineOverride
-        : (this.snapshots.get(abs) ?? "");
+        : (context.snapshots.get(abs) ?? "");
+    if (!this.currentWatch(context)) return;
     this.emit({
       kind: "file-update",
-      file: { path: this.relKey(abs), baseline, content, deleted: content === null, ...(write ? { write } : {}) }
+      file: {
+        workspace: context.workspace,
+        sessionID: context.sessionID,
+        path: this.relKey(abs, context.root),
+        baseline,
+        content,
+        deleted: content === null,
+        ...(write ? { write } : {})
+      }
     });
   }
 
@@ -676,23 +710,34 @@ export class OpenShellBackend {
     }
   }
 
-  private async activateSession(info: Omit<SessionInfo, "workspace">): Promise<SessionInfo> {
+  private async activateSession(
+    generation: number,
+    info: Omit<SessionInfo, "workspace">
+  ): Promise<SessionInfo> {
     const directory = await canonicalWorkspaceRoot(info.directory);
-    const workspace = Object.freeze({ id: randomUUID() });
+    if (!this.activations.current(generation)) throw new Error("activation superseded");
+    const workspace = Object.freeze({ id: randomUUID(), generation });
     const activated = { ...info, directory, workspace };
+    const context: WatchContext = {
+      root: directory,
+      sessionID: info.id,
+      workspace,
+      snapshots: new Map(),
+      lastKnown: new Map(),
+      hasGit: null
+    };
     this.sessionID = info.id;
     this.directory = directory;
     this.workspace = workspace;
     this.sessionInfo = activated;
-    this.snapshots.clear();
-    this.lastKnown.clear();
-    this.hasGit = null;
-    this.startWatcher();
+    this.watchContext = context;
+    this.startWatcher(context);
     this.emit({ kind: "session", session: activated });
     return activated;
   }
 
   async openSession(directory: string): Promise<SessionInfo> {
+    const generation = this.activations.accept();
     if (!this.client) throw new Error("not connected to opencode service");
     const [saved, agent] = await Promise.all([this.savedModel(), this.savedAgent()]);
     const res = await this.client.session.create({
@@ -709,7 +754,7 @@ export class OpenShellBackend {
     };
     const id = info.id ?? info.data?.id;
     if (!id) throw new Error("session create returned no id");
-    return this.activateSession({
+    return this.activateSession(generation, {
       id,
       directory,
       ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
@@ -748,6 +793,7 @@ export class OpenShellBackend {
   }
 
   async openSessionById(sessionID: string): Promise<ReopenedSession> {
+    const generation = this.activations.accept();
     if (!this.client) throw new Error("not connected to opencode service");
     const res = await this.client.session.get({ sessionID });
     const info = res as {
@@ -800,14 +846,15 @@ export class OpenShellBackend {
         }
       };
     })();
-    const session = await this.activateSession({
+    const messagesRes = await this.client.message.list({ sessionID: id }).catch(() => null);
+    if (!this.activations.current(generation)) throw new Error("activation superseded");
+    const session = await this.activateSession(generation, {
       id,
       directory,
       ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
       ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
       ...(info.agent ?? info.data?.agent ? { agent: info.agent ?? info.data?.agent } : {})
     });
-    const messagesRes = await this.client.message.list({ sessionID: id }).catch(() => null);
     const messages = messagesRes
       ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
       : [];
@@ -825,7 +872,10 @@ export class OpenShellBackend {
 
   async sessionSelection(): Promise<SessionSelection | null> {
     if (!this.client || !this.sessionID) return null;
-    const res = await this.client.session.get({ sessionID: this.sessionID }).catch(() => null);
+    const sessionID = this.sessionID;
+    const workspace = this.workspace;
+    const res = await this.client.session.get({ sessionID }).catch(() => null);
+    if (!workspace || !sameWorkspace(workspace, this.workspace) || sessionID !== this.sessionID) return null;
     if (!res) return null;
      const s = res as { agent?: string; model?: { id?: string; modelID?: string; providerID?: string; variant?: string } };
     const out: SessionSelection = {};
@@ -930,9 +980,12 @@ export class OpenShellBackend {
 
   async listModels(): Promise<ModelOption[]> {
     if (!this.client) return [];
+    const workspace = this.workspace;
+    const directory = this.directory;
     const res = await this.client.model.list(
-      this.directory ? { location: { directory: this.directory } } : undefined
+      directory ? { location: { directory } } : undefined
     );
+    if (!sameWorkspace(workspace, this.workspace)) return [];
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
     return (arr as {
       id?: string;
@@ -962,9 +1015,12 @@ export class OpenShellBackend {
 
   async listAgents(): Promise<AgentOption[]> {
     if (!this.client) return [];
+    const workspace = this.workspace;
+    const directory = this.directory;
     const res = await this.client.agent.list(
-      this.directory ? { location: { directory: this.directory } } : undefined
+      directory ? { location: { directory } } : undefined
     );
+    if (!sameWorkspace(workspace, this.workspace)) return [];
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
     return (arr as { id?: string; name?: string; color?: string }[])
       .map((a) => ({
@@ -983,9 +1039,12 @@ export class OpenShellBackend {
 
   async modelDefault(): Promise<ModelOption | null> {
     if (!this.client) return null;
+    const workspace = this.workspace;
+    const directory = this.directory;
     const res = await this.client.model.default(
-      this.directory ? { location: { directory: this.directory } } : undefined
+      directory ? { location: { directory } } : undefined
     );
+    if (!sameWorkspace(workspace, this.workspace)) return null;
     const data = res as {
       data?: { id?: string; providerID?: string; name?: string; variants?: { id?: string }[]; variant?: string };
     };
@@ -1028,6 +1087,7 @@ export class OpenShellBackend {
       location: { directory: root },
       path: clean
     });
+    assertWorkspace(workspace, this.workspace);
     const arr = Array.isArray(body) ? body : (body as { data?: TreeEntry[] }).data ?? [];
     return arr.map((e) => ({
       ...e,
@@ -1045,6 +1105,7 @@ export class OpenShellBackend {
       location: { directory: root },
       path: clean
     });
+    assertWorkspace(workspace, this.workspace);
     return toText(res);
   }
 
@@ -1055,6 +1116,8 @@ export class OpenShellBackend {
     write: FileWriteIdentity
   ): Promise<void> {
     const root = this.workspaceRoot(workspace);
+    const context = this.watchContext;
+    if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
     const cleanContent = fileContent(content);
     const abs = await confinedPath(root, relativePath(rel));
     await fsp.mkdir(path.dirname(abs), { recursive: true });
@@ -1080,26 +1143,31 @@ export class OpenShellBackend {
         current = null;
       }
       if (current !== expectedContent) {
-        this.emitFileUpdate(abs, current);
+        this.emitFileUpdate(context, abs, current);
         throw new Error("file changed on disk");
       }
     }
+    assertWorkspace(workspace, this.workspace);
     await fsp.writeFile(abs, cleanContent, "utf8");
-    this.snapshots.set(abs, cleanContent);
-    this.lastKnown.set(abs, cleanContent);
-    this.emitFileUpdate(abs, cleanContent, undefined, write);
+    assertWorkspace(workspace, this.workspace);
+    context.snapshots.set(abs, cleanContent);
+    context.lastKnown.set(abs, cleanContent);
+    this.emitFileUpdate(context, abs, cleanContent, undefined, write);
   }
 
   async createFile(workspace: WorkspaceIdentity, rel: string): Promise<void> {
     const root = this.workspaceRoot(workspace);
+    const context = this.watchContext;
+    if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
     const abs = await confinedPath(root, relativePath(rel));
     await fsp.mkdir(path.dirname(abs), { recursive: true });
     await confinedPath(root, relativePath(rel));
     assertWorkspace(workspace, this.workspace);
     await fsp.writeFile(abs, "", { flag: "wx" });
-    this.snapshots.set(abs, "");
-    this.lastKnown.set(abs, "");
-    this.emitFileUpdate(abs, "");
+    assertWorkspace(workspace, this.workspace);
+    context.snapshots.set(abs, "");
+    context.lastKnown.set(abs, "");
+    this.emitFileUpdate(context, abs, "");
   }
 
   async createDir(workspace: WorkspaceIdentity, rel: string): Promise<void> {
@@ -1111,6 +1179,8 @@ export class OpenShellBackend {
 
   async deletePath(workspace: WorkspaceIdentity, rel: string): Promise<void> {
     const root = this.workspaceRoot(workspace);
+    const context = this.watchContext;
+    if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
     const abs = await confinedPath(root, relativePath(rel));
     assertWorkspace(workspace, this.workspace);
     try {
@@ -1118,35 +1188,40 @@ export class OpenShellBackend {
     } catch {
       await fsp.rm(abs, { recursive: true, force: true });
     }
-    if (this.snapshots.has(abs) || this.lastKnown.has(abs)) {
-      const baseline = this.snapshots.get(abs) ?? this.lastKnown.get(abs) ?? "";
-      this.snapshots.delete(abs);
-      this.lastKnown.delete(abs);
-      this.emitFileUpdate(abs, null, baseline);
+    assertWorkspace(workspace, this.workspace);
+    if (context.snapshots.has(abs) || context.lastKnown.has(abs)) {
+      const baseline = context.snapshots.get(abs) ?? context.lastKnown.get(abs) ?? "";
+      context.snapshots.delete(abs);
+      context.lastKnown.delete(abs);
+      this.emitFileUpdate(context, abs, null, baseline);
     }
   }
 
   async renamePath(workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> {
     const root = this.workspaceRoot(workspace);
+    const context = this.watchContext;
+    if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
     const abs = await confinedPath(root, relativePath(rel));
     const parent = this.relKey(path.dirname(abs));
     const target = await confinedPath(root, parent ? `${parent}/${fileName(newName)}` : fileName(newName));
     assertWorkspace(workspace, this.workspace);
-    const snapshot = this.snapshots.get(abs) ?? this.lastKnown.get(abs);
+    const snapshot = context.snapshots.get(abs) ?? context.lastKnown.get(abs);
     await fsp.rename(abs, target);
-    this.snapshots.delete(abs);
-    this.lastKnown.delete(abs);
+    assertWorkspace(workspace, this.workspace);
+    context.snapshots.delete(abs);
+    context.lastKnown.delete(abs);
     if (snapshot !== undefined) {
-      this.snapshots.set(target, snapshot);
-      this.emitFileUpdate(abs, null, snapshot);
+      context.snapshots.set(target, snapshot);
+      this.emitFileUpdate(context, abs, null, snapshot);
       let content: string | null = null;
       try {
         content = await fsp.readFile(target, "utf8");
       } catch {
         /* unreadable */
       }
-      this.lastKnown.set(target, content ?? "");
-      this.emitFileUpdate(target, content);
+      if (!this.currentWatch(context)) return;
+      context.lastKnown.set(target, content ?? "");
+      this.emitFileUpdate(context, target, content);
     }
   }
 
@@ -1165,6 +1240,8 @@ export class OpenShellBackend {
 
   stop(): void {
     this.stopped = true;
+    this.activations.invalidate();
+    this.watchContext = null;
     this.stopWatcher();
   }
 }

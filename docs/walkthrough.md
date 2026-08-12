@@ -46,8 +46,8 @@ There are exactly five connection points to keep in your head:
 
 `app.whenReady()` in `src/main/index.ts:193`:
 
-1. `backend.start()` — resets the `stopped` flag and launches
-   `runEventLoop()`.
+1. `backend.start()` — launches `runEventLoop()` through a single-flight guard;
+   repeated calls cannot create parallel subscriptions.
 2. Registers `fwd`, which is handed to both `backend.onMessage()` and
    `terminals.onMessage()`. Every message either object emits lands in the
    same place: `win.webContents.send("shell:message", msg)`. This single
@@ -72,7 +72,8 @@ them. On any failure the client is dropped and the loop retries after
 Meanwhile the renderer boots: the store's mount effect (`src/renderer/src/store.tsx:911`)
 probes `health()` and calls `state()` — if the backend still holds a
 session (macOS window closed and reopened), it restores it, reloads
-models/agents, and re-reads the session's model/agent selection.
+models/agents, and re-reads the session's model/agent selection. A user
+activation accepted while `state()` is pending supersedes restoration.
 
 ## Opening a repository
 
@@ -82,9 +83,9 @@ models/agents, and re-reads the session's model/agent selection.
 2. The last-used model and agent are read from
    `userData/settings.json` and passed to
    `client.session.create({ location: { directory }, model?, agent? })`.
-3. `activateSession()` (`:494`) canonicalizes and stores the directory, assigns
-   a fresh immutable workspace UUID, clears all baseline state, starts the
-   `fs.watch` watcher, and emits
+3. Main assigns a generation when the request is accepted. `activateSession()`
+   commits only if it remains latest, assigns a fresh immutable workspace UUID,
+   binds watcher maps to root/session/generation, starts `fs.watch`, and emits
    `{ kind: "session" }`.
 4. The opening action resets workspace state and the store reacts to the
    emitted session message with `setSession`, `loadModels()`, `loadAgents()`,
@@ -218,8 +219,8 @@ resolved child session; a child header navigates back to its parent.
 - Single-instance lock; a second launch refocuses (or re-creates) the
   window.
 - `window-all-closed` quits on non-macOS; on macOS the backend stays
-  alive, and dock-click `activate` calls `backend.start()` +
-  `createWindow()` to restart the event loop.
+  alive, and dock-click `activate` only calls `createWindow()`; the existing
+  single-flight event loop remains subscribed.
 - `before-quit` tears down the backend (event loop + watcher) and all
   terminals.
 - ⌘W/Ctrl+W is intercepted in main and re-sent as a `ui-command`

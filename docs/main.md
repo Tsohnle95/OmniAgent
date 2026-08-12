@@ -12,27 +12,27 @@ State:
 
 - `client` — `OpenCode.make()` result, null until connected
 - `sessionID`, canonical `directory`, `workspace`, `sessionInfo` — the active session and immutable activation identity plus optional parent/title/agent metadata
-- `snapshots: Map<absPath, baseline>` — per-file diff baselines
-- `lastKnown: Map<absPath, content>` — last content seen by the watcher
+- `watchContext` — immutable activation root/session/workspace plus workspace-scoped `snapshots`, `lastKnown`, and `hasGit`
 - `watcher` — recursive `fs.watch` on the session directory
-- `hasGit` — lazily probed (`.git` presence), cached tri-state
 - `settingsPath` — `app.getPath("userData")/settings.json`, holds the
   last-used `{model:{id,providerID,variant?}}` and `{agent:{id}}` so new sessions
   start on the same model/agent
-- `stopped` — set by `stop()`; the event loop exits (`start()` resets it
-  so the backend can be restarted after the window is re-created)
+- `stopped` and `eventLoop` — `start()` is single-flight, so repeated calls
+  cannot create parallel SSE subscriptions or reconnect loops
+- `activations` — monotonic latest-request-wins generation assigned before the
+  first activation await
 
 Public methods (all used by IPC):
 
 | Method | Purpose |
 |---|---|
 | `connect()` | `Service.discover()` → `Service.ensure({command:["opencode2","serve","--service"]})` → `OpenCode.make` |
-| `start()` | Start the SSE event loop |
+| `start()` | Start the SSE event loop if one is not already running |
 | `stop()` | Stop the event loop + fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
-| `openSession(directory)` | `session.create({location:{directory}, model?: saved, agent?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
+| `openSession(directory)` | Accepts a generation, calls `session.create`, and commits only if still latest; starts the generation-bound watcher and emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
-| `openSessionById(sessionID)` | `session.get` to recover the directory and cumulative usage (`cost` + `tokens`, surfaced as `usage`), activates it, then `message.list` → replay transcript |
+| `openSessionById(sessionID)` | Accepts a generation, loads `session.get` plus replay, then commits only if still latest |
 | `prompt(text, files?)` | `session.prompt({sessionID, text, files?})`; `files` are `PromptFile[]` — absolute paths validated (file + ≤10 MB) and converted to file URIs, with optional `mention` spans into the prompt text |
 | `listCommands()` | `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
 | `runCommand(name, args?)` | `session.skill({sessionID, skill})` when the name matches a skill, else `session.command({sessionID, command, arguments?})` |
@@ -73,9 +73,9 @@ Internals:
 - `runEventLoop()` — reconnecting SSE loop; forwards every event as
   `{kind:"event", type, data}` then runs `handleServerEvent` (see
   `docs/events.md`).
-- `activateSession(info)` — shared by `openSession` / `openSessionById`: sets
-  the active session including parent/title/agent metadata, resets baselines,
-  restarts the watcher, and emits `{kind:"session"}`.
+- `activateSession(generation, info)` — canonicalizes, checks latest-request-wins,
+  creates `{id, generation}` identity and workspace-scoped watcher maps, then
+  commits and emits `{kind:"session"}`.
 - `replayTranscript(messages)` — converts `message.list` output to
   `TranscriptItem[]`: user, internal selection, synthetic/system/skill/shell,
   assistant, and compaction messages in persisted order. Internal selection
@@ -88,11 +88,11 @@ Internals:
   (skips http URLs, dedupes).
 - `gitShow(rel)` — `git show HEAD:<rel>` with a 10s timeout, 16 MiB
   buffer; null on any failure.
-- `startWatcher()` / `scheduleWatch(abs)` / `onFsChanged()` — 200ms
-  debounced `fs.watch` pipeline; assigns baselines (snapshot → git →
-  first-seen), compares against `lastKnown`, emits `file-update`.
-- `emitFileUpdate(abs, content, baselineOverride?)` — the single writer
-  of `{kind:"file-update"}` messages.
+- `startWatcher(context)` / `scheduleWatch(context, abs)` /
+  `onFsChanged(context, ...)` — 200ms debounced pipeline. Every callback
+  captures root/session/generation/maps and checks it after awaits and before
+  map mutation or emission.
+- `emitFileUpdate(context, ...)` — emits identity-bound `{kind:"file-update"}`.
 - `relKey(abs)` — absolute → `/`-separated path relative to the session
   dir; `abs(rel)` the inverse. `shouldSkip` filters `SKIP_DIRS` roots.
 
@@ -216,5 +216,5 @@ highlights forever.
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is
 stopped in `before-quit` (window close on macOS no longer tears the
-session down). On macOS activate: re-creates the window and calls
-`backend.start()` again (it is restartable).
+session down). On macOS activate: re-creates only the window; the backend's
+single-flight event loop remains active.

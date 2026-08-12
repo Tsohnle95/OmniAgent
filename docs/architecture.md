@@ -50,8 +50,8 @@ All backend→renderer message kinds are defined in
 - `{ kind: "event", type, data }` — every opencode2 SSE event forwarded
   verbatim. The renderer dispatches on `type`. See `docs/events.md` for
   the full protocol map.
-- `{ kind: "file-update", file: { path, baseline, content, deleted } }` —
-  emitted by the fs watcher (below).
+- `{ kind: "file-update", file: { workspace, sessionID, path, baseline, content, deleted } }` —
+  emitted by the generation-bound fs watcher (below).
 - `{ kind: "session", session: { id, directory, workspace } }` — emitted when a
   session is opened.
 - `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
@@ -84,7 +84,8 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    the last-used model and agent are read from `settings.json` (userData)
    and passed along; stores `sessionID`/`directory`, clears baseline
    state, canonicalizes the workspace root, assigns a fresh immutable workspace
-   UUID, and starts the fs watcher.
+   UUID plus request generation, and starts the fs watcher. Activations are
+   latest-request-wins and stale completions never commit.
 3. Emits `{ kind: "session" }`; renderer resets all UI state.
 4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
@@ -92,7 +93,7 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    `openSessionById`, see `docs/main.md`).
 6. Closing the window on macOS keeps the backend alive (it is only torn
    down in `before-quit`); re-activating re-creates the window and
-   restarts the event loop via `backend.start()`.
+   re-creates the window while the single-flight event loop remains active.
 
 ## Diffs and baselines (how the diff view works)
 
@@ -105,10 +106,12 @@ this session". The main process maintains per-file baselines:
 - **git fallback**: files first observed via `fs.watch` get their baseline
   from `git show HEAD:<rel>` when the repo has a `.git`; for non-git repos
   the baseline is the first content observed.
-- **Live watching**: `fs.watch(directory, { recursive: true })` feeds every
+- **Live watching**: `fs.watch(directory, { recursive: true })` captures the
+  activation root/session/generation and workspace-scoped maps, then feeds every
   change through a 200ms debounce into `onFsChanged`, which compares
   against `lastKnown`, assigns a baseline if missing, and emits
-  `file-update` with `{baseline, content}`.
+  identity-bound `file-update` with `{baseline, content}`. Await boundaries and
+  emissions re-check that the captured activation is still current.
 
 The renderer merges these updates into tabs; a tab whose baseline differs
 from its content can be toggled to the Diff view (Monaco `DiffEditor`).

@@ -21,8 +21,8 @@ import {
   workspaceId
 } from "./workspace-security";
 
-const identity = { id: "11111111-1111-4111-8111-111111111111" };
-const stale = { id: "22222222-2222-4222-8222-222222222222" };
+const identity = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+const stale = { id: "22222222-2222-4222-8222-222222222222", generation: 2 };
 const roots: string[] = [];
 
 afterEach(async () => {
@@ -40,6 +40,7 @@ describe("workspace argument validation", () => {
     expect(workspaceId(identity)).toBe(identity.id);
     expect(assertWorkspace(identity, identity)).toBe(identity);
     expect(() => assertWorkspace(stale, identity)).toThrow("stale workspace");
+    expect(() => assertWorkspace({ ...identity, generation: 2 }, identity)).toThrow("stale workspace");
     for (const value of [null, identity.id, {}, { id: "short" }, { ...identity, extra: true }]) {
       expect(() => workspaceId(value)).toThrow("invalid workspace identity");
     }

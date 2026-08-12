@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FileWriteIdentity, WorkspaceIdentity } from "@shared/types";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 
-const workspace = (id: string): WorkspaceIdentity => ({ id });
+const workspace = (id: string): WorkspaceIdentity => ({ id, generation: 1 });
 const snapshot = (
   id: string,
   path: string,
@@ -102,6 +102,8 @@ describe("EditorPersistence", () => {
     await persistence.save(value);
 
     expect(persistence.classify(value.workspace, {
+      workspace: value.workspace,
+      sessionID: "session",
       path: value.path,
       baseline: "disk",
       content: "external",
@@ -109,6 +111,8 @@ describe("EditorPersistence", () => {
       write: identity
     })).toBe("stale-write");
     expect(persistence.classify(value.workspace, {
+      workspace: value.workspace,
+      sessionID: "session",
       path: value.path,
       baseline: "disk",
       content: "ours",
@@ -116,6 +120,8 @@ describe("EditorPersistence", () => {
       write: { ...identity, revision: 5 }
     })).toBe("stale-write");
     expect(persistence.classify(value.workspace, {
+      workspace: value.workspace,
+      sessionID: "session",
       path: value.path,
       baseline: "disk",
       content: "ours",
@@ -123,6 +129,8 @@ describe("EditorPersistence", () => {
       write: identity
     })).toBe("echo");
     expect(persistence.classify(value.workspace, {
+      workspace: value.workspace,
+      sessionID: "session",
       path: value.path,
       baseline: "disk",
       content: "outside",

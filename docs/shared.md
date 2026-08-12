@@ -8,11 +8,11 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 
 | Type | Shape | Used for |
 |---|---|---|
-| `WorkspaceIdentity` | `{ id }` | Opaque immutable UUID assigned to one workspace activation; capability calls must echo it |
+| `WorkspaceIdentity` | `{ id, generation }` | Opaque immutable UUID plus monotonic request generation assigned to one workspace activation; capability calls must echo both |
 | `SessionInfo` | `{ id, directory, workspace, parentID?, title?, agent? }` | The active opencode2 session, immutable workspace identity, and parent/child navigation metadata |
 | `SessionSummary` | `{ id, title, directory, updatedAt, parentID?, agent? }` | Recent-session graph used by Welcome and task/subagent links |
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
-| `FileUpdate` | `{ path, baseline: string \| null, content: string \| null, deleted }` | Watcher payload; `baseline` is what the agent started from |
+| `FileUpdate` | `{ workspace, sessionID, path, baseline: string \| null, content: string \| null, deleted }` | Identity-bound watcher payload; `baseline` is what the agent started from |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
 | `ModelOption` | `{ id, providerID, name, variants?, variant? }` | Model picker options + current model/strength selection |
 | `AgentOption` | `{ id, name }` | Agent picker options + current selection |
@@ -95,5 +95,7 @@ This is the wire format for `shell:message` from main → renderer.
   contract. Change a type here and both sides of the bridge update.
 - Treat `WorkspaceIdentity` as an opaque activation capability. It changes on
   every new/reopened activation, even when the directory and session id match.
+- Activation generations are assigned when main accepts the request. Higher
+  generations supersede lower generations; stale completions are discarded.
 - Never import renderer or main code from this file — it must stay
   dependency-free (types only).

@@ -53,6 +53,14 @@ identity for that activation. Main rejects calls from stale renderer work after
 a workspace switch. `open-source` uses the separate privileged source-view read
 only for absolute app paths; normal editor reads are workspace-relative.
 
+Session activation is latest-request-wins in both renderer and main. The store
+assigns a request generation before folder selection/open/reopen awaits, ignores
+session messages while a newer activation is pending, and discards stale
+responses. File, tree, model, agent, selection, and startup-restoration
+responses capture workspace identity and mutate state only while it still
+matches. `file-update` is accepted only when both its session ID and full
+workspace identity match the active session.
+
 Key mechanisms:
 
 - **Event dispatch** — the `onMessage` effect handles `session` /

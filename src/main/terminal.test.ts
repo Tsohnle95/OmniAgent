@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { TerminalManager } from "./terminal";
 
-const workspace = { id: "11111111-1111-4111-8111-111111111111" };
+const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
 
 describe("TerminalManager capability ownership", () => {
   it("rejects unknown terminal operations", () => {
@@ -19,7 +19,7 @@ describe("TerminalManager capability ownership", () => {
       terminals: Map<string, { pty: typeof pty; workspaceId: string }>;
     };
     state.terminals.set("term-1", { pty, workspaceId: workspace.id });
-    const current = { id: "22222222-2222-4222-8222-222222222222" };
+    const current = { id: "22222222-2222-4222-8222-222222222222", generation: 2 };
     expect(() => terminals.write("term-1", "x", current)).toThrow("stale terminal");
     expect(() => terminals.stop("term-1", current)).toThrow("stale terminal");
   });

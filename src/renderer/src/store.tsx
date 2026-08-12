@@ -29,6 +29,7 @@ import type {
 import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
+import { LatestGeneration, sameWorkspace } from "@shared/generation";
 
 export interface Toast {
   id: number;
@@ -324,6 +325,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   approvalModeRef.current = approvalMode;
   const sessionRef = useRef<SessionInfo | null>(session);
   sessionRef.current = session;
+  const activationsRef = useRef<LatestGeneration | null>(null);
+  if (!activationsRef.current) activationsRef.current = new LatestGeneration();
+  const activations = activationsRef.current;
+  const pendingActivationRef = useRef<number | null>(null);
 
   const updateSessionTranscript = useCallback(
     (sessionID: string, update: (items: TranscriptItem[]) => TranscriptItem[]) => {
@@ -375,12 +380,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [persistence]);
 
   const loadModels = useCallback(async () => {
+    const workspace = sessionRef.current?.workspace;
     try {
       const [list, def, selection] = await Promise.all([
         window.openshell.models(),
         window.openshell.modelDefault(),
         window.openshell.sessionSelection()
       ]);
+      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
       setModels((prev) => {
         if (
           prev.length === list.length &&
@@ -405,8 +412,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const switchModel = useCallback(
     async (id: string, providerID: string, variant?: string) => {
+      const workspace = sessionRef.current?.workspace;
       try {
         await window.openshell.switchModel(id, providerID, variant);
+        if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
         const base = modelsRef.current.find((m) => m.id === id && m.providerID === providerID);
         if (base) setCurrentModel({ ...base, ...(variant ? { variant } : {}) });
       } catch (err) {
@@ -417,11 +426,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
 
   const loadAgents = useCallback(async () => {
+    const workspace = sessionRef.current?.workspace;
     try {
       const [list, selection] = await Promise.all([
         window.openshell.agents(),
         window.openshell.sessionSelection()
       ]);
+      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
       setAgents((prev) => {
         if (
           prev.length === list.length &&
@@ -443,8 +454,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const switchAgent = useCallback(
     async (id: string) => {
+      const workspace = sessionRef.current?.workspace;
       try {
         await window.openshell.switchAgent(id);
+        if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
@@ -462,25 +475,34 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const openSession = useCallback(
     async (dir: string) => {
+      const request = activations.accept();
+      pendingActivationRef.current = request;
       try {
         persistence.cancelAll();
         const info = await window.openshell.openSession(dir);
+        if (!activations.current(request)) return;
+        pendingActivationRef.current = null;
         resetAll();
         setSession(info);
         toast(`Opened ${info.directory}`);
         void loadModels();
         void loadAgents();
       } catch (err) {
+        if (pendingActivationRef.current === request) pendingActivationRef.current = null;
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents, persistence]
+    [resetAll, toast, loadModels, loadAgents, persistence, activations]
   );
 
   const selectFolder = useCallback(async () => {
+    const request = activations.accept();
+    pendingActivationRef.current = request;
     try {
       persistence.cancelAll();
       const info = await window.openshell.selectFolder();
+      if (!activations.current(request)) return;
+      pendingActivationRef.current = null;
       if (info) {
         resetAll();
         setSession(info);
@@ -489,9 +511,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         void loadAgents();
       }
     } catch (err) {
+      if (pendingActivationRef.current === request) pendingActivationRef.current = null;
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [resetAll, toast, loadModels, loadAgents, persistence]);
+  }, [resetAll, toast, loadModels, loadAgents, persistence, activations]);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -503,9 +526,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const reopenSession = useCallback(
     async (sessionID: string, silent = false) => {
+      const request = activations.accept();
+      pendingActivationRef.current = request;
       try {
         persistence.cancelAll();
         const reopened = await window.openshell.openSessionById(sessionID);
+        if (!activations.current(request)) return;
+        pendingActivationRef.current = null;
         resetAll(true);
         setSession(reopened.session);
         setTranscriptsBySession((current) => ({
@@ -531,10 +558,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         void loadAgents();
         void loadSessions();
       } catch (err) {
+        if (pendingActivationRef.current === request) pendingActivationRef.current = null;
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents, loadSessions, persistence]
+    [resetAll, toast, loadModels, loadAgents, loadSessions, persistence, activations]
   );
 
   const sendPrompt = useCallback(
@@ -626,8 +654,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       });
       if (isOpen) return;
       if (!tree[path]) {
+        const workspace = sessionRef.current?.workspace;
+        if (!workspace) return;
         try {
-          const entries = await window.openshell.listDir(sessionRef.current!.workspace, path);
+          const entries = await window.openshell.listDir(workspace, path);
+          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
           setTree((prev) => ({ ...prev, [path]: sortEntries(filterEntries(entries)) }));
         } catch (err) {
           toast(err instanceof Error ? err.message : String(err), "error");
@@ -642,8 +673,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     if (expandedRef.current.has("") && !unique.includes("")) unique.push("");
     await Promise.all(
       unique.map(async (dir) => {
+        const workspace = sessionRef.current?.workspace;
+        if (!workspace) return;
         try {
-          const entries = await window.openshell.listDir(sessionRef.current!.workspace, dir);
+          const entries = await window.openshell.listDir(workspace, dir);
+          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
           setTree((prev) => ({ ...prev, [dir]: sortEntries(filterEntries(entries)) }));
         } catch {
           /* keep previous listing */
@@ -723,10 +757,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         return;
       }
       try {
+        const workspace = sessionRef.current?.workspace;
         const agentFile = agentFilesRef.current.get(path);
         let content = opts?.source
           ? await window.openshell.readSourceFile(path)
-          : await window.openshell.readFile(sessionRef.current!.workspace, path);
+          : workspace
+            ? await window.openshell.readFile(workspace, path)
+            : null;
+        if (!opts?.source && !sameWorkspace(workspace, sessionRef.current?.workspace)) return;
         if (content === null && agentFile?.deleted) content = "";
         if (content === null) {
           toast(`Could not read ${path}`, "error");
@@ -965,6 +1003,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
+        if (pendingActivationRef.current !== null) return;
+        if (
+          msg.session &&
+          sessionRef.current &&
+          msg.session.workspace.generation < sessionRef.current.workspace.generation
+        ) return;
         const previousWorkspace = sessionRef.current?.workspace;
         if (previousWorkspace && previousWorkspace.id !== msg.session?.workspace.id) {
           persistence.cancelWorkspace(previousWorkspace);
@@ -991,7 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (msg.kind === "file-update") {
         const f = msg.file!;
         const workspace = sessionRef.current?.workspace;
-        if (!workspace) return;
+        if (!workspace || f.sessionID !== sessionRef.current?.id || !sameWorkspace(f.workspace, workspace)) return;
         const origin = persistence.classify(workspace, f);
         setAgentFiles((prev) => {
           const next = new Map(prev);
@@ -1027,10 +1071,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         );
         const parent = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
         if (parent !== f.path && expandedRef.current.has(parent)) {
+          const expected = workspace;
           void window.openshell
-            .listDir(sessionRef.current!.workspace, parent)
+            .listDir(expected, parent)
             .then((entries) =>
-              setTree((prev) => ({ ...prev, [parent]: sortEntries(filterEntries(entries)) }))
+              sameWorkspace(expected, sessionRef.current?.workspace) &&
+                setTree((prev) => ({ ...prev, [parent]: sortEntries(filterEntries(entries)) }))
             )
             .catch(() => {});
         }
@@ -1235,8 +1281,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     });
 
     void window.openshell.health().then(setConnected);
+    const startup = activations.accept();
     void window.openshell.state().then((s) => {
-      if (s) void reopenSession(s.id, true);
+      if (s && activations.current(startup) && (!sessionRef.current || s.workspace.generation >= sessionRef.current.workspace.generation)) {
+        void reopenSession(s.id, true);
+      }
     });
     return () => {
       off();
@@ -1251,7 +1300,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     reopenSession,
     setSessionBusy,
     updateSessionTranscript,
-    persistence
+    persistence,
+    activations
   ]);
 
   useEffect(() => {
