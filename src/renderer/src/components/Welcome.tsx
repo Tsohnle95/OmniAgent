@@ -31,7 +31,7 @@ export function Welcome(): ReactNode {
       .finally(() => setLoading(false));
     void window.openshell
       .sessions()
-      .then((s) => setSessions(s))
+      .then((s) => setSessions(s.slice(0, 6)))
       .catch(() => setSessions([]));
   }, []);
 
