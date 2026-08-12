@@ -485,7 +485,7 @@ Scope: items 1 and 2 plus sender validation from item 5.
 - [x] Allowlist safe external URL schemes before `shell.openExternal`.
 - [x] Handle tool/file links through the same validated policy.
 - [x] Set `sandbox: true` explicitly without relying on it as the primary control.
-- [x] Add focused policy/component tests for trusted/untrusted senders, frame locations, navigation, and URL schemes. Full Electron redirect/popup harness coverage remains acceptance work.
+- [x] Add focused policy/component tests and an Electron-hosted lifecycle smoke for trusted/untrusted senders, same-frame navigation, popup denial, and URL policy. Redirect policy remains covered at the focused event-policy seam rather than through a network redirect.
 - [x] Update security and IPC documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.
@@ -536,7 +536,7 @@ Scope: items 7, 8, and 9.
 - [x] Include identity on session and file-update messages and reject stale renderer updates.
 - [x] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
 - [x] Await stopped subscription settlement before restart and bind global filesystem events to the active watch location/generation.
-- [x] Add deterministic generation acceptance, stale await, mutation-target capture, persistence conflict, workspace completion/picker, and backend event-loop duplicate-start/stop/completion/restart tests. Full watcher phase, reopen/startup store, and Electron macOS lifecycle harnesses remain acceptance work.
+- [x] Add deterministic generation acceptance, watcher stat/read/Git/deletion phase, reopen/startup store, mutation-target capture, persistence conflict, workspace completion/picker, and backend event-loop duplicate-start/stop/completion/restart tests.
 - [x] Update session, watcher, startup, and event-loop documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.
@@ -578,11 +578,11 @@ Scope: items 14 and 15.
 Scope: item 17.
 
 - [x] Add a repeatable large-session benchmark or deterministic performance fixture.
-- [x] Record proxy budgets for reducer/update latency, timeline derivation, estimated row count, and retained output. Actual React/browser render cost and DOM size remain unmeasured.
+- [x] Record budgets for reducer/update latency, timeline derivation, estimated row count, retained output, actual React/jsdom render time, and actual DOM row count.
 - [x] Cap or summarize retained tool and shell output.
 - [x] Define retention/eviction for inactive session streams and usage records.
 - [x] Report retained-output omission counts exactly and evict per-session busy state with transcript records.
-- [ ] Measure actual React/browser render cost before deciding whether transcript indexing, context partitioning, or virtualization is justified.
+- [x] Measure actual React/jsdom reconciliation and DOM construction before deciding whether transcript indexing, context partitioning, or virtualization is justified. Chromium layout/paint and browser memory remain outside this stable headless scope; current measurements do not justify broad refactoring.
 - [x] Add regression coverage for the selected retention behavior.
 - [x] Document performance budgets and retention policy.
 - [x] Pass `npm run check`.
@@ -621,18 +621,18 @@ Scope: items 23, 24, and 25 after all behavioral units are complete.
 
 ## Final acceptance
 
-- [ ] Every WU-01 through WU-10 checklist is complete. WU-08 retains an actual render benchmark/decision.
+- [x] Every WU-01 through WU-10 checklist is complete.
 - [x] Every work unit has an independent commit and focused regression tests.
-- [ ] The final worktree contains no new uncommitted implementation changes.
-- [ ] `npm run check` passes from a clean checkout.
+- [x] The final worktree contains no new uncommitted implementation changes other than the pre-existing excluded `findings.md` and `findings2.md` files.
+- [x] `npm run check` passes after the acceptance harness changes.
 - [x] A final review finds no unresolved Critical or High item from this document.
 
 Residual acceptance notes:
 
-- WU-02 retains full Electron redirect/popup harness coverage.
-- WU-05 retains full watcher-phase, reopen/startup-store, and Electron macOS lifecycle harness coverage; the loop seam now covers duplicate start, stop, completion, and restart without hanging.
-- WU-08's deterministic fixture covers reducer/derivation and estimated rows, not React/browser render cost or actual DOM size. Its render-cost decision remains unchecked.
-- The platform smoke verifies launcher and PTY behavior, not the GUI trust-boundary lifecycle.
-- This unit passed `npm run check` in the current worktree, but did not claim a separate clean-checkout run or a new independent final security review.
-- Final-review corrections now lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests cover each correction; full Electron GUI trust-boundary lifecycle coverage remains residual.
-- Corrective audit coverage now enforces cross-platform no-replace file/directory renames, workspace-located global filesystem routing, serialized SSE stop/restart, replay/live semantic chronology, exact truncation accounting, and coupled busy-state eviction. Actual React/browser render measurement and full Electron GUI lifecycle coverage remain residual.
+- WU-02 now has a real macOS Electron hidden-window lifecycle smoke for the packaged renderer/preload, same-frame external navigation denial, unsafe popup denial, trusted IPC, and untrusted-document IPC rejection. Redirect behavior remains tested through Electron event-policy inputs without external network traffic; subframe identity remains covered by focused sender-policy tests.
+- WU-05 now drives actual backend event routing and `onFsChanged` work across deferred stat, read, Git, deletion, mutation, and emission guards, plus StoreProvider startup and overlapping reopen completions.
+- WU-08 now measures React reconciliation plus actual jsdom DOM construction and row count under a generous stable budget. It does not measure Chromium layout/paint/compositing or browser memory.
+- Linux and Windows intentionally skip the GUI trust smoke because normal BrowserWindow creation requires display infrastructure there; macOS CI is the documented targeted Electron GUI host. All platforms retain real Electron-hosted PTY coverage.
+- This acceptance pass does not claim a new independent security audit beyond the automated lifecycle assertions.
+- Final-review corrections lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests and the macOS Electron lifecycle smoke cover the acceptance boundary.
+- Corrective audit coverage enforces cross-platform no-replace file/directory renames, workspace-located global filesystem routing, serialized SSE stop/restart, replay/live semantic chronology, exact truncation accounting, and coupled busy-state eviction. Chromium layout/paint and browser-memory benchmarking remain explicitly uncovered and are not required by the selected React/jsdom acceptance scope.

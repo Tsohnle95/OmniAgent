@@ -29,7 +29,13 @@ npm start        # launch the existing production build with electron-vite previ
 portable Node launcher prepares and selects the branded app bundle on macOS and
 uses plain Electron on Linux and Windows, without shell-specific environment
 syntax. After a manual build you can also launch with `npx electron .`.
-`npm run typecheck`
+`npm run test:platform` also runs the hidden-window renderer trust smoke on
+macOS. Linux and Windows run the launcher and Electron PTY coverage but skip the
+GUI smoke because a normal `BrowserWindow` requires a display there; macOS CI is
+the targeted GUI lifecycle host. The trust smoke uses the built main process,
+bundled preload, local packaged renderer, and a local `data:` document. It
+checks trusted IPC, same-frame external navigation denial, popup denial, and
+untrusted-document IPC rejection without external network access. `npm run typecheck`
 runs `tsc --noEmit` for both node and web configs. `npm run check` is the
 canonical local and CI verification gate.
 
@@ -72,15 +78,19 @@ Run the deterministic renderer fixture independently with:
 npx vitest run src/renderer/src/large-session.performance.test.ts --reporter=verbose
 ```
 
-The JSON line reports reducer/update latency, derived timeline latency, an
-estimated timeline-row proxy, and retained output characters for 2,400 fixed events. On 2026-08-12,
+The JSON lines report reducer/update latency, derived timeline latency, an
+estimated timeline-row proxy, retained output characters, and actual React/jsdom
+rendering for 2,400 fixed events. On 2026-08-12,
 before retention changes, the fixture measured 11.79 ms, 0.64 ms, 800 rows, and
 26,214,400 retained characters. With retention enabled it measured 11.42 ms,
 0.45 ms, 800 rows, and 3,276,800 retained characters. Timing budgets allow
 normal machine variance: reducer below 50 ms and derivation below 5 ms. The
 structural proxy budgets are at most 1,000 estimated rows and 8 KiB per completed
-tool/shell result. Tests enforce all four proxy budgets; they do not measure
-React reconciliation, DOM construction, layout, paint, or browser memory.
+tool/shell result. The representative 400-turn timeline produces 800 actual
+`data-timeline-row` DOM nodes. Its deliberately generous 5,000 ms budget covers
+React reconciliation and jsdom DOM construction and is intended to catch gross
+regressions without becoming machine-speed flaky. It explicitly does not
+measure Chromium layout, paint, compositor work, or browser memory.
 Compare trends using the same Node version and machine rather than treating a
 single wall-clock sample as a render or cross-machine browser benchmark.
 
