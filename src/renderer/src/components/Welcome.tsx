@@ -48,7 +48,52 @@ export function Welcome(): ReactNode {
       <div className="welcome-inner">
         <section className="welcome-hero">
           <div className="welcome-mark" aria-hidden>
-            ⊘
+            <svg
+              className="welcome-mark-svg"
+              viewBox="2 16 60 40"
+              width="76"
+              height="51"
+              focusable="false"
+            >
+              <path
+                className="welcome-mark-shell"
+                d="M32 51 L7.75 37 A 28 28 0 0 1 20.17 25.62"
+                fill="none"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                className="welcome-mark-shell"
+                d="M32 51 L56.25 37 A 28 28 0 0 0 43.83 25.62"
+                fill="none"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                className="welcome-mark-ray"
+                d="M32 51 L10.55 33 M32 51 L14.92 28.77"
+                fill="none"
+                strokeWidth={1.6}
+                strokeLinecap="round"
+              />
+              <path
+                className="welcome-mark-ray"
+                d="M32 51 L49.08 28.77 M32 51 L53.45 33"
+                fill="none"
+                strokeWidth={1.6}
+                strokeLinecap="round"
+              />
+              <path
+                className="welcome-mark-prompt"
+                d="M26 25 L32 30.5 L26 36"
+                fill="none"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
           <h1 className="welcome-title">OpenShell</h1>
           <p className="welcome-sub">
@@ -89,55 +134,50 @@ export function Welcome(): ReactNode {
           </div>
 
           <div className="welcome-list" role="tabpanel">
-            {isSessions ? (
-              <>
-                {loading && <p className="welcome-empty">Loading…</p>}
-                {!loading && sessions.length === 0 && (
-                  <p className="welcome-empty">
-                    No recent sessions yet — open a folder to start one.
-                  </p>
-                )}
-                {sessions.map((s) => (
-                  <button
-                    key={s.id}
-                    className="welcome-row"
-                    onClick={() => void reopenSession(s.id)}
-                    title={s.directory}
-                  >
-                    <span className="welcome-row-icon codicon codicon-history" aria-hidden />
-                    <span className="welcome-row-main">
-                      <span className="welcome-row-title">{s.title}</span>
-                      <span className="welcome-row-meta">
-                        {formatWhen(s.updatedAt)} · {s.directory}
-                      </span>
+            <div className={`welcome-pane ${isSessions ? "" : "hidden"}`} aria-hidden={!isSessions}>
+              {loading && <p className="welcome-empty">Loading…</p>}
+              {!loading && sessions.length === 0 && (
+                <p className="welcome-empty">No recent sessions yet — open a folder to start one.</p>
+              )}
+              {sessions.map((s) => (
+                <button
+                  key={s.id}
+                  className="welcome-row"
+                  onClick={() => void reopenSession(s.id)}
+                  title={s.directory}
+                >
+                  <span className="welcome-row-icon codicon codicon-history" aria-hidden />
+                  <span className="welcome-row-main">
+                    <span className="welcome-row-title">{s.title}</span>
+                    <span className="welcome-row-meta">
+                      {formatWhen(s.updatedAt)} · {s.directory}
                     </span>
-                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
-                  </button>
-                ))}
-              </>
-            ) : (
-              <>
-                {loading && <p className="welcome-empty">Loading…</p>}
-                {!loading && projects.length === 0 && (
-                  <p className="welcome-empty">No recent projects found.</p>
-                )}
-                {projects.map((p) => (
-                  <button
-                    key={p.directory}
-                    className="welcome-row"
-                    onClick={() => void openSession(p.directory)}
-                    title={p.directory}
-                  >
-                    <span className="welcome-row-icon codicon codicon-folder" aria-hidden />
-                    <span className="welcome-row-main">
-                      <span className="welcome-row-title">{p.name}</span>
-                      <span className="welcome-row-meta">{p.directory}</span>
-                    </span>
-                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
-                  </button>
-                ))}
-              </>
-            )}
+                  </span>
+                  <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                </button>
+              ))}
+            </div>
+            <div className={`welcome-pane ${isSessions ? "hidden" : ""}`} aria-hidden={isSessions}>
+              {loading && <p className="welcome-empty">Loading…</p>}
+              {!loading && projects.length === 0 && (
+                <p className="welcome-empty">No recent projects found.</p>
+              )}
+              {projects.map((p) => (
+                <button
+                  key={p.directory}
+                  className="welcome-row"
+                  onClick={() => void openSession(p.directory)}
+                  title={p.directory}
+                >
+                  <span className="welcome-row-icon codicon codicon-folder" aria-hidden />
+                  <span className="welcome-row-main">
+                    <span className="welcome-row-title">{p.name}</span>
+                    <span className="welcome-row-meta">{p.directory}</span>
+                  </span>
+                  <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       </div>

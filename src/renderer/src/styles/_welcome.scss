@@ -38,12 +38,19 @@
 }
 
 .welcome-mark {
-  font-size: 46px;
-  line-height: 1;
-  color: var(--clay);
-  text-shadow: 0 0 32px rgba(217, 119, 87, 0.35);
+  line-height: 0;
   user-select: none;
 }
+
+.welcome-mark-svg {
+  filter: drop-shadow(0 0 16px rgba(217, 119, 87, 0.35));
+}
+
+.welcome-mark-shell { stroke: var(--clay); }
+
+.welcome-mark-ray { stroke: var(--clay); opacity: 0.5; }
+
+.welcome-mark-prompt { stroke: var(--cream); }
 
 .welcome-title {
   margin: 0;
@@ -151,13 +158,22 @@
 .welcome-tab.on .welcome-tab-count { color: var(--ink-dim); }
 
 .welcome-list {
+  display: grid;
+  min-height: 300px;
+}
+
+.welcome-pane {
+  grid-area: 1 / 1;
+  min-width: 0;
   max-height: min(420px, 56vh);
   overflow-y: auto;
 }
 
-.welcome-list::-webkit-scrollbar-thumb { background: #3c3931; }
+.welcome-pane.hidden { visibility: hidden; }
 
-.welcome-list::-webkit-scrollbar-thumb:hover { background: #4a463c; }
+.welcome-pane::-webkit-scrollbar-thumb { background: #3c3931; }
+
+.welcome-pane::-webkit-scrollbar-thumb:hover { background: #4a463c; }
 
 .welcome-empty {
   margin: 0;
