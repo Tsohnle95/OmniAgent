@@ -95,8 +95,9 @@ OpenCode client, the latest upstream protocol, and older opencode2 services.
 `handleServerEvent` in `src/main/opencode.ts` additionally intercepts
 two types before forwarding:
 
-- `session.tool.called` → `snapshotInputs(input)` snapshots every file
-  path mentioned in the tool input (the baseline mechanism).
+- `session.tool.called` → `snapshotInputs(input)` snapshots structured file
+  paths before execution when possible. Shell command strings are not parsed
+  as paths.
 - `filesystem.changed` → `onFsChanged(file)` for the changed path (the
   fs watcher uses the same path; this catches server-side edits).
 

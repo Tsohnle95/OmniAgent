@@ -105,7 +105,7 @@ describe("EditorPersistence", () => {
       workspace: value.workspace,
       sessionID: "session",
       path: value.path,
-      baseline: "disk",
+      baseline: { kind: "known", content: "disk" },
       content: "external",
       deleted: false,
       write: identity
@@ -114,7 +114,7 @@ describe("EditorPersistence", () => {
       workspace: value.workspace,
       sessionID: "session",
       path: value.path,
-      baseline: "disk",
+      baseline: { kind: "known", content: "disk" },
       content: "ours",
       deleted: false,
       write: { ...identity, revision: 5 }
@@ -123,7 +123,7 @@ describe("EditorPersistence", () => {
       workspace: value.workspace,
       sessionID: "session",
       path: value.path,
-      baseline: "disk",
+      baseline: { kind: "known", content: "disk" },
       content: "ours",
       deleted: false,
       write: identity
@@ -132,7 +132,7 @@ describe("EditorPersistence", () => {
       workspace: value.workspace,
       sessionID: "session",
       path: value.path,
-      baseline: "disk",
+      baseline: { kind: "known", content: "disk" },
       content: "outside",
       deleted: false
     })).toBe("external");
@@ -148,7 +148,7 @@ describe("EditorPersistence", () => {
       workspace: value.workspace,
       sessionID: "session",
       path: value.path,
-      baseline: "disk",
+      baseline: { kind: "known", content: "disk" },
       content: "outside",
       deleted: false
     })).toBe("external");

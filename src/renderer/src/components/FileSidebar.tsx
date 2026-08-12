@@ -372,7 +372,7 @@ export function FileSidebar({
                     key={path}
                     className={`tree-row file ${state.deleted ? "deleted" : ""}`}
                     onClick={() => void openFile(path, { mode: "diff" })}
-                    title={path}
+                    title={state.baseline.kind === "unknown" ? `${path} · pre-change content unavailable` : path}
                   >
                     <FileIcon name={name} isDir={false} />
                     <span className="tree-name">
@@ -380,7 +380,7 @@ export function FileSidebar({
                       {dir && <span className="tree-dir-suffix"> · {dir}</span>}
                     </span>
                     <span className={`tree-meta ${state.deleted ? "deleted" : ""}`}>
-                      {state.deleted ? "deleted" : "modified"}
+                      {state.deleted ? "deleted" : state.baseline.kind === "unknown" ? "observed" : "modified"}
                     </span>
                   </div>
                 );

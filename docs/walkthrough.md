@@ -123,8 +123,8 @@ screen; clicking one goes down `openSessionById` (see below).
 
 ## The diff pipeline
 
-The center pane's Diff view shows "what the agent changed this session".
-Three sources feed the per-file baseline map (`snapshots` in
+Changes shows workspace file changes observed during the active session, not
+authoritative agent-attributed changes. Sources feed the per-file baseline map (`snapshots` in
 `OpenShellBackend`):
 
 1. **Tool snapshot** — when `session.tool.called` arrives, `snapshotInputs`
@@ -132,10 +132,12 @@ Three sources feed the per-file baseline map (`snapshots` in
    (`collectFilePaths`) and reads every file *before* the tool executes.
 2. **git fallback** — files first seen via `fs.watch` (or the server's
    `filesystem.changed`) get `git show HEAD:<rel>` as baseline when the
-   repo has a `.git`; non-git repos use the first observed content.
-3. **Editor writes** — `writeFile`/`createFile` set the baseline to the
-   content just written, so the app's own edits never count as agent
-   changes.
+   repo has a `.git`; Git-untracked paths use known empty content. Non-git
+   first observations use an explicit unknown baseline.
+3. **Editor writes and creates** — expected disk content or empty creation
+   establishes a known baseline only when none exists; later saves preserve it.
+4. **Delete and rename** — tracked baselines remain on deletion updates and
+   move to renamed targets.
 
 Changes flow: watcher (200ms debounce, `SKIP_DIRS` filter) or the server
 event → `onFsChanged` (`opencode.ts:401`) compares against `lastKnown`,
@@ -148,6 +150,15 @@ the tab is **not** dirty the update replaces content and baseline; if the
 user has unsaved edits it only updates the baseline and marks the tab
 `stale`, never clobbering the editor. Files open with their baseline from
 `agentFiles`, so the Edit/Diff toggle is instant.
+Known baselines enable Diff; unknown baselines remain labeled in Changes with
+Diff unavailable.
+
+The watcher has no actor provenance. Shell commands provide no structured path
+to snapshot, so Git `HEAD` is often the only comparison and does not prove who
+made a change. Non-git first observation cannot reconstruct old bytes. Skipped
+directories (`.git`, dependencies, caches, IDE metadata, and build outputs),
+unreadable/binary paths, watcher coalescing, pre-activation changes, and missed
+first notifications can prevent observation or baseline recovery.
 
 ## Editing and saving
 

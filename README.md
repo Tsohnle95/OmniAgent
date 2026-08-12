@@ -12,15 +12,16 @@ red/green diff.
   filesystem API. Hides the usual noise (`node_modules`, `.git`, `dist`, …).
 - **Editor (center)** — Monaco, fully editable like VS Code, with autosave
   (debounced) and ⌘S/Ctrl+S. Every tab has an **Edit / Diff** toggle: the diff
-  view is a Monaco diff editor showing exactly what the agent changed this
-  session, updating in real time as files change.
+  view compares workspace changes observed during the active session against
+  their first known content, updating in real time as files change.
 - **Agent panel (right)** — OpenCode's web timeline presentation: flat
   streaming markdown and collapsible reasoning, grouped Exploring/Explored
   context activity, navigable subagent task cards, semantic shell/skill/
   compaction entries, borderless tool triggers, docked permission prompts,
   and the integrated prompt input. Stop interrupts the session.
-- **Changes list** — files the agent has touched, listed at the top of the
-  sidebar; click any file to jump straight into its diff.
+- **Changes list** — workspace file changes observed during the active session,
+  regardless of author; known baselines open as diffs and unknown baselines are
+  labeled explicitly.
 - **Real-time updates** — the main process watches the repo with `fs.watch`
   and streams per-file updates to the UI.
 - **Session history** — recent sessions show up on the Welcome screen;
@@ -46,10 +47,9 @@ All API traffic happens in the Electron **main process** using
   (once / always / reject).
 - Files: `client.file.list/read`; writes go through Node `fs` in the main
   process (the API has no write endpoint — the server picks up the change).
-- Agent baselines: files are snapshotted **before** a tool executes
-  (`session.tool.called` input paths); anything the agent changes via bash or
-  other tools gets its baseline from `git show HEAD:<file>` (green for new
-  files). So the diff always means "changes the agent made in this session".
+- Observed-change baselines: structured tool paths are snapshotted before
+  execution. First-observed shell or external changes use Git `HEAD` when
+  available; non-git pre-change content remains explicitly unknown.
 
 ## Requirements
 

@@ -13,6 +13,7 @@ import type {
   AgentOption,
   CommandOption,
   FileWriteIdentity,
+  FileBaseline,
   PermissionReply,
   ProjectInfo,
   PromptFile,
@@ -35,6 +36,7 @@ import { LatestGeneration, sameWorkspace } from "@shared/generation";
 import { fetchProviderUsage } from "./provider-usage";
 import { WorkspaceOperationCoordinator } from "./operation-coordinator";
 import { BackendEventLoop } from "./backend-event-loop";
+import { knownBaseline, observedBaseline, preserveBaseline, unknownBaseline } from "./file-baseline";
 import {
   assertPermissionSession,
   assertWorkspaceTarget,
@@ -392,7 +394,7 @@ interface WatchContext {
   root: string;
   sessionID: string;
   workspace: WorkspaceIdentity;
-  snapshots: Map<string, string | null>;
+  snapshots: Map<string, FileBaseline>;
   lastKnown: Map<string, string>;
   hasGit: boolean | null;
 }
@@ -563,7 +565,7 @@ export class OpenShellBackend {
       if (context.snapshots.has(abs)) continue;
       try {
         const content = await this.readFile(context.workspace, this.relKey(abs, context.root));
-        if (this.currentWatch(context) && content !== null) context.snapshots.set(abs, content);
+        if (this.currentWatch(context)) context.snapshots.set(abs, knownBaseline(content ?? ""));
       } catch {
         /* ignore */
       }
@@ -641,12 +643,18 @@ export class OpenShellBackend {
     }
     if (!this.currentWatch(context)) return;
     if (!stat || !stat.isFile()) {
-      if (context.lastKnown.has(abs) || context.snapshots.has(abs)) {
-        const baseline =
-          context.snapshots.get(abs) ??
-          context.lastKnown.get(abs) ??
-          (await this.gitShow(context, this.relKey(abs, context.root))) ??
-          "";
+      if (event === "unlink" || context.lastKnown.has(abs) || context.snapshots.has(abs)) {
+        let baseline = context.snapshots.get(abs);
+        if (!baseline) {
+          const lastKnown = context.lastKnown.get(abs);
+          if (lastKnown !== undefined) {
+            baseline = knownBaseline(lastKnown);
+          } else {
+            const git = await this.gitShow(context, this.relKey(abs, context.root));
+            if (!this.currentWatch(context)) return;
+            baseline = observedBaseline(context.hasGit === true, git);
+          }
+        }
         if (!this.currentWatch(context)) return;
         context.snapshots.set(abs, baseline);
         context.lastKnown.delete(abs);
@@ -665,7 +673,7 @@ export class OpenShellBackend {
     if (!context.snapshots.has(abs)) {
       const git = await this.gitShow(context, this.relKey(abs, context.root));
       if (!this.currentWatch(context)) return;
-      const baseline = context.hasGit === false ? content : (git ?? "");
+      const baseline = observedBaseline(context.hasGit === true, git);
       context.snapshots.set(abs, baseline);
     }
     this.emitFileUpdate(context, abs, content);
@@ -675,13 +683,13 @@ export class OpenShellBackend {
     context: WatchContext,
     abs: string,
     content: string | null,
-    baselineOverride?: string,
+    baselineOverride?: FileBaseline,
     write?: FileWriteIdentity
   ): void {
     const baseline =
       baselineOverride !== undefined
         ? baselineOverride
-        : (context.snapshots.get(abs) ?? "");
+        : (context.snapshots.get(abs) ?? unknownBaseline);
     if (!this.currentWatch(context)) return;
     this.emit({
       kind: "file-update",
@@ -1208,7 +1216,10 @@ export class OpenShellBackend {
         await fsp.rm(temporary, { force: true }).catch(() => {});
       }
       assertWorkspace(workspace, this.workspace);
-      context.snapshots.set(abs, cleanContent);
+      context.snapshots.set(
+        abs,
+        preserveBaseline(context.snapshots.get(abs), knownBaseline(expectedContent))
+      );
       context.lastKnown.set(abs, cleanContent);
       this.emitFileUpdate(context, abs, cleanContent, undefined, write);
     });
@@ -1226,7 +1237,7 @@ export class OpenShellBackend {
       assertWorkspace(workspace, this.workspace);
       await fsp.writeFile(abs, "", { flag: "wx" });
       assertWorkspace(workspace, this.workspace);
-      context.snapshots.set(abs, "");
+      context.snapshots.set(abs, preserveBaseline(context.snapshots.get(abs), knownBaseline("")));
       context.lastKnown.set(abs, "");
       this.emitFileUpdate(context, abs, "");
     });
@@ -1255,7 +1266,7 @@ export class OpenShellBackend {
       }
       assertWorkspace(workspace, this.workspace);
       if (context.snapshots.has(abs) || context.lastKnown.has(abs)) {
-        const baseline = context.snapshots.get(abs) ?? context.lastKnown.get(abs) ?? "";
+        const baseline = context.snapshots.get(abs) ?? knownBaseline(context.lastKnown.get(abs) ?? "");
         context.snapshots.delete(abs);
         context.lastKnown.delete(abs);
         this.emitFileUpdate(context, abs, null, baseline);
@@ -1272,7 +1283,9 @@ export class OpenShellBackend {
       const parent = this.relKey(path.dirname(abs));
       const target = await confinedPath(root, parent ? `${parent}/${fileName(newName)}` : fileName(newName));
       assertWorkspace(workspace, this.workspace);
-      const snapshot = context.snapshots.get(abs) ?? context.lastKnown.get(abs);
+      const snapshot = context.snapshots.get(abs) ?? (
+        context.lastKnown.has(abs) ? knownBaseline(context.lastKnown.get(abs)!) : undefined
+      );
       await fsp.rename(abs, target);
       assertWorkspace(workspace, this.workspace);
       context.snapshots.delete(abs);

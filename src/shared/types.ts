@@ -92,11 +92,15 @@ export interface FileUpdate {
   workspace: WorkspaceIdentity;
   sessionID: string;
   path: string;
-  baseline: string | null;
+  baseline: FileBaseline;
   content: string | null;
   deleted: boolean;
   write?: FileWriteIdentity;
 }
+
+export type FileBaseline =
+  | { kind: "known"; content: string }
+  | { kind: "unknown" };
 
 export interface FileWriteIdentity {
   id: string;
@@ -271,7 +275,7 @@ export interface Tab {
   name: string;
   content: string;
   saved: string;
-  baseline: string | null;
+  baseline: FileBaseline | null;
   deleted: boolean;
   dirty: boolean;
   stale: boolean;
@@ -288,7 +292,7 @@ export interface FileConflict {
 }
 
 export interface AgentFileState {
-  baseline: string | null;
+  baseline: FileBaseline;
   content: string | null;
   deleted: boolean;
 }

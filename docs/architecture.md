@@ -99,15 +99,20 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
 
 ## Diffs and baselines (how the diff view works)
 
-The center pane shows, for each file, a diff of "what the agent changed
-this session". The main process maintains per-file baselines:
+The Changes list represents workspace file changes observed during the active
+session, regardless of whether they came from a tool, shell, editor, formatter,
+user, or another process. Main preserves the first baseline per path:
 
 - **Tool snapshot**: when `session.tool.called` arrives, every file path
   found in the tool input (keys `filePath`/`file_path`/`path`) is read and
   stored as that file's baseline *before* the tool executes.
-- **git fallback**: files first observed via `fs.watch` get their baseline
-  from `git show HEAD:<rel>` when the repo has a `.git`; for non-git repos
-  the baseline is the first content observed.
+- **git fallback**: files first observed via `fs.watch` use
+  `git show HEAD:<rel>` in a Git workspace; untracked Git paths use known empty
+  content.
+- **unknown fallback**: first-observed non-git changes have an explicit unknown
+  baseline because the watcher only has post-change bytes.
+- **OpenShell mutations**: saves and creates establish a known baseline only
+  when none exists. Delete and rename preserve the established baseline.
 - **Live watching**: `fs.watch(directory, { recursive: true })` captures the
   activation root/session/generation and workspace-scoped maps, then feeds every
   change through a 200ms debounce into `onFsChanged`, which compares
@@ -115,8 +120,15 @@ this session". The main process maintains per-file baselines:
   identity-bound `file-update` with `{baseline, content}`. Await boundaries and
   emissions re-check that the captured activation is still current.
 
-The renderer merges these updates into tabs; a tab whose baseline differs
-from its content can be toggled to the Diff view (Monaco `DiffEditor`).
+The renderer merges updates into tabs. A known baseline enables Monaco Diff;
+an unknown baseline stays in Changes as `observed` with Diff unavailable.
+
+This is observation, not attribution. Structured tool paths can be captured
+before execution, but arbitrary shell command strings are not parsed for paths,
+and Git `HEAD` does not identify an author. Skipped directories (`.git`,
+dependencies, caches, IDE metadata, and build outputs), unreadable/binary files,
+watcher coalescing, pre-activation changes, and missed first notifications can
+prevent observation or recovery of pre-change content.
 
 ## Editing and saves
 

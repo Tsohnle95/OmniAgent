@@ -741,6 +741,20 @@ function buildTurns(timeline: VisibleTimelineItem[]): TimelineTurn[] {
   return turns;
 }
 
+function contiguousBodyRuns(body: TimelineTurn["body"]): Array<AssistantItem[] | Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>> {
+  const runs: Array<AssistantItem[] | Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>> = [];
+  for (const item of body) {
+    if (item.kind !== "assistant") {
+      runs.push(item);
+      continue;
+    }
+    const previous = runs.at(-1);
+    if (Array.isArray(previous)) previous.push(item);
+    else runs.push([item]);
+  }
+  return runs;
+}
+
 function TimelineEvent({
   item
 }: {
@@ -868,17 +882,17 @@ export function OpenCodeTimeline({
     <>
       <div data-slot="session-turn-list" className="opencode-timeline">
         {turns.map((turn, index) => {
-          const assistants = turn.body.filter((item): item is AssistantItem => item.kind === "assistant");
-          const live = busy && assistants.some((item) => item.id === lastAssistantId);
           return (
             <div data-component="session-turn-group" key={turn.id}>
               {turn.user && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
               {turn.user && <UserMessage item={turn.user} />}
-              {assistants.length > 0 && <AssistantTurn items={assistants} streaming={live} />}
-              {turn.body
-                .filter((item): item is Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }> =>
-                  item.kind !== "assistant")
-                .map((item) => <TimelineEvent item={item} key={item.id} />)}
+              {contiguousBodyRuns(turn.body).map((run) => Array.isArray(run)
+                ? <AssistantTurn
+                    items={run}
+                    streaming={busy && run.some((item) => item.id === lastAssistantId)}
+                    key={`assistant:${run[0].id}`}
+                  />
+                : <TimelineEvent item={run} key={run.id} />)}
             </div>
           );
         })}

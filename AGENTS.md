@@ -3,7 +3,7 @@
 OpenShell is a VS Code-style desktop GUI for the opencode2 agent: an
 Electron + React + Monaco app that opens a repository, sends prompts to
 opencode2, streams the agent's progress, and shows live per-file diffs of
-everything the agent changed.
+workspace file changes observed during the active session.
 
 Read this file first. For depth, read the module docs — each one is
 self-contained so you never need to crawl the whole repo.
@@ -52,8 +52,8 @@ every server event to the renderer over IPC. The **renderer** (React) keeps
 all UI state in one store and renders a three-pane layout: file tree,
 Monaco editor with an Edit/Diff toggle, and the streaming agent panel. The
 main process also watches the repo with `fs.watch`; every change streams a
-`{baseline, content}` update so the diff view is always exactly what the
-agent changed this session.
+`{baseline, content}` update so Changes reflects observed workspace changes
+and Diff compares against the first established baseline when known.
 
 ## Conventions (follow these)
 

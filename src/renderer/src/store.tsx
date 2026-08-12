@@ -927,7 +927,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
                   dirty: false,
                   stale: false,
                   conflict: null,
-                  baseline: snapshot.content,
+                  baseline: t.baseline ?? { kind: "known", content: snapshot.expectedContent },
                   deleted: false
                 }
               : t

@@ -544,16 +544,16 @@ Scope: items 7, 8, and 9.
 
 Scope: items 11, 12, and 13 under the selected observed-session-changes policy.
 
-- [ ] Preserve each file's first established baseline through editor saves.
-- [ ] Represent unknown pre-change content explicitly.
-- [ ] Label Changes/Diff as observed workspace changes rather than authoritative agent attribution.
-- [ ] Document Git, non-git, shell, skipped-path, and first-observation limits.
-- [ ] Preserve timeline body order and group only contiguous assistant runs.
-- [ ] Add baseline lifecycle tests for tool, shell, editor, create, delete, rename, Git, and non-git cases.
-- [ ] Add DOM-order tests for every interleaved semantic timeline event.
-- [ ] Update all baseline, Changes, and timeline documentation.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Preserve each file's first established baseline through editor saves.
+- [x] Represent unknown pre-change content explicitly.
+- [x] Label Changes/Diff as observed workspace changes rather than authoritative agent attribution.
+- [x] Document Git, non-git, shell, skipped-path, and first-observation limits.
+- [x] Preserve timeline body order and group only contiguous assistant runs.
+- [x] Add baseline lifecycle tests for tool, shell, editor, create, delete, rename, Git, and non-git cases.
+- [x] Add DOM-order tests for every interleaved semantic timeline event.
+- [x] Update all baseline, Changes, and timeline documentation.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-07: Safe deletion and terminal lifecycle
 

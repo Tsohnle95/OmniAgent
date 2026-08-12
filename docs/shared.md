@@ -12,7 +12,8 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `SessionInfo` | `{ id, directory, workspace, parentID?, title?, agent? }` | The active opencode2 session, immutable workspace identity, and parent/child navigation metadata |
 | `SessionSummary` | `{ id, title, directory, updatedAt, parentID?, agent? }` | Recent-session graph used by Welcome and task/subagent links |
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
-| `FileUpdate` | `{ workspace, sessionID, path, baseline: string \| null, content: string \| null, deleted }` | Identity-bound watcher payload; `baseline` is what the agent started from |
+| `FileBaseline` | `{ kind: "known", content } \| { kind: "unknown" }` | First established pre-change state; unknown never substitutes post-change bytes |
+| `FileUpdate` | `{ workspace, sessionID, path, baseline: FileBaseline, content: string \| null, deleted }` | Identity-bound observed workspace change payload |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
 | `ModelOption` | `{ id, providerID, name, variants?, variant? }` | Model picker options + current model/strength selection |
 | `AgentOption` | `{ id, name }` | Agent picker options + current selection |
@@ -72,8 +73,8 @@ blocks, and provider metadata is retained instead of flattened away.
 - `FileWriteIdentity` — `{ id, workspaceID, revision, expectedContent,
   overwrite }`; binds a write and its `file-update` echo to the exact revision
   and provides the normal-save disk precondition.
-- `AgentFileState` — `{ baseline, content, deleted }`, per agent-touched
-  file.
+- `AgentFileState` — `{ baseline, content, deleted }`, per observed changed
+  file; baseline survives editor saves.
 
 ## IPC envelope
 

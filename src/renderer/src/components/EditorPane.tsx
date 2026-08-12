@@ -27,7 +27,7 @@ function TabBar(): ReactNode {
       {tabs.map((tab) => {
         const active = tab.path === activePath;
         const hasDiff =
-          tab.baseline !== null && !tab.deleted && tab.baseline !== tab.content;
+          tab.baseline?.kind === "known" && !tab.deleted && tab.baseline.content !== tab.content;
         return (
           <div
             key={tab.path}
@@ -93,7 +93,8 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   }, [saveTab, tab.path]);
 
   const language = useMemo(() => languageForPath(tab.path), [tab.path]);
-  const diffAvailable = tab.baseline !== null;
+  const diffAvailable = tab.baseline?.kind === "known";
+  const diffUnknown = tab.baseline?.kind === "unknown";
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;
   const options = useMemo(
     () => ({ ...EDITOR_OPTIONS, wordWrap: (wordWrap ? "on" : "off") as "on" | "off" }),
@@ -137,6 +138,11 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
               </button>
             </>
           )}
+          {diffUnknown && (
+            <button className="toolbar-btn" disabled title="Pre-change content was not observed">
+              Diff unavailable
+            </button>
+          )}
         </div>
       </div>
 
@@ -169,7 +175,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         <DiffEditor
           theme="openshell-dark"
           language={language}
-          original={tab.baseline ?? ""}
+          original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
           onMount={(ed) => registerEditor(tab.path, ed.getModifiedEditor())}
           options={{
@@ -208,7 +214,7 @@ export function EditorPane(): ReactNode {
           <div className="editor-empty-icon">⌘</div>
           <p>Select a file from the explorer to view or edit it.</p>
           <p className="editor-empty-sub">
-            Files the agent changes appear under <b>Changes</b> and open in the diff view.
+            Observed workspace file changes appear under <b>Changes</b>. A diff is shown when pre-change content is known.
           </p>
         </div>
       ) : (
