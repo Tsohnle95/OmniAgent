@@ -21,7 +21,12 @@ const INSPECT_HIGHLIGHT = {
 async function startInspectPicker(wc: WebContents): Promise<void> {
   if (inspectPickerActive) return;
   inspectPickerActive = true;
-  if (!wc.isDevToolsOpened()) wc.openDevTools({ mode: "bottom" });
+  if (!wc.isDevToolsOpened()) {
+    wc.openDevTools({ mode: "bottom" });
+    if (!wc.devToolsWebContents) {
+      await new Promise<void>((resolve) => wc.once("devtools-opened", () => resolve()));
+    }
+  }
   const dtc = wc.devToolsWebContents;
   if (dtc && dtc.isLoading()) {
     await new Promise<void>((resolve) => dtc.once("dom-ready", () => resolve()));
@@ -57,7 +62,9 @@ function stopInspectPicker(wc: WebContents): void {
   if (!inspectPickerActive) return;
   inspectPickerActive = false;
   if (!wc.debugger.isAttached()) return;
-  void wc.debugger.sendCommand("Overlay.setInspectMode", { mode: "none" }).catch(() => {});
+  void wc.debugger
+    .sendCommand("Overlay.setInspectMode", { mode: "none", highlightConfig: INSPECT_HIGHLIGHT })
+    .catch((err) => console.error("stopInspectPicker:", err));
 }
 
 function createWindow(): BrowserWindow {
@@ -100,6 +107,9 @@ function createWindow(): BrowserWindow {
     } else if (method === "Overlay.inspectModeCanceled") {
       stopInspectPicker(wc);
     }
+  });
+  wc.debugger.on("detach", () => {
+    inspectPickerActive = false;
   });
   wc.on("devtools-closed", () => stopInspectPicker(wc));
 

@@ -133,7 +133,10 @@ Protocol (`webContents.debugger`, `Overlay.setInspectMode` with
 `inspectElement` at the picked node's box-model center
 (`DOM.getBoxModel`) — overlay events only reach our debugger session,
 and the Elements panel only selects nodes on browser-side inspects.
-Esc, picking an element, or closing DevTools exits the mode.
+Esc, picking an element, or closing DevTools exits the mode. Gotcha:
+`highlightConfig` is a required parameter even for `mode: "none"`;
+omitting it makes Chromium reject the command and leaves the overlay
+stuck in search mode, flashing highlights forever.
 
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is
