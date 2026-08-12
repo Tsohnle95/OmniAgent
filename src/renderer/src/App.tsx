@@ -67,31 +67,52 @@ function useDragResize(
   return onMouseDown;
 }
 
-function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.MouseEvent) => void] {
+const TRAY_HEADER_H = 30;
+const TRAY_SNAP_H = 60;
+
+function useTrayHeight(): {
+  height: number;
+  open: boolean;
+  snapped: boolean;
+  dragging: boolean;
+  toggle: () => void;
+  close: () => void;
+  expand: () => void;
+  onDrag: (e: React.MouseEvent) => void;
+} {
   const [open, setOpen] = useState(false);
+  const [snapped, setSnapped] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [height, setHeight] = useState(240);
-  const startRef = useRef<{ y: number; height: number } | null>(null);
-  const belowThresholdRef = useRef(false);
+  const startRef = useRef<{ y: number; height: number; live: number } | null>(null);
+  const lastFullRef = useRef(240);
 
   const onDrag = (e: React.MouseEvent): void => {
     e.preventDefault();
-    startRef.current = { y: e.clientY, height };
+    if (startRef.current) return;
+    startRef.current = { y: e.clientY, height, live: height };
+    setDragging(true);
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
       const dy = startRef.current.y - ev.clientY;
-      const h = startRef.current.height + dy;
-      belowThresholdRef.current = h < 26;
-      setHeight(Math.min(520, Math.max(26, h)));
+      const h = Math.min(520, Math.max(TRAY_HEADER_H, startRef.current.height + dy));
+      startRef.current.live = h;
+      if (h > TRAY_SNAP_H) lastFullRef.current = h;
+      setHeight(h);
     };
     const up = (): void => {
       if (startRef.current) {
+        const h = startRef.current.live;
         startRef.current = null;
-        if (belowThresholdRef.current) {
-          setHeight(240);
-          setOpen(false);
+        if (h <= TRAY_SNAP_H) {
+          setHeight(TRAY_HEADER_H);
+          setSnapped(true);
+        } else {
+          setSnapped(false);
         }
+        setOpen(true);
       }
-      belowThresholdRef.current = false;
+      setDragging(false);
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
@@ -99,9 +120,20 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
     window.addEventListener("mouseup", up);
   };
 
-  const toggle = (): void => setOpen((o) => !o);
+  const expand = (): void => {
+    setSnapped(false);
+    setHeight(lastFullRef.current);
+    setOpen(true);
+  };
+
+  const toggle = (): void => {
+    if (!open || snapped) expand();
+    else setOpen(false);
+  };
+
   const close = (): void => setOpen(false);
-  return [height, open, toggle, close, onDrag];
+
+  return { height, open, snapped, dragging, toggle, close, expand, onDrag };
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
@@ -109,7 +141,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, setSideW] = useState(250);
   const [agentOpen, setAgentOpen] = useState(true);
   const [agentW, setAgentW] = useState(AGENT_DEFAULT_W);
-  const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
+  const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
 
   useEffect(() => {
@@ -205,7 +237,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
 
   return (
-    <div className={`app ${trayOpen ? "tray-open" : ""}`}>
+    <div className="app">
       <div className="titlebar">
         <span className="titlebar-title">OpenShell</span>
         <span className="titlebar-actions">
@@ -220,7 +252,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           </button>
           <button
             className={`icon-btn ${trayOpen ? "on" : ""}`}
-            title={trayOpen ? "Hide terminal (⌥O)" : "Show terminal (⌥O)"}
+            title={trayOpen
+              ? (traySnapped ? "Expand terminal (⌥O)" : "Hide terminal (⌥O)")
+              : "Show terminal (⌥O)"}
             onClick={toggleTray}
           >
             ▤
@@ -251,12 +285,15 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         )}
       </div>
 
-      {trayOpen && (
-        <>
+      <div
+        className={`tray-area ${trayOpen ? "open" : ""} ${trayDragging ? "dragging" : ""}`}
+        style={{ "--tray-height": `${trayH}px` } as CSSProperties}
+      >
+        <div className="tray-inner">
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
-          <TerminalTray height={trayH} onClose={closeTray} />
-        </>
-      )}
+          <TerminalTray height={trayH} snapped={traySnapped} onClose={closeTray} onExpand={expandTray} />
+        </div>
+      </div>
 
       <Toasts />
     </div>

@@ -117,7 +117,17 @@ interface TermView {
   name: string;
 }
 
-export function TerminalTray({ height, onClose }: { height: number; onClose: () => void }): ReactNode {
+export function TerminalTray({
+  height,
+  snapped,
+  onClose,
+  onExpand
+}: {
+  height: number;
+  snapped: boolean;
+  onClose: () => void;
+  onExpand: () => void;
+}): ReactNode {
   const { session } = useStore();
   const directory = session?.directory ?? null;
   const [terms, setTerms] = useState<TermView[]>([]);
@@ -211,7 +221,16 @@ export function TerminalTray({ height, onClose }: { height: number; onClose: () 
 
   return (
     <div className="terminal-tray" style={{ "--terminal-height": `${height}px` } as CSSProperties}>
-      <div className="terminal-header">
+      <div
+        className={`terminal-header ${snapped ? "snapped" : ""}`}
+        title={snapped ? "Click to expand terminal" : undefined}
+        onClick={snapped ? onExpand : undefined}
+      >
+        {snapped && (
+          <span className="terminal-snap-hint" title="Drag up or click to expand">
+            <span className="codicon codicon-chevron-up" />
+          </span>
+        )}
         {terms.map((term) => (
           <span
             key={term.id}
@@ -239,7 +258,7 @@ export function TerminalTray({ height, onClose }: { height: number; onClose: () 
           <span className="codicon codicon-chevron-down" />
         </button>
       </div>
-      <div className="terminal-body">
+      <div className={`terminal-body ${snapped ? "hidden" : ""}`}>
         {terms.map((term) => (
           <TermInstance
             key={term.id}
