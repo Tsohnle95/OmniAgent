@@ -11,18 +11,17 @@ const COLLAPSED_PANEL_W = 44;
 const SIDE_MIN_W = 170;
 const SIDE_MAX_W = 520;
 const AGENT_MIN_W = 300;
-const AGENT_MAX_W = 760;
 
 function useDragResize(
-  initial: number,
+  width: number,
+  setWidth: React.Dispatch<React.SetStateAction<number>>,
   min: number,
   max: number,
   flip: boolean,
   open: boolean,
   onOpen: () => void,
   onCollapse?: () => void
-): [number, React.Dispatch<React.SetStateAction<number>>, (e: React.MouseEvent) => void] {
-  const [width, setWidth] = useState(initial);
+): (e: React.MouseEvent) => void {
   const startRef = useRef<{ x: number; width: number; open: boolean } | null>(null);
 
   const onMouseDown = (e: React.MouseEvent): void => {
@@ -63,7 +62,7 @@ function useDragResize(
     window.addEventListener("mouseup", up);
   };
 
-  return [width, setWidth, onMouseDown];
+  return onMouseDown;
 }
 
 function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.MouseEvent) => void] {
@@ -105,25 +104,9 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideOpen, setSideOpen] = useState(true);
-  const [sideW, setSideW, sideDrag] = useDragResize(
-    250,
-    SIDE_MIN_W,
-    SIDE_MAX_W,
-    false,
-    sideOpen,
-    () => setSideOpen(true),
-    () => setSideOpen(false)
-  );
+  const [sideW, setSideW] = useState(250);
   const [agentOpen, setAgentOpen] = useState(true);
-  const [agentW, setAgentW, agentDrag] = useDragResize(
-    420,
-    AGENT_MIN_W,
-    AGENT_MAX_W,
-    true,
-    agentOpen,
-    () => setAgentOpen(true),
-    () => setAgentOpen(false)
-  );
+  const [agentW, setAgentW] = useState(420);
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
 
@@ -135,13 +118,34 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
   const agentShown = agentOpen ? agentW : COLLAPSED_PANEL_W;
-  const agentMax = Math.max(AGENT_MIN_W, Math.min(AGENT_MAX_W, winW - sideShown - 2));
+  const agentMax = Math.max(AGENT_MIN_W, winW - sideShown - 2);
   const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - 2));
 
   useEffect(() => {
     setAgentW((w) => Math.min(w, winW - sideShown - 2));
     setSideW((w) => Math.min(w, winW - agentShown - 2));
   }, [winW, sideShown, agentShown]);
+
+  const sideDrag = useDragResize(
+    sideW,
+    setSideW,
+    SIDE_MIN_W,
+    sideMax,
+    false,
+    sideOpen,
+    () => setSideOpen(true),
+    () => setSideOpen(false)
+  );
+  const agentDrag = useDragResize(
+    agentW,
+    setAgentW,
+    AGENT_MIN_W,
+    agentMax,
+    true,
+    agentOpen,
+    () => setAgentOpen(true),
+    () => setAgentOpen(false)
+  );
 
   const cols = [
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
