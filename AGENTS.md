@@ -99,7 +99,7 @@ The brain is `AGENTS.md` + `docs/`. It must never drift from the code.
 
 - `npm run docs:check` runs the documented surface presence check in
   `scripts/check-docs.mjs`. It checks `AGENTS.md`, `README.md`, `TODO.md`,
-  `final-document.md`, and every `docs/*.md` file for local Markdown link
+  and every `docs/*.md` file for local Markdown link
   targets, numeric source references, and duplicate table inventory rows.
   Against source, it inventories IPC channels, `OpenShellBackend` public
   methods, the `window.openshell` contract, handled and intentionally unhandled
