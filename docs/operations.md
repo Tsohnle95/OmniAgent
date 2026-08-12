@@ -27,6 +27,25 @@ launch straight from the build with `npx electron .`. `npm run typecheck`
 runs `tsc --noEmit` for both node and web configs. `npm run check` is the
 canonical local and CI verification gate.
 
+## Large-session benchmark
+
+Run the deterministic renderer fixture independently with:
+
+```sh
+npx vitest run src/renderer/src/large-session.performance.test.ts --reporter=verbose
+```
+
+The JSON line reports reducer/update latency, derived timeline latency, the DOM
+row proxy, and retained output characters for 2,400 fixed events. On 2026-08-12,
+before retention changes, the fixture measured 11.79 ms, 0.64 ms, 800 rows, and
+26,214,400 retained characters. With retention enabled it measured 11.42 ms,
+0.45 ms, 800 rows, and 3,276,800 retained characters. Timing budgets allow
+normal machine variance: reducer below 50 ms and derivation below 5 ms. The
+structural budgets are at most 1,000 rows and 8 KiB per completed tool/shell
+result. Tests enforce all four budgets; compare trends using the same Node
+version and machine rather than treating a single wall-clock sample as a
+cross-machine browser benchmark.
+
 ## Smoke test checklist
 
 1. `which opencode2` — binary present.

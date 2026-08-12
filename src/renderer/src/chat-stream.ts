@@ -1,4 +1,5 @@
 import type { AssistantPartView, ToolCallView, ToolContentView, TranscriptItem } from "@shared/types";
+import { retainOutput, retainToolContent } from "@shared/retention";
 
 export interface ChatStreamEvent {
   id: string;
@@ -259,11 +260,11 @@ function partFromProjection(part: Record<string, any>, created: number): Assista
   const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
   const startedAt = Number(part.time?.created ?? state.time?.start ?? created);
   const completedAt = Number(part.time?.completed ?? state.time?.end ?? 0);
-  const output = Array.isArray(state.content)
+  const output = retainOutput(Array.isArray(state.content)
     ? toolOutput({ content: state.content })
     : state.status === "completed"
       ? stringify(state.output)
-      : errorText(state.error);
+      : errorText(state.error));
   const callID = String(part.callID ?? part.id);
   return {
     kind: "tool",
@@ -280,7 +281,7 @@ function partFromProjection(part: Record<string, any>, created: number): Assista
       paths: paths(input),
       metadata: metadata(state.metadata),
       inputValue: input,
-      content: toolContent(state),
+      content: retainToolContent(toolContent(state)),
       ...(typeof part.executed === "boolean" ? { executed: part.executed } : {}),
       providerState: metadata(part.providerState),
       providerResultState: metadata(part.providerResultState)
@@ -419,7 +420,7 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         status: ["exited", "timeout", "killed"].includes(String(shell.status))
           ? shell.status as "exited" | "timeout" | "killed"
           : "exited",
-        ...(typeof output?.output === "string" ? { output: output.output } : {}),
+        ...(typeof output?.output === "string" ? { output: retainOutput(output.output) } : {}),
         ...(typeof shell.exit === "number" ? { exit: shell.exit } : {})
       };
       return index >= 0
@@ -602,8 +603,8 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         ? {
             ...tool,
             status: "success",
-            output: toolOutput(data),
-            content: toolContent(data),
+            output: retainOutput(toolOutput(data)),
+            content: retainToolContent(toolContent(data)),
             metadata: metadata(data.metadata) ?? tool.metadata,
             ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
             providerResultState: metadata(data.resultState) ?? tool.providerResultState,
@@ -616,8 +617,8 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         ? {
             ...tool,
             status: "failed",
-            output: toolOutput(data) || errorText(data.error) || "Tool failed",
-            content: toolContent(data),
+            output: retainOutput(toolOutput(data) || errorText(data.error) || "Tool failed"),
+            content: retainToolContent(toolContent(data)),
             metadata: metadata(data.metadata) ?? tool.metadata,
             ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
             providerResultState: metadata(data.resultState) ?? tool.providerResultState,

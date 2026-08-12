@@ -78,6 +78,14 @@ Key mechanisms:
   Adjacent authoritative snapshots of the same legacy part collapse to the
   latest snapshot. A timer is used instead of animation frames so background
   windows continue draining the stream.
+- **Session retention** — completed tool and shell output retains at most 8 KiB,
+  split between the beginning and end with the omitted character count in the
+  middle. Text tool content is discarded after it is projected into `output`;
+  file content blocks remain available. Live reduction and replay hydration use
+  the same policy. The active stream plus the four most recently updated
+  inactive streams are retained in memory; usage records follow the same LRU
+  policy. Evicted sessions remain reopenable and are hydrated from OpenCode on
+  demand.
 - **Selection parity** — catalog refreshes reconcile against
   `sessionSelection()` before falling back to `modelDefault()`, so a newly
   created or reopened GPT/agent session cannot be mislabeled with the previous
@@ -136,6 +144,14 @@ Key mechanisms:
   flat BasicTool triggers.
   There is no assistant bubble, custom tool card, typing-dot placeholder, or
   stream cursor path.
+- **Large-session budget** — `large-session.performance.test.ts` deterministically
+  reduces 2,400 events into 400 assistant messages and measures timeline-row
+  derivation and retained output. Budgets are 50 ms reducer/update time, 5 ms
+  derived timeline time, at most 1,000 row-proxy DOM nodes, and 8 KiB retained
+  output per completed tool or shell result. The fixture's 800-row proxy is
+  below the DOM budget, so transcript indexing, context splitting, and
+  virtualization are intentionally not added. jsdom render time is not used as
+  a browser render budget because it is neither representative nor stable.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 

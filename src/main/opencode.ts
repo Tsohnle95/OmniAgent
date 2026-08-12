@@ -31,6 +31,7 @@ import type {
   TreeEntry,
   ModelOption
 } from "@shared/types";
+import { retainOutput, retainToolContent } from "@shared/retention";
 import type { WorkspaceIdentity } from "@shared/types";
 import { LatestGeneration, sameWorkspace } from "@shared/generation";
 import { fetchProviderUsage } from "./provider-usage";
@@ -177,15 +178,16 @@ function replayToolCard(part: Record<string, unknown>): ToolCallView {
     detail: toolDetailText(input),
     status,
     input: toolInputText(input),
-    output:
+    output: retainOutput(
       toolContentText(state.content as unknown[] | undefined) ||
-      String(state.output ?? (state.error as { message?: string } | undefined)?.message ?? state.error ?? ""),
+      String(state.output ?? (state.error as { message?: string } | undefined)?.message ?? state.error ?? "")
+    ),
     startedAt: time.created ?? Date.now(),
     duration: completed ? Math.max(0, completed - ran) : undefined,
     paths: collectFilePaths(input),
     metadata: record(state.metadata),
     inputValue: input,
-    content: toolContentViews(state.content),
+    content: retainToolContent(toolContentViews(state.content)),
     ...(typeof part.executed === "boolean" ? { executed: part.executed } : {}),
     providerState: record(part.providerState),
     providerResultState: record(part.providerResultState)
@@ -323,7 +325,7 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
         shellID: String(info.shellID ?? info.id),
         command: String(info.command ?? ""),
         status,
-        ...(typeof output?.output === "string" ? { output: output.output } : {}),
+        ...(typeof output?.output === "string" ? { output: retainOutput(output.output) } : {}),
         ...(["number", "string"].includes(typeof info.exit) ? { exit: info.exit as number | string } : {})
       });
       continue;

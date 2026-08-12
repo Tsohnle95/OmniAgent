@@ -30,6 +30,7 @@ import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStream
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { LatestGeneration, sameWorkspace } from "@shared/generation";
+import { retainSessionRecord } from "@shared/retention";
 
 export interface Toast {
   id: number;
@@ -336,7 +337,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       setTranscriptsBySession((current) => {
         const items = current[sessionID] ?? [];
         const next = update(items);
-        return next === items ? current : { ...current, [sessionID]: next };
+        return next === items
+          ? current
+          : retainSessionRecord(current, sessionID, next, sessionRef.current?.id);
       });
     },
     []
@@ -538,13 +541,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         pendingActivationRef.current = null;
         resetAll(true);
         setSession(reopened.session);
-        setTranscriptsBySession((current) => ({
-          ...current,
-          [reopened.session.id]: mergeChatHistory(
+        setTranscriptsBySession((current) => retainSessionRecord(
+          current,
+          reopened.session.id,
+          mergeChatHistory(
             reopened.transcript,
             current[reopened.session.id] ?? []
-          )
-        }));
+          ),
+          reopened.session.id
+        ));
         const running = [...reopened.transcript].reverse().find((item) => item.kind === "assistant");
         setBusyBySession((current) => reopened.session.id in current
           ? current
@@ -554,7 +559,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             });
         setTodos(reopened.todos);
         if (reopened.usage) {
-          setUsageBySession((current) => ({ ...current, [reopened.session.id]: reopened.usage! }));
+          setUsageBySession((current) => retainSessionRecord(
+            current,
+            reopened.session.id,
+            reopened.usage!,
+            reopened.session.id
+          ));
         }
         if (!silent) toast(`Reopened session in ${reopened.session.directory}`);
         void loadModels();
@@ -1151,7 +1161,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.usage.recorded": {
           const usage = normalizeSessionUsage(data);
           if (!targetSessionID || !usage) break;
-          setUsageBySession((current) => ({ ...current, [targetSessionID]: usage }));
+          setUsageBySession((current) => retainSessionRecord(
+            current,
+            targetSessionID,
+            usage,
+            sessionRef.current?.id
+          ));
           break;
         }
         case "session.execution.started": {

@@ -575,15 +575,15 @@ Scope: items 14 and 15.
 
 Scope: item 17.
 
-- [ ] Add a repeatable large-session benchmark or deterministic performance fixture.
-- [ ] Record budgets for reducer/update latency, render cost, DOM size, and retained output.
-- [ ] Cap or summarize retained tool and shell output.
-- [ ] Define retention/eviction for inactive session streams and usage records.
-- [ ] Optimize transcript indexing, context partitioning, or virtualization only where measurements justify it.
-- [ ] Add regression coverage for the selected retention behavior.
-- [ ] Document performance budgets and retention policy.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Add a repeatable large-session benchmark or deterministic performance fixture.
+- [x] Record budgets for reducer/update latency, render cost, DOM size, and retained output.
+- [x] Cap or summarize retained tool and shell output.
+- [x] Define retention/eviction for inactive session streams and usage records.
+- [x] Optimize transcript indexing, context partitioning, or virtualization only where measurements justify it. Measurements did not justify these changes.
+- [x] Add regression coverage for the selected retention behavior.
+- [x] Document performance budgets and retention policy.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-09: Portable runtime and dependency policy
 
