@@ -578,7 +578,7 @@ Scope: items 14 and 15.
 Scope: item 17.
 
 - [x] Add a repeatable large-session benchmark or deterministic performance fixture.
-- [x] Record budgets for reducer/update latency, timeline derivation, estimated row count, retained output, actual React/jsdom render time, and actual DOM row count.
+- [x] Record stable warmup/median budgets for reducer/update latency and timeline derivation plus budgets for estimated row count, retained output, actual React/jsdom render time, and actual DOM row count.
 - [x] Cap or summarize retained tool and shell output.
 - [x] Define retention/eviction for inactive session streams and usage records.
 - [x] Report retained-output omission counts exactly and evict per-session busy state with transcript records.
@@ -631,7 +631,7 @@ Residual acceptance notes:
 
 - WU-02 now has a real macOS Electron hidden-window lifecycle smoke for the packaged renderer/preload, same-frame external navigation denial, unsafe popup denial, trusted IPC, and untrusted-document IPC rejection. Redirect behavior remains tested through Electron event-policy inputs without external network traffic; subframe identity remains covered by focused sender-policy tests.
 - WU-05 now drives actual backend event routing and `onFsChanged` work across deferred stat, read, Git, deletion, mutation, and emission guards, plus StoreProvider startup and overlapping reopen completions.
-- WU-08 now measures React reconciliation plus actual jsdom DOM construction and row count under a generous stable budget. It does not measure Chromium layout/paint/compositing or browser memory.
+- WU-08 now uses a warmup and median of five reducer/derivation samples, and measures React reconciliation plus actual jsdom DOM construction and row count under a separate generous budget. It does not measure Chromium layout/paint/compositing or browser memory.
 - Linux and Windows intentionally skip the GUI trust smoke because normal BrowserWindow creation requires display infrastructure there; macOS CI is the documented targeted Electron GUI host. All platforms retain real Electron-hosted PTY coverage.
 - This acceptance pass does not claim a new independent security audit beyond the automated lifecycle assertions.
 - Final-review corrections lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests and the macOS Electron lifecycle smoke cover the acceptance boundary.

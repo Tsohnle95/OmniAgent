@@ -150,12 +150,12 @@ Key mechanisms:
   stream cursor path.
 - **Large-session fixture** — `large-session.performance.test.ts` deterministically
   reduces 2,400 events into 400 assistant messages and measures timeline-row
-  derivation and retained output. Proxy budgets are 50 ms reducer/update time,
-  5 ms derived timeline time, at most 1,000 estimated rows, and 8 KiB retained
-  output per completed tool or shell result. These measurements do not cover
-  React or browser render cost, so they do not justify a claim that
-  virtualization or context partitioning is unnecessary. jsdom render time is
-  not used as a browser render budget because it is neither representative nor stable.
+  derivation and retained output. After one warmup, median-of-five proxy budgets
+  are 100 ms reducer/update time, 10 ms derived timeline time, at most 1,000
+  estimated rows, and 8 KiB retained output per completed tool or shell result.
+  A separate generous 5,000 ms budget measures React reconciliation and 800
+  actual rows constructed in jsdom. It does not cover Chromium layout, paint,
+  compositor work, or browser memory and is not a browser render budget.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 

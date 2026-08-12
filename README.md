@@ -59,8 +59,10 @@ All API traffic happens in the Electron **main process** using
 OpenShell is macOS-first and supports development/runtime launch on macOS,
 Linux, and Windows. macOS uses the branded development app bundle; Linux and
 Windows launch Electron directly. Platform CI exercises launcher selection and
-real PTY input/output/exit under Electron, but does not claim automated GUI
-coverage.
+real PTY input/output/exit under Electron on all three systems. macOS also runs
+a hidden BrowserWindow trust smoke for the packaged renderer/preload,
+navigation denial, popup policy, and trusted/untrusted IPC; Linux and Windows
+do not claim automated GUI coverage.
 
 ## Development
 
