@@ -41,7 +41,7 @@ Public methods (all used by IPC):
 | `replyPermission(requestID, reply, sessionID?)` | `permission.reply` against the supplied owning session (active session fallback); reply is `"once"|"always"|"reject"` |
 | `listDir(workspace, rel)` | Validates active identity and confinement, then `file.list`; strips trailing slashes |
 | `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
-| `writeFile(workspace, rel, content)` | Confined bounded Node `fs` write; updates snapshots and emits `file-update` |
+| `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; checks expected disk content unless explicitly overwriting and emits an identified `file-update` |
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem` with current `rm -rf` fallback; emits tracked deletion |
@@ -113,7 +113,7 @@ Internals:
 | `shell:fs-list` | `(workspace, rel) → TreeEntry[]` |
 | `shell:fs-read` | `(workspace, rel) → string \| null` |
 | `shell:source-read` | `(absolutePath) → string \| null`; app-root-confined DevTools source view only |
-| `shell:fs-write` | `(workspace, rel, content) → void` |
+| `shell:fs-write` | `(workspace, rel, content, write) → void` |
 | `shell:fs-create-file` | `(workspace, rel) → void` |
 | `shell:fs-create-dir` | `(workspace, rel) → void` |
 | `shell:fs-delete` | `(workspace, rel) → void` |

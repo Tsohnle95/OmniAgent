@@ -3,6 +3,7 @@ import type {
   AgentOption,
   BackendMessage,
   CommandOption,
+  FileWriteIdentity,
   ModelOption,
   PermissionReply,
   ProjectInfo,
@@ -44,8 +45,12 @@ const api = {
     ipcRenderer.invoke("shell:fs-read", workspace, rel),
   readSourceFile: (absolutePath: string): Promise<string | null> =>
     ipcRenderer.invoke("shell:source-read", absolutePath),
-  writeFile: (workspace: WorkspaceIdentity, rel: string, content: string): Promise<void> =>
-    ipcRenderer.invoke("shell:fs-write", workspace, rel, content),
+  writeFile: (
+    workspace: WorkspaceIdentity,
+    rel: string,
+    content: string,
+    write: FileWriteIdentity
+  ): Promise<void> => ipcRenderer.invoke("shell:fs-write", workspace, rel, content, write),
   createFile: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-create-file", workspace, rel),
   createDir: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>

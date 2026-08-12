@@ -12,6 +12,7 @@ import type {
   AssistantPartView,
   AgentOption,
   CommandOption,
+  FileWriteIdentity,
   PermissionReply,
   ProjectInfo,
   PromptFile,
@@ -614,14 +615,19 @@ export class OpenShellBackend {
     this.emitFileUpdate(abs, content);
   }
 
-  private emitFileUpdate(abs: string, content: string | null, baselineOverride?: string): void {
+  private emitFileUpdate(
+    abs: string,
+    content: string | null,
+    baselineOverride?: string,
+    write?: FileWriteIdentity
+  ): void {
     const baseline =
       baselineOverride !== undefined
         ? baselineOverride
         : (this.snapshots.get(abs) ?? "");
     this.emit({
       kind: "file-update",
-      file: { path: this.relKey(abs), baseline, content, deleted: content === null }
+      file: { path: this.relKey(abs), baseline, content, deleted: content === null, ...(write ? { write } : {}) }
     });
   }
 
@@ -1042,17 +1048,46 @@ export class OpenShellBackend {
     return toText(res);
   }
 
-  async writeFile(workspace: WorkspaceIdentity, rel: string, content: string): Promise<void> {
+  async writeFile(
+    workspace: WorkspaceIdentity,
+    rel: string,
+    content: string,
+    write: FileWriteIdentity
+  ): Promise<void> {
     const root = this.workspaceRoot(workspace);
     const cleanContent = fileContent(content);
     const abs = await confinedPath(root, relativePath(rel));
     await fsp.mkdir(path.dirname(abs), { recursive: true });
     await confinedPath(root, relativePath(rel));
     assertWorkspace(workspace, this.workspace);
+    if (
+      !write ||
+      typeof write.id !== "string" ||
+      write.id.length < 1 ||
+      write.id.length > 128 ||
+      write.workspaceID !== workspace.id ||
+      !Number.isSafeInteger(write.revision) ||
+      write.revision < 0 ||
+      typeof write.expectedContent !== "string" ||
+      typeof write.overwrite !== "boolean"
+    ) throw new Error("invalid file write identity");
+    if (!write.overwrite) {
+      const expectedContent = fileContent(write.expectedContent);
+      let current: string | null = null;
+      try {
+        current = await fsp.readFile(abs, "utf8");
+      } catch {
+        current = null;
+      }
+      if (current !== expectedContent) {
+        this.emitFileUpdate(abs, current);
+        throw new Error("file changed on disk");
+      }
+    }
     await fsp.writeFile(abs, cleanContent, "utf8");
     this.snapshots.set(abs, cleanContent);
     this.lastKnown.set(abs, cleanContent);
-    this.emitFileUpdate(abs, cleanContent);
+    this.emitFileUpdate(abs, cleanContent, undefined, write);
   }
 
   async createFile(workspace: WorkspaceIdentity, rel: string): Promise<void> {

@@ -511,17 +511,17 @@ Scope: items 5, 6, and the shared workspace contract required by items 3, 7, and
 
 Scope: items 3, 4, and 10.
 
-- [ ] Give every tab edit a monotonically increasing revision.
-- [ ] Save exact content with workspace identity and revision rather than reading a stale render closure.
-- [ ] Serialize writes per workspace/file or otherwise prevent stale write completion.
-- [ ] Clear dirty state only for the matching completed revision.
-- [ ] Cancel or migrate timers and expected-write state on reset, close, delete, rename, switch, and unmount.
-- [ ] Detect confirmed write echoes without treating genuine external updates as echoes.
-- [ ] Block conflicted saves until explicit reload, overwrite, or merge resolution.
-- [ ] Add fake-timer/deferred-write tests for typing, manual save, reverse completion, conflict, close, delete, rename, and workspace switch.
-- [ ] Update editor/save/conflict documentation.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Give every tab edit a monotonically increasing revision.
+- [x] Save exact content with workspace identity and revision rather than reading a stale render closure.
+- [x] Serialize writes per workspace/file or otherwise prevent stale write completion.
+- [x] Clear dirty state only for the matching completed revision.
+- [x] Cancel or migrate timers and expected-write state on reset, close, delete, rename, switch, and unmount.
+- [x] Detect confirmed write echoes without treating genuine external updates as echoes.
+- [x] Block conflicted saves until explicit reload, overwrite, or merge resolution.
+- [x] Add fake-timer/deferred-write tests for typing, manual save, reverse completion, conflict, close, delete, rename, and workspace switch.
+- [x] Update editor/save/conflict documentation.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-05: Session, watcher, and event-loop generations
 

@@ -150,13 +150,13 @@ user has unsaved edits it only updates the baseline and marks the tab
 
 ## Editing and saving
 
-Editor changes go through `editContent`: the `expectedRef` guard first
-drops updates the app itself caused, then a 900ms debounce fires
-`doSave` → `shell:fs-write` → Node `fs` (the opencode2 API has no write
-endpoint; the server sees the change via its own file watching). The
-watcher's echo update arrives as a `file-update`, which `expectedRef`
-recognizes and ignores — no false "changed on disk" badge. ⌘S saves
-immediately (`saveTab`).
+Every `editContent` increments the tab revision and schedules an immutable
+workspace/path/content/revision snapshot. `EditorPersistence` debounces 900ms,
+serializes writes per workspace/file, and routes `doSave` → `shell:fs-write` →
+Node `fs`. Echoes must match write ID, workspace, revision, and content; normal
+writes also verify the disk still matches `saved`. External changes preserve
+local edits and require explicit Reload, Overwrite, or Keep editing to merge
+then Save merged content. ⌘S saves the current revision immediately.
 
 Create/rename/delete (`shell:fs-create-*`, `shell:fs-rename`,
 `shell:fs-delete`) are plain `fs` operations in the backend; delete moves

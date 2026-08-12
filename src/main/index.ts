@@ -12,7 +12,14 @@ import {
   type TrustedApplicationLocation
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
-import type { CommandOption, PermissionReply, PromptFile, ReferenceOption, WorkspaceIdentity } from "@shared/types";
+import type {
+  CommandOption,
+  FileWriteIdentity,
+  PermissionReply,
+  PromptFile,
+  ReferenceOption,
+  WorkspaceIdentity
+} from "@shared/types";
 import {
   assertWorkspace,
   confinedAbsolutePath,
@@ -492,9 +499,13 @@ function registerIpc(): void {
     }
   });
 
-  handleTrusted("shell:fs-write", async (_e, workspace: WorkspaceIdentity, rel: string, content: string) =>
-    backend.writeFile(workspace, rel, fileContent(content))
-  );
+  handleTrusted("shell:fs-write", async (
+    _e,
+    workspace: WorkspaceIdentity,
+    rel: string,
+    content: string,
+    write: FileWriteIdentity
+  ) => backend.writeFile(workspace, rel, fileContent(content), write));
 
   handleTrusted("shell:fs-create-file", async (_e, workspace: WorkspaceIdentity, rel: string) =>
     backend.createFile(workspace, rel)

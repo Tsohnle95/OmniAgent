@@ -70,7 +70,16 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
-  const { editContent, setTabMode, saveTab, wordWrap, toggleWordWrap } = useStore();
+  const {
+    editContent,
+    setTabMode,
+    saveTab,
+    reloadTab,
+    overwriteTab,
+    mergeTab,
+    wordWrap,
+    toggleWordWrap
+  } = useStore();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -134,6 +143,25 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
       {tab.deleted && (
         <div className="deleted-banner">
           This file was deleted from disk while you were viewing it.
+        </div>
+      )}
+
+      {tab.conflict && (
+        <div className="conflict-banner">
+          <span>
+            {tab.conflict.deleted
+              ? "This file was deleted outside OpenShell. Your edits are safe and saving is paused."
+              : "This file changed outside OpenShell. Your edits are safe and saving is paused."}
+          </span>
+          <div className="conflict-actions">
+            <button onClick={() => reloadTab(tab.path)}>Reload disk version</button>
+            {tab.conflict.resolution === "pending" ? (
+              <button onClick={() => mergeTab(tab.path)}>Keep editing to merge</button>
+            ) : (
+              <button onClick={() => void overwriteTab(tab.path)}>Save merged content</button>
+            )}
+            <button className="danger" onClick={() => void overwriteTab(tab.path)}>Overwrite disk</button>
+          </div>
         </div>
       )}
 

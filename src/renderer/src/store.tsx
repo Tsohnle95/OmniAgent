@@ -27,6 +27,7 @@ import type {
   UserAttachment
 } from "@shared/types";
 import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 
 export interface Toast {
@@ -94,6 +95,9 @@ interface Store {
   setTabMode: (path: string, mode: "edit" | "diff") => void;
   editContent: (path: string, content: string) => void;
   saveTab: (path: string) => Promise<void>;
+  reloadTab: (path: string) => void;
+  overwriteTab: (path: string) => Promise<void>;
+  mergeTab: (path: string) => void;
   toggleDir: (path: string) => Promise<void>;
   replyPermission: (requestID: string, reply: PermissionReply) => Promise<void>;
   ctxMenu: CtxMenuState | null;
@@ -302,8 +306,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   pendingCreateRef.current = pendingCreate;
   const pendingRenameRef = useRef(pendingRename);
   pendingRenameRef.current = pendingRename;
-  const expectedRef = useRef<Map<string, string>>(new Map());
-  const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const persistenceRef = useRef<EditorPersistence | null>(null);
+  if (!persistenceRef.current) {
+    persistenceRef.current = new EditorPersistence((snapshot, write) =>
+      window.openshell.writeFile(snapshot.workspace, snapshot.path, snapshot.content, write)
+    );
+  }
+  const persistence = persistenceRef.current;
   const modelsRef = useRef<ModelOption[]>([]);
   modelsRef.current = models;
   const agentsRef = useRef<AgentOption[]>([]);
@@ -346,6 +357,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, []);
 
   const resetAll = useCallback((preserveSessionStreams = false) => {
+    persistence.cancelAll();
     if (!preserveSessionStreams) setBusyBySession({});
     setTodos([]);
     if (!preserveSessionStreams) setTranscriptsBySession({});
@@ -358,8 +370,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setPendingCreate(null);
     setPendingRename(null);
     agentFilesRef.current = new Map();
+    tabsRef.current = [];
     todoToolRef.current = "";
-  }, []);
+  }, [persistence]);
 
   const loadModels = useCallback(async () => {
     try {
@@ -450,6 +463,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const openSession = useCallback(
     async (dir: string) => {
       try {
+        persistence.cancelAll();
         const info = await window.openshell.openSession(dir);
         resetAll();
         setSession(info);
@@ -460,11 +474,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents]
+    [resetAll, toast, loadModels, loadAgents, persistence]
   );
 
   const selectFolder = useCallback(async () => {
     try {
+      persistence.cancelAll();
       const info = await window.openshell.selectFolder();
       if (info) {
         resetAll();
@@ -476,7 +491,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [resetAll, toast, loadModels, loadAgents]);
+  }, [resetAll, toast, loadModels, loadAgents, persistence]);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -489,6 +504,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const reopenSession = useCallback(
     async (sessionID: string, silent = false) => {
       try {
+        persistence.cancelAll();
         const reopened = await window.openshell.openSessionById(sessionID);
         resetAll(true);
         setSession(reopened.session);
@@ -518,7 +534,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents, loadSessions]
+    [resetAll, toast, loadModels, loadAgents, loadSessions, persistence]
   );
 
   const sendPrompt = useCallback(
@@ -668,8 +684,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const deleteEntry = useCallback(
     async (path: string) => {
       setCtxMenu(null);
+      const workspace = sessionRef.current?.workspace;
+      if (!workspace) return;
+      persistence.cancelPrefix(workspace, path);
       try {
-        await window.openshell.deletePath(sessionRef.current!.workspace, path);
+        await window.openshell.deletePath(workspace, path);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
         return;
@@ -690,7 +709,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
       void refreshTree(ancestorDirs(parent));
     },
-    [toast, refreshTree]
+    [toast, refreshTree, persistence]
   );
 
   const openFile = useCallback(
@@ -731,10 +750,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           deleted: agentFile?.deleted ?? false,
           dirty: false,
           stale: false,
+          revision: 0,
+          conflict: null,
           mode: opts?.mode ?? "edit",
           binary: false
         };
-        expectedRef.current.set(path, content);
         setTabs((prev) => [...prev, tab]);
         setActivePath(path);
       } catch (err) {
@@ -773,7 +793,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             ? rename.path.slice(0, rename.path.lastIndexOf("/"))
             : "";
           const newPath = parent ? `${parent}/${trimmed}` : trimmed;
-          await window.openshell.renamePath(sessionRef.current!.workspace, rename.path, trimmed);
+          const workspace = sessionRef.current!.workspace;
+          persistence.cancelPrefix(workspace, rename.path);
+          await window.openshell.renamePath(workspace, rename.path, trimmed);
           setTabs((prev) =>
             prev.map((t) =>
               t.path === rename.path || t.path.startsWith(`${rename.path}/`)
@@ -809,10 +831,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast, openFile, refreshTree, cancelPending]
+    [toast, openFile, refreshTree, cancelPending, persistence]
   );
 
   const closeTab = useCallback((path: string) => {
+    const workspace = sessionRef.current?.workspace;
+    if (workspace) persistence.cancelPath(workspace, path);
     setTabs((prev) => {
       const next = prev.filter((t) => t.path !== path);
       setActivePath((active) => {
@@ -823,7 +847,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       });
       return next;
     });
-  }, []);
+  }, [persistence]);
 
   const setActive = useCallback((path: string) => setActivePath(path), []);
 
@@ -832,59 +856,119 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, []);
 
   const doSave = useCallback(
-    async (path: string) => {
-      const tab = tabs.find((t) => t.path === path);
-      if (!tab) return;
+    async (snapshot: SaveSnapshot, allowConflict = false) => {
+      const current = tabsRef.current.find((tab) => tab.path === snapshot.path);
+      if (!current || (!allowConflict && current.conflict)) return;
       try {
-        await window.openshell.writeFile(sessionRef.current!.workspace, path, tab.content);
-        expectedRef.current.set(path, tab.content);
+        const result = await persistence.save(snapshot);
+        if (result !== "saved") return;
         setTabs((prev) =>
           prev.map((t) =>
-            t.path === path
-              ? { ...t, saved: tab.content, dirty: false, stale: false, baseline: tab.content }
+            t.path === snapshot.path && t.revision === snapshot.revision
+              ? {
+                  ...t,
+                  saved: snapshot.content,
+                  dirty: false,
+                  stale: false,
+                  conflict: null,
+                  baseline: snapshot.content,
+                  deleted: false
+                }
               : t
           )
         );
       } catch (err) {
-        toast(`Failed to save ${path}: ${err instanceof Error ? err.message : String(err)}`, "error");
+        toast(`Failed to save ${snapshot.path}: ${err instanceof Error ? err.message : String(err)}`, "error");
       }
     },
-    [tabs, toast]
+    [persistence, toast]
   );
 
   const saveTab = useCallback(
     async (path: string) => {
-      const timer = saveTimers.current.get(path);
-      if (timer) clearTimeout(timer);
-      saveTimers.current.delete(path);
-      await doSave(path);
+      const workspace = sessionRef.current?.workspace;
+      const tab = tabsRef.current.find((candidate) => candidate.path === path);
+      if (!workspace || !tab || tab.conflict) return;
+      persistence.cancelTimer(workspace, path);
+      await doSave({
+        workspace,
+        path,
+        content: tab.content,
+        expectedContent: tab.saved,
+        revision: tab.revision
+      });
     },
-    [doSave]
+    [doSave, persistence]
   );
 
   const editContent = useCallback(
     (path: string, content: string) => {
-      if (expectedRef.current.get(path) === content) return;
-      expectedRef.current.set(path, content);
-      setTabs((prev) =>
-        prev.map((t) => (t.path === path && t.content !== content ? { ...t, content, dirty: true } : t))
-      );
-      const existing = saveTimers.current.get(path);
-      if (existing) clearTimeout(existing);
-      saveTimers.current.set(
+      const workspace = sessionRef.current?.workspace;
+      const tab = tabsRef.current.find((candidate) => candidate.path === path);
+      if (!workspace || !tab || tab.content === content) return;
+      const snapshot = {
+        workspace,
         path,
-        setTimeout(() => {
-          saveTimers.current.delete(path);
-          void doSave(path);
-        }, 900)
-      );
+        content,
+        expectedContent: tab.saved,
+        revision: tab.revision + 1
+      };
+      setTabs((prev) => prev.map((candidate) => candidate.path === path
+        ? { ...candidate, content, revision: snapshot.revision, dirty: true }
+        : candidate));
+      if (!tab.conflict) persistence.schedule(snapshot, (next) => void doSave(next));
     },
-    [doSave]
+    [doSave, persistence]
   );
+
+  const reloadTab = useCallback((path: string) => {
+    const workspace = sessionRef.current?.workspace;
+    if (!workspace) return;
+    persistence.cancelPath(workspace, path);
+    setTabs((prev) => prev.map((tab) => {
+      if (tab.path !== path || !tab.conflict) return tab;
+      const content = tab.conflict.content ?? "";
+      return {
+        ...tab,
+        content,
+        saved: content,
+        dirty: false,
+        stale: false,
+        deleted: tab.conflict.deleted,
+        revision: tab.revision + 1,
+        conflict: null
+      };
+    }));
+  }, [persistence]);
+
+  const overwriteTab = useCallback(async (path: string) => {
+    const workspace = sessionRef.current?.workspace;
+    const tab = tabsRef.current.find((candidate) => candidate.path === path);
+    if (!workspace || !tab?.conflict) return;
+    persistence.cancelTimer(workspace, path);
+    await doSave({
+      workspace,
+      path,
+      content: tab.content,
+      expectedContent: tab.saved,
+      revision: tab.revision,
+      overwrite: true
+    }, true);
+  }, [doSave, persistence]);
+
+  const mergeTab = useCallback((path: string) => {
+    setTabs((prev) => prev.map((tab) => tab.path === path && tab.conflict
+      ? { ...tab, conflict: { ...tab.conflict, resolution: "merge" } }
+      : tab));
+  }, []);
 
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
+        const previousWorkspace = sessionRef.current?.workspace;
+        if (previousWorkspace && previousWorkspace.id !== msg.session?.workspace.id) {
+          persistence.cancelWorkspace(previousWorkspace);
+        }
         sessionRef.current = msg.session ?? null;
         setSession(sessionRef.current);
         if (msg.session) {
@@ -906,6 +990,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
       if (msg.kind === "file-update") {
         const f = msg.file!;
+        const workspace = sessionRef.current?.workspace;
+        if (!workspace) return;
+        const origin = persistence.classify(workspace, f);
         setAgentFiles((prev) => {
           const next = new Map(prev);
           next.set(f.path, { baseline: f.baseline, content: f.content, deleted: f.deleted });
@@ -915,18 +1002,26 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setTabs((prev) =>
           prev.map((tab) => {
             if (tab.path !== f.path) return tab;
+            if (origin === "echo" || origin === "stale-write") return tab;
             if (tab.dirty) {
-              return { ...tab, baseline: f.baseline, stale: true, deleted: f.deleted };
+              persistence.cancelTimer(workspace, f.path);
+              return {
+                ...tab,
+                baseline: f.baseline,
+                stale: true,
+                deleted: f.deleted,
+                conflict: { content: f.content, deleted: f.deleted, resolution: "pending" }
+              };
             }
             const content = f.content ?? tab.content;
-            expectedRef.current.set(f.path, content);
             return {
               ...tab,
               content,
               saved: content,
               baseline: f.baseline,
               deleted: f.deleted,
-              stale: false
+              stale: false,
+              conflict: null
             };
           })
         );
@@ -1146,6 +1241,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     return () => {
       off();
       if (timer !== null) clearTimeout(timer);
+      persistence.cancelAll();
     };
   }, [
     loadModels,
@@ -1154,7 +1250,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     loadSessions,
     reopenSession,
     setSessionBusy,
-    updateSessionTranscript
+    updateSessionTranscript,
+    persistence
   ]);
 
   useEffect(() => {
@@ -1205,6 +1302,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       setTabMode,
       editContent,
       saveTab,
+      reloadTab,
+      overwriteTab,
+      mergeTab,
       toggleDir,
       replyPermission,
       ctxMenu,
@@ -1225,7 +1325,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
-      editContent, saveTab, toggleDir, replyPermission,
+      editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, replyPermission,
       openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry
     ]
   );

@@ -27,7 +27,7 @@ automatically.
 | `listDir(workspace, rel)` | `Promise<TreeEntry[]>` |
 | `readFile(workspace, rel)` | `Promise<string \| null>` — workspace-relative only |
 | `readSourceFile(absolutePath)` | `Promise<string \| null>` — privileged app-source read used only by DevTools source navigation |
-| `writeFile(workspace, rel, content)` | `Promise<void>` |
+| `writeFile(workspace, rel, content, write)` | `Promise<void>` |
 | `createFile(workspace, rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
 | `createDir(workspace, rel)` | `Promise<void>` — creates a folder, erroring if it exists |
 | `deletePath(workspace, rel)` | `Promise<void>` — moves to Trash (falls back to `rm`) |

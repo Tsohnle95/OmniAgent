@@ -39,6 +39,7 @@ Actions: `openSession`, `selectFolder`, `reopenSession(id)`,
 `loadSessions`, `sendPrompt`, `stop`, `refreshProviderUsage`, `loadModels`, `switchModel`,
 `loadAgents`, `switchAgent`, `toggleApprovalMode`, `toggleWordWrap`, `openFile(path, {mode})`,
 `closeTab`, `setActive`, `setTabMode`, `editContent`, `saveTab`,
+`reloadTab`, `overwriteTab`, `mergeTab`,
 `toggleDir`, `replyPermission`, `openCtxMenu`, `closeCtxMenu`,
 `startCreate(parent, kind)`, `startRename(path)`, `cancelPending`,
 `commitName(name)`, `deleteEntry(path)`. `commitName`/`deleteEntry`
@@ -81,12 +82,14 @@ Key mechanisms:
   state retains parsed input, content blocks, metadata, execution state, and
   provider state. Durable end/snapshot events are authoritative; terminal
   tool states cannot regress when events arrive late.
-- **Editor vs. watcher dedupe** — `expectedRef` holds the last content the
-  editor wrote or the store applied; `editContent` and the file-update
-  handler both consult it so the editor's own echoes don't mark tabs
-  dirty/stale.
-- **Autosave** — `saveTimers` debounce edits 900ms into `doSave`
-  (⌘S bypasses the debounce via `saveTab`).
+- **Revision-safe persistence** — `EditorPersistence` receives immutable
+  workspace/path/content/revision snapshots, debounces 900ms, serializes each
+  workspace/file, and strongly identifies echoes. Dirty clears only for the
+  matching current revision; ⌘S cancels the timer and saves that revision.
+- **Lifecycle and conflicts** — reset, close, delete, rename, switch, and
+  unmount invalidate relevant timers, expected echoes, and completions.
+  External updates preserve edits and pause saving until explicit Reload,
+  Overwrite, or Keep editing to merge followed by Save merged content.
 - **Diff wiring** — tabs carry `baseline` (from `agentFiles`) and the
   watcher's `file-update` keeps them fresh; `stale`/`deleted` flags
   surface external changes.

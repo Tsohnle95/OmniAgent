@@ -1,0 +1,158 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { FileWriteIdentity, WorkspaceIdentity } from "@shared/types";
+import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
+
+const workspace = (id: string): WorkspaceIdentity => ({ id });
+const snapshot = (
+  id: string,
+  path: string,
+  content: string,
+  revision: number,
+  expectedContent = "disk"
+): SaveSnapshot => ({ workspace: workspace(id), path, content, expectedContent, revision });
+
+function deferred(): { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void } {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+afterEach(() => vi.useRealTimers());
+
+describe("EditorPersistence", () => {
+  it("autosaves the latest typed snapshot instead of a render closure", async () => {
+    vi.useFakeTimers();
+    const writes: SaveSnapshot[] = [];
+    const persistence = new EditorPersistence(async (value) => { writes.push(value); });
+    const save = (value: SaveSnapshot): void => { void persistence.save(value); };
+
+    persistence.schedule(snapshot("one", "file.ts", "first", 1), save);
+    persistence.schedule(snapshot("one", "file.ts", "latest", 2), save);
+    await vi.advanceTimersByTimeAsync(900);
+    await persistence.idle(workspace("one"), "file.ts");
+
+    expect(writes).toEqual([snapshot("one", "file.ts", "latest", 2)]);
+  });
+
+  it("cancels autosave before a manual save and preserves the exact manual revision", async () => {
+    vi.useFakeTimers();
+    const writes: SaveSnapshot[] = [];
+    const persistence = new EditorPersistence(async (value) => { writes.push(value); });
+    const value = snapshot("one", "file.ts", "manual", 3);
+    persistence.schedule(value, (next) => { void persistence.save(next); });
+    persistence.cancelTimer(value.workspace, value.path);
+    await persistence.save(value);
+    await vi.runAllTimersAsync();
+
+    expect(writes).toEqual([value]);
+  });
+
+  it("serializes same-file writes while unrelated completions may reverse", async () => {
+    const first = deferred();
+    const second = deferred();
+    const calls: string[] = [];
+    const persistence = new EditorPersistence(async (value) => {
+      calls.push(value.content);
+      await (value.path === "a" ? first.promise : second.promise);
+    });
+    const a1 = persistence.save(snapshot("one", "a", "a1", 1));
+    const a2 = persistence.save(snapshot("one", "a", "a2", 2));
+    const b = persistence.save(snapshot("one", "b", "b", 1));
+    await flushPromises();
+    expect(calls).toEqual(["a1", "b"]);
+
+    second.resolve();
+    await b;
+    expect(calls).toEqual(["a1", "b"]);
+    first.resolve();
+    await Promise.all([a1, a2]);
+    expect(calls).toEqual(["a1", "b", "a2"]);
+  });
+
+  it("uses a completed write as the next queued write precondition", async () => {
+    const first = deferred();
+    const identities: FileWriteIdentity[] = [];
+    const persistence = new EditorPersistence(async (value, write) => {
+      identities.push(write);
+      if (value.revision === 1) await first.promise;
+    });
+    const one = persistence.save(snapshot("one", "file.ts", "one", 1));
+    const two = persistence.save(snapshot("one", "file.ts", "two", 2));
+    await flushPromises();
+    first.resolve();
+    await Promise.all([one, two]);
+
+    expect(identities.map((write) => write.expectedContent)).toEqual(["disk", "one"]);
+  });
+
+  it("confirms echoes only when write id, workspace, revision, and content match", async () => {
+    let identity!: FileWriteIdentity;
+    const persistence = new EditorPersistence(async (_value, write) => { identity = write; });
+    const value = snapshot("one", "file.ts", "ours", 4);
+    await persistence.save(value);
+
+    expect(persistence.classify(value.workspace, {
+      path: value.path,
+      baseline: "disk",
+      content: "external",
+      deleted: false,
+      write: identity
+    })).toBe("stale-write");
+    expect(persistence.classify(value.workspace, {
+      path: value.path,
+      baseline: "disk",
+      content: "ours",
+      deleted: false,
+      write: { ...identity, revision: 5 }
+    })).toBe("stale-write");
+    expect(persistence.classify(value.workspace, {
+      path: value.path,
+      baseline: "disk",
+      content: "ours",
+      deleted: false,
+      write: identity
+    })).toBe("echo");
+    expect(persistence.classify(value.workspace, {
+      path: value.path,
+      baseline: "disk",
+      content: "outside",
+      deleted: false
+    })).toBe("external");
+  });
+
+  it.each([
+    ["close", (p: EditorPersistence) => p.cancelPath(workspace("one"), "dir/file.ts")],
+    ["delete", (p: EditorPersistence) => p.cancelPrefix(workspace("one"), "dir")],
+    ["rename", (p: EditorPersistence) => p.cancelPrefix(workspace("one"), "dir")],
+    ["workspace switch", (p: EditorPersistence) => p.cancelWorkspace(workspace("one"))],
+    ["reset or unmount", (p: EditorPersistence) => p.cancelAll()]
+  ])("cancels timers and invalidates deferred completion on %s", async (_name, cancel) => {
+    vi.useFakeTimers();
+    const pending = deferred();
+    const writes: string[] = [];
+    const persistence = new EditorPersistence(async (value) => {
+      writes.push(value.content);
+      await pending.promise;
+    });
+    const value = snapshot("one", "dir/file.ts", "content", 1);
+    persistence.schedule(value, (next) => { void persistence.save(next); });
+    const saving = persistence.save(value);
+    await flushPromises();
+
+    cancel(persistence);
+    await vi.runAllTimersAsync();
+    pending.resolve();
+    expect(await saving).toBe("cancelled");
+    expect(writes).toEqual(["content"]);
+  });
+});

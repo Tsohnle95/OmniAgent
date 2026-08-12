@@ -92,6 +92,15 @@ export interface FileUpdate {
   baseline: string | null;
   content: string | null;
   deleted: boolean;
+  write?: FileWriteIdentity;
+}
+
+export interface FileWriteIdentity {
+  id: string;
+  workspaceID: string;
+  revision: number;
+  expectedContent: string;
+  overwrite: boolean;
 }
 
 export interface ProjectInfo {
@@ -263,8 +272,16 @@ export interface Tab {
   deleted: boolean;
   dirty: boolean;
   stale: boolean;
+  revision: number;
+  conflict: FileConflict | null;
   mode: "edit" | "diff";
   binary: boolean;
+}
+
+export interface FileConflict {
+  content: string | null;
+  deleted: boolean;
+  resolution: "pending" | "merge";
 }
 
 export interface AgentFileState {

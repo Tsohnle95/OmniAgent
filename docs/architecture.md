@@ -115,11 +115,15 @@ from its content can be toggled to the Diff view (Monaco `DiffEditor`).
 
 ## Editing and saves
 
-The renderer is fully editable. Autosave is debounced (900ms) and also on
-⌘S. Edits that originate from the editor are tracked in `expectedRef` so
-the watcher's own `file-update` echo does not mark the tab as externally
-changed (`dirty`/`stale` flags on `Tab`). Writes go through Node `fs` in
-the main process (`shell:fs-write`); the opencode2 API has no write
+The renderer is fully editable. Each edit increments its tab revision and
+autosave captures the exact workspace, path, content, expected disk content,
+and revision after a 900ms debounce; ⌘S saves immediately. Writes serialize
+per workspace/file and their identified echoes clear only matching state.
+Normal writes require the disk to still equal the last saved content. External
+updates preserve local edits and pause saving until explicit reload, overwrite,
+or keep-editing then save-merged resolution. Lifecycle changes invalidate
+timers and stale completions. Writes go through Node `fs` in the main process
+(`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching. The
 explorer also supports create/rename/delete through `shell:fs-create-*`,
 `shell:fs-rename`, `shell:fs-delete` (delete moves to Trash); these are

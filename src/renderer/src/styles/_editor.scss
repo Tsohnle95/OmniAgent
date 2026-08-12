@@ -121,6 +121,32 @@
   font-size: 12px;
 }
 
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--yellow) 45%, transparent);
+  background: color-mix(in srgb, var(--yellow) 10%, var(--bg));
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.conflict-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.conflict-actions button {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--bg-raised);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.conflict-actions button:hover { background: var(--bg-hover); }
+.conflict-actions button.danger { color: var(--red); }
+
 .editor-empty {
   flex: 1;
   display: flex;
@@ -134,4 +160,3 @@
 .editor-empty-icon { font-size: 42px; color: var(--text-faint); margin-bottom: 10px; }
 
 .editor-empty-sub { color: var(--text-faint); font-size: 12px; }
-

@@ -66,9 +66,12 @@ blocks, and provider metadata is retained instead of flattened away.
 ## UI state
 
 - `Tab` — `{ path, name, content, saved, baseline, deleted, dirty, stale,
-  mode: "edit" \| "diff", binary }`; `saved` = last persisted content,
-  `baseline` = session start (diff original), `dirty` = unsaved edits,
-  `stale` = changed on disk under the editor.
+  revision, conflict, mode: "edit" \| "diff", binary }`; `saved` is the last
+  persisted content, `revision` increases on every edit, and `conflict`
+  retains external content while normal saving is blocked.
+- `FileWriteIdentity` — `{ id, workspaceID, revision, expectedContent,
+  overwrite }`; binds a write and its `file-update` echo to the exact revision
+  and provides the normal-save disk precondition.
 - `AgentFileState` — `{ baseline, content, deleted }`, per agent-touched
   file.
 
