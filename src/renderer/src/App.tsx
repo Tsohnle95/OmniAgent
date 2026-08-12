@@ -170,11 +170,24 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     agentOpen ? `${agentW}px` : `${COLLAPSED_PANEL_W}px`
   ].join(" ");
 
+  const enterAgentMode = (): void => {
+    setSideOpen(false);
+    setAgentOpen(true);
+    setAgentW(Math.max(0, winW - COLLAPSED_PANEL_W - 2));
+  };
+
   return (
     <div className={`app ${trayOpen ? "tray-open" : ""}`}>
       <div className="titlebar">
         <span className="titlebar-title">OpenShell</span>
         <span className="titlebar-actions">
+          <button
+            className="icon-btn"
+            title="Agent mode — collapse the sidebar and expand the agent panel to a single chat view"
+            onClick={enterAgentMode}
+          >
+            <span className="codicon codicon-robot" />
+          </button>
           <button
             className={`icon-btn ${trayOpen ? "on" : ""}`}
             title={trayOpen ? "Hide terminal (⌥O)" : "Show terminal (⌥O)"}
