@@ -19,6 +19,7 @@ export interface ReopenedSession {
   session: SessionInfo;
   transcript: TranscriptItem[];
   todos: TodoItem[];
+  usage: SessionUsage | null;
 }
 
 export interface SessionUsage {
@@ -110,6 +111,7 @@ export interface AgentOption {
 export interface CommandOption {
   name: string;
   description?: string;
+  kind?: "command" | "skill";
 }
 
 export interface ReferenceOption {

@@ -422,7 +422,7 @@ function registerIpc(): void {
     backend.runCommand(name, args)
   );
 
-  ipcMain.handle("shell:references", async () => backend.listReferences());
+  ipcMain.handle("shell:find-files", async (_e, query: string) => backend.searchFiles(query));
 
   ipcMain.handle("shell:select-files", async (e) => {
     const parent = BrowserWindow.fromWebContents(e.sender);

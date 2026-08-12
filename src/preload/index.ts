@@ -33,7 +33,8 @@ const api = {
   commands: (): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands"),
   runCommand: (name: string, args: string = ""): Promise<void> =>
     ipcRenderer.invoke("shell:run-command", name, args),
-  references: (): Promise<ReferenceOption[]> => ipcRenderer.invoke("shell:references"),
+  references: (query: string): Promise<ReferenceOption[]> =>
+    ipcRenderer.invoke("shell:find-files", query),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
   interrupt: (): Promise<void> => ipcRenderer.invoke("shell:interrupt"),
   listDir: (rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>

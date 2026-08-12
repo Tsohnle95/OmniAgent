@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
-import type { CommandOption, ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, ReferenceOption } from "@shared/types";
+import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult } from "@shared/types";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
@@ -253,6 +253,7 @@ function Composer(): ReactNode {
   const [completion, setCompletion] = useState<CompletionState | null>(null);
   const candidatesRef = useRef<{ kind: "command" | "mention"; items: CompletionItem[] } | null>(null);
   const fetchSeqRef = useRef(0);
+  const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceRecognition | null>(null);
@@ -298,6 +299,12 @@ function Composer(): ReactNode {
   }, [menu]);
 
   useEffect(() => () => voiceRef.current?.stop(), []);
+  useEffect(
+    () => () => {
+      if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
+    },
+    []
+  );
 
   const send = (): void => {
     if (!canSend) return;
@@ -436,24 +443,41 @@ function Composer(): ReactNode {
 
   const openCandidates = async (kind: "command" | "mention", query: string, start: number): Promise<void> => {
     const seq = ++fetchSeqRef.current;
-    try {
-      const raw = kind === "command" ? await window.openshell.commands() : await window.openshell.references();
-      if (fetchSeqRef.current !== seq) return;
-      const items: CompletionItem[] =
-        kind === "command"
-          ? (raw as CommandOption[]).map((c) => ({ label: c.name, detail: c.description, insert: c.name }))
-          : (raw as ReferenceOption[]).map((r) => ({
-              label: r.rel,
-              detail: r.description ?? r.name,
-              insert: r.rel,
-              path: r.path
-            }));
-      candidatesRef.current = { kind, items };
-      setCompletion({ kind, start, query, items: filterCompletionItems(items, query), selected: 0 });
-    } catch {
-      candidatesRef.current = null;
-      setCompletion(null);
+    if (kind === "command") {
+      try {
+        const raw = await window.openshell.commands();
+        if (fetchSeqRef.current !== seq) return;
+        const items: CompletionItem[] = raw.map((c) => ({
+          label: c.name,
+          detail: c.description,
+          insert: c.name
+        }));
+        candidatesRef.current = { kind, items };
+        setCompletion({ kind, start, query, items: filterCompletionItems(items, query), selected: 0 });
+      } catch {
+        candidatesRef.current = null;
+        setCompletion(null);
+      }
+      return;
     }
+    if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
+    mentionTimerRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const raw = await window.openshell.references(query);
+          if (fetchSeqRef.current !== seq) return;
+          const items: CompletionItem[] = raw.map((r) => ({
+            label: r.rel,
+            detail: r.description ?? r.name,
+            insert: r.rel,
+            path: r.path
+          }));
+          setCompletion({ kind, start, query, items: filterCompletionItems(items, query), selected: 0 });
+        } catch {
+          setCompletion(null);
+        }
+      })();
+    }, query ? 200 : 0);
   };
 
   const applyCompletion = (index?: number): void => {

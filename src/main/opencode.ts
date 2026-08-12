@@ -20,6 +20,7 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
+  SessionUsage,
   TodoItem,
   ToolContentView,
   ToolCallView,
@@ -727,18 +728,51 @@ export class OpenShellBackend {
       title?: string;
       parentID?: string;
       agent?: string;
+      cost?: number;
+      tokens?: {
+        input?: number;
+        output?: number;
+        reasoning?: number;
+        cache?: { read?: number; write?: number };
+      };
       location?: { directory?: string };
       data?: {
         id?: string;
         title?: string;
         parentID?: string;
         agent?: string;
+        cost?: number;
+        tokens?: {
+          input?: number;
+          output?: number;
+          reasoning?: number;
+          cache?: { read?: number; write?: number };
+        };
         location?: { directory?: string };
       };
     };
     const id = info.id ?? info.data?.id;
     const directory = info.location?.directory ?? info.data?.location?.directory;
     if (!id || !directory) throw new Error("session not found");
+    const usage: SessionUsage | null = (() => {
+      const raw = info.data ?? info;
+      const cost = raw.cost;
+      const tokens = raw.tokens;
+      if (typeof cost !== "number" || !tokens) return null;
+      const num = (n: number | undefined): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+      return {
+        cost,
+        tokens: {
+          input: num(tokens.input),
+          output: num(tokens.output),
+          reasoning: num(tokens.reasoning),
+          cache: {
+            read: num(tokens.cache?.read),
+            write: num(tokens.cache?.write)
+          }
+        }
+      };
+    })();
     const session = await this.activateSession({
       id,
       directory,
@@ -751,7 +785,7 @@ export class OpenShellBackend {
       ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
       : [];
     const history = messages as unknown[];
-    return { session, transcript: replayTranscript(history), todos: replayTodos(history) };
+    return { session, transcript: replayTranscript(history), todos: replayTodos(history), usage };
   }
 
   async getState(): Promise<SessionInfo | null> {
@@ -802,17 +836,39 @@ export class OpenShellBackend {
 
   async listCommands(): Promise<CommandOption[]> {
     if (!this.client) return [];
-    const res = await this.client.command.list(
-      this.directory ? { location: { directory: this.directory } } : undefined
-    );
-    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as { name?: string; description?: string }[])
-      .map((c) => ({ name: c.name ?? "", ...(c.description ? { description: c.description } : {}) }))
+    const location = this.directory ? { location: { directory: this.directory } } : undefined;
+    const [commands, skills] = await Promise.all([
+      this.client.command.list(location).catch(() => []),
+      this.client.skill.list(location).catch(() => [])
+    ]);
+    const commandArr = Array.isArray(commands) ? commands : (commands as { data?: unknown }).data ?? [];
+    const skillArr = Array.isArray(skills) ? skills : (skills as { data?: unknown }).data ?? [];
+    const commandItems = (commandArr as { name?: string; description?: string }[])
+      .map((c) => ({ name: c.name ?? "", ...(c.description ? { description: c.description } : {}), kind: "command" as const }))
       .filter((c) => c.name.length > 0);
+    const skillItems = (skillArr as { id?: string; name?: string; description?: string }[])
+      .map((s) => ({
+        name: s.name ?? s.id ?? "",
+        ...(s.description ? { description: s.description } : {}),
+        kind: "skill" as const
+      }))
+      .filter((s) => s.name.length > 0);
+    return [...commandItems, ...skillItems];
   }
 
   async runCommand(name: string, args: string = ""): Promise<void> {
     if (!this.client || !this.sessionID) throw new Error("no active session");
+    const skills = await this.client.skill
+      .list(this.directory ? { location: { directory: this.directory } } : undefined)
+      .catch(() => []);
+    const skillArr = Array.isArray(skills) ? skills : (skills as { data?: unknown }).data ?? [];
+    const isSkill = (skillArr as { id?: string; name?: string }[]).some(
+      (s) => s.name === name || s.id === name
+    );
+    if (isSkill) {
+      await this.client.session.skill({ sessionID: this.sessionID, skill: name });
+      return;
+    }
     await this.client.session.command({
       sessionID: this.sessionID,
       command: name,
@@ -820,25 +876,22 @@ export class OpenShellBackend {
     });
   }
 
-  async listReferences(): Promise<ReferenceOption[]> {
+  async searchFiles(query: string): Promise<ReferenceOption[]> {
     if (!this.client || !this.directory) return [];
-    const res = await this.client.reference.list({ location: { directory: this.directory } });
+    const res = await this.client.file.find({
+      location: { directory: this.directory },
+      query,
+      type: "file"
+    });
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as {
-      name?: string;
-      path?: string;
-      description?: string;
-      hidden?: boolean;
-      source?: { type?: string };
-    }[])
-      .filter((r) => r.path && r.source?.type === "local" && r.hidden !== true)
+    return (arr as { path?: string }[])
+      .filter((r) => r.path)
       .map((r) => {
-        const rel = path.relative(this.directory as string, r.path as string).split(path.sep).join("/");
+        const rel = r.path as string;
         return {
-          name: r.name ?? "",
-          path: r.path as string,
-          rel: rel || path.basename(r.path as string),
-          ...(r.description ? { description: r.description } : {})
+          name: path.basename(rel),
+          path: path.join(this.directory as string, rel),
+          rel
         };
       });
   }
