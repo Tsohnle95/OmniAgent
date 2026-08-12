@@ -36,7 +36,8 @@ Union discriminated on `kind`:
 - `selection` — retained agent/model switch metadata, filtered from the chat
   timeline
 - `synthetic` / `system` / `skill` — non-assistant protocol messages with their supplied text;
-  system prompt entries are retained but filtered from the visible timeline
+  system prompt and `<system-reminder>` entries are retained but filtered from
+  the visible timeline
 - `shell` — a session shell command plus running/terminal state, output, and exit code
 - `compaction` — running/completed/failed compaction with its streamed summary
 - `status` — `{ id, text, tone: "info" \| "success" \| "error" }`

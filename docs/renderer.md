@@ -88,7 +88,8 @@ Key mechanisms:
   the same user, selection, synthetic/system/skill/shell, assistant, and
   compaction items used by the live reducer. Selection and system prompt items
   remain available for state reconstruction but are filtered from the chat
-  timeline. Renderer
+  timeline. Synthetic `<system-reminder>` entries are also retained for
+  replay but filtered from the chat. Renderer
   startup reopens the backend's active session silently so a reload hydrates
   persisted messages before new live events continue. `mergeChatHistory` reconciles replay with
   any global SSE events received during the request, preserving terminal tool

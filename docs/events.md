@@ -48,7 +48,7 @@ is backgrounded.
 | `session.tool.success` | Marks a running tool successful, reads V2 content blocks or legacy output, and records duration |
 | `session.tool.failed` | Marks a running tool failed, preserves content/error output, records duration, and auto-expands the card |
 | `session.retry.scheduled` | Attaches attempt, structured error, and next-attempt time to the assistant |
-| `session.synthetic` | Adds a visible synthetic/system timeline message |
+| `session.synthetic` | Retains the synthetic/system message; internal `<system-reminder>` content is filtered from the visible timeline |
 | `session.skill.activated` | Adds the activated skill name, id, and supplied text to the timeline |
 | `session.shell.started` | Adds a running shell message with its command |
 | `session.shell.ended` | Reconciles the shell by id with status, exit code, and captured output |

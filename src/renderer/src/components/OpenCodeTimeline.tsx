@@ -14,6 +14,10 @@ type AssistantItem = Extract<TranscriptItem, { kind: "assistant" }>;
 type AssistantPart = AssistantItem["parts"][number];
 type VisibleTimelineItem = Exclude<TranscriptItem, { kind: "permission" | "pending-input" | "selection" | "system" }>;
 
+function isInternalSystemReminder(item: Extract<TranscriptItem, { kind: "synthetic" }>): boolean {
+  return /<system-reminder(?:\s[^>]*)?>[\s\S]*<\/system-reminder>/i.test(item.text);
+}
+
 const AGENT_TONES: Record<string, string> = {
   build: "#c3d4fd",
   explore: "#f7e5b5",
@@ -793,9 +797,12 @@ export function OpenCodeTimeline({
   lastAssistantId: string | null;
 }): ReactNode {
   const timeline = useMemo(
-    () => transcript.filter((item): item is VisibleTimelineItem =>
-      item.kind !== "permission" && item.kind !== "pending-input" && item.kind !== "selection" && item.kind !== "system"
-    ),
+    () => transcript.filter((item): item is VisibleTimelineItem => {
+      if (item.kind === "permission" || item.kind === "pending-input" || item.kind === "selection" || item.kind === "system") {
+        return false;
+      }
+      return item.kind !== "synthetic" || !isInternalSystemReminder(item);
+    }),
     [transcript]
   );
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
