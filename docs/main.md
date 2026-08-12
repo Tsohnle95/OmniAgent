@@ -127,12 +127,13 @@ over the same `shell:message` channel. `before-input-event` intercepts
 (the user's muscle memory maps ⌘W to word wrap, and the window must never
 die on it). DevTools follow the browser conventions: F12 toggles a
 bottom-docked inspector (never detached) and ⌘⇧C (Ctrl+Shift+C) toggles
-element-picking mode. Picking runs over the Chrome DevTools Protocol
-(`webContents.debugger`, `Overlay.setInspectMode` with
-`mode: "searchForNode"`), so hovering highlights elements live and a
-click selects the node in the Elements panel — no manual coordinate
-math, and it works docked or detached. Esc, picking an element, or
-closing DevTools exits the mode.
+element-picking mode. Hover highlighting runs over the Chrome DevTools
+Protocol (`webContents.debugger`, `Overlay.setInspectMode` with
+`mode: "searchForNode"`); the pick itself is routed through
+`inspectElement` at the picked node's box-model center
+(`DOM.getBoxModel`) — overlay events only reach our debugger session,
+and the Elements panel only selects nodes on browser-side inspects.
+Esc, picking an element, or closing DevTools exits the mode.
 
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is

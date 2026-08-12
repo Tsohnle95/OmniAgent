@@ -217,8 +217,9 @@ resolved child session; a child header navigates back to its parent.
 - ⌘W/Ctrl+W is intercepted in main and re-sent as a `ui-command`
   (`toggle-word-wrap`) instead of closing the window; ⌥Z does the same in
   the renderer. F12 toggles a bottom-docked DevTools; ⌘⇧C toggles live
-  element picking (CDP `Overlay.setInspectMode`, Firefox-style hover
-  highlight that selects into the Elements panel on click).
+  element picking — CDP `Overlay.setInspectMode` for the Firefox-style
+  hover highlight, with the click routed through `inspectElement` so the
+  Elements panel selects the node.
 - ⌥O toggles the terminal tray; drag dividers resize the sidebar, agent
   panel, and tray (dragging the tray to the bottom closes it on release).
 

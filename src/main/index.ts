@@ -41,6 +41,18 @@ async function startInspectPicker(wc: WebContents): Promise<void> {
   }
 }
 
+async function selectPickedNode(wc: WebContents, backendNodeId: number): Promise<void> {
+  try {
+    const { model } = await wc.debugger.sendCommand("DOM.getBoxModel", { backendNodeId });
+    const q = model.content;
+    const x = Math.round((Math.min(q[0], q[2], q[4], q[6]) + Math.max(q[0], q[2], q[4], q[6])) / 2);
+    const y = Math.round((Math.min(q[1], q[3], q[5], q[7]) + Math.max(q[1], q[3], q[5], q[7])) / 2);
+    wc.inspectElement(x, y);
+  } catch (err) {
+    console.error("selectPickedNode:", err);
+  }
+}
+
 function stopInspectPicker(wc: WebContents): void {
   if (!inspectPickerActive) return;
   inspectPickerActive = false;
@@ -80,8 +92,12 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
-  wc.debugger.on("message", (_e, method) => {
-    if (method === "Overlay.inspectNodeRequested" || method === "Overlay.inspectModeCanceled") {
+  wc.debugger.on("message", (_e, method, params) => {
+    if (method === "Overlay.inspectNodeRequested") {
+      const backendNodeId = (params as { backendNodeId?: number }).backendNodeId;
+      stopInspectPicker(wc);
+      if (typeof backendNodeId === "number") void selectPickedNode(wc, backendNodeId);
+    } else if (method === "Overlay.inspectModeCanceled") {
       stopInspectPicker(wc);
     }
   });
