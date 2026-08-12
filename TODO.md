@@ -6,7 +6,9 @@ the README roadmap; this file is the actionable queue.
 
 - [ ] Agent commands in the chat input when I type / are missing. Where is opencodes compact command? Look into this. Also confirm that the @file feature works to give the model access to that file context in the chat, or however it’s supposed to work. 
 
-Look at adding w3c or equivalent html and css validation 
+- [ ] - My session usage tracker does not track the total context of this conversation that's been taken up. It just shows me input, output, cache, total tokens, etcetera but it doesn't show me what I've actually used that the model itself can handle for total context. So please fix that 
+
+- [ ] - add w3c or equivalent html and css validation functionality like in vs code 
 
 - [ ]  it seems when something dispatches a sub-agent, it doesn't indicate that to me. I want to copy openchamber’s functionality where they provide a link to the subagent task, so you can click it and see what it’s doing. Again, currently all I can see is: Subagent
 * Subagent
@@ -23,6 +25,10 @@ Look at adding w3c or equivalent html and css validation
 
 - [ ] I want to be able to add some sort of a or build some sort of a launch button so I can treat this like a normal application, like any other application built with Electron, like Spotify, for example. I don't want to have to keep building it by clicking the build command in the root. I want to be able to drag this to my applications folder and then bring an icon into my dock. 
       
+
+- [ ] - there seems to be a run failed every time i push code to github? what is this? does it need to exist?       
+
+- [ ] - `.openshell-recovery/` transactions are never deleted, so every app-mediated save leaves 3 full file copies behind and the dir grows forever (and pollutes git status since it's not gitignored). Add retention: on activation, purge `complete`/`failed`/`acknowledged` transactions older than 24h, and interrupted (`source-held`/`held-validated`) ones older than 7 days. Also add `.openshell-recovery/` to `.gitignore`. 
 
 ## Docs / brain
 

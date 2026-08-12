@@ -5,3 +5,4 @@ dev/
 *.log
 *.tsbuildinfo
 .DS_Store
+.openshell-recovery/
