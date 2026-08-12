@@ -46,8 +46,9 @@ There are exactly five connection points to keep in your head:
 
 `app.whenReady()` in `src/main/index.ts`:
 
-1. `backend.start()` — launches `runEventLoop()` through a single-flight guard;
-   repeated calls cannot create parallel subscriptions.
+1. `backend.start()` — launches `runEventLoop()` through an abortable,
+   generation-owned single-flight guard; repeated calls cannot create parallel
+   subscriptions, and stop/restart cannot revive an old iterator.
 2. Registers `fwd`, which is handed to both `backend.onMessage()` and
    `terminals.onMessage()`. Every message either object emits lands in the
    same place: `win.webContents.send("shell:message", msg)`. This single
@@ -239,8 +240,9 @@ resolved child session; a child header navigates back to its parent.
 - `window-all-closed` quits on non-macOS; on macOS the backend stays
   alive, and dock-click `activate` only calls `createWindow()`; the existing
   single-flight event loop remains subscribed.
-- `before-quit` tears down the backend (event loop + watcher) and all
-  terminals.
+- `before-quit` aborts the SSE subscription and tears down the backend watcher
+  and all terminals; generation invalidation prevents an iterator that ignores
+  or delays abort from reviving after restart without making shutdown hang.
 - ⌘W/Ctrl+W is intercepted in main and re-sent as a `ui-command`
   (`toggle-word-wrap`) instead of closing the window; ⌥Z does the same in
   the renderer. F12 toggles a bottom-docked DevTools; ⌘⇧C toggles live

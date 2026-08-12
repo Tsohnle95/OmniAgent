@@ -18,8 +18,8 @@ State:
 - `settingsPath` — `app.getPath("userData")/settings.json`, holds the
   last-used `{model:{id,providerID,variant?}}` and `{agent:{id}}` so new sessions
   start on the same model/agent
-- `stopped` and `eventLoop` — `start()` is single-flight, so repeated calls
-  cannot create parallel SSE subscriptions or reconnect loops
+- `stopped` and `eventLoop` — `start()` is single-flight, while stop aborts and
+  invalidates the generation-owned SSE lifecycle before a later restart subscribes
 - `activations` — monotonic latest-request-wins generation assigned before the
   first activation await
 - `mutations` — serializes write/create/delete/rename operations per workspace
@@ -30,7 +30,7 @@ Public methods (all used by IPC):
 |---|---|
 | `connect()` | `Service.discover()` → `Service.ensure({command:["opencode2","serve","--service"]})` → `OpenCode.make` |
 | `start()` | Start the SSE event loop if one is not already running |
-| `stop()` | Stop the event loop + fs watcher |
+| `stop()` | Abort and invalidate the active SSE loop lifecycle, then stop the fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
 | `beginActivation(requestGeneration)` | Accept a renderer user action before native dialog/backend awaits and return the backend generation |
 | `openSession(directory)` | Accepts a generation, calls `session.create`, and commits only if still latest; starts the generation-bound watcher and emits `{kind:"session"}` |

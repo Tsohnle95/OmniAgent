@@ -54,7 +54,14 @@ import {
   relativePath
 } from "./workspace-security";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
+  if (signal?.aborted) return resolve();
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener("abort", () => {
+    clearTimeout(timer);
+    resolve();
+  }, { once: true });
+});
 
 const SKIP_DIRS = new Set([
   ".git", "node_modules", ".next", ".venv", "__pycache__", ".cache", ".turbo", ".nx",
@@ -243,7 +250,7 @@ function replayTodos(messages: unknown[]): TodoItem[] {
   return result;
 }
 
-function replayTranscript(messages: unknown[]): TranscriptItem[] {
+export function replayTranscript(messages: unknown[]): TranscriptItem[] {
   const out: TranscriptItem[] = [];
   for (const raw of messages) {
     const msg = raw as Record<string, unknown>;
@@ -498,28 +505,32 @@ export class OpenShellBackend {
 
   start(): void {
     this.stopped = false;
-    this.eventLoop.start(() => this.runEventLoop());
+    this.eventLoop.start((signal, generation) => this.runEventLoop(signal, generation));
   }
 
-  private async runEventLoop(): Promise<void> {
-    while (!this.stopped) {
+  private async runEventLoop(signal: AbortSignal, generation: number): Promise<void> {
+    while (!this.stopped && this.eventLoop.current(generation)) {
       try {
         if (!this.client && !(await this.connect())) {
-          await sleep(2000);
+          if (!this.eventLoop.current(generation)) return;
+          await sleep(2000, signal);
           continue;
         }
-        for await (const evt of this.client!.event.subscribe()) {
-          if (this.stopped) return;
+        if (!this.eventLoop.current(generation)) return;
+        for await (const evt of this.client!.event.subscribe({ signal })) {
+          if (this.stopped || !this.eventLoop.current(generation)) return;
           const typed = evt as { type?: string; event?: string; data?: unknown; properties?: unknown };
           const type = typed.type ?? typed.event ?? "unknown";
           this.emit({ kind: "event", type, data: evt });
           await this.handleServerEvent(type, typed.data ?? typed.properties).catch(() => {});
+          if (!this.eventLoop.current(generation)) return;
         }
       } catch (err) {
+        if (signal.aborted || !this.eventLoop.current(generation)) return;
         console.error("[openshell] event loop error:", err);
         this.client = null;
       }
-      await sleep(1500);
+      await sleep(1500, signal);
     }
   }
 
@@ -970,12 +981,14 @@ export class OpenShellBackend {
   }
 
   async listCommands(): Promise<CommandOption[]> {
-    if (!this.client) return [];
-    const location = this.directory ? { location: { directory: this.directory } } : undefined;
+    if (!this.client || !this.workspace) return [];
+    const target = this.activeTarget(this.workspace);
+    const location = { location: { directory: target.directory } };
     const [commands, skills] = await Promise.all([
       this.client.command.list(location).catch(() => []),
       this.client.skill.list(location).catch(() => [])
     ]);
+    this.assertTarget(target);
     const commandArr = Array.isArray(commands) ? commands : (commands as { data?: unknown }).data ?? [];
     const skillArr = Array.isArray(skills) ? skills : (skills as { data?: unknown }).data ?? [];
     const commandItems = (commandArr as { name?: string; description?: string }[])
@@ -1016,12 +1029,14 @@ export class OpenShellBackend {
   }
 
   async searchFiles(query: string): Promise<ReferenceOption[]> {
-    if (!this.client || !this.directory) return [];
+    if (!this.client || !this.workspace) return [];
+    const target = this.activeTarget(this.workspace);
     const res = await this.client.file.find({
-      location: { directory: this.directory },
+      location: { directory: target.directory },
       query,
       type: "file"
     });
+    this.assertTarget(target);
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
     return (arr as { path?: string }[])
       .filter((r) => r.path)
@@ -1029,7 +1044,7 @@ export class OpenShellBackend {
         const rel = r.path as string;
         return {
           name: path.basename(rel),
-          path: path.join(this.directory as string, rel),
+          path: path.join(target.directory, rel),
           rel
         };
       });
@@ -1320,10 +1335,11 @@ export class OpenShellBackend {
       .filter((p): p is ProjectInfo => p !== null);
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     this.stopped = true;
     this.activations.invalidate();
     this.watchContext = null;
     this.stopWatcher();
+    await this.eventLoop.stop();
   }
 }

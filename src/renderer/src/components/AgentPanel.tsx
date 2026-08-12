@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
-import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult } from "@shared/types";
+import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, WorkspaceIdentity } from "@shared/types";
+import { sameWorkspace } from "@shared/generation";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
@@ -226,8 +227,9 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
   );
 }
 
-function Composer(): ReactNode {
+export function Composer(): ReactNode {
   const {
+    session,
     approvalMode,
     toggleApprovalMode,
     models,
@@ -255,6 +257,8 @@ function Composer(): ReactNode {
   const candidatesRef = useRef<{ kind: "command" | "mention"; items: CompletionItem[] } | null>(null);
   const fetchSeqRef = useRef(0);
   const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const workspaceRef = useRef<WorkspaceIdentity | null>(session?.workspace ?? null);
+  workspaceRef.current = session?.workspace ?? null;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceRecognition | null>(null);
@@ -307,6 +311,15 @@ function Composer(): ReactNode {
     []
   );
 
+  useEffect(() => {
+    fetchSeqRef.current += 1;
+    candidatesRef.current = null;
+    setCompletion(null);
+    setFiles([]);
+    setMentions([]);
+    if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
+  }, [session?.workspace.id, session?.workspace.generation]);
+
   const send = (): void => {
     if (!canSend) return;
     const text = input.trim();
@@ -344,13 +357,17 @@ function Composer(): ReactNode {
 
   const attachFiles = async (): Promise<void> => {
     setNotice("");
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
     let paths: string[];
     try {
       paths = await window.openshell.selectFiles();
     } catch (err) {
+      if (!sameWorkspace(workspace, workspaceRef.current)) return;
       setNotice(err instanceof Error ? err.message : "Files could not be attached.");
       return;
     }
+    if (!sameWorkspace(workspace, workspaceRef.current)) return;
     if (paths.length === 0) return;
     setFiles((current) => {
       const next = [...current];
@@ -444,10 +461,12 @@ function Composer(): ReactNode {
 
   const openCandidates = async (kind: "command" | "mention", query: string, start: number): Promise<void> => {
     const seq = ++fetchSeqRef.current;
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
     if (kind === "command") {
       try {
         const raw = await window.openshell.commands();
-        if (fetchSeqRef.current !== seq) return;
+        if (fetchSeqRef.current !== seq || !sameWorkspace(workspace, workspaceRef.current)) return;
         const items: CompletionItem[] = raw.map((c) => ({
           label: c.name,
           detail: c.description,
@@ -456,6 +475,7 @@ function Composer(): ReactNode {
         candidatesRef.current = { kind, items };
         setCompletion({ kind, start, query, items: filterCompletionItems(items, query), selected: 0 });
       } catch {
+        if (!sameWorkspace(workspace, workspaceRef.current)) return;
         candidatesRef.current = null;
         setCompletion(null);
       }
@@ -466,7 +486,7 @@ function Composer(): ReactNode {
       void (async () => {
         try {
           const raw = await window.openshell.references(query);
-          if (fetchSeqRef.current !== seq) return;
+          if (fetchSeqRef.current !== seq || !sameWorkspace(workspace, workspaceRef.current)) return;
           const items: CompletionItem[] = raw.map((r) => ({
             label: r.rel,
             detail: r.description ?? r.name,
@@ -475,6 +495,7 @@ function Composer(): ReactNode {
           }));
           setCompletion({ kind, start, query, items: filterCompletionItems(items, query), selected: 0 });
         } catch {
+          if (!sameWorkspace(workspace, workspaceRef.current)) return;
           setCompletion(null);
         }
       })();

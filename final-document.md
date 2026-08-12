@@ -530,12 +530,12 @@ Scope: items 7, 8, and 9.
 - [x] Define latest-request-wins activation semantics.
 - [x] Assign activation generations at request acceptance.
 - [x] Use latest-request-wins acceptance in main and renderer and discard stale completions; remote activation work may finish but cannot commit.
-- [x] Guard file, tree, model, agent, and selection responses by generation.
+- [x] Guard file, tree, model, agent, selection, command completion, file search, attachment picker, and create/delete/rename continuation responses by generation.
 - [x] Capture watcher root/session/generation and workspace-scoped maps.
 - [x] Check watcher generation after awaits and before mutation/emission.
 - [x] Include identity on session and file-update messages and reject stale renderer updates.
 - [x] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
-- [x] Add deterministic generation acceptance, stale await, mutation-target capture, persistence conflict, and backend event-loop single-flight seam tests. Full watcher phase, reopen/startup store, and Electron macOS lifecycle harnesses remain acceptance work.
+- [x] Add deterministic generation acceptance, stale await, mutation-target capture, persistence conflict, workspace completion/picker, and backend event-loop duplicate-start/stop/completion/restart tests. Full watcher phase, reopen/startup store, and Electron macOS lifecycle harnesses remain acceptance work.
 - [x] Update session, watcher, startup, and event-loop documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.
@@ -576,10 +576,10 @@ Scope: items 14 and 15.
 Scope: item 17.
 
 - [x] Add a repeatable large-session benchmark or deterministic performance fixture.
-- [x] Record budgets for reducer/update latency, render cost, DOM size, and retained output.
+- [x] Record proxy budgets for reducer/update latency, timeline derivation, estimated row count, and retained output. Actual React/browser render cost and DOM size remain unmeasured.
 - [x] Cap or summarize retained tool and shell output.
 - [x] Define retention/eviction for inactive session streams and usage records.
-- [x] Optimize transcript indexing, context partitioning, or virtualization only where measurements justify it. Measurements did not justify these changes.
+- [ ] Measure actual React/browser render cost before deciding whether transcript indexing, context partitioning, or virtualization is justified.
 - [x] Add regression coverage for the selected retention behavior.
 - [x] Document performance budgets and retention policy.
 - [x] Pass `npm run check`.
@@ -618,7 +618,7 @@ Scope: items 23, 24, and 25 after all behavioral units are complete.
 
 ## Final acceptance
 
-- [ ] Every WU-01 through WU-10 checklist is complete.
+- [ ] Every WU-01 through WU-10 checklist is complete. WU-08 retains an actual render benchmark/decision.
 - [ ] Every work unit has an independent commit and focused regression tests.
 - [ ] The final worktree contains no new uncommitted implementation changes.
 - [ ] `npm run check` passes from a clean checkout.
@@ -627,7 +627,8 @@ Scope: items 23, 24, and 25 after all behavioral units are complete.
 Residual acceptance notes:
 
 - WU-02 retains full Electron redirect/popup harness coverage.
-- WU-05 retains full watcher-phase, reopen/startup-store, and macOS lifecycle harness coverage.
+- WU-05 retains full watcher-phase, reopen/startup-store, and Electron macOS lifecycle harness coverage; the loop seam now covers duplicate start, stop, completion, and restart without hanging.
+- WU-08's deterministic fixture covers reducer/derivation and estimated rows, not React/browser render cost or actual DOM size. Its render-cost decision remains unchecked.
 - The platform smoke verifies launcher and PTY behavior, not the GUI trust-boundary lifecycle.
 - This unit passed `npm run check` in the current worktree, but did not claim a separate clean-checkout run or a new independent final security review.
 - Final-review corrections now lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests cover each correction; full Electron GUI trust-boundary lifecycle coverage remains residual.

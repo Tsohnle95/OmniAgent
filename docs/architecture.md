@@ -98,7 +98,8 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    history and child sessions.
 6. Closing the window on macOS keeps the backend alive (it is only torn
    down in `before-quit`); re-activating re-creates the window while the
-   single-flight event loop remains active.
+   single-flight event loop remains active. Shutdown aborts the active SDK SSE
+   subscription and invalidates its generation before any later restart.
 
 ## Diffs and baselines (how the diff view works)
 

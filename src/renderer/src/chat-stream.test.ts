@@ -6,6 +6,7 @@ import {
   reduceChatStream,
   type ChatStreamEvent
 } from "./chat-stream";
+import { MAX_RETAINED_OUTPUT_CHARS } from "@shared/retention";
 
 function event(id: string, type: string, data: Record<string, unknown>): ChatStreamEvent {
   return { id, type, created: 100, data };
@@ -51,5 +52,16 @@ describe("chat stream replay", () => {
       messageID: "assistant-1",
       parts: [{ text: "Hello world", complete: false }]
     });
+  });
+
+  it("bounds completed live shell output", () => {
+    const output = "x".repeat(MAX_RETAINED_OUTPUT_CHARS * 2);
+    const transcript = reduceChatStream([], event("shell-end", "session.shell.ended", {
+      shell: { id: "shell-1", command: "build", status: "exited", exit: 0 },
+      output: { output }
+    }));
+
+    expect(transcript[0]).toMatchObject({ kind: "shell", output: expect.stringContaining("characters omitted") });
+    expect(transcript[0].kind === "shell" ? transcript[0].output?.length : 0).toBe(MAX_RETAINED_OUTPUT_CHARS);
   });
 });

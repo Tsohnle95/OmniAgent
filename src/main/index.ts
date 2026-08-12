@@ -670,6 +670,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  backend.stop();
+  void backend.stop();
   terminals.stopAll();
 });

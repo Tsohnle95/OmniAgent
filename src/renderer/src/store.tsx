@@ -750,9 +750,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       try {
         await window.openshell.deletePath(workspace, path);
       } catch (err) {
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+          toast(err instanceof Error ? err.message : String(err), "error");
+        }
         return;
       }
+      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
       const prefix = `${path}/`;
       setTabs((prev) => {
         const next = prev.filter((t) => t.path !== path && !t.path.startsWith(prefix));
@@ -846,12 +849,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast("Invalid name", "error");
         return;
       }
+      const workspace = sessionRef.current?.workspace;
+      if (!workspace) return;
       try {
         if (create) {
           const target = create.parent ? `${create.parent}/${trimmed}` : trimmed;
           await (create.kind === "file"
-            ? window.openshell.createFile(sessionRef.current!.workspace, target)
-            : window.openshell.createDir(sessionRef.current!.workspace, target));
+            ? window.openshell.createFile(workspace, target)
+            : window.openshell.createDir(workspace, target));
+          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
           void refreshTree(ancestorDirs(create.parent));
           if (create.kind === "file") void openFile(target);
         } else if (rename) {
@@ -859,9 +865,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             ? rename.path.slice(0, rename.path.lastIndexOf("/"))
             : "";
           const newPath = parent ? `${parent}/${trimmed}` : trimmed;
-          const workspace = sessionRef.current!.workspace;
           persistence.cancelPrefix(workspace, rename.path);
           await window.openshell.renamePath(workspace, rename.path, trimmed);
+          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
           setTabs((prev) =>
             prev.map((t) =>
               t.path === rename.path || t.path.startsWith(`${rename.path}/`)
@@ -894,7 +900,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         cancelPending();
       } catch (err) {
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+          toast(err instanceof Error ? err.message : String(err), "error");
+        }
       }
     },
     [toast, openFile, refreshTree, cancelPending, persistence]

@@ -63,6 +63,9 @@ matches. Source reads capture activation generation too, while newly requested
 app-source tabs remain independent of workspace-relative reads. Stale activation
 failures are discarded without user toasts. `file-update` is accepted only when both its session ID and full
 workspace identity match the active session.
+Slash-command and mention completion responses, attachment-picker results, and
+create/delete/rename continuations use the same captured identity rule, so an
+old workspace cannot populate or mutate the new workspace UI.
 
 Key mechanisms:
 
@@ -144,14 +147,14 @@ Key mechanisms:
   flat BasicTool triggers.
   There is no assistant bubble, custom tool card, typing-dot placeholder, or
   stream cursor path.
-- **Large-session budget** — `large-session.performance.test.ts` deterministically
+- **Large-session fixture** — `large-session.performance.test.ts` deterministically
   reduces 2,400 events into 400 assistant messages and measures timeline-row
-  derivation and retained output. Budgets are 50 ms reducer/update time, 5 ms
-  derived timeline time, at most 1,000 row-proxy DOM nodes, and 8 KiB retained
-  output per completed tool or shell result. The fixture's 800-row proxy is
-  below the DOM budget, so transcript indexing, context splitting, and
-  virtualization are intentionally not added. jsdom render time is not used as
-  a browser render budget because it is neither representative nor stable.
+  derivation and retained output. Proxy budgets are 50 ms reducer/update time,
+  5 ms derived timeline time, at most 1,000 estimated rows, and 8 KiB retained
+  output per completed tool or shell result. These measurements do not cover
+  React or browser render cost, so they do not justify a claim that
+  virtualization or context partitioning is unnecessary. jsdom render time is
+  not used as a browser render budget because it is neither representative nor stable.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
 
