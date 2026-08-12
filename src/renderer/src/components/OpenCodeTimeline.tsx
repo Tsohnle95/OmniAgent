@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
 import type { ToolCallView, TranscriptItem } from "@shared/types";
@@ -49,7 +49,7 @@ function agentTone(name: string, configured?: string): string {
   return AGENT_PALETTE[hash % AGENT_PALETTE.length];
 }
 
-function TextShimmer({ text, active = true }: { text: string; active?: boolean }): ReactNode {
+function TextShimmer({ text, active = true, tone = "default" }: { text: string; active?: boolean; tone?: "default" | "thinking" }): ReactNode {
   const [run, setRun] = useState(active);
   useEffect(() => {
     if (active) {
@@ -61,7 +61,7 @@ function TextShimmer({ text, active = true }: { text: string; active?: boolean }
   }, [active]);
 
   return (
-    <span data-component="text-shimmer" data-active={active ? "true" : "false"} aria-label={text}>
+    <span data-component="text-shimmer" data-tone={tone} data-active={active ? "true" : "false"} aria-label={text}>
       <span data-slot="text-shimmer-char">
         <span data-slot="text-shimmer-char-base" aria-hidden="true">{text}</span>
         <span data-slot="text-shimmer-char-shimmer" data-run={run ? "true" : "false"} aria-hidden="true">
@@ -140,12 +140,54 @@ function usePacedText(text: string, live: boolean): string {
   return value;
 }
 
+const CODE_TOKEN_PATTERN = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|\b(?:as|async|await|break|case|catch|class|const|continue|def|else|export|extends|for|from|function|if|import|in|interface|let|new|of|return|static|switch|throw|try|type|var|while|with|yield)\b|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*(?=\s*\())/g;
+const CODE_KEYWORDS = new Set([
+  "as", "async", "await", "break", "case", "catch", "class", "const", "continue", "def", "else", "export",
+  "extends", "for", "from", "function", "if", "import", "in", "interface", "let", "new", "of", "return",
+  "static", "switch", "throw", "try", "type", "var", "while", "with", "yield"
+]);
+
+function highlightCode(text: string): ReactNode {
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(CODE_TOKEN_PATTERN)) {
+    const value = match[0];
+    const index = match.index ?? cursor;
+    if (index > cursor) nodes.push(text.slice(cursor, index));
+    const kind = value.startsWith("//") || value.startsWith("/*") || value.startsWith("#")
+      ? "comment"
+      : value.startsWith("\"") || value.startsWith("'") || value.startsWith("`")
+        ? "string"
+        : /^\d/.test(value)
+          ? "number"
+          : CODE_KEYWORDS.has(value)
+            ? "keyword"
+            : "function";
+    nodes.push(<span data-code-token={kind} key={`${index}:${kind}`}>{value}</span>);
+    cursor = index + value.length;
+  }
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+const MARKDOWN_COMPONENTS: Components = {
+  code({ children, className }) {
+    const value = String(children ?? "");
+    const block = Boolean(className) || value.includes("\n");
+    return (
+      <code className={className} data-code-language={className?.match(/language-([\w+-]+)/)?.[1] ?? "text"}>
+        {block ? highlightCode(value.replace(/\n$/, "")) : children}
+      </code>
+    );
+  }
+};
+
 function Markdown({ text, streaming }: { text: string; streaming: boolean }): ReactNode {
   const value = usePacedText(text, streaming);
   if (!value) return null;
   return (
     <div data-component="markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{value}</ReactMarkdown>
     </div>
   );
 }
@@ -176,15 +218,15 @@ function CopyResponse({ text }: { text: string }): ReactNode {
 function TextPart({ part, streaming }: { part: Extract<AssistantPart, { kind: "text" }>; streaming: boolean }): ReactNode {
   if (!part.text) return null;
   return (
-    <div data-component="text-part" data-timeline-part-id={part.id}>
-      <div data-slot="text-part-body">
-        <Markdown text={part.text} streaming={streaming && !part.complete} />
-      </div>
+    <div data-component="text-part" data-copyable={!streaming ? "true" : undefined} data-timeline-part-id={part.id}>
       {!streaming && (
         <div data-slot="text-part-copy-wrapper">
           <CopyResponse text={part.text} />
         </div>
       )}
+      <div data-slot="text-part-body">
+        <Markdown text={part.text} streaming={streaming && !part.complete} />
+      </div>
     </div>
   );
 }
@@ -212,11 +254,10 @@ function ReasoningPart({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span data-slot="reasoning-part-title"><TextShimmer text="Thinking" active={active} /></span>
-        <span className={`codicon codicon-chevron-${open ? "down" : "right"}`} aria-hidden="true" />
+        <span data-slot="reasoning-part-title"><TextShimmer text="Thinking" active={active} tone="thinking" /></span>
       </button>
       {open && (
-        <div data-slot="reasoning-part-content" id={contentID}>
+        <div data-slot="reasoning-part-content" id={contentID} onClick={() => setOpen(false)}>
           <Markdown text={part.text} streaming={active} />
         </div>
       )}
