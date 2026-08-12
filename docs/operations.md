@@ -131,9 +131,13 @@ artifacts are never removed automatically.
    directly. Do not remove them until applications that may retain old file
    descriptors have exited and the bytes have been reviewed.
 
-Activation may hard-link an artifact back to a missing canonical path according
-to the recorded phase. It never overwrites an existing path. If both canonical
-and recovery versions exist, manual comparison is required.
+Activation may hard-link a held original back to a missing canonical path only
+for an interrupted `source-held` or `held-validated` transaction, where
+OpenShell is known to have removed that path. It never overwrites an existing
+path and never replays completed, failed, or acknowledged history. If both
+canonical and recovery versions exist, manual comparison is required. Normal
+successful transactions retain their bytes but are acknowledged automatically,
+so they do not create persistent recovery notices.
 
 ## Driving the renderer headlessly (CDP)
 

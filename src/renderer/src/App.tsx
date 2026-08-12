@@ -6,6 +6,7 @@ import { EditorPane } from "./components/EditorPane";
 import { AgentPanel } from "./components/AgentPanel";
 import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
+import { RecoveryNotice } from "./components/RecoveryNotice";
 
 const COLLAPSED_PANEL_W = 44;
 const SIDE_MIN_W = 170;
@@ -306,30 +307,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       <Toasts />
       <RecoveryNotice />
     </div>
-  );
-}
-
-function RecoveryNotice(): ReactNode {
-  const { recoveryRecords, openRecovery, acknowledgeRecovery } = useStore();
-  const visible = recoveryRecords.filter((record) => !record.acknowledged);
-  if (visible.length === 0) return null;
-  return (
-    <section className="recovery-notice" aria-label="Recovery artifacts">
-      <strong>Recovery files preserved</strong>
-      <p>OpenShell kept displaced or proposed bytes. Review them before acknowledging.</p>
-      <div className="recovery-list">
-        {visible.map((record) => (
-          <div className="recovery-record" key={record.id}>
-            <span title={record.originalPath}>{record.originalPath}</span>
-            <small title={record.recoveryPath}>{record.artifact}: {record.recoveryPath}</small>
-            <div>
-              <button onClick={() => void openRecovery(record.id)}>Open</button>
-              <button onClick={() => void acknowledgeRecovery(record.id)}>Acknowledge</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 

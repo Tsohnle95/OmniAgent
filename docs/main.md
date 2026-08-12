@@ -103,10 +103,13 @@ Internals:
   dir; `abs(rel)` the inverse. `shouldSkip` filters `SKIP_DIRS` roots.
 - Recovery transactions live under `.openshell-recovery/<timestamp>-<uuid>`.
   Atomically replaced, fsynced manifests record save/rename phase and
-  acknowledgment state. Activation reconciles interrupted transactions by
-  hard-linking an artifact only when the canonical pathname is missing. The
-  recovery root rejects symlinks and malformed transaction ids/manifests;
-  artifact Open actions resolve validated ids rather than renderer paths.
+  acknowledgment state. Activation reconciles only `source-held` and
+  `held-validated` interrupted transactions, where OpenShell is known to have
+  removed the canonical pathname, and hard-links the held original only when
+  that pathname remains missing. Completed, failed, and acknowledged history
+  never replays. The recovery root, transaction paths, canonical parents, and
+  artifacts reject symlinks and malformed ids/manifests; artifact Open actions
+  resolve validated ids rather than renderer paths.
 
 ## IPC surface (`src/main/index.ts`)
 

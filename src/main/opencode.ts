@@ -611,14 +611,14 @@ export class OpenShellBackend {
   }
 
   private async checkedRecoveryRoot(root: string, create = false): Promise<string> {
-    const recoveryRoot = this.recoveryRoot(root);
+    const recoveryRoot = await confinedPath(root, RECOVERY_DIR);
     const stat = await fsp.lstat(recoveryRoot).catch((error) => {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw error;
     });
     if (!stat && create) {
       await fsp.mkdir(recoveryRoot, { mode: 0o700 });
-      return recoveryRoot;
+      return confinedPath(root, RECOVERY_DIR);
     }
     if (stat && !stat.isDirectory()) throw new Error("invalid recovery directory");
     return recoveryRoot;
@@ -707,9 +707,10 @@ export class OpenShellBackend {
     const recoveryRoot = await this.checkedRecoveryRoot(root);
     const entries = await fsp.readdir(recoveryRoot, { withFileTypes: true }).catch(() => []);
     const transactions = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
-      const directory = path.join(recoveryRoot, entry.name);
+      if (!/^\d{13}-[0-9a-f-]{36}$/.test(entry.name)) return null;
       try {
-        const manifest = path.join(directory, "manifest.json");
+        const directory = await confinedPath(root, `${RECOVERY_DIR}/${entry.name}`);
+        const manifest = await confinedPath(root, `${RECOVERY_DIR}/${entry.name}/manifest.json`);
         if (!(await fsp.lstat(manifest)).isFile()) return null;
         const transaction = JSON.parse(await fsp.readFile(manifest, "utf8")) as unknown;
         if (!this.validRecoveryTransaction(transaction, entry.name)) return null;
@@ -729,7 +730,7 @@ export class OpenShellBackend {
         ? [["temporary", "temporary"] as const, ["original", "original"] as const, ["proposed", "proposed"] as const]
         : [["rename-source", "source"] as const];
       for (const [artifact, name] of artifacts) {
-        const file = path.join(directory, name);
+        const file = await confinedPath(root, `${this.relKey(directory, root)}/${name}`);
         if (!(await fsp.lstat(file).catch(() => null))?.isFile()) continue;
         records.push({
           id: `${transaction.id}:${artifact}`,
@@ -745,33 +746,46 @@ export class OpenShellBackend {
     return records.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
   }
 
-  private async reconcileRecovery(root: string): Promise<void> {
+  private async reconcileRecovery(root: string, current: () => boolean = () => true): Promise<void> {
     const transactions = await this.readRecoveryTransactions(root);
     for (const item of transactions) {
+      if (!current()) throw new Error("activation superseded");
       const { directory, transaction } = item;
-      const renameInstalled = transaction.operation === "rename" &&
-        (transaction.phase === "target-installed" || transaction.phase === "complete");
-      const canonicalRel = renameInstalled ? transaction.targetPath! : transaction.originalPath;
-      const canonical = path.join(root, ...canonicalRel.split("/"));
-      if (await fsp.lstat(canonical).catch(() => null)) continue;
-      const candidates = transaction.operation === "rename"
-        ? [path.join(directory, "source")]
-        : transaction.phase === "target-installed" || transaction.phase === "complete"
-          ? [path.join(directory, "temporary"), path.join(directory, "proposed"), path.join(directory, "original")]
-          : [path.join(directory, "original"), path.join(directory, "proposed"), path.join(directory, "temporary")];
-      for (const artifact of candidates) {
-        if (!(await fsp.lstat(artifact).catch(() => null))?.isFile()) continue;
-        await fsp.mkdir(path.dirname(canonical), { recursive: true });
-        try {
-          await fsp.link(artifact, canonical);
-          await this.syncDirectory(path.dirname(canonical));
+      if (transaction.phase === "complete" || transaction.phase === "failed") continue;
+      if (transaction.phase !== "source-held" && transaction.phase !== "held-validated") continue;
+      const original = await confinedPath(root, `${this.relKey(directory, root)}/${transaction.operation === "rename" ? "source" : "original"}`);
+      if (!(await fsp.lstat(original).catch(() => null))?.isFile()) continue;
+      const canonical = await confinedPath(root, transaction.originalPath);
+      if (transaction.operation === "rename" && transaction.targetPath) {
+        const target = await confinedPath(root, transaction.targetPath);
+        const [heldStat, targetStat] = await Promise.all([
+          fsp.stat(original),
+          fsp.stat(target).catch(() => null)
+        ]);
+        if (targetStat && heldStat.dev === targetStat.dev && heldStat.ino === targetStat.ino) {
+          if (!current()) throw new Error("activation superseded");
           transaction.phase = "complete";
-          transaction.reason = "crash-recovered";
+          transaction.reason = "renamed";
+          transaction.acknowledged = ["rename-source"];
           await this.writeRecoveryTransaction(directory, transaction);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+          continue;
         }
-        break;
+      }
+      if (await fsp.lstat(canonical).catch(() => null)) continue;
+      if (!current()) throw new Error("activation superseded");
+      const parentRel = path.posix.dirname(transaction.originalPath);
+      const parent = parentRel === "." ? root : await confinedPath(root, parentRel);
+      await fsp.mkdir(parent, { recursive: true });
+      await confinedPath(root, transaction.originalPath);
+      if (!current()) throw new Error("activation superseded");
+      try {
+        await fsp.link(original, canonical);
+        await this.syncDirectory(parent);
+        transaction.phase = "complete";
+        transaction.reason = "crash-recovered";
+        await this.writeRecoveryTransaction(directory, transaction);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       }
     }
   }
@@ -813,7 +827,8 @@ export class OpenShellBackend {
       proposed: "proposed",
       "rename-source": "source"
     };
-    const artifact = path.join(this.recoveryRoot(root), match[1], names[record.artifact]);
+    const artifact = await confinedPath(root, `${RECOVERY_DIR}/${match[1]}/${names[record.artifact]}`);
+    if (!(await fsp.lstat(artifact)).isFile()) throw new Error("recovery record not found");
     const result = await shell.openPath(artifact);
     if (result) throw new Error(result);
   }
@@ -1036,7 +1051,7 @@ export class OpenShellBackend {
   ): Promise<SessionInfo> {
     const directory = await canonicalWorkspaceRoot(info.directory);
     if (!this.activations.current(generation)) throw new Error("activation superseded");
-    await this.reconcileRecovery(directory);
+    await this.reconcileRecovery(directory, () => this.activations.current(generation));
     if (!this.activations.current(generation)) throw new Error("activation superseded");
     const workspace = Object.freeze({ id: randomUUID(), generation });
     const activated = { ...info, directory, workspace };
@@ -1531,6 +1546,7 @@ export class OpenShellBackend {
         }
         recovery.transaction.phase = "complete";
         recovery.transaction.reason = "saved";
+        recovery.transaction.acknowledged = ["temporary", "original", "proposed"];
         await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
       } catch (error) {
         if (sourceHeld && !targetInstalled) {
@@ -1538,6 +1554,7 @@ export class OpenShellBackend {
             await fsp.link(holding, abs);
           } catch {}
         }
+        recovery.transaction.phase = "failed";
         recovery.transaction.reason = "save-failed";
         await this.writeRecoveryTransaction(recovery.directory, recovery.transaction).catch(() => {});
         const current = await fsp.readFile(abs, "utf8").catch(() => null);
@@ -1636,6 +1653,7 @@ export class OpenShellBackend {
         await this.mutationPhase("rename:target-installed", holding, target);
         recovery.transaction.phase = "complete";
         recovery.transaction.reason = "renamed";
+        recovery.transaction.acknowledged = ["rename-source"];
         await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
       } catch (error) {
         if (!installed) {
@@ -1644,6 +1662,7 @@ export class OpenShellBackend {
             await this.syncDirectory(path.dirname(abs));
           } catch {}
         }
+        recovery.transaction.phase = "failed";
         recovery.transaction.reason = "rename-failed";
         await this.writeRecoveryTransaction(recovery.directory, recovery.transaction).catch(() => {});
         await this.emitRecovery(root, workspace);

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdir, mkdtemp, open, readFile, readdir, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -159,7 +159,9 @@ describe("direct mutation observed changes", () => {
     const { backend, root } = await backendFixture();
     await writeFile(path.join(root, "save.txt"), "original");
     await backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"));
-    const original = (await backend.listRecovery(workspace)).find((record) => record.artifact === "original")!;
+    const savedRecords = await backend.listRecovery(workspace);
+    expect(savedRecords.every((record) => record.acknowledged)).toBe(true);
+    const original = savedRecords.find((record) => record.artifact === "original")!;
 
     await backend.acknowledgeRecovery(workspace, original.id);
 
@@ -187,10 +189,8 @@ describe("direct mutation observed changes", () => {
   });
 
   it.each([
-    "save:temporary-ready",
     "save:source-held",
-    "save:held-validated",
-    "save:target-installed"
+    "save:held-validated"
   ] as const)("reconciles a missing canonical path after a %s crash boundary", async (crashPhase) => {
     const { backend, root } = await backendFixture(async (phase) => {
       if (phase === crashPhase) throw new Error("simulated crash");
@@ -199,11 +199,68 @@ describe("direct mutation observed changes", () => {
     await expect(backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"))).rejects.toThrow();
     await unlink(path.join(root, "save.txt")).catch(() => {});
 
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    const transaction = (await readdir(recoveryRoot))[0];
+    const manifestPath = path.join(recoveryRoot, transaction, "manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { phase: string };
+    manifest.phase = crashPhase === "save:source-held" ? "source-held" : "held-validated";
+    await writeFile(manifestPath, JSON.stringify(manifest));
     await (backend as unknown as { reconcileRecovery(root: string): Promise<void> }).reconcileRecovery(root);
 
-    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe(
-      crashPhase === "save:target-installed" ? "proposed" : crashPhase === "save:temporary-ready" ? "proposed" : "original"
-    );
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("original");
+  });
+
+  it("does not replay completed recovery after an intentional delete", async () => {
+    const { backend, root } = await backendFixture();
+    await writeFile(path.join(root, "save.txt"), "original");
+    await backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"));
+    await unlink(path.join(root, "save.txt"));
+
+    await (backend as unknown as { reconcileRecovery(root: string): Promise<void> }).reconcileRecovery(root);
+
+    await expect(readFile(path.join(root, "save.txt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects recovery through an intermediate workspace symlink", async () => {
+    const { backend, root } = await backendFixture(async (phase) => {
+      if (phase === "save:source-held") throw new Error("simulated crash");
+    });
+    const outside = await mkdtemp(path.join(tmpdir(), "openshell-recovery-outside-"));
+    roots.push(outside);
+    await writeFile(path.join(root, "save.txt"), "original");
+    await expect(backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"))).rejects.toThrow();
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    const transaction = (await readdir(recoveryRoot))[0];
+    const manifestPath = path.join(recoveryRoot, transaction, "manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { phase: string; originalPath: string };
+    manifest.phase = "source-held";
+    manifest.originalPath = "escape/payload";
+    await writeFile(manifestPath, JSON.stringify(manifest));
+    await symlink(outside, path.join(root, "escape"));
+
+    await expect((backend as unknown as { reconcileRecovery(root: string): Promise<void> }).reconcileRecovery(root))
+      .rejects.toThrow("workspace symlinks are not allowed");
+    await expect(readFile(path.join(outside, "payload"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("stops recovery before mutation when activation is superseded", async () => {
+    const { backend, root } = await backendFixture(async (phase) => {
+      if (phase === "save:source-held") throw new Error("simulated crash");
+    });
+    await writeFile(path.join(root, "save.txt"), "original");
+    await expect(backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"))).rejects.toThrow();
+    await unlink(path.join(root, "save.txt")).catch(() => {});
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    const transaction = (await readdir(recoveryRoot))[0];
+    const manifestPath = path.join(recoveryRoot, transaction, "manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { phase: string };
+    manifest.phase = "source-held";
+    await writeFile(manifestPath, JSON.stringify(manifest));
+
+    await expect((backend as unknown as {
+      reconcileRecovery(root: string, current: () => boolean): Promise<void>;
+    }).reconcileRecovery(root, () => false)).rejects.toThrow("activation superseded");
+    await expect(readFile(path.join(root, "save.txt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("does not overwrite a concurrent canonical target during reconciliation", async () => {

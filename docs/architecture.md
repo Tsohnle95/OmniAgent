@@ -156,10 +156,14 @@ hold and install. A concurrent recreation is never overwritten. Neither success
 nor rollback unlinks the held original inode, so later writes through an
 already-open descriptor remain visible in the recovery artifact. Proposed bytes
 remain durable. Phase metadata is atomically replaced and fsynced; activation
-restores a suitable hard link only when the canonical path is missing, never
-over an existing path. OpenShell never silently deletes recovery artifacts, and
-Acknowledge persists metadata only. This protocol requires recovery and target
-names to share a filesystem. Writes go through Node `fs` in the main process
+restores the held original only for interrupted `source-held` or
+`held-validated` transactions and only when the canonical path is missing,
+never over an existing path. Completed, failed, and acknowledged history never
+replays. Successful transactions are acknowledged automatically while their
+bytes remain retained; abnormal transactions remain visible until acknowledged.
+OpenShell never silently deletes recovery artifacts, and Acknowledge persists
+metadata only. This protocol requires recovery and target names to share a
+filesystem. Writes go through Node `fs` in the main process
 (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching. The
 explorer also supports create/file-rename/delete through `shell:fs-create-*`,
@@ -182,9 +186,11 @@ Absolute reads are not part of the workspace API; the separate
 app-root-confined source-view channel exists only for DevTools CSS navigation.
 
 `.openshell-recovery` is excluded from watching, Explorer, and application file
-references. The recovery root must be a real directory, transaction ids and
-manifests are validated, and Open resolves a known artifact id in main rather
-than accepting a renderer path.
+references. The recovery root, transaction directories, artifacts, and
+canonical recovery parents must contain no symlink component. Transaction ids
+and manifests are validated, and Open resolves a known artifact id in main
+rather than accepting a renderer path. Recovery reconciliation is activation-
+generation guarded before filesystem mutation.
 
 ## Models, agents, and composer controls
 
