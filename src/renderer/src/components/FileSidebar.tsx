@@ -2,75 +2,75 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { useStore } from "../store";
 import type { TreeEntry } from "@shared/types";
 
-const FILE_ICONS: Record<string, [string, string]> = {
-  ts: ["codicon-file-code", "#569cd6"],
-  tsx: ["codicon-file-code", "#569cd6"],
-  js: ["codicon-file-code", "#e8c766"],
-  jsx: ["codicon-file-code", "#e8c766"],
-  mjs: ["codicon-file-code", "#e8c766"],
-  cjs: ["codicon-file-code", "#e8c766"],
-  json: ["codicon-json", "#cbcb41"],
-  jsonc: ["codicon-json", "#cbcb41"],
-  md: ["codicon-markdown", "#519aba"],
-  mdx: ["codicon-markdown", "#519aba"],
-  css: ["codicon-symbol-color", "#42a5f5"],
-  scss: ["codicon-symbol-color", "#cf649a"],
-  less: ["codicon-symbol-color", "#42a5f5"],
-  html: ["codicon-file-code", "#e44d26"],
-  py: ["codicon-python", "#4b8bbe"],
-  go: ["codicon-file-code", "#00add8"],
-  rs: ["codicon-file-code", "#dea584"],
-  rb: ["codicon-file-code", "#cc342d"],
-  java: ["codicon-file-code", "#e76f00"],
-  kt: ["codicon-file-code", "#7f52ff"],
-  c: ["codicon-file-code", "#5c6bc0"],
-  h: ["codicon-file-code", "#5c6bc0"],
-  cpp: ["codicon-file-code", "#5c6bc0"],
-  cs: ["codicon-file-code", "#68217a"],
-  php: ["codicon-file-code", "#787cb4"],
-  sh: ["codicon-terminal", "#89e051"],
-  zsh: ["codicon-terminal", "#89e051"],
-  bash: ["codicon-terminal", "#89e051"],
-  sql: ["codicon-database", "#e38c00"],
-  yml: ["codicon-file-code", "#cb171e"],
-  yaml: ["codicon-file-code", "#cb171e"],
-  toml: ["codicon-file-code", "#9f9f9f"],
-  xml: ["codicon-file-code", "#e8a33d"],
-  txt: ["codicon-file-text", "#9aa0a6"],
-  log: ["codicon-file-text", "#9aa0a6"],
-  csv: ["codicon-file-text", "#9aa0a6"],
-  ini: ["codicon-file-text", "#9aa0a6"],
-  conf: ["codicon-file-text", "#9aa0a6"],
-  env: ["codicon-file-text", "#9aa0a6"],
-  gitignore: ["codicon-file-text", "#9aa0a6"],
-  png: ["codicon-file-media", "#9aa0a6"],
-  jpg: ["codicon-file-media", "#9aa0a6"],
-  jpeg: ["codicon-file-media", "#9aa0a6"],
-  gif: ["codicon-file-media", "#9aa0a6"],
-  svg: ["codicon-file-media", "#9aa0a6"],
-  webp: ["codicon-file-media", "#9aa0a6"],
-  ico: ["codicon-file-media", "#9aa0a6"],
-  pdf: ["codicon-file-pdf", "#f85149"],
-  zip: ["codicon-file-zip", "#9aa0a6"],
-  tar: ["codicon-file-zip", "#9aa0a6"],
-  gz: ["codicon-file-zip", "#9aa0a6"],
-  tgz: ["codicon-file-zip", "#9aa0a6"],
-  dmg: ["codicon-file-zip", "#9aa0a6"],
-  pkg: ["codicon-file-zip", "#9aa0a6"],
-  bin: ["codicon-file-binary", "#9aa0a6"],
-  exe: ["codicon-file-binary", "#9aa0a6"],
-  dll: ["codicon-file-binary", "#9aa0a6"],
-  so: ["codicon-file-binary", "#9aa0a6"],
-  dylib: ["codicon-file-binary", "#9aa0a6"]
+const FILE_ICONS: Record<string, string> = {
+  ts: "codicon-file-code",
+  tsx: "codicon-file-code",
+  js: "codicon-file-code",
+  jsx: "codicon-file-code",
+  mjs: "codicon-file-code",
+  cjs: "codicon-file-code",
+  json: "codicon-json",
+  jsonc: "codicon-json",
+  md: "codicon-markdown",
+  mdx: "codicon-markdown",
+  css: "codicon-symbol-color",
+  scss: "codicon-symbol-color",
+  less: "codicon-symbol-color",
+  html: "codicon-file-code",
+  py: "codicon-python",
+  go: "codicon-file-code",
+  rs: "codicon-file-code",
+  rb: "codicon-file-code",
+  java: "codicon-file-code",
+  kt: "codicon-file-code",
+  c: "codicon-file-code",
+  h: "codicon-file-code",
+  cpp: "codicon-file-code",
+  cs: "codicon-file-code",
+  php: "codicon-file-code",
+  sh: "codicon-terminal",
+  zsh: "codicon-terminal",
+  bash: "codicon-terminal",
+  sql: "codicon-database",
+  yml: "codicon-file-code",
+  yaml: "codicon-file-code",
+  toml: "codicon-file-code",
+  xml: "codicon-file-code",
+  txt: "codicon-file-text",
+  log: "codicon-file-text",
+  csv: "codicon-file-text",
+  ini: "codicon-file-text",
+  conf: "codicon-file-text",
+  env: "codicon-file-text",
+  gitignore: "codicon-file-text",
+  png: "codicon-file-media",
+  jpg: "codicon-file-media",
+  jpeg: "codicon-file-media",
+  gif: "codicon-file-media",
+  svg: "codicon-file-media",
+  webp: "codicon-file-media",
+  ico: "codicon-file-media",
+  pdf: "codicon-file-pdf",
+  zip: "codicon-file-zip",
+  tar: "codicon-file-zip",
+  gz: "codicon-file-zip",
+  tgz: "codicon-file-zip",
+  dmg: "codicon-file-zip",
+  pkg: "codicon-file-zip",
+  bin: "codicon-file-binary",
+  exe: "codicon-file-binary",
+  dll: "codicon-file-binary",
+  so: "codicon-file-binary",
+  dylib: "codicon-file-binary"
 };
 
-function fileIcon(name: string): [string, string] {
+function fileIcon(name: string): string {
   if (name.includes(".")) {
     const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
     const hit = FILE_ICONS[ext];
     if (hit) return hit;
   }
-  return FILE_ICONS[name.toLowerCase()] ?? ["codicon-file", "#8b8b94"];
+  return FILE_ICONS[name.toLowerCase()] ?? "codicon-file";
 }
 
 function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: boolean }): ReactNode {
@@ -81,8 +81,8 @@ function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: 
       </span>
     );
   }
-  const [icon, color] = fileIcon(name);
-  return <span className={`codicon ffile ${icon}`} style={{ "--file-color": color } as CSSProperties} />;
+  const icon = fileIcon(name);
+  return <span className={`codicon ffile ${icon}`} />;
 }
 
 function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
@@ -409,7 +409,10 @@ export function FileSidebar({
     <div className="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-title" title={session?.directory}>
-          {session?.directory.split("/").filter(Boolean).pop() ?? "workspace"}
+          <span className="sidebar-title-dot" aria-hidden />
+          <span className="sidebar-title-name">
+            {session?.directory.split("/").filter(Boolean).pop() ?? "workspace"}
+          </span>
         </span>
         <span className="sidebar-header-actions">
           <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
