@@ -93,7 +93,7 @@ function createWindow(): BrowserWindow {
   const newWin = new BrowserWindow({
     width: 1480,
     height: 920,
-    minWidth: 1000,
+    minWidth: 200,
     minHeight: 640,
     title: "OpenShell",
     backgroundColor: "#111114",
