@@ -267,7 +267,7 @@ async function resolveSourcePath(file: string, title: string): Promise<string | 
   return null;
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(show = true): BrowserWindow {
   const packagedUrl = pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
   const rendererUrl = applicationUrl(app.isPackaged, process.env["ELECTRON_RENDERER_URL"], packagedUrl);
   const location = trustedApplicationLocation(rendererUrl);
@@ -283,6 +283,7 @@ function createWindow(): BrowserWindow {
     movable: true,
     resizable: true,
     fullscreenable: true,
+    show,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -438,6 +439,41 @@ function createWindow(): BrowserWindow {
 
   void newWin.loadURL(rendererUrl);
   return newWin;
+}
+
+async function runTrustBoundarySmoke(): Promise<void> {
+  const trustedWindow = createWindow(false);
+  await new Promise<void>((resolve, reject) => {
+    trustedWindow.webContents.once("did-finish-load", () => resolve());
+    trustedWindow.webContents.once("did-fail-load", (_event, code, description) => reject(new Error(`${code}: ${description}`)));
+  });
+  const trustedUrl = trustedWindow.webContents.getURL();
+  const trustedIpc = await trustedWindow.webContents.executeJavaScript("window.openshell.state().then(() => true)");
+  await trustedWindow.webContents.executeJavaScript("location.href = 'data:text/html,untrusted'");
+  await sleep(100);
+  const navigationDenied = trustedWindow.webContents.getURL() === trustedUrl;
+  const windowsBeforePopup = BrowserWindow.getAllWindows().length;
+  await trustedWindow.webContents.executeJavaScript("window.open('custom-protocol://unsafe')");
+  await sleep(100);
+  const popupDenied = BrowserWindow.getAllWindows().length === windowsBeforePopup;
+
+  const untrustedWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  await untrustedWindow.loadURL("data:text/html,<title>untrusted</title>");
+  const untrustedIpcRejected = await untrustedWindow.webContents
+    .executeJavaScript("window.openshell.state().then(() => false, () => true)");
+  untrustedWindow.destroy();
+  trustedWindow.destroy();
+  const result = { trustedIpc, navigationDenied, popupDenied, untrustedIpcRejected };
+  console.log(`[openshell-trust-smoke] ${JSON.stringify(result)}`);
+  if (!Object.values(result).every(Boolean)) throw new Error(`trust smoke failed: ${JSON.stringify(result)}`);
 }
 
 function handleTrusted<Args extends unknown[], Result>(
@@ -645,7 +681,8 @@ if (!app.requestSingleInstanceLock()) {
         // icon is cosmetic
       }
     }
-    backend.start();
+    const trustSmoke = process.env["OPENSHELL_TRUST_SMOKE"] === "1";
+    if (!trustSmoke) backend.start();
     const fwd = (msg: unknown): void => {
       if ((msg as { kind?: string }).kind === "session") terminals.stopAll();
       if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
@@ -654,6 +691,17 @@ if (!app.requestSingleInstanceLock()) {
     backend.onMessage(fwd);
     terminals.onMessage(fwd);
     registerIpc();
+    if (trustSmoke) {
+      void runTrustBoundarySmoke().then(
+        () => app.quit(),
+        (error) => {
+          console.error("[openshell-trust-smoke]", error);
+          process.exitCode = 1;
+          app.quit();
+        }
+      );
+      return;
+    }
     createWindow();
     void backend.connect().catch(() => {});
 
