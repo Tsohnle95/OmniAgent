@@ -8,6 +8,10 @@ const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
 let win: BrowserWindow | null = null;
 let inspectPickerActive = false;
+let inspectPickerToken = 0;
+let overlayEnabled = false;
+let lastPickedNode = 0;
+let lastPickedAt = 0;
 
 const INSPECT_HIGHLIGHT = {
   showInfo: true,
@@ -18,24 +22,28 @@ const INSPECT_HIGHLIGHT = {
   marginColor: { r: 246, g: 178, b: 107, a: 0.66 }
 } as const;
 
-async function startInspectPicker(wc: WebContents): Promise<void> {
-  if (inspectPickerActive) return;
-  inspectPickerActive = true;
-  if (!wc.isDevToolsOpened()) {
-    wc.openDevTools({ mode: "bottom" });
-    if (!wc.devToolsWebContents) {
-      await new Promise<void>((resolve) => wc.once("devtools-opened", () => resolve()));
-    }
-  }
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function ensureDevToolsOpen(wc: WebContents): Promise<void> {
+  if (!wc.isDevToolsOpened()) wc.openDevTools({ mode: "bottom" });
+  for (let i = 0; i < 50 && !wc.devToolsWebContents; i++) await sleep(100);
   const dtc = wc.devToolsWebContents;
   if (dtc && dtc.isLoading()) {
     await new Promise<void>((resolve) => dtc.once("dom-ready", () => resolve()));
   }
+}
+
+async function startInspectPicker(wc: WebContents): Promise<void> {
+  const token = ++inspectPickerToken;
+  inspectPickerActive = true;
+  await ensureDevToolsOpen(wc);
+  if (token !== inspectPickerToken) return;
   wc.focus();
   try {
     if (!wc.debugger.isAttached()) wc.debugger.attach("1.3");
     await wc.debugger.sendCommand("DOM.enable");
     await wc.debugger.sendCommand("Overlay.enable");
+    overlayEnabled = true;
     await wc.debugger.sendCommand("Overlay.setInspectMode", {
       mode: "searchForNode",
       highlightConfig: INSPECT_HIGHLIGHT
@@ -59,9 +67,9 @@ async function selectPickedNode(wc: WebContents, backendNodeId: number): Promise
 }
 
 function stopInspectPicker(wc: WebContents): void {
-  if (!inspectPickerActive) return;
+  inspectPickerToken++;
   inspectPickerActive = false;
-  if (!wc.debugger.isAttached()) return;
+  if (!overlayEnabled || !wc.debugger.isAttached()) return;
   void wc.debugger
     .sendCommand("Overlay.setInspectMode", { mode: "none", highlightConfig: INSPECT_HIGHLIGHT })
     .catch((err) => console.error("stopInspectPicker:", err));
@@ -88,7 +96,9 @@ function createWindow(): BrowserWindow {
   });
   win = newWin;
   inspectPickerActive = false;
+  inspectPickerToken++;
   const wc = newWin.webContents;
+  let boundDevTools: WebContents | null = null;
 
   newWin.on("closed", () => {
     if (win === newWin) win = null;
@@ -102,16 +112,42 @@ function createWindow(): BrowserWindow {
   wc.debugger.on("message", (_e, method, params) => {
     if (method === "Overlay.inspectNodeRequested") {
       const backendNodeId = (params as { backendNodeId?: number }).backendNodeId;
-      stopInspectPicker(wc);
-      if (typeof backendNodeId === "number") void selectPickedNode(wc, backendNodeId);
+      const now = Date.now();
+      if (
+        typeof backendNodeId === "number" &&
+        (backendNodeId !== lastPickedNode || now - lastPickedAt > 500)
+      ) {
+        lastPickedNode = backendNodeId;
+        lastPickedAt = now;
+        stopInspectPicker(wc);
+        void selectPickedNode(wc, backendNodeId);
+      }
     } else if (method === "Overlay.inspectModeCanceled") {
       stopInspectPicker(wc);
     }
   });
   wc.debugger.on("detach", () => {
     inspectPickerActive = false;
+    overlayEnabled = false;
   });
   wc.on("devtools-closed", () => stopInspectPicker(wc));
+
+  const bindDevToolsKeys = (): void => {
+    const dtc = wc.devToolsWebContents;
+    if (!dtc || dtc === boundDevTools) return;
+    boundDevTools = dtc;
+    dtc.on("before-input-event", (event, input) => {
+      if (input.type !== "keyDown" || input.meta || input.control || input.alt || input.shift) return;
+      if (input.key === "F12") {
+        event.preventDefault();
+        wc.closeDevTools();
+      } else if (input.key === "Escape" && inspectPickerActive) {
+        event.preventDefault();
+        stopInspectPicker(wc);
+      }
+    });
+  };
+  wc.on("devtools-opened", bindDevToolsKeys);
 
   newWin.webContents.on("before-input-event", (event, input) => {
     const mod = process.platform === "darwin" ? input.meta : input.control;
@@ -127,6 +163,11 @@ function createWindow(): BrowserWindow {
       } else {
         newWin.webContents.openDevTools({ mode: "bottom" });
       }
+      return;
+    }
+    if (input.type === "keyDown" && !mod && !input.alt && !input.shift && input.key === "Escape" && inspectPickerActive) {
+      event.preventDefault();
+      stopInspectPicker(wc);
       return;
     }
     if (input.type === "keyDown" && mod && input.shift && !input.alt && input.key.toLowerCase() === "c") {

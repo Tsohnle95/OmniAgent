@@ -133,7 +133,12 @@ Protocol (`webContents.debugger`, `Overlay.setInspectMode` with
 `inspectElement` at the picked node's box-model center
 (`DOM.getBoxModel`) — overlay events only reach our debugger session,
 and the Elements panel only selects nodes on browser-side inspects.
-Esc, picking an element, or closing DevTools exits the mode. Gotcha:
+Esc, picking an element, ⌘⇧C, or closing DevTools exits the mode;
+Esc and F12 are bound on both the app and the DevTools webContents so
+they work whichever side has focus. Picks are deduped (Chromium fires
+`inspectNodeRequested` twice per click, once from pointer events, once
+from mouse events) and the picker lifecycle is token-guarded so stale
+async arm calls can never re-arm or wedge the state. Gotcha:
 `highlightConfig` is a required parameter even for `mode: "none"`;
 omitting it makes Chromium reject the command and leaves the overlay
 stuck in search mode, flashing highlights forever.
