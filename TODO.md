@@ -4,9 +4,23 @@ Add points here anytime — `- [ ]` for open items, `- [x]` when done.
 A fresh session can start working from this file. Bigger ideas belong in
 the README roadmap; this file is the actionable queue.
 
-Work order: top to bottom, one item at a time, commit each before starting
-the next. Only the last item (packaging) is independent enough to run in
-parallel with the rest.
+Work order: execute per `docs/dispatch.md` (one commit per unit, `npm run check`
+green before each commit, fresh reviewer + mechanical closure at the end).
+
+Wave 1 (parallel — disjoint file areas):
+- recovery retention (main process)
+- packaging / launch button (scripts)
+- HTML/CSS validation (editor/monaco)
+
+Wave 2 (sequential — shared agent panel/store files):
+- `/` commands + @file support
+- context-window usage tracker
+- subagent session links
+
+Wave 3 (sequential): folder drag-and-drop (sidebar/store)
+
+Wave 4 (last, cross-cutting — restructures session state): concurrent
+multi-session/window support
 
 - [ ] - `.openshell-recovery/` transactions are never deleted, so every app-mediated save leaves 3 full file copies behind and the dir grows forever. Add retention: on activation, purge `complete`/`failed`/`acknowledged` transactions older than 24h, and interrupted (`source-held`/`held-validated`) ones older than 7 days. (`.openshell-recovery/` is already gitignored.)
 
