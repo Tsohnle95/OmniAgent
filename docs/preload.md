@@ -18,7 +18,10 @@ automatically.
 | `openSession(dir)` | `Promise<SessionInfo>` |
 | `sessions()` | `Promise<SessionSummary[]>` |
 | `openSessionById(sessionID)` | `Promise<ReopenedSession>` (session + replayed transcript) |
-| `prompt(text, files?)` | `Promise<void>`; files are absolute paths selected through `selectFiles()` |
+| `prompt(text, files?)` | `Promise<void>`; files are `PromptFile[]` — paths from `selectFiles()` or @-mentions (with `mention` spans) |
+| `commands()` | `Promise<CommandOption[]>` — slash commands for the session directory |
+| `runCommand(name, args?)` | `Promise<void>` — runs a slash command in the active session |
+| `references()` | `Promise<ReferenceOption[]>` — local files for @-mentions, `rel` paths relative to the session directory |
 | `selectFiles()` | `Promise<string[]>` |
 | `interrupt()` | `Promise<void>` |
 | `listDir(rel)` | `Promise<TreeEntry[]>` |

@@ -33,7 +33,10 @@ Public methods (all used by IPC):
 | `openSession(directory)` | `session.create({location:{directory}, model?: saved, agent?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
 | `openSessionById(sessionID)` | `session.get` to recover the directory, activates it, then `message.list` → replay transcript |
-| `prompt(text, files?)` | `session.prompt({sessionID, text, files?: selected file URIs})` |
+| `prompt(text, files?)` | `session.prompt({sessionID, text, files?})`; `files` are `PromptFile[]` — absolute paths validated (file + ≤10 MB) and converted to file URIs, with optional `mention` spans into the prompt text |
+| `listCommands()` | `command.list({location})` → `CommandOption[]` for the session directory |
+| `runCommand(name, args?)` | `session.command({sessionID, command, arguments?})` |
+| `listReferences()` | `reference.list({location})` → `ReferenceOption[]` (local, non-hidden; `rel` is the path relative to the session directory) |
 | `interrupt()` | `session.interrupt`, errors swallowed |
 | `replyPermission(requestID, reply, sessionID?)` | `permission.reply` against the supplied owning session (active session fallback); reply is `"once"|"always"|"reject"` |
 | `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
@@ -101,7 +104,10 @@ Internals:
 | `shell:open-session` | `(dir) → SessionInfo` |
 | `shell:sessions` | `() → SessionSummary[]` |
 | `shell:open-session-id` | `(sessionID) → ReopenedSession` |
-| `shell:prompt` | `(text, files?) → void`; files are user-selected absolute paths converted to file URIs |
+| `shell:prompt` | `(text, files?) → void`; files are `PromptFile[]` — absolute paths converted to file URIs, each with optional `mention { start, end, text }` spans into the prompt text |
+| `shell:commands` | `() → CommandOption[]` (opencode slash commands for the session directory) |
+| `shell:run-command` | `(name, args?) → void` (runs a slash command in the active session) |
+| `shell:references` | `() → ReferenceOption[]` (local file references for @-mentions, relative paths against the session directory) |
 | `shell:select-files` | `() → string[]` (native multi-file dialog) |
 | `shell:interrupt` | `() → void` |
 | `shell:fs-list` | `(rel) → TreeEntry[]` |

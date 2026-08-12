@@ -10,9 +10,12 @@ import { Service, type Endpoint } from "@opencode-ai/client/service";
 import type {
   AssistantPartView,
   AgentOption,
+  CommandOption,
   PermissionReply,
   ProjectInfo,
+  PromptFile,
   ProviderUsageResult,
+  ReferenceOption,
   ReopenedSession,
   SessionInfo,
   SessionSelection,
@@ -774,26 +777,70 @@ export class OpenShellBackend {
     return out.model || out.agent ? out : null;
   }
 
-  async prompt(text: string, filePaths: string[] = []): Promise<void> {
+  async prompt(text: string, files: PromptFile[] = []): Promise<void> {
     if (!this.client || !this.sessionID) throw new Error("no active session");
-    const files = await Promise.all(
-      filePaths.map(async (filePath) => {
-        const stat = await fsp.stat(filePath);
-        if (!stat.isFile()) throw new Error(`${path.basename(filePath)} is not a file`);
+    const fileSpecs = await Promise.all(
+      files.map(async (file) => {
+        const stat = await fsp.stat(file.path);
+        if (!stat.isFile()) throw new Error(`${path.basename(file.path)} is not a file`);
         if (stat.size > 10 * 1024 * 1024) {
-          throw new Error(`${path.basename(filePath)} is larger than 10 MB`);
+          throw new Error(`${path.basename(file.path)} is larger than 10 MB`);
         }
         return {
-          uri: pathToFileURL(filePath).toString(),
-          name: path.basename(filePath)
+          uri: pathToFileURL(file.path).toString(),
+          name: path.basename(file.path),
+          ...(file.mention ? { mention: file.mention } : {})
         };
       })
     );
     await this.client.session.prompt({
       sessionID: this.sessionID,
       text,
-      ...(files.length > 0 ? { files } : {})
+      ...(fileSpecs.length > 0 ? { files: fileSpecs } : {})
     });
+  }
+
+  async listCommands(): Promise<CommandOption[]> {
+    if (!this.client) return [];
+    const res = await this.client.command.list(
+      this.directory ? { location: { directory: this.directory } } : undefined
+    );
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as { name?: string; description?: string }[])
+      .map((c) => ({ name: c.name ?? "", ...(c.description ? { description: c.description } : {}) }))
+      .filter((c) => c.name.length > 0);
+  }
+
+  async runCommand(name: string, args: string = ""): Promise<void> {
+    if (!this.client || !this.sessionID) throw new Error("no active session");
+    await this.client.session.command({
+      sessionID: this.sessionID,
+      command: name,
+      ...(args ? { arguments: args } : {})
+    });
+  }
+
+  async listReferences(): Promise<ReferenceOption[]> {
+    if (!this.client || !this.directory) return [];
+    const res = await this.client.reference.list({ location: { directory: this.directory } });
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as {
+      name?: string;
+      path?: string;
+      description?: string;
+      hidden?: boolean;
+      source?: { type?: string };
+    }[])
+      .filter((r) => r.path && r.source?.type === "local" && r.hidden !== true)
+      .map((r) => {
+        const rel = path.relative(this.directory as string, r.path as string).split(path.sep).join("/");
+        return {
+          name: r.name ?? "",
+          path: r.path as string,
+          rel: rel || path.basename(r.path as string),
+          ...(r.description ? { description: r.description } : {})
+        };
+      });
   }
 
   async interrupt(): Promise<void> {

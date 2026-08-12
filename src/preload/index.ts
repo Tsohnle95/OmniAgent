@@ -2,10 +2,13 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   AgentOption,
   BackendMessage,
+  CommandOption,
   ModelOption,
   PermissionReply,
   ProjectInfo,
+  PromptFile,
   ProviderUsageResult,
+  ReferenceOption,
   ReopenedSession,
   SessionInfo,
   SessionSelection,
@@ -25,8 +28,12 @@ const api = {
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
   openSessionById: (sessionID: string): Promise<ReopenedSession> =>
     ipcRenderer.invoke("shell:open-session-id", sessionID),
-  prompt: (text: string, files: string[] = []): Promise<void> =>
+  prompt: (text: string, files: PromptFile[] = []): Promise<void> =>
     ipcRenderer.invoke("shell:prompt", text, files),
+  commands: (): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands"),
+  runCommand: (name: string, args: string = ""): Promise<void> =>
+    ipcRenderer.invoke("shell:run-command", name, args),
+  references: (): Promise<ReferenceOption[]> => ipcRenderer.invoke("shell:references"),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
   interrupt: (): Promise<void> => ipcRenderer.invoke("shell:interrupt"),
   listDir: (rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>

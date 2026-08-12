@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
-import type { ModelOption, ProviderUsageCredits, ProviderUsageResult } from "@shared/types";
+import type { CommandOption, ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, ReferenceOption } from "@shared/types";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
@@ -22,6 +22,64 @@ function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
 }
 function modelKey(model: ModelOption): string {
   return `${model.providerID}::${model.id}`;
+}
+
+interface TriggerMatch {
+  kind: "command" | "mention";
+  start: number;
+  query: string;
+}
+
+interface CompletionItem {
+  label: string;
+  detail?: string;
+  insert: string;
+  path?: string;
+}
+
+interface CompletionState {
+  kind: "command" | "mention";
+  start: number;
+  query: string;
+  items: CompletionItem[];
+  selected: number;
+}
+
+function detectTrigger(value: string, caret: number, spans: { start: number; end: number }[]): TriggerMatch | null {
+  const before = value.slice(0, caret);
+  const command = /(^|\n)(\/)(\S*)$/.exec(before);
+  if (command) return { kind: "command", start: command.index + command[1].length, query: command[3] };
+  const mention = /(^|\s)(@)(\S*)$/.exec(before);
+  if (!mention) return null;
+  const start = mention.index + mention[1].length;
+  if (spans.some((span) => start < span.end && caret > span.start)) return null;
+  return { kind: "mention", start, query: mention[3] };
+}
+
+function mentionSpans(value: string, list: { rel: string }[]): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = [];
+  for (const mention of list) {
+    const token = `@${mention.rel}`;
+    const idx = value.indexOf(token);
+    if (idx >= 0) spans.push({ start: idx, end: idx + token.length });
+  }
+  return spans;
+}
+
+function filterCompletionItems(items: CompletionItem[], query: string): CompletionItem[] {
+  if (!query) return items;
+  const q = query.toLowerCase();
+  return items.filter((item) => item.label.toLowerCase().includes(q));
+}
+
+function buildPromptFiles(text: string, list: { rel: string; path: string }[]): PromptFile[] {
+  const files: PromptFile[] = [];
+  for (const mention of list) {
+    const token = `@${mention.rel}`;
+    const idx = text.indexOf(token);
+    if (idx >= 0) files.push({ path: mention.path, mention: { start: idx, end: idx + token.length, text: token } });
+  }
+  return files;
 }
 
 function readModelKeys(storageKey: string): Set<string> {
@@ -191,6 +249,10 @@ function Composer(): ReactNode {
   const [hiddenModels, setHiddenModels] = useState<Set<string>>(() => readModelKeys("hiddenModels"));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [modelView, setModelView] = useState<"list" | "settings" | "strength">("list");
+  const [mentions, setMentions] = useState<{ rel: string; path: string }[]>([]);
+  const [completion, setCompletion] = useState<CompletionState | null>(null);
+  const candidatesRef = useRef<{ kind: "command" | "mention"; items: CompletionItem[] } | null>(null);
+  const fetchSeqRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceRecognition | null>(null);
@@ -239,9 +301,32 @@ function Composer(): ReactNode {
 
   const send = (): void => {
     if (!canSend) return;
-    void sendPrompt(input, files.map((file) => file.path));
+    const text = input.trim();
+    const command = /^\/(\S+)(?:\s+([\s\S]*))?$/.exec(text);
+    if (command) {
+      void window.openshell.runCommand(command[1], command[2] ?? "").catch((err) =>
+        setNotice(err instanceof Error ? err.message : String(err))
+      );
+      setInput("");
+      setFiles([]);
+      setMentions([]);
+      setCompletion(null);
+      const el = inputRef.current;
+      if (el) {
+        el.style.removeProperty("--composer-input-height");
+        el.focus();
+      }
+      return;
+    }
+    const promptFiles: PromptFile[] = [
+      ...buildPromptFiles(text, mentions),
+      ...files.map((file) => ({ path: file.path }))
+    ];
+    void sendPrompt(text, promptFiles);
     setInput("");
     setFiles([]);
+    setMentions([]);
+    setCompletion(null);
     const el = inputRef.current;
     if (el) {
       el.style.removeProperty("--composer-input-height");
@@ -349,6 +434,60 @@ function Composer(): ReactNode {
     void switchModel(currentModel.id, currentModel.providerID, options[(index + 1) % options.length]);
   };
 
+  const openCandidates = async (kind: "command" | "mention", query: string, start: number): Promise<void> => {
+    const seq = ++fetchSeqRef.current;
+    try {
+      const raw = kind === "command" ? await window.openshell.commands() : await window.openshell.references();
+      if (fetchSeqRef.current !== seq) return;
+      const items: CompletionItem[] =
+        kind === "command"
+          ? (raw as CommandOption[]).map((c) => ({ label: c.name, detail: c.description, insert: c.name }))
+          : (raw as ReferenceOption[]).map((r) => ({
+              label: r.rel,
+              detail: r.description ?? r.name,
+              insert: r.rel,
+              path: r.path
+            }));
+      candidatesRef.current = { kind, items };
+      setCompletion({ kind, start, query, items: filterCompletionItems(items, query), selected: 0 });
+    } catch {
+      candidatesRef.current = null;
+      setCompletion(null);
+    }
+  };
+
+  const applyCompletion = (index?: number): void => {
+    const c = completion;
+    if (!c || c.items.length === 0) return;
+    const item = c.items[Math.min(index ?? c.selected, c.items.length - 1)];
+    const spanEnd = c.start + 1 + c.query.length;
+    const rest = input.slice(spanEnd);
+    if (c.kind === "command") {
+      setInput("");
+      setCompletion(null);
+      void window.openshell.runCommand(item.insert, rest.trim()).catch((err) =>
+        setNotice(err instanceof Error ? err.message : String(err))
+      );
+      return;
+    }
+    if (!item.path) return;
+    const filePath = item.path;
+    const prefix = input.slice(0, c.start);
+    const next = `${prefix}@${item.insert}${rest}`;
+    setInput(next);
+    setMentions((prev) => [
+      ...prev.filter((mnt) => mnt.rel !== item.insert),
+      { rel: item.insert, path: filePath }
+    ]);
+    setCompletion(null);
+    const el = inputRef.current;
+    if (el) {
+      el.focus();
+      const pos = prefix.length + 1 + item.insert.length;
+      el.setSelectionRange(pos, pos);
+    }
+  };
+
   const toggleFavorite = (model: ModelOption): void => {
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -407,11 +546,52 @@ function Composer(): ReactNode {
           placeholder="Ask anything, / for commands, @ for context..."
           value={input}
           onChange={(e) => {
-            setInput(e.target.value);
+            const value = e.target.value;
+            setInput(value);
             e.target.style.setProperty("--composer-input-height", "0px");
             e.target.style.setProperty("--composer-input-height", `${e.target.scrollHeight}px`);
+            const caret = e.target.selectionStart ?? value.length;
+            const trigger = detectTrigger(value, caret, mentionSpans(value, mentions));
+            if (!trigger) {
+              setCompletion(null);
+              return;
+            }
+            if (candidatesRef.current?.kind === trigger.kind) {
+              setCompletion({
+                kind: trigger.kind,
+                start: trigger.start,
+                query: trigger.query,
+                items: filterCompletionItems(candidatesRef.current.items, trigger.query),
+                selected: 0
+              });
+            } else {
+              void openCandidates(trigger.kind, trigger.query, trigger.start);
+            }
           }}
           onKeyDown={(e) => {
+            if (completion && completion.items.length > 0) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setCompletion((c) => (c ? { ...c, selected: (c.selected + 1) % c.items.length } : c));
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setCompletion((c) => (c ? { ...c, selected: (c.selected - 1 + c.items.length) % c.items.length } : c));
+                return;
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                applyCompletion();
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setCompletion(null);
+                return;
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send();
@@ -503,6 +683,28 @@ function Composer(): ReactNode {
       </div>
 
       {notice && <div className="composer-notice">{notice}</div>}
+
+      {completion && completion.items.length > 0 && (
+        <div className="composer-completions">
+          <div className="composer-completions-head">
+            {completion.kind === "command" ? "Commands" : "Mention files"}
+          </div>
+          {completion.items.map((item, index) => (
+            <button
+              key={`${completion.kind}:${item.label}`}
+              className={`composer-menu-item ${index === completion.selected ? "selected" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                applyCompletion(index);
+              }}
+            >
+              <span className={`codicon ${completion.kind === "command" ? "codicon-terminal" : "codicon-file"}`} />
+              <span className="composer-completion-label">{item.label}</span>
+              {item.detail && <span className="composer-completion-detail">{item.detail}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {menu && (
         <div className="composer-menu">

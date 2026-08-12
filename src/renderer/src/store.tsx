@@ -15,6 +15,7 @@ import type {
   BackendMessage,
   ModelOption,
   PermissionReply,
+  PromptFile,
   ProviderUsageResult,
   SessionInfo,
   SessionSummary,
@@ -78,7 +79,7 @@ interface Store {
   selectFolder: () => Promise<void>;
   reopenSession: (sessionID: string) => Promise<void>;
   loadSessions: () => Promise<void>;
-  sendPrompt: (text: string, files?: string[]) => Promise<void>;
+  sendPrompt: (text: string, files?: PromptFile[]) => Promise<void>;
   stop: () => Promise<void>;
   refreshProviderUsage: () => Promise<void>;
   loadModels: () => Promise<void>;
@@ -518,12 +519,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
 
   const sendPrompt = useCallback(
-    async (text: string, files: string[] = []) => {
+    async (text: string, files: PromptFile[] = []) => {
       const t = text.trim();
       if ((!t && files.length === 0) || !session) return;
       const promptText = t || "Review the attached files.";
-      const attachments: UserAttachment[] = files.map((filePath) => ({
-        name: filePath.split(/[\\/]/).pop() ?? filePath
+      const attachments: UserAttachment[] = files.map((file) => ({
+        name: file.path.split(/[\\/]/).pop() ?? file.path
       }));
       const userItem: TranscriptItem = {
         kind: "user",

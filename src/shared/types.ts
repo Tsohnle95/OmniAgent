@@ -107,6 +107,23 @@ export interface AgentOption {
   color?: string;
 }
 
+export interface CommandOption {
+  name: string;
+  description?: string;
+}
+
+export interface ReferenceOption {
+  name: string;
+  path: string;
+  rel: string;
+  description?: string;
+}
+
+export interface PromptFile {
+  path: string;
+  mention?: { start: number; end: number; text: string };
+}
+
 export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
 export interface TodoItem {

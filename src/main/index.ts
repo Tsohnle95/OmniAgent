@@ -4,7 +4,7 @@ import fsp from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
-import type { PermissionReply } from "@shared/types";
+import type { CommandOption, PermissionReply, PromptFile, ReferenceOption } from "@shared/types";
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
@@ -412,9 +412,17 @@ function registerIpc(): void {
     backend.openSessionById(sessionID)
   );
 
-  ipcMain.handle("shell:prompt", async (_e, text: string, files: string[] = []) =>
+  ipcMain.handle("shell:prompt", async (_e, text: string, files: PromptFile[] = []) =>
     backend.prompt(text, files)
   );
+
+  ipcMain.handle("shell:commands", async () => backend.listCommands());
+
+  ipcMain.handle("shell:run-command", async (_e, name: string, args: string = "") =>
+    backend.runCommand(name, args)
+  );
+
+  ipcMain.handle("shell:references", async () => backend.listReferences());
 
   ipcMain.handle("shell:select-files", async (e) => {
     const parent = BrowserWindow.fromWebContents(e.sender);

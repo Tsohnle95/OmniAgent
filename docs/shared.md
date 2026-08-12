@@ -15,6 +15,9 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
 | `ModelOption` | `{ id, providerID, name, variants?, variant? }` | Model picker options + current model/strength selection |
 | `AgentOption` | `{ id, name }` | Agent picker options + current selection |
+| `CommandOption` | `{ name, description? }` | Slash commands offered by `/` completion and run via `runCommand` |
+| `ReferenceOption` | `{ name, path, rel, description? }` | Local files for `@` mentions; `path` is absolute, `rel` is relative to the session directory |
+| `PromptFile` | `{ path, mention?: { start, end, text } }` | Files attached to a prompt; `mention` marks the `@rel` token span in the prompt text |
 | `SessionSelection` | `{ model?: ModelOption, agent?: AgentOption }` | Restores the active session's model/agent picks after a renderer reload |
 | `ApprovalMode` | `"ask" \| "approve"` | Composer permission behavior; approve mode replies `once` automatically |
 | `UserAttachment` | `{ name }` | Attachment chip rendered on a submitted user prompt |
