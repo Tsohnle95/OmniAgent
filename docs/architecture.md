@@ -145,16 +145,24 @@ Normal writes require the disk to still equal the last saved content. External
 updates preserve local edits and pause saving until explicit reload, overwrite,
 or keep-editing then save-merged resolution. Lifecycle changes invalidate
 timers and stale completions; external updates advance a conflict generation so
-an already-started completion cannot clear a newer conflict. Writes use a
-same-directory temporary file and rename for atomic replacement. Expected-content
-comparison is not an OS-level CAS, so an external writer can still race between
-comparison and replacement. Writes go through Node `fs` in the main process
+an already-started completion cannot clear a newer conflict. Writes create a
+same-directory temporary file, atomically move the current target to a unique
+holding name, validate the held bytes, and install the temporary inode with a
+no-replace hard link. The original pathname is briefly unavailable between the
+hold and install. A concurrent recreation is never overwritten: the save fails,
+restores the original only when the pathname remains free, and otherwise leaves
+unique held/proposed recovery files beside the concurrent target. Successful
+writes and safe rollbacks remove those artifacts. This protocol requires the
+temporary, holding, and target names to share a filesystem. Writes go through Node `fs` in the main process
 (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching. The
 explorer also supports create/rename/delete through `shell:fs-create-*`,
-`shell:fs-rename`, `shell:fs-delete` (delete moves to Trash); these are
-plain `fs` operations that run through the same watcher so baselines and
-the tree stay consistent.
+`shell:fs-rename`, `shell:fs-delete` (delete moves to Trash). File rename uses
+same-filesystem no-replace hard-link/unlink semantics. Portable Node filesystem
+APIs cannot guarantee no-replace directory rename, so directory rename is
+rejected rather than recursively copying and deleting a potentially changing
+source tree. These operations run through the same watcher so baselines and the
+tree stay consistent.
 
 Every workspace filesystem call carries the expected workspace UUID and main
 rejects stale generations. Paths are bounded strict relative paths and no

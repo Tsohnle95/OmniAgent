@@ -513,7 +513,7 @@ Scope: items 3, 4, and 10.
 
 - [x] Give every tab edit a monotonically increasing revision.
 - [x] Save exact content with workspace identity and revision rather than reading a stale render closure.
-- [x] Serialize renderer saves per workspace/file and main filesystem mutations per workspace; use atomic replacement for writes.
+- [x] Serialize renderer saves per workspace/file and main filesystem mutations per workspace; use a held-version/no-replace install protocol that never overwrites a concurrently recreated target.
 - [x] Clear dirty state only for the matching completed revision.
 - [x] Cancel or migrate timers and expected-write state on reset, close, delete, rename, switch, and unmount.
 - [x] Detect confirmed write echoes without treating genuine external updates as echoes.
@@ -636,3 +636,4 @@ Residual acceptance notes:
 - This acceptance pass does not claim a new independent security audit beyond the automated lifecycle assertions.
 - Final-review corrections lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests and the macOS Electron lifecycle smoke cover the acceptance boundary.
 - Corrective audit coverage enforces cross-platform no-replace file/directory renames, workspace-located global filesystem routing, serialized SSE stop/restart, replay/live semantic chronology, exact truncation accounting, and coupled busy-state eviction. Chromium layout/paint and browser-memory benchmarking remain explicitly uncovered and are not required by the selected React/jsdom acceptance scope.
+- Final blocking save tests inject races before hold, after hold, after held-content validation, and after install. Saves briefly make the original pathname unavailable; conflicts preserve the concurrent target plus uniquely named held/proposed recovery files when no-replace rollback cannot restore the original name. Directory rename is rejected because portable Node APIs cannot guarantee no-replace native rename; occupied targets and late source mutations remain intact without recursive copy/delete.

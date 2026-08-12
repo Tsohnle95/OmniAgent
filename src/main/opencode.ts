@@ -409,6 +409,16 @@ interface WatchContext {
   hasGit: boolean | null;
 }
 
+export type MutationPhase =
+  | "save:temporary-ready"
+  | "save:source-held"
+  | "save:held-validated"
+  | "save:target-installed"
+  | "rename:source-inspected"
+  | "rename:target-created";
+
+type MutationPhaseHandler = (phase: MutationPhase, source: string, target: string) => void | Promise<void>;
+
 export class OpenShellBackend {
   private client: Client | null = null;
   private sessionID: string | null = null;
@@ -426,6 +436,8 @@ export class OpenShellBackend {
   private lastEnsureAt = 0;
   private readonly ensureCooldownMs = 30_000;
   private readonly settingsPath = path.join(app.getPath("userData"), "settings.json");
+
+  constructor(private readonly mutationPhase: MutationPhaseHandler = () => {}) {}
 
   onMessage(cb: (msg: unknown) => void): () => void {
     this.listeners.add(cb);
@@ -1235,29 +1247,58 @@ export class OpenShellBackend {
       await fsp.mkdir(path.dirname(abs), { recursive: true });
       await confinedPath(root, cleanRel);
       assertWorkspace(workspace, this.workspace);
-      if (!write.overwrite) {
-      let current: string | null = null;
-      try {
-        current = await fsp.readFile(abs, "utf8");
-      } catch {
-        current = null;
-      }
-      if (current !== expectedContent) {
-        this.emitFileUpdate(context, abs, current);
-        throw new Error("file changed on disk");
-      }
-      }
-      assertWorkspace(workspace, this.workspace);
       const temporary = path.join(path.dirname(abs), `.${path.basename(abs)}.openshell-${randomUUID()}.tmp`);
+      const holding = path.join(path.dirname(abs), `.${path.basename(abs)}.openshell-${randomUUID()}.held`);
+      const proposed = path.join(path.dirname(abs), `.${path.basename(abs)}.openshell-${randomUUID()}.proposed`);
+      let sourceHeld = false;
+      let targetInstalled = false;
       try {
         await fsp.writeFile(temporary, cleanContent, { encoding: "utf8", flag: "wx" });
+        await fsp.copyFile(temporary, proposed, constants.COPYFILE_EXCL);
         const existing = await fsp.stat(abs).catch(() => null);
         if (existing) await fsp.chmod(temporary, existing.mode);
+        await this.mutationPhase("save:temporary-ready", abs, temporary);
         await confinedPath(root, cleanRel);
         assertWorkspace(workspace, this.workspace);
-        await fsp.rename(temporary, abs);
-      } finally {
+        await fsp.rename(abs, holding);
+        sourceHeld = true;
+        await this.mutationPhase("save:source-held", holding, abs);
+        const heldContent = await fsp.readFile(holding, "utf8");
+        if (!write.overwrite && heldContent !== expectedContent) {
+          throw new Error("file changed on disk");
+        }
+        await this.mutationPhase("save:held-validated", holding, abs);
+        await fsp.link(temporary, abs);
+        targetInstalled = true;
+        await this.mutationPhase("save:target-installed", temporary, abs);
+        if (await fsp.readFile(abs, "utf8") !== cleanContent) {
+          throw new Error("file changed during save");
+        }
+        await fsp.unlink(holding);
+        sourceHeld = false;
+        await fsp.unlink(temporary);
+        targetInstalled = false;
+        await fsp.unlink(proposed);
+      } catch (error) {
+        if (sourceHeld && !targetInstalled) {
+          try {
+            await fsp.link(holding, abs);
+            await fsp.unlink(holding);
+            sourceHeld = false;
+          } catch {}
+        }
         await fsp.rm(temporary, { force: true }).catch(() => {});
+        if (!sourceHeld && !targetInstalled) {
+          await fsp.rm(proposed, { force: true }).catch(() => {});
+        }
+        const current = await fsp.readFile(abs, "utf8").catch(() => null);
+        this.emitFileUpdate(context, abs, current);
+        const recovery = [sourceHeld ? holding : null, sourceHeld || targetInstalled ? proposed : null].filter(Boolean);
+        if (recovery.length > 0) {
+          throw new Error(`file changed during save; recovery files preserved: ${recovery.map((file) => path.basename(file!)).join(", ")}`);
+        }
+        if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("file changed during save");
+        throw error;
       }
       assertWorkspace(workspace, this.workspace);
       context.snapshots.set(
@@ -1323,30 +1364,24 @@ export class OpenShellBackend {
       const captured = await this.captureDirectMutation(context, abs);
       assertWorkspace(workspace, this.workspace);
       const source = await fsp.lstat(abs);
+      await this.mutationPhase("rename:source-inspected", abs, target);
       try {
         if (source.isDirectory()) {
-          await fsp.mkdir(target);
           try {
-            const entries = await fsp.readdir(abs);
-            await Promise.all(entries.map((entry) => fsp.cp(
-              path.join(abs, entry),
-              path.join(target, entry),
-              { recursive: true, force: false, errorOnExist: true, preserveTimestamps: true }
-            )));
+            await fsp.mkdir(target);
+            await this.mutationPhase("rename:target-created", abs, target);
+            await fsp.rmdir(target);
           } catch (error) {
-            await fsp.rm(target, { recursive: true, force: true });
+            if ((error as NodeJS.ErrnoException).code?.includes("EEXIST")) {
+              throw new Error(`destination already exists: ${path.basename(target)}`);
+            }
             throw error;
           }
-          await fsp.rm(abs, { recursive: true });
+          throw new Error("safe no-replace directory rename is unavailable on this platform");
         } else {
           let created = false;
           try {
-            try {
-              await fsp.link(abs, target);
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
-              await fsp.copyFile(abs, target, constants.COPYFILE_EXCL);
-            }
+            await fsp.link(abs, target);
             created = true;
             await fsp.unlink(abs);
           } catch (error) {

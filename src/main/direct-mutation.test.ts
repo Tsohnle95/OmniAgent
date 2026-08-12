@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -29,14 +29,16 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-async function backendFixture(): Promise<{
+async function backendFixture(
+  mutationPhase?: ConstructorParameters<typeof OpenShellBackend>[0]
+): Promise<{
   backend: OpenShellBackend;
   root: string;
   messages: BackendMessage[];
 }> {
   const root = await mkdtemp(path.join(tmpdir(), "openshell-mutation-"));
   roots.push(root);
-  const backend = new OpenShellBackend();
+  const backend = new OpenShellBackend(mutationPhase);
   const context = {
     root,
     sessionID: "session",
@@ -60,7 +62,75 @@ async function backendFixture(): Promise<{
   return { backend, root, messages };
 }
 
+const writeIdentity = (expectedContent: string) => ({
+  id: "save-1",
+  workspaceID: workspace.id,
+  revision: 1,
+  expectedContent,
+  overwrite: false
+});
+
+async function recoveryContents(root: string): Promise<string[]> {
+  const names = (await readdir(root)).filter((name) => name.includes(".openshell-"));
+  return Promise.all(names.map((name) => readFile(path.join(root, name), "utf8")));
+}
+
 describe("direct mutation observed changes", () => {
+  it("rejects a change before the source is held and restores the changed source", async () => {
+    const { backend, root } = await backendFixture(async (phase, source) => {
+      if (phase === "save:temporary-ready") await writeFile(source, "external-before-hold");
+    });
+    await writeFile(path.join(root, "save.txt"), "expected");
+
+    await expect(backend.writeFile(workspace, "save.txt", "editor", writeIdentity("expected")))
+      .rejects.toThrow("file changed on disk");
+
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("external-before-hold");
+    expect(await recoveryContents(root)).toEqual([]);
+  });
+
+  it("preserves held, proposed, and concurrently recreated files after the hold", async () => {
+    const { backend, root } = await backendFixture(async (phase, _holding, target) => {
+      if (phase === "save:source-held") await writeFile(target, "external-after-hold", { flag: "wx" });
+    });
+    await writeFile(path.join(root, "save.txt"), "expected");
+
+    await expect(backend.writeFile(workspace, "save.txt", "editor", writeIdentity("expected")))
+      .rejects.toThrow("recovery files preserved");
+
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("external-after-hold");
+    expect((await recoveryContents(root)).sort()).toEqual(["editor", "expected"]);
+  });
+
+  it("preserves held, proposed, and concurrently recreated files after validation", async () => {
+    const { backend, root } = await backendFixture(async (phase, _holding, target) => {
+      if (phase === "save:held-validated") await writeFile(target, "external-after-validation", { flag: "wx" });
+    });
+    await writeFile(path.join(root, "save.txt"), "expected");
+
+    await expect(backend.writeFile(workspace, "save.txt", "editor", writeIdentity("expected")))
+      .rejects.toThrow("recovery files preserved");
+
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("external-after-validation");
+    expect((await recoveryContents(root)).sort()).toEqual(["editor", "expected"]);
+  });
+
+  it("does not overwrite a target recreated after installation", async () => {
+    const { backend, root } = await backendFixture(async (phase, _temporary, target) => {
+      if (phase === "save:target-installed") {
+        await unlink(target);
+        await writeFile(target, "external-after-install", { flag: "wx" });
+      }
+    });
+    await writeFile(path.join(root, "save.txt"), "expected");
+
+    await expect(backend.writeFile(workspace, "save.txt", "editor", writeIdentity("expected")))
+      .rejects.toThrow("recovery files preserved");
+
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("external-after-install");
+    expect((await recoveryContents(root)).sort()).toEqual(["editor", "expected"]);
+  });
+
   it("captures and emits deletion of a file not previously tracked by the watcher", async () => {
     const { backend, root, messages } = await backendFixture();
     await writeFile(path.join(root, "delete.txt"), "before delete");
@@ -132,6 +202,40 @@ describe("direct mutation observed changes", () => {
 
     expect(await readFile(path.join(root, "source", "value.txt"), "utf8")).toBe("source");
     expect(await readFile(path.join(root, "target", "value.txt"), "utf8")).toBe("target");
+    expect(messages).toEqual([]);
+  });
+
+  it("rejects directory rename after a late source mutation and preserves the tree", async () => {
+    const { backend, root, messages } = await backendFixture(async (phase, source) => {
+      if (phase === "rename:source-inspected") {
+        await writeFile(path.join(source, "late.txt"), "late mutation");
+      }
+    });
+    await mkdir(path.join(root, "source"));
+    await writeFile(path.join(root, "source", "value.txt"), "source");
+
+    await expect(backend.renamePath(workspace, "source", "target"))
+      .rejects.toThrow("safe no-replace directory rename is unavailable");
+
+    expect(await readFile(path.join(root, "source", "value.txt"), "utf8")).toBe("source");
+    expect(await readFile(path.join(root, "source", "late.txt"), "utf8")).toBe("late mutation");
+    await expect(readFile(path.join(root, "target", "value.txt"), "utf8")).rejects.toThrow();
+    expect(messages).toEqual([]);
+  });
+
+  it("preserves data concurrently created in the directory destination reservation", async () => {
+    const { backend, root, messages } = await backendFixture(async (phase, _source, target) => {
+      if (phase === "rename:target-created") {
+        await writeFile(path.join(target, "concurrent.txt"), "concurrent target");
+      }
+    });
+    await mkdir(path.join(root, "source"));
+    await writeFile(path.join(root, "source", "value.txt"), "source");
+
+    await expect(backend.renamePath(workspace, "source", "target")).rejects.toThrow();
+
+    expect(await readFile(path.join(root, "source", "value.txt"), "utf8")).toBe("source");
+    expect(await readFile(path.join(root, "target", "concurrent.txt"), "utf8")).toBe("concurrent target");
     expect(messages).toEqual([]);
   });
 

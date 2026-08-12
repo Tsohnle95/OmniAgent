@@ -44,11 +44,11 @@ Public methods (all used by IPC):
 | `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured active workspace session |
 | `listDir(workspace, rel)` | Validates active identity and confinement, then `file.list`; strips trailing slashes |
 | `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
-| `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; checks expected disk content unless explicitly overwriting and emits an identified `file-update` |
+| `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; holds and validates the expected disk version, installs by no-replace link, preserves recovery files on concurrent recreation, and emits an identified `file-update` |
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
-| `renamePath(workspace, rel, newName)` | Confined same-folder no-replace rename; rejects occupied destinations and moves tracked snapshot state |
+| `renamePath(workspace, rel, newName)` | Confined same-folder no-replace file rename; rejects occupied destinations and directory renames where portable no-replace semantics are unavailable |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
