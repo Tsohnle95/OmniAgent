@@ -14,7 +14,6 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
-  TerminalStartResult,
   WorkspaceIdentity
 } from "@shared/types";
 
@@ -66,8 +65,8 @@ const api = {
     ipcRenderer.invoke("shell:switch-model", workspace, id, providerID, variant),
   agents: (): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents"),
   switchAgent: (workspace: WorkspaceIdentity, id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", workspace, id),
-  terminalStart: (workspace: WorkspaceIdentity): Promise<TerminalStartResult> =>
-    ipcRenderer.invoke("shell:terminal-start", workspace),
+  terminalStart: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-start", workspace, id),
   terminalInput: (workspace: WorkspaceIdentity, id: string, data: string): Promise<void> =>
     ipcRenderer.invoke("shell:terminal-input", workspace, id, data),
   terminalResize: (workspace: WorkspaceIdentity, id: string, cols: number, rows: number): Promise<void> =>

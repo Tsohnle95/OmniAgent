@@ -23,7 +23,6 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `SessionSelection` | `{ model?: ModelOption, agent?: AgentOption }` | Restores the active session's model/agent picks after a renderer reload |
 | `ApprovalMode` | `"ask" \| "approve"` | Composer permission behavior; approve mode replies `once` automatically |
 | `UserAttachment` | `{ name }` | Attachment chip rendered on a submitted user prompt |
-| `TerminalStartResult` | `{ id }` | PTY id returned by `terminalStart` |
 | `TerminalData` | `{ id, data }` | PTY output chunk (`terminal-data` message) |
 | `TerminalExit` | `{ id, exitCode }` | PTY exit (`terminal-exit` message) |
 | `PermissionReply` | `"once" \| "always" \| "reject"` | Permission card buttons |

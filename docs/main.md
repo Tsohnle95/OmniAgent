@@ -126,7 +126,7 @@ Internals:
 | `shell:switch-model` | `(workspace, id, providerID, variant?) → void` |
 | `shell:agents` | `() → AgentOption[]` |
 | `shell:switch-agent` | `(workspace, id) → void` |
-| `shell:terminal-start` | `(workspace) → { id }`; main supplies the canonical active workspace cwd |
+| `shell:terminal-start` | `(workspace, id) → void`; renderer allocates a validated UUID id before invoking, main supplies the canonical active workspace cwd |
 | `shell:terminal-input` | `(workspace, id, data) → void` |
 | `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |
 | `shell:terminal-stop` | `(workspace, id) → void` |
@@ -144,8 +144,9 @@ before the handler runs. External links from Markdown, tool attachments, and
 popup attempts share one policy: only absolute, credential-free `https:` URLs
 reach `shell.openExternal`; malformed URLs, `http:`, `file:`, custom schemes,
 and URLs containing credentials are inert. The popup itself is always denied.
-The main frame may remain at the exact packaged `file:` document or anywhere
-on the configured development origin. Other main-frame navigations and
+The packaged app always loads the exact bundled `file:` document and ignores
+`ELECTRON_RENDERER_URL`. An unpackaged app may use only a credential-free
+loopback `http:` development URL and then trusts that exact origin. Other main-frame navigations and
 redirects are canceled. The window is `contextIsolation: true`,
 `nodeIntegration: false`, `sandbox: true`, macOS
 `titleBarStyle: "hiddenInset"`. The app icon (`resources/icon.svg` →

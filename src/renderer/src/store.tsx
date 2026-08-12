@@ -1074,7 +1074,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setTabs((prev) =>
           prev.map((tab) => {
             if (tab.path !== f.path) return tab;
-            if (origin === "echo" || origin === "stale-write") return tab;
+            if (origin === "echo") return tab;
             if (tab.dirty) {
               persistence.cancelTimer(workspace, f.path);
               return {

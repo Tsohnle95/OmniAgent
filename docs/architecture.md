@@ -69,7 +69,9 @@ table is in `docs/main.md`.
 The application window is explicitly sandboxed with context isolation and no
 Node integration. Its privileged preload bridge is protected in main: every
 IPC invoke must come from the active window's main frame while it is at the
-exact packaged application document or the configured development origin.
+exact packaged application document or an approved loopback HTTP development
+origin. Packaged startup ignores `ELECTRON_RENDERER_URL` and always loads the
+bundled file.
 Unexpected main-frame navigation and redirects are canceled, and all popup
 creation is denied. Markdown and tool attachment anchors prevent same-frame
 navigation and request an external popup instead. Main opens only absolute,

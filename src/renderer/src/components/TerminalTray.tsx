@@ -164,12 +164,15 @@ export function TerminalTray({
 
   const createTerminal = useCallback(async (): Promise<void> => {
     setNotice("");
+    const id = `term-${crypto.randomUUID()}`;
+    pendingOutputRef.current.awaitRegistration(id);
+    const name = `Terminal ${++counterRef.current}`;
+    setTabs((current) => ({ terms: [...current.terms, { id, name }], activeId: id }));
     try {
-      const { id } = await window.openshell.terminalStart(workspace);
-      pendingOutputRef.current.awaitRegistration(id);
-      const name = `Terminal ${++counterRef.current}`;
-      setTabs((current) => ({ terms: [...current.terms, { id, name }], activeId: id }));
+      await window.openshell.terminalStart(workspace, id);
     } catch (err) {
+      pendingOutputRef.current.remove(id);
+      setTabs((current) => removeTerminal(current, id));
       setNotice(err instanceof Error ? err.message : "Could not start a terminal");
     }
   }, [workspace]);
@@ -180,17 +183,20 @@ export function TerminalTray({
     writersRef.current.clear();
     pendingOutputRef.current.clear();
     void (async () => {
+      const id = `term-${crypto.randomUUID()}`;
+      pendingOutputRef.current.awaitRegistration(id);
+      const name = `Terminal ${++counterRef.current}`;
+      setTabs({ terms: [{ id, name }], activeId: id });
       try {
-        const { id } = await window.openshell.terminalStart(workspace);
+        await window.openshell.terminalStart(workspace, id);
         if (token !== bootTokenRef.current) {
           void window.openshell.terminalStop(workspace, id).catch(() => {});
           return;
         }
-        pendingOutputRef.current.awaitRegistration(id);
-        const name = `Terminal ${++counterRef.current}`;
-        setTabs({ terms: [{ id, name }], activeId: id });
       } catch (err) {
         if (token === bootTokenRef.current) {
+          pendingOutputRef.current.remove(id);
+          setTabs((current) => removeTerminal(current, id));
           setNotice(err instanceof Error ? err.message : "Could not start a terminal");
         }
       }

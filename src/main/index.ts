@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
 import {
+  applicationUrl,
   isAllowedMainFrameNavigation,
   isTrustedIpcSender,
   trustedApplicationLocation,
@@ -13,11 +14,9 @@ import {
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
 import type {
-  CommandOption,
   FileWriteIdentity,
   PermissionReply,
   PromptFile,
-  ReferenceOption,
   WorkspaceIdentity
 } from "@shared/types";
 import {
@@ -28,6 +27,19 @@ import {
   terminalId,
   terminalInput
 } from "./workspace-security";
+import {
+  activationGeneration,
+  commandPayload,
+  directoryPath,
+  fileWriteIdentity,
+  optionalSelectionId,
+  permissionPayload,
+  promptPayload,
+  queryText,
+  selectionId,
+  sessionId,
+  workspacePath
+} from "./ipc-schema";
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
@@ -256,8 +268,8 @@ async function resolveSourcePath(file: string, title: string): Promise<string | 
 }
 
 function createWindow(): BrowserWindow {
-  const rendererUrl = process.env["ELECTRON_RENDERER_URL"] ??
-    pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
+  const packagedUrl = pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
+  const rendererUrl = applicationUrl(app.isPackaged, process.env["ELECTRON_RENDERER_URL"], packagedUrl);
   const location = trustedApplicationLocation(rendererUrl);
   const newWin = new BrowserWindow({
     width: 1480,
@@ -442,7 +454,7 @@ function handleTrusted<Args extends unknown[], Result>(
 
 function registerIpc(): void {
   handleTrusted("shell:select-folder", async (e, requestGeneration: number) => {
-    const generation = backend.beginActivation(requestGeneration);
+    const generation = backend.beginActivation(activationGeneration(requestGeneration));
     const parent = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(parent ?? win!, {
       title: "Open a repository folder",
@@ -453,25 +465,28 @@ function registerIpc(): void {
   });
 
   handleTrusted("shell:open-session", async (_e, dir: string, requestGeneration: number) =>
-    backend.openSession(dir, backend.beginActivation(requestGeneration)));
+    backend.openSession(directoryPath(dir), backend.beginActivation(activationGeneration(requestGeneration))));
 
   handleTrusted("shell:sessions", async () => backend.listSessions());
 
   handleTrusted("shell:open-session-id", async (_e, sessionID: string, requestGeneration: number) =>
-    backend.openSessionById(sessionID, backend.beginActivation(requestGeneration))
+    backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)))
   );
 
-  handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []) =>
-    backend.prompt(workspace, text, files)
-  );
+  handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []) => {
+    const payload = promptPayload(workspace, text, files);
+    return backend.prompt(payload.workspace, payload.text, payload.files);
+  });
 
   handleTrusted("shell:commands", async () => backend.listCommands());
 
-  handleTrusted("shell:run-command", async (_e, workspace: WorkspaceIdentity, name: string, args: string = "") =>
-    backend.runCommand(workspace, name, args)
-  );
+  handleTrusted("shell:run-command", async (_e, workspace: WorkspaceIdentity, name: string, args: string = "") => {
+    assertWorkspace(workspace, (await backend.getState())?.workspace ?? null);
+    const command = commandPayload(name, args);
+    return backend.runCommand(workspace, command.name, command.args);
+  });
 
-  handleTrusted("shell:find-files", async (_e, query: string) => backend.searchFiles(query));
+  handleTrusted("shell:find-files", async (_e, query: string) => backend.searchFiles(queryText(query)));
 
   handleTrusted("shell:select-files", async (e) => {
     const parent = BrowserWindow.fromWebContents(e.sender);
@@ -484,13 +499,15 @@ function registerIpc(): void {
 
   handleTrusted("shell:interrupt", async (_e, workspace: WorkspaceIdentity) => backend.interrupt(workspace));
 
-  handleTrusted("shell:fs-list", async (_e, workspace: WorkspaceIdentity, rel: string) =>
-    backend.listDir(workspace, rel)
-  );
+  handleTrusted("shell:fs-list", async (_e, workspace: WorkspaceIdentity, rel: string) => {
+    const target = workspacePath(workspace, rel, true);
+    return backend.listDir(target.workspace, target.rel);
+  });
 
-  handleTrusted("shell:fs-read", async (_e, workspace: WorkspaceIdentity, rel: string) =>
-    backend.readFile(workspace, rel)
-  );
+  handleTrusted("shell:fs-read", async (_e, workspace: WorkspaceIdentity, rel: string) => {
+    const target = workspacePath(workspace, rel);
+    return backend.readFile(target.workspace, target.rel);
+  });
 
   handleTrusted("shell:source-read", async (_e, absolutePath: string) => {
     const source = await confinedAbsolutePath(await fsp.realpath(app.getAppPath()), absolutePath);
@@ -507,7 +524,10 @@ function registerIpc(): void {
     rel: string,
     content: string,
     write: FileWriteIdentity
-  ) => backend.writeFile(workspace, rel, fileContent(content), write));
+  ) => {
+    const target = workspacePath(workspace, rel);
+    return backend.writeFile(target.workspace, target.rel, fileContent(content), fileWriteIdentity(write, target.workspace));
+  });
 
   handleTrusted("shell:fs-create-file", async (_e, workspace: WorkspaceIdentity, rel: string) =>
     backend.createFile(workspace, rel)
@@ -532,7 +552,12 @@ function registerIpc(): void {
   handleTrusted("shell:model-default", async () => backend.modelDefault());
 
   handleTrusted("shell:switch-model", async (_e, workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string) =>
-    backend.switchModel(workspace, id, providerID, variant)
+    backend.switchModel(
+      workspace,
+      selectionId(id, "model id"),
+      selectionId(providerID, "provider id"),
+      optionalSelectionId(variant, "model variant")
+    )
   );
 
   handleTrusted("shell:permission-reply", async (
@@ -541,25 +566,27 @@ function registerIpc(): void {
     requestID: string,
     reply: PermissionReply,
     sessionID: string
-  ) =>
-    backend.replyPermission(workspace, requestID, reply, sessionID)
-  );
+  ) => {
+    const permission = permissionPayload(requestID, reply, sessionID);
+    return backend.replyPermission(workspace, permission.requestID, permission.reply, permission.sessionID);
+  });
 
   handleTrusted("shell:agents", async () => backend.listAgents());
 
-  handleTrusted("shell:switch-agent", async (_e, workspace: WorkspaceIdentity, id: string) => backend.switchAgent(workspace, id));
+  handleTrusted("shell:switch-agent", async (_e, workspace: WorkspaceIdentity, id: string) =>
+    backend.switchAgent(workspace, selectionId(id, "agent id")));
 
-  handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity) => {
+  handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity, requestedId: string) => {
     const state = await backend.getState();
     const active = assertWorkspace(workspace, state?.workspace ?? null);
-    const id = await terminals.start(state!.directory, active);
+    const id = terminalId(requestedId);
+    await terminals.start(id, state!.directory, active);
     try {
       assertWorkspace(workspace, (await backend.getState())?.workspace ?? null);
     } catch (error) {
       terminals.stop(id, active);
       throw error;
     }
-    return { id };
   });
 
   handleTrusted("shell:terminal-input", async (_e, workspace: WorkspaceIdentity, id: string, data: string) => {

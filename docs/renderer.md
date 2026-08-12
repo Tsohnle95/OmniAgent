@@ -187,8 +187,9 @@ presentational declarations remain in the owning SCSS partial.
 Terminal input flows: keystrokes → `terminalInput(id, data)`; output
 streams back via `onMessage` (`terminal-data`). The xterm `fit` addon +
 `ResizeObserver` keep the PTY dimensions in sync (`terminalResize`).
-Only terminal IDs returned by `terminalStart` and awaiting xterm registration
-can buffer startup output. Buffers retain at most 64 chunks / 256 KiB for ten
+The renderer generates and registers each validated terminal UUID before
+invoking `terminalStart`, so startup output or exit can be attributed even when
+it arrives before the invoke resolves. Only those pending IDs can buffer startup output. Buffers retain at most 64 chunks / 256 KiB for ten
 seconds and are cleared on exit, close, registration, or workspace reset.
 Closing the final tab commits an empty tab state before hiding the tray;
 reopening shows that empty state and requires the explicit `+` action to start

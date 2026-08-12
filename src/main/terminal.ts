@@ -14,8 +14,9 @@ export function defaultShell(platform: NodeJS.Platform, env: NodeJS.ProcessEnv):
 
 export class TerminalManager {
   private terminals = new Map<string, { pty: IPty; workspaceId: string }>();
-  private counter = 0;
   private listeners = new Set<(msg: unknown) => void>();
+
+  constructor(private readonly spawnPty: typeof spawn = spawn) {}
 
   onMessage(cb: (msg: unknown) => void): () => void {
     this.listeners.add(cb);
@@ -26,16 +27,17 @@ export class TerminalManager {
     for (const cb of this.listeners) cb(msg);
   }
 
-  async start(directory: string, workspace: WorkspaceIdentity): Promise<string> {
-    const id = `term-${++this.counter}`;
+  async start(id: string, directory: string, workspace: WorkspaceIdentity): Promise<void> {
+    if (this.terminals.has(id)) throw new Error("terminal already exists");
     const shell = defaultShell(process.platform, process.env);
-    const pty = spawn(shell, [], {
+    const pty = this.spawnPty(shell, [], {
       name: "xterm-256color",
       cols: 100,
       rows: 24,
       cwd: directory,
       env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" }
     });
+    this.terminals.set(id, { pty, workspaceId: workspace.id });
     pty.onData((data) => {
       this.emit({ kind: "terminal-data", terminal: { id, data } });
     });
@@ -43,8 +45,6 @@ export class TerminalManager {
       this.terminals.delete(id);
       this.emit({ kind: "terminal-exit", terminal: { id, exitCode } });
     });
-    this.terminals.set(id, { pty, workspaceId: workspace.id });
-    return id;
   }
 
   private get(id: string, workspace: WorkspaceIdentity): IPty {

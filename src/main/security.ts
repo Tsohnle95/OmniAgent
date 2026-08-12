@@ -6,6 +6,16 @@ type FrameLike = { url: string };
 type WebContentsLike = { mainFrame: FrameLike };
 type IpcEventLike = { sender: WebContentsLike; senderFrame: FrameLike | null };
 
+export function applicationUrl(isPackaged: boolean, developmentUrl: string | undefined, packagedUrl: string): string {
+  if (isPackaged || developmentUrl === undefined) return packagedUrl;
+  const url = new URL(developmentUrl);
+  const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+  if (url.protocol !== "http:" || !localHosts.has(url.hostname) || url.username || url.password) {
+    throw new Error("Unsupported development renderer URL");
+  }
+  return url.href;
+}
+
 export function trustedApplicationLocation(value: string): TrustedApplicationLocation {
   const url = new URL(value);
   if ((url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password) {

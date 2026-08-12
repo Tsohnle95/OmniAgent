@@ -109,7 +109,7 @@ describe("EditorPersistence", () => {
       content: "external",
       deleted: false,
       write: identity
-    })).toBe("stale-write");
+    })).toBe("external");
     expect(persistence.classify(value.workspace, {
       workspace: value.workspace,
       sessionID: "session",
@@ -118,7 +118,7 @@ describe("EditorPersistence", () => {
       content: "ours",
       deleted: false,
       write: { ...identity, revision: 5 }
-    })).toBe("stale-write");
+    })).toBe("external");
     expect(persistence.classify(value.workspace, {
       workspace: value.workspace,
       sessionID: "session",
@@ -154,6 +154,31 @@ describe("EditorPersistence", () => {
     })).toBe("external");
     pending.resolve();
     await expect(saving).resolves.toBe("cancelled");
+  });
+
+  it("reconciles an old write update after close and reopen invalidated its generation", async () => {
+    const pending = deferred();
+    let identity!: FileWriteIdentity;
+    const value = snapshot("one", "file.ts", "old write", 2);
+    const persistence = new EditorPersistence(async (_snapshot, write) => {
+      identity = write;
+      await pending.promise;
+    });
+    const saving = persistence.save(value);
+    await flushPromises();
+    persistence.cancelPath(value.workspace, value.path);
+    pending.resolve();
+    await expect(saving).resolves.toBe("cancelled");
+
+    expect(persistence.classify(value.workspace, {
+      workspace: value.workspace,
+      sessionID: "session",
+      path: value.path,
+      baseline: { kind: "known", content: "disk" },
+      content: value.content,
+      deleted: false,
+      write: identity
+    })).toBe("external");
   });
 
   it.each([

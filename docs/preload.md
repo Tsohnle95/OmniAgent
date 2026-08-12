@@ -38,7 +38,7 @@ automatically.
 | `switchModel(id, providerID, variant?)` | `Promise<void>` |
 | `agents()` | `Promise<AgentOption[]>` |
 | `switchAgent(id)` | `Promise<void>` |
-| `terminalStart(workspace)` | `Promise<{ id }>` |
+| `terminalStart(workspace, id)` | `Promise<void>`; `id` is a renderer-generated `term-<UUID>` registered before invoke |
 | `terminalInput(workspace, id, data)` | `Promise<void>` |
 | `terminalResize(workspace, id, cols, rows)` | `Promise<void>` |
 | `terminalStop(workspace, id)` | `Promise<void>` |
@@ -59,4 +59,6 @@ accepts bridge invokes only from the active window's trusted main frame and
 trusted application URL; a document that navigates elsewhere or an untrusted
 subframe cannot use the exposed API. Workspace filesystem and terminal calls
 also require the active immutable `WorkspaceIdentity`; stale activation tokens
-are rejected in main.
+are rejected in main. Main validates bounded runtime schemas for activation and
+session IDs, prompts and attachments, command/search payloads, model/agent
+selection, permission replies, filesystem writes, and terminal arguments.

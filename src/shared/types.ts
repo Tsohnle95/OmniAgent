@@ -169,10 +169,6 @@ export interface UserAttachment {
 
 export type PermissionReply = "once" | "always" | "reject";
 
-export interface TerminalStartResult {
-  id: string;
-}
-
 export interface TerminalData {
   id: string;
   data: string;

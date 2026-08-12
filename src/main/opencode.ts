@@ -603,12 +603,12 @@ export class OpenShellBackend {
   private startWatcher(context: WatchContext): void {
     this.stopWatcher();
     try {
-      this.watcher = watch(context.root, { recursive: true }, (_event, filename) => {
+      this.watcher = watch(context.root, { recursive: true }, (event, filename) => {
         if (!this.currentWatch(context)) return;
         if (!filename || typeof filename !== "string") return;
         const abs = this.abs(filename, context.root);
         if (this.shouldSkip(abs, context.root)) return;
-        this.scheduleWatch(context, abs);
+        this.scheduleWatch(context, abs, event);
       });
       this.watcher.on("error", (err) => console.error("[openshell] watcher error:", err));
       console.log("[openshell] watching", context.root);
@@ -624,14 +624,14 @@ export class OpenShellBackend {
     this.watcher = null;
   }
 
-  private scheduleWatch(context: WatchContext, abs: string): void {
+  private scheduleWatch(context: WatchContext, abs: string, event: string): void {
     const existing = this.watchTimers.get(abs);
     if (existing) clearTimeout(existing);
     this.watchTimers.set(
       abs,
       setTimeout(() => {
         this.watchTimers.delete(abs);
-        if (this.currentWatch(context)) void this.onFsChanged(context, abs, "change");
+        if (this.currentWatch(context)) void this.onFsChanged(context, abs, event);
       }, 200)
     );
   }
@@ -706,6 +706,19 @@ export class OpenShellBackend {
         ...(write ? { write } : {})
       }
     });
+  }
+
+  private async captureDirectMutation(context: WatchContext, abs: string): Promise<{
+    baseline: FileBaseline;
+    content: string | null;
+  }> {
+    const established = context.snapshots.get(abs);
+    try {
+      const content = await fsp.readFile(abs, "utf8");
+      return { baseline: established ?? knownBaseline(content), content };
+    } catch {
+      return { baseline: established ?? unknownBaseline, content: null };
+    }
   }
 
   // ---------- session + API ----------
@@ -1261,15 +1274,13 @@ export class OpenShellBackend {
       const context = this.watchContext;
       if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
       const abs = await confinedPath(root, relativePath(rel));
+      const captured = await this.captureDirectMutation(context, abs);
       assertWorkspace(workspace, this.workspace);
       await movePathToTrash(abs, (target) => shell.trashItem(target));
       assertWorkspace(workspace, this.workspace);
-      if (context.snapshots.has(abs) || context.lastKnown.has(abs)) {
-        const baseline = context.snapshots.get(abs) ?? knownBaseline(context.lastKnown.get(abs) ?? "");
-        context.snapshots.delete(abs);
-        context.lastKnown.delete(abs);
-        this.emitFileUpdate(context, abs, null, baseline);
-      }
+      context.snapshots.set(abs, captured.baseline);
+      context.lastKnown.delete(abs);
+      this.emitFileUpdate(context, abs, null, captured.baseline);
     });
   }
 
@@ -1281,27 +1292,18 @@ export class OpenShellBackend {
       const abs = await confinedPath(root, relativePath(rel));
       const parent = this.relKey(path.dirname(abs));
       const target = await confinedPath(root, parent ? `${parent}/${fileName(newName)}` : fileName(newName));
+      const captured = await this.captureDirectMutation(context, abs);
       assertWorkspace(workspace, this.workspace);
-      const snapshot = context.snapshots.get(abs) ?? (
-        context.lastKnown.has(abs) ? knownBaseline(context.lastKnown.get(abs)!) : undefined
-      );
       await fsp.rename(abs, target);
       assertWorkspace(workspace, this.workspace);
-      context.snapshots.delete(abs);
+      context.snapshots.set(abs, captured.baseline);
       context.lastKnown.delete(abs);
-      if (snapshot !== undefined) {
-        context.snapshots.set(target, snapshot);
-        this.emitFileUpdate(context, abs, null, snapshot);
-        let content: string | null = null;
-        try {
-          content = await fsp.readFile(target, "utf8");
-        } catch {
-          /* unreadable */
-        }
-        if (!this.currentWatch(context)) return;
-        context.lastKnown.set(target, content ?? "");
-        this.emitFileUpdate(context, target, content);
-      }
+      context.snapshots.set(target, captured.baseline);
+      this.emitFileUpdate(context, abs, null, captured.baseline);
+      if (!this.currentWatch(context)) return;
+      if (captured.content !== null) context.lastKnown.set(target, captured.content);
+      else context.lastKnown.delete(target);
+      this.emitFileUpdate(context, target, captured.content, captured.baseline);
     });
   }
 

@@ -206,7 +206,7 @@ Reopening a session restores the *session's* picks via
 
 ## Terminal tray
 
-`TerminalTray` mounts/restarts a PTY (`terminalStart(workspace)`): main verifies
+`TerminalTray` registers a renderer-generated terminal UUID, then mounts/restarts a PTY (`terminalStart(workspace, id)`): main verifies
 the activation identity and supplies the canonical active workspace cwd.
 `TerminalManager` selects the user's normal interactive shell from `SHELL` on
 macOS/Linux or `COMSPEC` on Windows, with platform defaults, then spawns it via

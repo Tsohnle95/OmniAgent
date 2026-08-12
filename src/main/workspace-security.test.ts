@@ -94,13 +94,13 @@ describe("workspace confinement", () => {
 
 describe("terminal argument validation", () => {
   it("accepts bounded terminal IDs, input and dimensions", () => {
-    expect(terminalId("term-1")).toBe("term-1");
+    expect(terminalId("term-11111111-1111-4111-8111-111111111111")).toBe("term-11111111-1111-4111-8111-111111111111");
     expect(terminalInput("ls\n")).toBe("ls\n");
     expect(terminalDimensions(120, 40)).toEqual({ cols: 120, rows: 40 });
   });
 
   it("rejects malformed IDs, oversized input and invalid dimensions", () => {
-    for (const value of ["", "term-0", "term--1", "other-1", "term-12345678901", 1]) {
+    for (const value of ["", "term-1", "other-11111111-1111-4111-8111-111111111111", "term-11111111-1111-6111-8111-111111111111", 1]) {
       expect(() => terminalId(value)).toThrow("invalid terminal id");
     }
     expect(() => terminalInput("x".repeat(MAX_TERMINAL_INPUT_BYTES + 1))).toThrow("oversized");

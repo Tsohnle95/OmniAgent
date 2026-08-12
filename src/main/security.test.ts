@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applicationUrl,
   isAllowedMainFrameNavigation,
   isTrustedApplicationUrl,
   isTrustedIpcSender,
@@ -7,6 +8,24 @@ import {
 } from "./security";
 
 describe("renderer navigation policy", () => {
+  it("always selects the packaged file and ignores renderer environment overrides", () => {
+    const packaged = "file:///Applications/OpenShell/resources/app/out/renderer/index.html";
+    expect(applicationUrl(true, "https://evil.test/app", packaged)).toBe(packaged);
+    expect(trustedApplicationLocation(applicationUrl(true, "file:///tmp/evil.html", packaged))).toEqual({
+      kind: "exact",
+      value: packaged
+    });
+  });
+
+  it("permits only local HTTP development renderer locations", () => {
+    const packaged = "file:///app/index.html";
+    expect(applicationUrl(false, "http://localhost:5173/", packaged)).toBe("http://localhost:5173/");
+    expect(applicationUrl(false, "http://127.0.0.1:5173/app", packaged)).toBe("http://127.0.0.1:5173/app");
+    expect(applicationUrl(false, undefined, packaged)).toBe(packaged);
+    for (const value of ["https://localhost:5173/", "http://evil.test/", "http://localhost.evil.test/", "file:///tmp/app.html"]) {
+      expect(() => applicationUrl(false, value, packaged)).toThrow("Unsupported development renderer URL");
+    }
+  });
   it("allows the exact packaged document but denies other main-frame navigations and redirects", () => {
     const trusted = trustedApplicationLocation("file:///Applications/OpenShell/resources/app/out/renderer/index.html");
 

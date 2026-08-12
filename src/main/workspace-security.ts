@@ -61,7 +61,9 @@ export function fileContent(value: unknown): string {
 }
 
 export function terminalId(value: unknown): string {
-  if (typeof value !== "string" || !/^term-[1-9]\d{0,9}$/.test(value)) throw new Error("invalid terminal id");
+  if (typeof value !== "string" || !/^term-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
+    throw new Error("invalid terminal id");
+  }
   return value;
 }
 

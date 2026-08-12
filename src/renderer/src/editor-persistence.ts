@@ -10,7 +10,7 @@ export interface SaveSnapshot {
 }
 
 export type SaveResult = "saved" | "cancelled";
-export type FileUpdateOrigin = "echo" | "stale-write" | "external";
+export type FileUpdateOrigin = "echo" | "external";
 
 type Writer = (snapshot: SaveSnapshot, write: FileWriteIdentity) => Promise<void>;
 
@@ -90,7 +90,10 @@ export class EditorPersistence {
       this.expected.delete(key);
       return "echo";
     }
-    return "stale-write";
+    this.conflicts.set(key, (this.conflicts.get(key) ?? 0) + 1);
+    if (update.content === null) this.persisted.delete(key);
+    else this.persisted.set(key, update.content);
+    return "external";
   }
 
   cancelPath(workspace: WorkspaceIdentity, path: string): void {

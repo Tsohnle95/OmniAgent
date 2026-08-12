@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defaultShell, TerminalManager } from "./terminal";
+import type { IPty } from "node-pty";
 
 const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
 
@@ -10,6 +11,35 @@ describe("TerminalManager capability ownership", () => {
     expect(() => terminals.write("term-1", "x", workspace)).toThrow("unknown terminal");
     expect(() => terminals.resize("term-1", 80, 24, workspace)).toThrow("unknown or unavailable terminal");
     expect(() => terminals.stop("term-1", workspace)).toThrow("unknown terminal");
+  });
+
+  it("publishes startup output and an early exit under the renderer-provided id before start resolves", async () => {
+    let onData!: (data: string) => void;
+    let onExit!: (event: { exitCode: number; signal?: number }) => void;
+    const pty = {
+      onData: (listener: typeof onData) => { onData = listener; return { dispose() {} }; },
+      onExit: (listener: typeof onExit) => { onExit = listener; return { dispose() {} }; },
+      write() {}, resize() {}, kill() {}
+    } as unknown as IPty;
+    const manager = new TerminalManager(vi.fn(() => {
+      queueMicrotask(() => {
+        onData("ready");
+        onExit({ exitCode: 0 });
+      });
+      return pty;
+    }) as never);
+    const messages: unknown[] = [];
+    manager.onMessage((message) => messages.push(message));
+    const id = "term-11111111-1111-4111-8111-111111111111";
+
+    await manager.start(id, "/tmp", workspace);
+    await Promise.resolve();
+
+    expect(messages).toEqual([
+      { kind: "terminal-data", terminal: { id, data: "ready" } },
+      { kind: "terminal-exit", terminal: { id, exitCode: 0 } }
+    ]);
+    expect(() => manager.write(id, "x", workspace)).toThrow("unknown terminal");
   });
 
   it("rejects a terminal owned by a stale workspace", () => {

@@ -630,3 +630,4 @@ Residual acceptance notes:
 - WU-05 retains full watcher-phase, reopen/startup-store, and macOS lifecycle harness coverage.
 - The platform smoke verifies launcher and PTY behavior, not the GUI trust-boundary lifecycle.
 - This unit passed `npm run check` in the current worktree, but did not claim a separate clean-checkout run or a new independent final security review.
+- Final-review corrections now lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests cover each correction; full Electron GUI trust-boundary lifecycle coverage remains residual.
