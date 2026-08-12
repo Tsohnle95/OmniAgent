@@ -14,50 +14,14 @@ function formatWhen(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-function WelcomeSection({
-  title,
-  count,
-  open,
-  onToggle,
-  children
-}: {
-  title: string;
-  count: number;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}): ReactNode {
-  return (
-    <div className="welcome-section">
-      <button
-        className="welcome-section-title"
-        onClick={onToggle}
-        aria-expanded={open}
-      >
-        <span className={`codicon ${open ? "codicon-chevron-down" : "codicon-chevron-right"}`} />
-        {title}
-        <span className="welcome-section-count">{count}</span>
-      </button>
-      {open && <div className="welcome-projects">{children}</div>}
-    </div>
-  );
-}
+type WelcomeTab = "sessions" | "projects";
 
 export function Welcome(): ReactNode {
   const { selectFolder, openSession, reopenSession, connected } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
-
-  const toggleSection = (name: string): void => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
+  const [tab, setTab] = useState<WelcomeTab>("sessions");
 
   useEffect(() => {
     void window.openshell
@@ -71,69 +35,111 @@ export function Welcome(): ReactNode {
       .catch(() => setSessions([]));
   }, []);
 
+  useEffect(() => {
+    if (tab === "sessions" && !loading && sessions.length === 0 && projects.length > 0) {
+      setTab("projects");
+    }
+  }, [tab, loading, sessions.length, projects.length]);
+
+  const isSessions = tab === "sessions";
+
   return (
     <div className="welcome">
       <div className="welcome-inner">
-        <div className="welcome-logo">⊘</div>
-        <h1>OpenShell</h1>
-        <p className="welcome-sub">
-          A workspace for the opencode2 agent — open a repository, tell the agent what to build,
-          and watch the files change in real time.
-        </p>
-
-        <button className="btn btn-primary btn-lg" onClick={() => void selectFolder()}>
-          Open a folder
-        </button>
-
-        {!connected && <p className="welcome-warn">opencode service not reachable — it will be started automatically.</p>}
-
-        <div className="welcome-sections">
-          {sessions.length > 0 && (
-            <WelcomeSection
-              title="Recent sessions"
-              count={sessions.length}
-              open={openSections.has("sessions")}
-              onToggle={() => toggleSection("sessions")}
-            >
-              {sessions.map((s) => (
-                <button
-                  key={s.id}
-                  className="welcome-project"
-                  onClick={() => void reopenSession(s.id)}
-                  title={s.id}
-                >
-                  <span className="welcome-project-icon">◷</span>
-                  <span className="welcome-project-name">{s.title}</span>
-                  <span className="welcome-project-dir">{formatWhen(s.updatedAt)} · {s.directory}</span>
-                </button>
-              ))}
-            </WelcomeSection>
+        <section className="welcome-hero">
+          <div className="welcome-mark" aria-hidden>
+            ⊘
+          </div>
+          <h1 className="welcome-title">OpenShell</h1>
+          <p className="welcome-sub">
+            A workspace for the opencode2 agent — open a repository, tell it what to build,
+            and watch the files change in real time.
+          </p>
+          <button className="welcome-cta" onClick={() => void selectFolder()}>
+            <span className="codicon codicon-folder-opened" aria-hidden />
+            Open a folder
+          </button>
+          {!connected && (
+            <p className="welcome-warn">
+              opencode service not reachable — it will be started automatically.
+            </p>
           )}
+        </section>
 
-          <WelcomeSection
-            title="Recent projects"
-            count={projects.length}
-            open={openSections.has("projects")}
-            onToggle={() => toggleSection("projects")}
-          >
-            {loading && <div className="welcome-empty">Loading…</div>}
-            {!loading && projects.length === 0 && (
-              <div className="welcome-empty">No recent projects found.</div>
+        <section className="welcome-frame">
+          <div className="welcome-tabs" role="tablist" aria-label="Recent work">
+            <button
+              role="tab"
+              aria-selected={isSessions}
+              className={`welcome-tab ${isSessions ? "on" : ""}`}
+              onClick={() => setTab("sessions")}
+            >
+              Sessions
+              <span className="welcome-tab-count">{sessions.length}</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={!isSessions}
+              className={`welcome-tab ${isSessions ? "" : "on"}`}
+              onClick={() => setTab("projects")}
+            >
+              Projects
+              <span className="welcome-tab-count">{projects.length}</span>
+            </button>
+          </div>
+
+          <div className="welcome-list" role="tabpanel">
+            {isSessions ? (
+              <>
+                {loading && <p className="welcome-empty">Loading…</p>}
+                {!loading && sessions.length === 0 && (
+                  <p className="welcome-empty">
+                    No recent sessions yet — open a folder to start one.
+                  </p>
+                )}
+                {sessions.map((s) => (
+                  <button
+                    key={s.id}
+                    className="welcome-row"
+                    onClick={() => void reopenSession(s.id)}
+                    title={s.directory}
+                  >
+                    <span className="welcome-row-icon codicon codicon-history" aria-hidden />
+                    <span className="welcome-row-main">
+                      <span className="welcome-row-title">{s.title}</span>
+                      <span className="welcome-row-meta">
+                        {formatWhen(s.updatedAt)} · {s.directory}
+                      </span>
+                    </span>
+                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                {loading && <p className="welcome-empty">Loading…</p>}
+                {!loading && projects.length === 0 && (
+                  <p className="welcome-empty">No recent projects found.</p>
+                )}
+                {projects.map((p) => (
+                  <button
+                    key={p.directory}
+                    className="welcome-row"
+                    onClick={() => void openSession(p.directory)}
+                    title={p.directory}
+                  >
+                    <span className="welcome-row-icon codicon codicon-folder" aria-hidden />
+                    <span className="welcome-row-main">
+                      <span className="welcome-row-title">{p.name}</span>
+                      <span className="welcome-row-meta">{p.directory}</span>
+                    </span>
+                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                  </button>
+                ))}
+              </>
             )}
-            {projects.map((p) => (
-              <button
-                key={p.directory}
-                className="welcome-project"
-                onClick={() => void openSession(p.directory)}
-                title={p.directory}
-              >
-                <span className="welcome-project-icon">▣</span>
-                <span className="welcome-project-name">{p.name}</span>
-                <span className="welcome-project-dir">{p.directory}</span>
-              </button>
-            ))}
-          </WelcomeSection>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   );

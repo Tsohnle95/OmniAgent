@@ -13,6 +13,7 @@
     "check": "npm run typecheck && npm run docs:check"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.3.0",
     "@monaco-editor/react": "^4.7.0",
     "@opencode-ai/client": "next",
     "@vscode/codicons": "^0.0.46-24",
