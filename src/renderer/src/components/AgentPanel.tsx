@@ -417,7 +417,7 @@ function Composer(): ReactNode {
               send();
               return;
             }
-            if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+            if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
             const key = e.key.toLowerCase();
             if (key === "tab") {
               e.preventDefault();
