@@ -1,0 +1,625 @@
+# OpenShell Engineering Fix List
+
+This document is the implementation-ready consolidation of the accurate findings from `findings.md` after verification in `findings2.md`. It excludes disproven claims, corrects overstated severity and rationale, and includes material defects missed by the original audit.
+
+## Priority 0: Security and data integrity
+
+### 1. Lock the renderer to trusted content
+
+**Problem**
+
+- Model-controlled Markdown renders ordinary same-frame links (`src/renderer/src/components/OpenCodeTimeline.tsx:173-201`).
+- The BrowserWindow blocks new windows but does not block same-frame navigation or redirects (`src/main/index.ts:263-266`).
+- The configured preload exposes `window.openshell` to each loaded document (`src/preload/index.ts:19-75`).
+- IPC handlers do not validate the sender WebContents, frame, or URL (`src/main/index.ts:396-503`).
+- A user click can navigate the privileged window to attacker-controlled content, which can then invoke filesystem, prompt, session, permission, and terminal capabilities.
+
+**Fix**
+
+- Deny every main-frame navigation and redirect except the exact packaged application URL or approved development origin.
+- Render Markdown links through a controlled anchor component that prevents in-app navigation.
+- Validate IPC sender ownership, main-frame identity, and trusted URL for every privileged handler.
+- Set `sandbox: true` explicitly to document and preserve the existing Electron 37 default, but do not treat this as the primary fix.
+- Add Electron integration tests covering same-frame links, redirects, popups, subframes, invalid origins, and IPC from untrusted frames.
+
+### 2. Validate external URLs before `shell.openExternal`
+
+**Problem**
+
+- `setWindowOpenHandler` passes every renderer-controlled URL directly to `shell.openExternal` (`src/main/index.ts:263-266`).
+- Attacker-selected custom schemes can invoke unsafe operating-system protocol handlers.
+
+**Fix**
+
+- Parse and allowlist external URLs before calling `shell.openExternal`.
+- Permit only intentionally supported schemes, normally `https:`.
+- Define separate, narrowly scoped behavior if local file links are required.
+- Reject malformed URLs, credentials, unexpected schemes, and other unsupported targets.
+- Test Markdown links and tool attachment links with safe and unsafe schemes.
+
+### 3. Make editor saves workspace- and revision-safe
+
+**Problem**
+
+- `doSave` reads tab content from a stale React render closure (`src/renderer/src/store.tsx:832-880`).
+- Autosave can write an older editor revision and then mark newer in-memory content clean.
+- Save timers survive workspace reset, tab close, delete, and rename (`store.tsx:348-362,668-694,747-824`).
+- Main resolves delayed relative writes against whichever workspace is active when the write executes (`src/main/opencode.ts:476-478,1023-1030`).
+- A timer created in repository A can write A's content to the same relative path in repository B.
+- In-flight older and newer saves are not ordered.
+
+**Fix**
+
+- Assign an immutable generation or workspace ID to every activation.
+- Assign a monotonically increasing content revision to every tab edit.
+- Send the exact content, workspace ID, path, and revision with every write.
+- Reject writes in main when the expected workspace ID is no longer active.
+- Serialize writes per workspace/file or otherwise prevent an older write from completing after a newer write.
+- Clear `dirty` only when the completed workspace, path, and revision still match the current tab.
+- Cancel pending timers on reset, workspace switch, tab close, delete, and unmount.
+- Cancel or deliberately migrate timers and revision state on rename.
+- Remove stale `expectedRef` entries during the same lifecycle operations.
+- Test latest-keystroke persistence, reverse completion order, manual save versus autosave, close, rename, delete, and workspace switching.
+
+### 4. Prevent saves from overwriting detected external changes
+
+**Problem**
+
+- A file update marks a dirty tab stale but does not cancel or block its pending save (`src/renderer/src/store.tsx:905-940`).
+- `doSave` ignores stale state and writes unconditionally (`store.tsx:832-850`).
+- Main does not compare expected disk state before writing (`src/main/opencode.ts:1023-1030`).
+- The save can overwrite agent, user, formatter, or external-editor work and then clear the warning.
+
+**Fix**
+
+- Cancel saves that have not started when an unexpected update reaches a dirty tab.
+- Block normal saves for a conflicted tab until the user chooses reload, overwrite, or merge.
+- Ensure an already-started save cannot silently resolve a newly detected conflict.
+- If versioned disk writes are introduced, reject stale versions rather than using a non-atomic read-then-write check.
+- Test external updates before timer firing, during an in-flight write, and before save completion.
+
+### 5. Confine filesystem capabilities to the active workspace
+
+**Problem**
+
+- Absolute file reads are unrestricted (`src/main/opencode.ts:1007-1014`).
+- `writeFile` accepts absolute paths and parent traversal because it does not call `safeRel` (`opencode.ts:476-478,1023-1030`).
+- `safeRel` is lexical and intermediate symlinked directories can escape the root for create, delete, or rename (`opencode.ts:1033-1099`).
+- IPC argument types, sizes, and workspace identity are not validated at runtime (`src/main/index.ts:396-503`).
+
+**Fix**
+
+- Separate ordinary workspace-relative reads from the privileged source-view operation used for OpenShell/DevTools files.
+- Reject absolute paths, empty paths, parent traversal, invalid separators, and oversized values on workspace APIs.
+- Canonicalize the workspace root and validate existing targets or nearest existing parents immediately around each operation.
+- Establish and enforce an explicit symlink policy, including intermediate symlinks.
+- Bind every filesystem operation to the expected workspace generation.
+- Validate content size and argument shape at the IPC boundary.
+- Add traversal, absolute-path, symlinked-parent, stale-workspace, malformed-input, and oversized-payload tests.
+
+### 6. Validate and bind terminal capabilities
+
+**Problem**
+
+- Terminal start accepts an arbitrary renderer-provided cwd (`src/main/index.ts:479-482`, `src/main/terminal.ts:40-50`).
+- Terminal input, IDs, and dimensions are not runtime-validated (`src/main/index.ts:484-494`).
+- These capabilities become especially dangerous if the renderer trust boundary is crossed.
+
+**Fix**
+
+- Validate sender and workspace identity for terminal operations.
+- Use the active workspace directory in main rather than trusting an arbitrary renderer cwd, unless an explicit external-cwd feature is required.
+- Validate terminal IDs, input size, and positive bounded rows/columns.
+- Test stale workspace IDs, unknown PTYs, invalid dimensions, and oversized input.
+
+## Priority 1: Session and watcher correctness
+
+### 7. Serialize session activation and reject stale completions
+
+**Problem**
+
+- Main has one mutable active `sessionID` and `directory` (`src/main/opencode.ts:371-375`).
+- `openSessionById` activates a session before message history finishes loading (`opencode.ts:723-788`).
+- Overlapping activation requests can leave main on one session while renderer displays another (`src/renderer/src/store.tsx:450-521`).
+- Startup restoration can complete after a user action (`store.tsx:1140-1143`).
+- File, tree, model, agent, and selection requests can install stale responses.
+
+**Fix**
+
+- Assign activation generations when requests are accepted.
+- Define request ordering explicitly, preferably latest-request-wins.
+- Serialize or cancel backend activation work as appropriate.
+- Have renderer and main discard stale activation completions.
+- Carry expected session/workspace identity on all mutations and reject mismatches.
+- Carry generation identity on session and file-update messages.
+- Guard file, tree, model, agent, and selection responses before applying them.
+- Test overlapping new-session, reopen, child-session, and startup-restoration requests with deferred promises.
+
+### 8. Prevent watcher work from crossing workspace generations
+
+**Problem**
+
+- An already-running `onFsChanged` survives watcher shutdown (`src/main/opencode.ts:544-598`).
+- It performs asynchronous work while helpers and maps consult mutable `this.directory` and shared active maps (`opencode.ts:480-608`).
+- Work originating in repository A can mutate repository B's baseline maps and emit an A file using a path relative to B.
+- Renderer accepts file updates without workspace/generation validation (`src/renderer/src/store.tsx:905-940`).
+
+**Fix**
+
+- Capture root, session ID, generation, and workspace-scoped maps when scheduling watcher work.
+- Pass the captured root to all path and Git helpers.
+- Check generation after every relevant await and before mutating maps or emitting.
+- Include generation/session identity in file-update messages.
+- Discard stale file updates in renderer.
+- Test switching workspaces during stat, read, Git lookup, deletion handling, and emission.
+
+### 9. Make backend event-loop startup idempotent
+
+**Problem**
+
+- Initial readiness calls `backend.start()` and launches `runEventLoop()` (`src/main/index.ts:533`, `src/main/opencode.ts:434-437`).
+- Closing the last window on macOS does not stop that loop.
+- Dock reactivation calls `backend.start()` again (`src/main/index.ts:544-548`).
+- `start()` has no running-loop guard, so every reactivation can create another SSE subscription and duplicate events, side effects, reconnect attempts, and resource use.
+
+**Fix**
+
+- Track the running loop promise or cancellation controller.
+- Make `start()` a no-op while a loop is active.
+- Make `stop()` cancel and await loop termination when necessary.
+- Ensure reconnection cannot create parallel subscriptions.
+- Correct docs that describe the current implementation as safely restartable.
+- Test repeated close/reactivate cycles and assert one subscription and one forwarded event.
+
+### 10. Implement or remove the documented editor/watcher echo dedupe
+
+**Problem**
+
+- Docs say file updates consult `expectedRef` to recognize editor write echoes.
+- Source does not compare file-update content to `expectedRef`; any update while dirty marks the tab stale (`src/renderer/src/store.tsx:905-929`).
+- Save completion may quickly clear the warning, masking the mismatch.
+
+**Fix**
+
+- Integrate echo identity with the revisioned save protocol rather than relying only on content equality.
+- Distinguish a confirmed echo of the current write from a genuine external update.
+- Keep conflict handling active for updates that do not match the in-flight revision.
+- Update documentation to describe the implemented mechanism exactly.
+
+## Priority 2: Diff and timeline semantics
+
+### 11. Define and implement one baseline/provenance policy
+
+**Problem**
+
+- Editor saves replace both backend and tab baselines (`src/main/opencode.ts:1027-1030`, `src/renderer/src/store.tsx:839-844`).
+- This makes the visible accumulated diff disappear after save.
+- Documentation disagrees: some files define baseline as session-start/agent-start content, while `docs/walkthrough.md` says editor writes intentionally reset it.
+- Actual baselines can be pre-tool content, Git `HEAD`, first-observed non-git content, or empty content for a newly created file.
+- One mutable baseline cannot both preserve all session changes and subtract arbitrary interleaved user edits.
+
+**Fix**
+
+- Choose and document one product definition:
+- Option A: observed workspace changes during the active session. Preserve each file's first established baseline through editor saves.
+- Option B: agent-attributed changes. Introduce explicit provenance/change tracking rather than attempting attribution with one mutable baseline.
+- Represent unknown baseline explicitly rather than setting it equal to post-change content.
+- Ensure save completion updates persisted/current content without accidentally changing the chosen baseline invariant.
+- Add baseline lifecycle tests for open, tool edit, shell edit, editor save, create, delete, rename, Git, and non-git workspaces.
+
+### 12. Correct non-git shell baselines and attribution claims
+
+**Problem**
+
+- Tool snapshotting recognizes structured `filePath`, `file_path`, or `path` values but does not infer paths from shell command strings (`src/main/opencode.ts:62-80,491-501`).
+- In non-git workspaces, the first content observed after a shell modification becomes the baseline, yielding an empty diff (`opencode.ts:563-597`).
+- The watcher has no actor provenance, so user, formatter, IDE, and other process changes enter the same Changes list (`src/renderer/src/store.tsx:905-912`).
+- Git `HEAD` provides a useful comparison but does not prove who made a working-tree change.
+
+**Fix**
+
+- Stop claiming that Changes/Diff is “exactly what the agent changed” unless real provenance is implemented.
+- If observed-change semantics are selected, document Git, non-git, skipped-path, and first-observation limitations.
+- If strict attribution is selected, establish explicit execution/change correlation and pre-change capture; acknowledge that concurrent external edits still require conflict handling.
+- Show an unknown-baseline state when pre-change content cannot be recovered.
+
+### 13. Preserve chronological timeline order
+
+**Problem**
+
+- `buildTurns` preserves body order, but rendering groups every assistant item before every non-assistant event (`src/renderer/src/components/OpenCodeTimeline.tsx:724-739,868-879`).
+- Interleaved shell, compaction, synthetic, skill, status, or divider events are displayed after later assistant content.
+
+**Fix**
+
+- Walk `turn.body` in order.
+- Group only contiguous assistant runs where cross-message tool grouping is needed.
+- Do not group across intervening semantic events.
+- Add DOM-order tests for assistant/event/assistant combinations across every event type.
+
+## Priority 3: Destructive operations and terminal lifecycle
+
+### 14. Remove silent permanent-delete fallback
+
+**Problem**
+
+- Every `shell.trashItem` failure falls back to recursive forced deletion (`src/main/opencode.ts:1061-1068`).
+- The UI cannot distinguish recoverable Trash from permanent deletion or request confirmation.
+
+**Fix**
+
+- Propagate Trash failures to the renderer.
+- Do not automatically invoke recursive deletion.
+- If permanent deletion is required, expose it as a separate confined API and require explicit confirmation showing the exact target.
+- Preserve and display the original Trash error.
+- Test successful Trash, failed Trash, files, directories, symlink policy, and permanent-delete confirmation.
+
+### 15. Fix terminal tab and process lifecycle
+
+**Problem**
+
+- Closing the final terminal returns before committing the empty tab state (`src/renderer/src/components/TerminalTray.tsx:208-219`).
+- Reopening the hidden but mounted tray shows a dead terminal.
+- Natural `terminal-exit` messages are emitted by main but ignored by renderer (`src/main/terminal.ts:54-57`, `TerminalTray.tsx:155-169`).
+- Output for unregistered or stale IDs is buffered without a size or age limit (`TerminalTray.tsx:138-166`).
+
+**Fix**
+
+- Commit `terms` and `activeId` before hiding the tray after the final close.
+- Handle `terminal-exit` by removing the tab, writer, and buffer and selecting a neighboring tab.
+- Buffer output only for IDs known to be awaiting registration.
+- Cap buffered bytes/chunks and discard stale buffers.
+- Define whether reopening an empty tray shows an empty state or automatically creates a terminal.
+- Test final close, natural exit, startup output, stale IDs, session restart, and buffer limits.
+
+## Priority 4: Automated verification and performance safeguards
+
+### 16. Add automated tests for core state machines
+
+**Problem**
+
+- No test/spec files, framework configuration, or `test` script exist.
+- CI covers only typecheck, docs checks, and build.
+- Runtime ordering, trust boundaries, path safety, reducer behavior, watcher generations, terminal lifecycle, and save semantics are unprotected.
+
+**Fix**
+
+- Add a fast unit/integration test runner and `npm test` script.
+- Prioritize reducer/replay fixtures and terminal-state monotonicity.
+- Add fake-timer and deferred-promise tests for autosave and activation races.
+- Add filesystem confinement and symlink tests.
+- Add watcher generation and baseline lifecycle tests.
+- Add timeline DOM-order and terminal component tests.
+- Add Electron trust-boundary/navigation/IPC smoke tests.
+- Run the appropriate test layers in CI.
+
+### 17. Establish bounded state and measure long-session performance
+
+**Problem**
+
+- Tool and shell output is retained in full even when presentation truncates it.
+- Transcript updates repeatedly scan/map arrays.
+- The active timeline renders the full transcript without virtualization.
+- Reopened/child session streams and session usage have incomplete retention policies.
+- One broad context exposes high- and low-frequency state together.
+
+**Fix**
+
+- Create a repeatable large-session benchmark before broad refactoring.
+- Measure update latency, render latency, DOM size, and retained memory.
+- Define caps or summarization for retained tool/shell output.
+- Define retention/eviction for inactive session streams and usage records.
+- Index hot assistant/tool updates if measurements show reducer cost is material.
+- Split high-frequency stream state from low-frequency workspace/UI state if measurements justify it.
+- Virtualize older turns only if measured DOM/render cost warrants it.
+
+## Priority 5: Development, dependency, and quality workflows
+
+### 18. Make the canonical local check match CI and documentation
+
+**Problem**
+
+- README says `npm run build` includes typecheck, but the script only builds (`README.md:66-70`, `package.json:9`).
+- `npm run check` omits build (`package.json:13`).
+- CI currently does run all three existing definition-of-done gates: typecheck, docs check, and build (`.github/workflows/check.yml:17-20`).
+- There are no test or lint/format gates.
+
+**Fix**
+
+- Define one canonical local command that runs typecheck, tests, docs checks, and build, plus lint/format if adopted.
+- Make README and AGENTS point to that command.
+- Keep CI aligned with the canonical command or its clearly equivalent steps.
+- Do not state that current CI misses the existing AGENTS gates; extend those gates deliberately as tests and other checks are added.
+
+### 19. Define supported platforms and make launch scripts match
+
+**Problem**
+
+- `dev` and `start` use POSIX environment syntax and a macOS-only executable path (`package.json:8-10`).
+- The helper exits on non-macOS but the calling command still sets that macOS path (`scripts/make-dev-app.mjs:8-10`).
+- Default Windows npm shells cannot parse the inline assignment.
+- Documentation presents the commands without a platform limitation.
+
+**Fix**
+
+- Declare whether support is macOS-only, macOS-first, or cross-platform.
+- If cross-platform, use a Node launcher that selects the custom bundle only on Darwin and plain Electron elsewhere.
+- Avoid shell-specific inline environment syntax.
+- Add launch smoke tests on every supported platform.
+- Correct README and operations documentation.
+
+### 20. Correct terminal shell and native-module documentation/workflow
+
+**Problem**
+
+- The PTY discovers a shell through a login invocation but spawns it without login arguments (`src/main/terminal.ts:30-50`).
+- Documentation incorrectly calls the resulting PTY a login shell.
+- Documentation says `node-pty` is rebuilt with `@electron/rebuild`, but no script invokes it.
+- Current `node-pty` is Node-API based, so lack of rebuild is not proof of an ABI failure; runtime PTY compatibility is simply unverified.
+
+**Fix**
+
+- Decide whether the terminal should be a login shell.
+- Pass platform-appropriate login arguments if required, or correct the docs to say interactive default shell.
+- Remove the false rebuild claim or add an explicit, verified rebuild lifecycle if packaging/runtime requirements demand one.
+- Add a real PTY launch/input/output/exit smoke test on supported platforms.
+
+### 21. Stabilize the OpenCode client update policy
+
+**Problem**
+
+- `@opencode-ai/client` uses the mutable `next` tag in `package.json`.
+- The tracked lock makes current `npm ci` installs reproducible, but lock regeneration or explicit updates can move the protocol dependency without a manifest diff.
+- `.gitignore` unnecessarily lists the already tracked `package-lock.json`; this does not hide tracked changes but is confusing hygiene debt.
+- There are no protocol contract fixtures guarding client updates.
+
+**Fix**
+
+- Pin the client to an exact prerelease in the manifest.
+- Remove the lockfile ignore rule while keeping the lock tracked.
+- Update the client through explicit commits with protocol/replay fixture tests and generated API-shape review.
+- Document the dependency update procedure.
+
+### 22. Enforce a supported Node version
+
+**Problem**
+
+- README and operations docs say Node 20+.
+- Locked tooling has narrower/newer engine requirements, including electron-vite `^20.19.0 || >=22.12.0` and `@electron/rebuild >=22.12.0`.
+- CI uses Node 22, but the repository has no root engine declaration or version file.
+
+**Fix**
+
+- Select a Node version/range compatible with the full locked dependency graph and supported platforms.
+- Add `package.json` engines and an appropriate version-manager file.
+- Use the same supported version in CI and documentation.
+- Treat optional CDP examples separately from application runtime requirements.
+
+## Priority 6: Documentation and maintainability
+
+### 23. Correct known documentation drift
+
+Update the project brain to reflect these verified facts:
+
+- Changes/Diff does not prove “exactly what the agent changed.”
+- Baseline policy must match the product decision in item 11.
+- Main forwards SSE events before awaiting `handleServerEvent` (`src/main/opencode.ts:448-451`).
+- The complete SSE event is nested inside outer `BackendMessage.data`; side handling receives inner `data` or `properties`.
+- The current PTY is not spawned with login arguments.
+- No `@electron/rebuild` script currently exists.
+- `npm run build` does not typecheck.
+- Development/start commands are currently macOS-specific and POSIX-shell-specific.
+- Node 20+ is too broad for the locked toolchain.
+- Startup order is start, register forwarders, register IPC, create window, then asynchronous connect (`src/main/index.ts:524-542`).
+- The backend has one active session, not only one service session per app run.
+- `TerminalTray` currently handles terminal data but not exit.
+- Trash failure currently falls back to permanent deletion until item 14 is fixed.
+- TODO currently has no actionable product item.
+- Remove the duplicate `providerUsage()` method row in `docs/main.md`.
+- Remove stale numeric source line references or replace them with stable symbol references.
+- Keep the accurate boundary: `opencode.ts` owns opencode2/client traffic; provider usage calls separate provider APIs and is already documented as a separate module.
+
+### 24. Make `docs:check` describe and enforce its real scope
+
+**Problem**
+
+- The checker validates selected inventory and regex-based surfaces, not semantic correctness.
+- Its success output says the entire project brain is in sync.
+- It does not check links inside every doc, duplicate table rows, package-command claims, source line references, or behavioral invariants.
+- AGENTS already limits the promise to machine-checkable/public surfaces, but its all-doc-link wording is broader than implementation.
+
+**Fix**
+
+- Rename output and documentation to “documented surface presence check” or similarly precise language.
+- State exactly which files and surfaces are checked.
+- Check links in all documentation files.
+- Reject duplicate inventory rows.
+- Add package-command and supported-Node assertions where stable.
+- Prefer AST/schema-based checks for IPC, preload, public methods, and shared wire shapes over fragile regexes.
+- Keep behavioral truth in automated tests rather than attempting to prove it through prose checks.
+
+### 25. Reduce implicit global ownership after correctness tests exist
+
+**Problem**
+
+- `src/main/opencode.ts`, `src/renderer/src/store.tsx`, and `AgentPanel.tsx` combine many responsibilities.
+- The concrete session, save, and watcher races show that implicit active-workspace ownership is difficult to contain.
+- File size alone is not a defect, so a broad split or rewrite is not justified.
+
+**Fix**
+
+- First establish tests and explicit workspace/session/revision invariants.
+- Then extract focused boundaries around activation/generation, editor persistence, filesystem watching, and transcript state where doing so improves ownership or testability.
+- Keep the preload contract stable unless a capability split is required for security.
+- Measure context/render behavior before partitioning state solely for performance.
+
+## Product decisions
+
+- [x] Diff/Changes represents file changes observed during the active workspace session. It does not claim authoritative agent provenance.
+- [x] Platform policy is macOS-first cross-platform: macOS remains the primary runtime target, while development and launch workflows must function on Linux and Windows and receive targeted CI coverage.
+
+## Independent work units
+
+Each unit must be implemented and committed independently. A unit is complete only when its checklist is checked, its focused tests pass, and `npm run typecheck`, `npm run build`, and `npm run docs:check` pass. Later units may refine tests introduced by earlier units but must not weaken their invariants.
+
+### WU-01: Test foundation and canonical gate
+
+Scope: item 16 and the local portion of item 18.
+
+- [x] Add a TypeScript-compatible unit/component test runner and DOM test environment.
+- [x] Add `npm test` with at least one reducer/replay regression test.
+- [x] Add reusable fake-timer and deferred-promise test helpers where needed. No helper is needed by the current replay test.
+- [x] Make `npm run check` run typecheck, tests, docs check, and build.
+- [x] Align CI with the canonical gate without dropping any existing check.
+- [x] Update README, AGENTS, and operations docs for the canonical command.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
+
+### WU-02: Renderer trust boundary and external links
+
+Scope: items 1 and 2 plus sender validation from item 5.
+
+- [ ] Deny unexpected main-frame navigation and redirects.
+- [ ] Validate IPC sender WebContents, main frame, and trusted application URL.
+- [ ] Prevent Markdown anchors from navigating the application document.
+- [ ] Allowlist safe external URL schemes before `shell.openExternal`.
+- [ ] Handle tool/file links through the same validated policy.
+- [ ] Set `sandbox: true` explicitly without relying on it as the primary control.
+- [ ] Add focused tests for trusted/untrusted navigation, frames, senders, redirects, popups, and URL schemes.
+- [ ] Update security and IPC documentation.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-03: Workspace identity and confined capabilities
+
+Scope: items 5, 6, and the shared workspace contract required by items 3, 7, and 8.
+
+- [ ] Introduce an immutable workspace generation/identity in shared types.
+- [ ] Carry expected workspace identity on filesystem and terminal IPC.
+- [ ] Reject stale workspace operations in main.
+- [ ] Separate workspace-relative reads from privileged source-view reads.
+- [ ] Reject absolute paths, parent traversal, malformed values, and oversized payloads on workspace APIs.
+- [ ] Define and enforce an intermediate-symlink confinement policy.
+- [ ] Stop trusting renderer-provided terminal cwd for ordinary workspace terminals.
+- [ ] Validate terminal IDs, input size, rows, and columns.
+- [ ] Add path, symlink, stale-workspace, malformed-argument, and terminal-validation tests.
+- [ ] Update shared, preload, main, and security documentation.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-04: Revision-safe saves and conflict handling
+
+Scope: items 3, 4, and 10.
+
+- [ ] Give every tab edit a monotonically increasing revision.
+- [ ] Save exact content with workspace identity and revision rather than reading a stale render closure.
+- [ ] Serialize writes per workspace/file or otherwise prevent stale write completion.
+- [ ] Clear dirty state only for the matching completed revision.
+- [ ] Cancel or migrate timers and expected-write state on reset, close, delete, rename, switch, and unmount.
+- [ ] Detect confirmed write echoes without treating genuine external updates as echoes.
+- [ ] Block conflicted saves until explicit reload, overwrite, or merge resolution.
+- [ ] Add fake-timer/deferred-write tests for typing, manual save, reverse completion, conflict, close, delete, rename, and workspace switch.
+- [ ] Update editor/save/conflict documentation.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-05: Session, watcher, and event-loop generations
+
+Scope: items 7, 8, and 9.
+
+- [ ] Define latest-request-wins activation semantics.
+- [ ] Assign activation generations at request acceptance.
+- [ ] Serialize/cancel activation work and discard stale main and renderer completions.
+- [ ] Guard file, tree, model, agent, and selection responses by generation.
+- [ ] Capture watcher root/session/generation and workspace-scoped maps.
+- [ ] Check watcher generation after awaits and before mutation/emission.
+- [ ] Include identity on session and file-update messages and reject stale renderer updates.
+- [ ] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
+- [ ] Add deterministic activation, watcher-phase, reopen, startup-restoration, and macOS-reactivation tests.
+- [ ] Update session, watcher, startup, and event-loop documentation.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-06: Observed-change baselines and timeline chronology
+
+Scope: items 11, 12, and 13 under the selected observed-session-changes policy.
+
+- [ ] Preserve each file's first established baseline through editor saves.
+- [ ] Represent unknown pre-change content explicitly.
+- [ ] Label Changes/Diff as observed workspace changes rather than authoritative agent attribution.
+- [ ] Document Git, non-git, shell, skipped-path, and first-observation limits.
+- [ ] Preserve timeline body order and group only contiguous assistant runs.
+- [ ] Add baseline lifecycle tests for tool, shell, editor, create, delete, rename, Git, and non-git cases.
+- [ ] Add DOM-order tests for every interleaved semantic timeline event.
+- [ ] Update all baseline, Changes, and timeline documentation.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-07: Safe deletion and terminal lifecycle
+
+Scope: items 14 and 15.
+
+- [ ] Remove automatic permanent deletion after Trash failure.
+- [ ] Surface the original Trash failure to the user.
+- [ ] If permanent deletion remains available, make it a separate confined and explicitly confirmed action.
+- [ ] Commit empty terminal state before hiding the final tab.
+- [ ] Handle natural terminal exits and select a valid neighboring tab.
+- [ ] Buffer output only for terminals awaiting registration and enforce byte/chunk limits.
+- [ ] Define and implement empty-tray reopen behavior.
+- [ ] Add Trash failure, confirmation, final-close, natural-exit, startup-output, stale-ID, and buffer-limit tests.
+- [ ] Update deletion and terminal documentation.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-08: Performance retention and benchmark
+
+Scope: item 17.
+
+- [ ] Add a repeatable large-session benchmark or deterministic performance fixture.
+- [ ] Record budgets for reducer/update latency, render cost, DOM size, and retained output.
+- [ ] Cap or summarize retained tool and shell output.
+- [ ] Define retention/eviction for inactive session streams and usage records.
+- [ ] Optimize transcript indexing, context partitioning, or virtualization only where measurements justify it.
+- [ ] Add regression coverage for the selected retention behavior.
+- [ ] Document performance budgets and retention policy.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-09: Portable runtime and dependency policy
+
+Scope: items 19, 20, 21, and 22 under the selected macOS-first cross-platform policy.
+
+- [ ] Replace shell-specific launch commands with a portable Node launcher.
+- [ ] Use the custom app bundle only on Darwin and plain Electron elsewhere.
+- [ ] Decide and implement or document interactive versus login-shell behavior per platform.
+- [ ] Remove the false native rebuild claim or add a verified rebuild lifecycle if required.
+- [ ] Add targeted launch and PTY smoke coverage for supported environments.
+- [ ] Pin `@opencode-ai/client` to an exact prerelease and remove the tracked lockfile ignore rule.
+- [ ] Add a documented client update and protocol-fixture review process.
+- [ ] Select and enforce a Node version compatible with the locked graph in package metadata, version files, CI, and docs.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+### WU-10: Documentation checker and final architecture cleanup
+
+Scope: items 23, 24, and 25 after all behavioral units are complete.
+
+- [ ] Reconcile every known documentation-drift item against final source behavior.
+- [ ] Remove stale numeric line references and duplicate method rows.
+- [ ] Rename `docs:check` output and prose to state its exact surface-presence scope.
+- [ ] Check links in all documentation files and reject duplicate inventory rows.
+- [ ] Add stable package-command and supported-Node assertions.
+- [ ] Prefer structured/AST checks where practical without replacing behavioral tests.
+- [ ] Extract activation, persistence, watcher, or transcript boundaries only where established tests show an ownership benefit.
+- [ ] Do not split modules solely by line count or perform a broad rewrite.
+- [ ] Run a final audit against every item and work-unit checkbox in this document.
+- [ ] Pass `npm run check`.
+- [ ] Commit as one independently revertible unit.
+
+## Final acceptance
+
+- [ ] Every WU-01 through WU-10 checklist is complete.
+- [ ] Every work unit has an independent commit and focused regression tests.
+- [ ] The final worktree contains no new uncommitted implementation changes.
+- [ ] `npm run check` passes from a clean checkout.
+- [ ] A final review finds no unresolved Critical or High item from this document.

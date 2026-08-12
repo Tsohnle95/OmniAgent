@@ -16,13 +16,16 @@ and verified in real sessions.
 
 ```sh
 npm run dev      # electron-vite dev with HMR (main/preload/renderer)
+npm test         # Vitest unit/component tests in jsdom
 npm run build    # production build -> out/
+npm run check    # typecheck, tests, docs check, and production build
 npm start        # electron-vite preview (rebuilds, then launches)
 ```
 
 `npm start` rebuilds every time; after a manual `npm run build` you can
 launch straight from the build with `npx electron .`. `npm run typecheck`
-runs `tsc --noEmit` for both node and web configs.
+runs `tsc --noEmit` for both node and web configs. `npm run check` is the
+canonical local and CI verification gate.
 
 ## Smoke test checklist
 

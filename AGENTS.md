@@ -14,7 +14,9 @@ self-contained so you never need to crawl the whole repo.
 npm install
 npm run dev        # electron-vite dev with HMR
 npm run typecheck  # tsc --noEmit for node + web configs
+npm test           # Vitest unit/component tests in jsdom
 npm run build      # electron-vite build -> out/
+npm run check      # canonical verification gate
 npm start          # run the production build
 ```
 
@@ -71,9 +73,9 @@ agent changed this session.
 
 ## Definition of done
 
-After any change: `npm run typecheck` clean, `npm run build` succeeds,
-`npm run docs:check` passes. Commit buildable state; never commit a broken
-build.
+After any change, run `npm run check`. It runs typecheck, unit/component tests,
+docs checks, and the production build. Commit buildable state; never commit a
+broken build.
 
 ## Commits are the agent's job
 
@@ -83,7 +85,7 @@ The agent owns version control — the user should never see a dirty tree.
   as you found it; if the session starts clean, it must end clean.
 - Commit after each logically complete unit of work (a feature, a fix,
   its docs) rather than once at the end — but only after that unit
-  passes typecheck/build/docs:check.
+  passes `npm run check`.
 - Include the doc/brain updates for a change in the same commit as the
   code that makes them necessary (see Docs maintenance).
 - Write concise commit messages that match the repo's existing style.

@@ -61,12 +61,14 @@ All API traffic happens in the Electron **main process** using
 ```sh
 npm install
 npm run dev        # electron-vite dev with HMR
+npm test           # unit/component tests in Vitest + jsdom
+npm run check      # typecheck, tests, docs check, and production build
 ```
 
 ## Build
 
 ```sh
-npm run build      # typecheck + build
+npm run build      # production build only
 npm start          # run the production build
 ```
 
