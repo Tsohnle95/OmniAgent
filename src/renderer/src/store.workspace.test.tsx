@@ -14,9 +14,9 @@ function Probe(): ReactNode {
   return null;
 }
 
-function deferred(): { promise: Promise<void>; resolve: () => void } {
-  let resolve!: () => void;
-  const promise = new Promise<void>((done) => { resolve = done; });
+function deferred<T = void>(): { promise: Promise<T>; resolve: (value?: T) => void } {
+  let resolve!: (value?: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done as (value?: T) => void; });
   return { promise, resolve };
 }
 
@@ -114,5 +114,35 @@ describe("store workspace continuations", () => {
 
     expect(store.session?.directory).toBe("/two");
     expect(store.tabs.map((tab) => tab.path)).toEqual(["same.txt"]);
+  });
+
+  it("does not let startup restoration reopen over a user activation", async () => {
+    const startup = deferred<SessionInfo | null>();
+    const openSessionById = vi.fn();
+    window.openshell = api({ state: () => startup.promise, openSessionById });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/chosen"));
+    await act(async () => startup.resolve(info("/restored", 1)));
+
+    expect(openSessionById).not.toHaveBeenCalled();
+    expect(store.session?.directory).toBe("/chosen");
+  });
+
+  it("does not apply an older reopen completion after a newer reopen", async () => {
+    const older = deferred<Awaited<ReturnType<NonNullable<OpenShellApi["openSessionById"]>>>>();
+    const newer = deferred<Awaited<ReturnType<NonNullable<OpenShellApi["openSessionById"]>>>>();
+    const openSessionById = vi.fn((id: string) => id === "older" ? older.promise : newer.promise);
+    window.openshell = api({ openSessionById });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    let olderPending!: Promise<void>;
+    let newerPending!: Promise<void>;
+    await act(async () => { olderPending = store.reopenSession("older"); });
+    await act(async () => { newerPending = store.reopenSession("newer"); });
+    await act(async () => newer.resolve({ session: info("/newer", 2), transcript: [], todos: [], usage: null }));
+    await act(async () => newerPending);
+    await act(async () => older.resolve({ session: info("/older", 1), transcript: [], todos: [], usage: null }));
+    await act(async () => olderPending);
+
+    expect(store.session?.directory).toBe("/newer");
   });
 });
