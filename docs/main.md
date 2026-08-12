@@ -62,7 +62,9 @@ Internals:
   restarts the watcher, and emits `{kind:"session"}`.
 - `replayTranscript(messages)` — converts `message.list` output to
   `TranscriptItem[]`: user, internal selection, synthetic/system/skill/shell,
-  assistant, and compaction messages in persisted order. Tool status comes
+  assistant, and compaction messages in persisted order. Internal selection
+  and system prompt entries are retained for state reconstruction but filtered
+  from the visible chat. Tool status comes
   from streaming/running/completed/error; parsed input, text/file content,
   metadata, provider state, duration, retry, error, and completion are restored.
 - `snapshotInputs(input)` — recursively walks the tool-call input for

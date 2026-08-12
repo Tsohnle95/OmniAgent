@@ -86,8 +86,9 @@ Key mechanisms:
 - **V2 transcript replay** — reopened sessions accept OpenCode's flat
   `SessionMessageInfo[]` plus legacy `info`/`parts` projections and reconstruct
   the same user, selection, synthetic/system/skill/shell, assistant, and
-  compaction items used by the live reducer. Selection items remain available
-  for state reconstruction but are filtered from the chat timeline. Renderer
+  compaction items used by the live reducer. Selection and system prompt items
+  remain available for state reconstruction but are filtered from the chat
+  timeline. Renderer
   startup reopens the backend's active session silently so a reload hydrates
   persisted messages before new live events continue. `mergeChatHistory` reconciles replay with
   any global SSE events received during the request, preserving terminal tool

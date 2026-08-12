@@ -12,7 +12,7 @@ const TEXT_RENDER_SNAP = /[\s.,!?;:)\]]/;
 
 type AssistantItem = Extract<TranscriptItem, { kind: "assistant" }>;
 type AssistantPart = AssistantItem["parts"][number];
-type VisibleTimelineItem = Exclude<TranscriptItem, { kind: "permission" | "pending-input" | "selection" }>;
+type VisibleTimelineItem = Exclude<TranscriptItem, { kind: "permission" | "pending-input" | "selection" | "system" }>;
 
 const AGENT_TONES: Record<string, string> = {
   build: "#c3d4fd",
@@ -794,7 +794,7 @@ export function OpenCodeTimeline({
 }): ReactNode {
   const timeline = useMemo(
     () => transcript.filter((item): item is VisibleTimelineItem =>
-      item.kind !== "permission" && item.kind !== "pending-input" && item.kind !== "selection"
+      item.kind !== "permission" && item.kind !== "pending-input" && item.kind !== "selection" && item.kind !== "system"
     ),
     [transcript]
   );
