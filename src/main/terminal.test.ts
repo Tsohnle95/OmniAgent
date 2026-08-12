@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { TerminalManager } from "./terminal";
+import { defaultShell, TerminalManager } from "./terminal";
 
 const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
 
@@ -22,5 +22,15 @@ describe("TerminalManager capability ownership", () => {
     const current = { id: "22222222-2222-4222-8222-222222222222", generation: 2 };
     expect(() => terminals.write("term-1", "x", current)).toThrow("stale terminal");
     expect(() => terminals.stop("term-1", current)).toThrow("stale terminal");
+  });
+});
+
+describe("terminal platform configuration", () => {
+  it("selects each platform's normal interactive shell", () => {
+    expect(defaultShell("darwin", {})).toBe("/bin/zsh");
+    expect(defaultShell("linux", {})).toBe("/bin/bash");
+    expect(defaultShell("win32", {})).toBe("powershell.exe");
+    expect(defaultShell("darwin", { SHELL: "/opt/homebrew/bin/fish" })).toBe("/opt/homebrew/bin/fish");
+    expect(defaultShell("win32", { COMSPEC: "C:\\Windows\\System32\\cmd.exe" })).toBe("C:\\Windows\\System32\\cmd.exe");
   });
 });

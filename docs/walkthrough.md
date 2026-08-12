@@ -26,7 +26,7 @@ this doc is the moving-picture version.
 └─────────┬──────────────────────────────────────────────┬─────────────┘
           │ @opencode-ai/client (REST + SSE)             │ node-pty
 ┌─────────┴───────────────┐                   ┌──────────┴────────────┐
-│ opencode2 service       │                   │ login shell (zsh -l)  │
+│ opencode2 service       │                   │ interactive shell     │
 │ (existing, or spawned   │                   │ cwd = session dir     │
 │  opencode2 serve --service)                 └───────────────────────┘
 └─────────────────────────┘
@@ -208,8 +208,9 @@ Reopening a session restores the *session's* picks via
 
 `TerminalTray` mounts/restarts a PTY (`terminalStart(workspace)`): main verifies
 the activation identity and supplies the canonical active workspace cwd.
-`TerminalManager` resolves the login shell (`zsh -l -c 'echo $0'` on
-macOS), spawns it via `node-pty` with cwd = session directory (or home),
+`TerminalManager` selects the user's normal interactive shell from `SHELL` on
+macOS/Linux or `COMSPEC` on Windows, with platform defaults, then spawns it via
+`node-pty` with cwd = session directory (or home),
 and forwards PTY output as `terminal-data` over the same
 `shell:message` channel (connection #2). Keystrokes go down
 `terminalInput`; the xterm `fit` addon sends `terminalResize`. `stopAll`

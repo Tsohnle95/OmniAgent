@@ -6,7 +6,9 @@ and verified in real sessions.
 
 ## Prerequisites
 
-- Node 20+ and npm.
+- Node 22.23.2 and npm. `.node-version`, `package.json` engines, and CI select
+  the supported Node 22 range starting at 22.23.2, which satisfies the full
+  locked dependency graph.
 - `opencode2` on PATH (checked with `which opencode2`). The app connects
   via `Service.discover()` and falls back to spawning
   `opencode2 serve --service` itself, so a service is not strictly
@@ -17,15 +19,50 @@ and verified in real sessions.
 ```sh
 npm run dev      # electron-vite dev with HMR (main/preload/renderer)
 npm test         # Vitest unit/component tests in jsdom
+npm run test:platform # launcher tests and real Electron-hosted PTY smoke
 npm run build    # production build -> out/
 npm run check    # typecheck, tests, docs check, and production build
-npm start        # electron-vite preview (rebuilds, then launches)
+npm start        # launch the existing production build with electron-vite preview
 ```
 
-`npm start` rebuilds every time; after a manual `npm run build` you can
-launch straight from the build with `npx electron .`. `npm run typecheck`
+`npm start` does not build first; run `npm run build` after source changes. The
+portable Node launcher prepares and selects the branded app bundle on macOS and
+uses plain Electron on Linux and Windows, without shell-specific environment
+syntax. After a manual build you can also launch with `npx electron .`.
+`npm run typecheck`
 runs `tsc --noEmit` for both node and web configs. `npm run check` is the
 canonical local and CI verification gate.
+
+OpenShell is macOS-first with supported development/runtime launch on macOS,
+Linux, and Windows. CI runs launcher configuration tests and a real
+Electron-hosted `node-pty` input/output/exit smoke on all three. This verifies
+the native module and shell path but is not a GUI smoke test; window behavior
+still requires the human checklist below. Terminals use the user's normal
+interactive shell (`SHELL`, `COMSPEC`, or the platform default), not login mode.
+This matches integrated-terminal expectations and avoids re-running login
+session initialization for every tab. `node-pty` 1.1.0 uses Node-API, and the
+Electron-hosted smoke verifies the locked binary directly, so no
+`@electron/rebuild` lifecycle is required. The portable `postinstall` only
+restores execute permission on node-pty's packaged Unix `spawn-helper`, which
+the npm tarball does not preserve; it does not compile or rebuild the addon.
+
+## Updating the OpenCode client
+
+`@opencode-ai/client` is pinned to an exact prerelease and `package-lock.json`
+is tracked. Update it only in an explicit dependency commit:
+
+1. Run `npm install --save-exact @opencode-ai/client@<version>` on the supported
+   Node version and review that the lockfile changes only the intended client,
+   protocol, schema, and necessary transitive packages.
+2. Review generated client method signatures used by `src/main/opencode.ts`
+   and service discovery/authentication imports. Adapt that isolation boundary
+   deliberately rather than bypassing types.
+3. Review protocol event changes against `docs/events.md` and the replay/event
+   fixtures in the main and renderer tests. Add or update captured protocol
+   fixtures for every changed event shape, including handled and intentionally
+   ignored events.
+4. Run `npm run check` and `npm run test:platform`. Exercise the human GUI smoke
+   checklist when service or streaming behavior changed.
 
 ## Large-session benchmark
 
@@ -56,7 +93,9 @@ cross-machine browser benchmark.
 4. Verify the backend spawned its service:
    `pgrep -fl "opencode2 serve"` and
    `lsof -nP -iTCP -sTCP:LISTEN | grep -i opencode`.
-5. Verify the Electron window is alive: `pgrep -f "Electron.app/Contents/MacOS/Electron"`.
+5. On macOS, verify the Electron window is alive:
+   `pgrep -f "OpenShell.app/Contents/MacOS/Electron"`. Use Task Manager or the
+   platform process monitor on Windows/Linux.
 6. GUI pass (needs a human): open a folder, send a prompt, confirm the
    agent dot turns green / titlebar says "working", text streams, tool
    cards appear with names and elapsed timers, and a file the agent

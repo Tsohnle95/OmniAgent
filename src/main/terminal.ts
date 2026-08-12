@@ -1,10 +1,15 @@
 import { spawn, type IPty } from "node-pty";
-import { execFile } from "node:child_process";
 import type { WorkspaceIdentity } from "@shared/types";
 
 export interface PtyHandle {
   id: string;
   pty: IPty;
+}
+
+export function defaultShell(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
+  if (platform === "darwin") return env.SHELL ?? "/bin/zsh";
+  if (platform === "win32") return env.COMSPEC ?? "powershell.exe";
+  return env.SHELL ?? "/bin/bash";
 }
 
 export class TerminalManager {
@@ -21,25 +26,9 @@ export class TerminalManager {
     for (const cb of this.listeners) cb(msg);
   }
 
-  private static defaultShell(): string {
-    if (process.platform === "darwin") return process.env.SHELL ?? "/bin/zsh";
-    if (process.platform === "win32") return process.env.COMSPEC ?? "powershell.exe";
-    return process.env.SHELL ?? "/bin/bash";
-  }
-
-  private static async loginShell(): Promise<string> {
-    const shell = TerminalManager.defaultShell();
-    if (process.platform === "win32" || !process.env.HOME) return shell;
-    return new Promise((resolve) => {
-      execFile(shell, ["-l", "-c", "echo $0"], { timeout: 5000 }, (err, stdout) => {
-        resolve(err ? shell : String(stdout).trim() || shell);
-      });
-    });
-  }
-
   async start(directory: string, workspace: WorkspaceIdentity): Promise<string> {
     const id = `term-${++this.counter}`;
-    const shell = await TerminalManager.loginShell();
+    const shell = defaultShell(process.platform, process.env);
     const pty = spawn(shell, [], {
       name: "xterm-256color",
       cols: 100,

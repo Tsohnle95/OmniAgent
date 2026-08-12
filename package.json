@@ -4,19 +4,24 @@
   "private": true,
   "description": "A VS Code-style GUI for the opencode2 agent",
   "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=22.23.2 <23"
+  },
   "scripts": {
-    "dev": "node scripts/make-dev-app.mjs && ELECTRON_EXEC_PATH=dev/OpenShell.app/Contents/MacOS/Electron electron-vite dev",
+    "postinstall": "node scripts/configure-node-pty.mjs",
+    "dev": "node scripts/launch.mjs dev",
     "build": "electron-vite build",
-    "start": "node scripts/make-dev-app.mjs && ELECTRON_EXEC_PATH=dev/OpenShell.app/Contents/MacOS/Electron electron-vite preview",
+    "start": "node scripts/launch.mjs preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
+    "test:platform": "vitest run scripts/launch.test.ts src/main/terminal.test.ts && node scripts/pty-smoke.mjs && node scripts/electron-pty-smoke.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "check": "npm run typecheck && npm test && npm run docs:check && npm run build"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@monaco-editor/react": "^4.7.0",
-    "@opencode-ai/client": "next",
+    "@opencode-ai/client": "0.0.0-next-17126",
     "@vscode/codicons": "^0.0.46-24",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
@@ -28,7 +33,6 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.2.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

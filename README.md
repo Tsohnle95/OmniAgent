@@ -53,8 +53,14 @@ All API traffic happens in the Electron **main process** using
 
 ## Requirements
 
-- Node 20+ and npm
+- Node 22.23.2 and npm (the supported range is Node 22 from 22.23.2 onward)
 - `opencode2` on your PATH (or an already-running opencode service)
+
+OpenShell is macOS-first and supports development/runtime launch on macOS,
+Linux, and Windows. macOS uses the branded development app bundle; Linux and
+Windows launch Electron directly. Platform CI exercises launcher selection and
+real PTY input/output/exit under Electron, but does not claim automated GUI
+coverage.
 
 ## Development
 
@@ -108,6 +114,7 @@ streaming agent panel that always shows what the agent is doing.
 
 Known constraints:
 
-- The `@opencode-ai/client` API and event shapes are beta and may shift; the
-  typed calls are isolated in `src/main/opencode.ts`.
+- The exactly pinned `@opencode-ai/client` API and event shapes are prerelease
+  and may shift; the typed calls are isolated in `src/main/opencode.ts` and its
+  update procedure is documented in `docs/operations.md`.
 - Operational/debugging know-how lives in `docs/operations.md`.

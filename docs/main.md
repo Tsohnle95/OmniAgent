@@ -153,12 +153,14 @@ rasterized `resources/icon.png` + `resources/icon.icns`, the clay
 shell-tile brand mark) is set as the BrowserWindow `icon` on
 Windows/Linux and via `app.dock.setIcon` on macOS; the window flash
 background is the warm `#161410`. In development, `npm run dev` /
-`npm start` first run `scripts/make-dev-app.mjs`, which copies
+On macOS, `npm run dev` and `npm start` use `scripts/launch.mjs` to run
+`scripts/make-dev-app.mjs`, which copies
 `node_modules/electron/dist/Electron.app` to `dev/OpenShell.app`
 (gitignored), patches its Info.plist (name "OpenShell", icon.icns,
-`dev.openshell.app` id) and ad-hoc re-signs it — the launch scripts then
-point electron-vite at that bundle via `ELECTRON_EXEC_PATH` so the dock
-shows the real name and icon instead of Electron's defaults.
+`dev.openshell.app` id) and ad-hoc re-signs it. The launcher then
+points electron-vite at that bundle via `ELECTRON_EXEC_PATH` so the dock
+shows the real name and icon instead of Electron's defaults. Linux and Windows
+skip bundle preparation and use plain Electron.
 
 PTY messages come from a second emitter, `TerminalManager`
 (`src/main/terminal.ts`): it forwards `{kind:"terminal-data",

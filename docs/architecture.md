@@ -191,6 +191,11 @@ addon + `shell:terminal-resize`. The tray is toggled from the titlebar
 window bottom closes it on mouse release rather than mid-drag.
 Terminal ids, ownership, input size, and bounded positive dimensions are
 validated before operations reach `node-pty`.
+The selected shell is the user's normal interactive shell, not a login shell.
+The locked Node-API-based `node-pty` is exercised under Electron on macOS,
+Linux, and Windows CI, so no native rebuild step is used.
+Install restores execute permission on the packaged Unix `spawn-helper`; this
+is a file-mode correction rather than a native compilation step.
 
 ## Permissions
 

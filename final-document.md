@@ -589,16 +589,16 @@ Scope: item 17.
 
 Scope: items 19, 20, 21, and 22 under the selected macOS-first cross-platform policy.
 
-- [ ] Replace shell-specific launch commands with a portable Node launcher.
-- [ ] Use the custom app bundle only on Darwin and plain Electron elsewhere.
-- [ ] Decide and implement or document interactive versus login-shell behavior per platform.
-- [ ] Remove the false native rebuild claim or add a verified rebuild lifecycle if required.
-- [ ] Add targeted launch and PTY smoke coverage for supported environments.
-- [ ] Pin `@opencode-ai/client` to an exact prerelease and remove the tracked lockfile ignore rule.
-- [ ] Add a documented client update and protocol-fixture review process.
-- [ ] Select and enforce a Node version compatible with the locked graph in package metadata, version files, CI, and docs.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Replace shell-specific launch commands with a portable Node launcher.
+- [x] Use the custom app bundle only on Darwin and plain Electron elsewhere.
+- [x] Decide and implement or document interactive versus login-shell behavior per platform.
+- [x] Remove the false native rebuild claim or add a verified rebuild lifecycle if required. The locked Node-API module is verified under Electron, so no rebuild is required.
+- [x] Add targeted launch and PTY smoke coverage for supported environments. CI covers launcher selection and Electron-hosted PTY input/output/exit, not GUI behavior.
+- [x] Pin `@opencode-ai/client` to an exact prerelease and remove the tracked lockfile ignore rule.
+- [x] Add a documented client update and protocol-fixture review process.
+- [x] Select and enforce a Node version compatible with the locked graph in package metadata, version files, CI, and docs.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-10: Documentation checker and final architecture cleanup
 
