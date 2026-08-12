@@ -283,7 +283,7 @@ function createWindow(show = true): BrowserWindow {
     movable: true,
     resizable: true,
     fullscreenable: true,
-    show,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -297,6 +297,18 @@ function createWindow(show = true): BrowserWindow {
   inspectPickerActive = false;
   inspectPickerToken++;
   const wc = newWin.webContents;
+
+  wc.on("console-message", (event) => {
+    console.log(`[renderer:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`);
+  });
+  newWin.on("unresponsive", () => console.warn("[openshell] renderer is unresponsive"));
+  let lastRendererReload = 0;
+  wc.on("render-process-gone", (_event, details) => {
+    console.error("[openshell] renderer process gone:", details.reason, details.exitCode);
+    if (newWin.isDestroyed() || Date.now() - lastRendererReload < 10_000) return;
+    lastRendererReload = Date.now();
+    wc.reload();
+  });
 
   newWin.on("closed", () => {
     if (win === newWin) {
@@ -437,6 +449,16 @@ function createWindow(show = true): BrowserWindow {
     }
   });
 
+  if (show) {
+    let revealed = false;
+    const reveal = (): void => {
+      if (revealed || newWin.isDestroyed()) return;
+      revealed = true;
+      newWin.show();
+    };
+    newWin.once("ready-to-show", reveal);
+    setTimeout(reveal, 5000);
+  }
   void newWin.loadURL(rendererUrl);
   return newWin;
 }
@@ -666,6 +688,7 @@ function registerIpc(): void {
 }
 
 if (!app.requestSingleInstanceLock()) {
+  console.log("[openshell] another instance is already running — exiting; the running instance will open or focus its window");
   app.quit();
 } else {
   process.on("uncaughtException", (err) => {
@@ -726,7 +749,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  app.quit();
 });
 
 app.on("before-quit", () => {

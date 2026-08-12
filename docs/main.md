@@ -238,7 +238,10 @@ highlights forever.
 
 Startup (`app.whenReady`): `start()` → register backend and terminal forwarders
 → register IPC → `createWindow()` → begin asynchronous `connect()`. On
-`window-all-closed` non-darwin quits; the backend is
-stopped in `before-quit` (window close on macOS no longer tears the
-session down). On macOS activate: re-creates only the window; the backend's
-single-flight event loop remains active.
+`window-all-closed` the app quits on every platform and the backend is
+stopped in `before-quit`; the window is created hidden and shown on
+`ready-to-show` (5s fallback), renderer console output is forwarded to
+main stdout, and a renderer crash logs and reloads (once per 10s) instead
+of leaving a dead black window. On macOS activate: re-creates only the
+window if it was destroyed; the backend's single-flight event loop remains
+active while the window lives.

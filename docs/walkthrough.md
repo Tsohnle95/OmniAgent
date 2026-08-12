@@ -56,7 +56,11 @@ There are exactly five connection points to keep in your head:
 3. `registerIpc()` — all `shell:*` handlers.
 4. `createWindow()` — `contextIsolation: true`, `nodeIntegration: false`,
    preload `src/preload/index.js`. The renderer is walled off; the preload
-   bridge is its only door.
+   bridge is its only door. The window is created hidden and shown on
+   `ready-to-show` (5s fallback), so a still-loading renderer never appears
+   as a black window. Renderer console messages are forwarded to the main
+   process stdout; a renderer crash logs its reason and reloads once per
+   10s; an unresponsive renderer logs a warning.
 5. `backend.connect()` — service discovery: `Service.discover()` finds an
    already-registered service; `discoverEndpoint()` checks the OpenCode
    desktop app's `service.json` (macOS); `ensureBounded()` falls back to
@@ -235,11 +239,12 @@ resolved child session; a child header navigates back to its parent.
 
 ## Window lifecycle and shortcuts
 
-- Single-instance lock; a second launch refocuses (or re-creates) the
-  window.
-- `window-all-closed` quits on non-macOS; on macOS the backend stays
-  alive, and dock-click `activate` only calls `createWindow()`; the existing
-  single-flight event loop remains subscribed.
+- Single-instance lock; a second launch logs the conflict and exits, and
+  the running instance refocuses (or re-creates) the window.
+- `window-all-closed` quits on every platform, so closing the last window
+  ends the process and a stale instance can never keep holding the
+  single-instance lock invisibly. Dock-click `activate` still re-creates
+  the window if it was destroyed programmatically.
 - `before-quit` aborts the SSE subscription and tears down the backend watcher
   and all terminals; generation invalidation prevents an iterator that ignores
   or delays abort from reviving after restart without making shutdown hang.
