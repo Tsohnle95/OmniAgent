@@ -5,8 +5,8 @@
       <stop offset="1" stop-color="#d97757" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <rect width="1024" height="1024" rx="228" fill="#1b1915"/>
-  <rect width="1024" height="1024" rx="228" fill="url(#glow)"/>
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="#1b1915"/>
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#glow)"/>
   <g transform="translate(16 -81.8) scale(15.5)">
     <path d="M32 51 L7.75 37 A 28 28 0 0 1 20.17 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M32 51 L56.25 37 A 28 28 0 0 0 43.83 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>

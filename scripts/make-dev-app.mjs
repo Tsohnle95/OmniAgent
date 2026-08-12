@@ -20,7 +20,7 @@ if (!existsSync(src)) {
   process.exit(1);
 }
 
-if (existsSync(dst) && statSync(plist).mtimeMs > statSync(path.join(src, "Contents", "Info.plist")).mtimeMs) {
+if (existsSync(dst) && statSync(plist).mtimeMs > statSync(path.join(src, "Contents", "Info.plist")).mtimeMs && existsSync(icns) && statSync(plist).mtimeMs > statSync(icns).mtimeMs) {
   console.log("OpenShell.app is up to date");
   process.exit(0);
 }
