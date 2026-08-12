@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, useStore } from "./store";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar } from "./components/FileSidebar";
@@ -121,9 +121,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const agentMax = Math.max(AGENT_MIN_W, winW - sideShown - 2);
   const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - 2));
 
-  useEffect(() => {
-    setAgentW((w) => Math.min(w, winW - sideShown - 2));
-    setSideW((w) => Math.min(w, winW - agentShown - 2));
+  useLayoutEffect(() => {
+    setAgentW((w) => Math.min(w, Math.max(0, winW - sideShown - 2)));
+    setSideW((w) => Math.min(w, Math.max(0, winW - agentShown - 2)));
   }, [winW, sideShown, agentShown]);
 
   const sideDrag = useDragResize(
