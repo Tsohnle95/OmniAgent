@@ -7,7 +7,7 @@
   </defs>
   <rect width="1024" height="1024" rx="228" fill="#1b1915"/>
   <rect width="1024" height="1024" rx="228" fill="url(#glow)"/>
-  <g transform="translate(50.24 -255.93) scale(14.43)">
+  <g transform="translate(16 -81.8) scale(15.5)">
     <path d="M32 51 L7.75 37 A 28 28 0 0 1 20.17 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M32 51 L56.25 37 A 28 28 0 0 0 43.83 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M32 51 L10.55 33 M32 51 L14.92 28.77" fill="none" stroke="#d97757" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
