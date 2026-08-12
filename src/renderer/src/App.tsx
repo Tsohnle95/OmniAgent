@@ -170,10 +170,30 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     agentOpen ? `${agentW}px` : `${COLLAPSED_PANEL_W}px`
   ].join(" ");
 
-  const enterAgentMode = (): void => {
-    setSideOpen(false);
-    setAgentOpen(true);
-    setAgentW(Math.max(0, winW - COLLAPSED_PANEL_W - 2));
+  const prevLayoutRef = useRef<{ sideOpen: boolean; sideW: number; agentOpen: boolean; agentW: number } | null>(null);
+  const agentCap = Math.max(0, winW - sideShown - 2);
+  const inAgentMode = prevLayoutRef.current !== null;
+
+  useEffect(() => {
+    if (prevLayoutRef.current === null) return;
+    const stillInMode = !sideOpen && agentOpen && Math.abs(agentW - agentCap) < 2;
+    if (!stillInMode) prevLayoutRef.current = null;
+  }, [sideOpen, agentOpen, agentW, agentCap]);
+
+  const toggleAgentMode = (): void => {
+    if (prevLayoutRef.current === null) {
+      prevLayoutRef.current = { sideOpen, sideW, agentOpen, agentW };
+      setSideOpen(false);
+      setAgentOpen(true);
+      setAgentW(Math.max(0, winW - COLLAPSED_PANEL_W - 2));
+    } else {
+      const prev = prevLayoutRef.current;
+      prevLayoutRef.current = null;
+      setSideOpen(prev.sideOpen);
+      setSideW(prev.sideW);
+      setAgentOpen(prev.agentOpen);
+      setAgentW(prev.agentW);
+    }
   };
 
   return (
@@ -182,9 +202,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         <span className="titlebar-title">OpenShell</span>
         <span className="titlebar-actions">
           <button
-            className="icon-btn"
-            title="Agent mode — collapse the sidebar and expand the agent panel to a single chat view"
-            onClick={enterAgentMode}
+            className={`icon-btn ${inAgentMode ? "on" : ""}`}
+            title={inAgentMode
+              ? "Restore previous layout"
+              : "Agent mode — collapse the sidebar and expand the agent panel to a single chat view"}
+            onClick={toggleAgentMode}
           >
             <span className="codicon codicon-robot" />
           </button>
