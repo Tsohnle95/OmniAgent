@@ -8,10 +8,10 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Model-controlled Markdown renders ordinary same-frame links (`src/renderer/src/components/OpenCodeTimeline.tsx:173-201`).
-- The BrowserWindow blocks new windows but does not block same-frame navigation or redirects (`src/main/index.ts:263-266`).
-- The configured preload exposes `window.openshell` to each loaded document (`src/preload/index.ts:19-75`).
-- IPC handlers do not validate the sender WebContents, frame, or URL (`src/main/index.ts:396-503`).
+- Model-controlled Markdown renders ordinary same-frame links (`src/renderer/src/components/OpenCodeTimeline.tsx`).
+- The BrowserWindow blocks new windows but does not block same-frame navigation or redirects (`src/main/index.ts`).
+- The configured preload exposes `window.openshell` to each loaded document (`src/preload/index.ts`).
+- IPC handlers do not validate the sender WebContents, frame, or URL (`src/main/index.ts`).
 - A user click can navigate the privileged window to attacker-controlled content, which can then invoke filesystem, prompt, session, permission, and terminal capabilities.
 
 **Fix**
@@ -26,7 +26,7 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- `setWindowOpenHandler` passes every renderer-controlled URL directly to `shell.openExternal` (`src/main/index.ts:263-266`).
+- `setWindowOpenHandler` passes every renderer-controlled URL directly to `shell.openExternal` (`src/main/index.ts`).
 - Attacker-selected custom schemes can invoke unsafe operating-system protocol handlers.
 
 **Fix**
@@ -41,10 +41,10 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- `doSave` reads tab content from a stale React render closure (`src/renderer/src/store.tsx:832-880`).
+- `doSave` reads tab content from a stale React render closure (`src/renderer/src/store.tsx`).
 - Autosave can write an older editor revision and then mark newer in-memory content clean.
-- Save timers survive workspace reset, tab close, delete, and rename (`store.tsx:348-362,668-694,747-824`).
-- Main resolves delayed relative writes against whichever workspace is active when the write executes (`src/main/opencode.ts:476-478,1023-1030`).
+- Save timers survive workspace reset, tab close, delete, and rename (`store.tsx`).
+- Main resolves delayed relative writes against whichever workspace is active when the write executes (`src/main/opencode.ts`).
 - A timer created in repository A can write A's content to the same relative path in repository B.
 - In-flight older and newer saves are not ordered.
 
@@ -65,9 +65,9 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- A file update marks a dirty tab stale but does not cancel or block its pending save (`src/renderer/src/store.tsx:905-940`).
-- `doSave` ignores stale state and writes unconditionally (`store.tsx:832-850`).
-- Main does not compare expected disk state before writing (`src/main/opencode.ts:1023-1030`).
+- A file update marks a dirty tab stale but does not cancel or block its pending save (`src/renderer/src/store.tsx`).
+- `doSave` ignores stale state and writes unconditionally (`store.tsx`).
+- Main does not compare expected disk state before writing (`src/main/opencode.ts`).
 - The save can overwrite agent, user, formatter, or external-editor work and then clear the warning.
 
 **Fix**
@@ -82,10 +82,10 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Absolute file reads are unrestricted (`src/main/opencode.ts:1007-1014`).
-- `writeFile` accepts absolute paths and parent traversal because it does not call `safeRel` (`opencode.ts:476-478,1023-1030`).
-- `safeRel` is lexical and intermediate symlinked directories can escape the root for create, delete, or rename (`opencode.ts:1033-1099`).
-- IPC argument types, sizes, and workspace identity are not validated at runtime (`src/main/index.ts:396-503`).
+- Absolute file reads are unrestricted (`src/main/opencode.ts`).
+- `writeFile` accepts absolute paths and parent traversal because it does not call `safeRel` (`opencode.ts`).
+- `safeRel` is lexical and intermediate symlinked directories can escape the root for create, delete, or rename (`opencode.ts`).
+- IPC argument types, sizes, and workspace identity are not validated at runtime (`src/main/index.ts`).
 
 **Fix**
 
@@ -101,8 +101,8 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Terminal start accepts an arbitrary renderer-provided cwd (`src/main/index.ts:479-482`, `src/main/terminal.ts:40-50`).
-- Terminal input, IDs, and dimensions are not runtime-validated (`src/main/index.ts:484-494`).
+- Terminal start accepts an arbitrary renderer-provided cwd (`src/main/index.ts`, `src/main/terminal.ts`).
+- Terminal input, IDs, and dimensions are not runtime-validated (`src/main/index.ts`).
 - These capabilities become especially dangerous if the renderer trust boundary is crossed.
 
 **Fix**
@@ -118,10 +118,10 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Main has one mutable active `sessionID` and `directory` (`src/main/opencode.ts:371-375`).
-- `openSessionById` activates a session before message history finishes loading (`opencode.ts:723-788`).
-- Overlapping activation requests can leave main on one session while renderer displays another (`src/renderer/src/store.tsx:450-521`).
-- Startup restoration can complete after a user action (`store.tsx:1140-1143`).
+- Main has one mutable active `sessionID` and `directory` (`src/main/opencode.ts`).
+- `openSessionById` activates a session before message history finishes loading (`opencode.ts`).
+- Overlapping activation requests can leave main on one session while renderer displays another (`src/renderer/src/store.tsx`).
+- Startup restoration can complete after a user action (`store.tsx`).
 - File, tree, model, agent, and selection requests can install stale responses.
 
 **Fix**
@@ -139,10 +139,10 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- An already-running `onFsChanged` survives watcher shutdown (`src/main/opencode.ts:544-598`).
-- It performs asynchronous work while helpers and maps consult mutable `this.directory` and shared active maps (`opencode.ts:480-608`).
+- An already-running `onFsChanged` survives watcher shutdown (`src/main/opencode.ts`).
+- It performs asynchronous work while helpers and maps consult mutable `this.directory` and shared active maps (`opencode.ts`).
 - Work originating in repository A can mutate repository B's baseline maps and emit an A file using a path relative to B.
-- Renderer accepts file updates without workspace/generation validation (`src/renderer/src/store.tsx:905-940`).
+- Renderer accepts file updates without workspace/generation validation (`src/renderer/src/store.tsx`).
 
 **Fix**
 
@@ -157,9 +157,9 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Initial readiness calls `backend.start()` and launches `runEventLoop()` (`src/main/index.ts:533`, `src/main/opencode.ts:434-437`).
+- Initial readiness calls `backend.start()` and launches `runEventLoop()` (`src/main/index.ts`, `src/main/opencode.ts`).
 - Closing the last window on macOS does not stop that loop.
-- Dock reactivation calls `backend.start()` again (`src/main/index.ts:544-548`).
+- Dock reactivation calls `backend.start()` again (`src/main/index.ts`).
 - `start()` has no running-loop guard, so every reactivation can create another SSE subscription and duplicate events, side effects, reconnect attempts, and resource use.
 
 **Fix**
@@ -176,7 +176,7 @@ This document is the implementation-ready consolidation of the accurate findings
 **Problem**
 
 - Docs say file updates consult `expectedRef` to recognize editor write echoes.
-- Source does not compare file-update content to `expectedRef`; any update while dirty marks the tab stale (`src/renderer/src/store.tsx:905-929`).
+- Source does not compare file-update content to `expectedRef`; any update while dirty marks the tab stale (`src/renderer/src/store.tsx`).
 - Save completion may quickly clear the warning, masking the mismatch.
 
 **Fix**
@@ -192,7 +192,7 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Editor saves replace both backend and tab baselines (`src/main/opencode.ts:1027-1030`, `src/renderer/src/store.tsx:839-844`).
+- Editor saves replace both backend and tab baselines (`src/main/opencode.ts`, `src/renderer/src/store.tsx`).
 - This makes the visible accumulated diff disappear after save.
 - Documentation disagrees: some files define baseline as session-start/agent-start content, while `docs/walkthrough.md` says editor writes intentionally reset it.
 - Actual baselines can be pre-tool content, Git `HEAD`, first-observed non-git content, or empty content for a newly created file.
@@ -211,9 +211,9 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Tool snapshotting recognizes structured `filePath`, `file_path`, or `path` values but does not infer paths from shell command strings (`src/main/opencode.ts:62-80,491-501`).
-- In non-git workspaces, the first content observed after a shell modification becomes the baseline, yielding an empty diff (`opencode.ts:563-597`).
-- The watcher has no actor provenance, so user, formatter, IDE, and other process changes enter the same Changes list (`src/renderer/src/store.tsx:905-912`).
+- Tool snapshotting recognizes structured `filePath`, `file_path`, or `path` values but does not infer paths from shell command strings (`src/main/opencode.ts`).
+- In non-git workspaces, the first content observed after a shell modification becomes the baseline, yielding an empty diff (`opencode.ts`).
+- The watcher has no actor provenance, so user, formatter, IDE, and other process changes enter the same Changes list (`src/renderer/src/store.tsx`).
 - Git `HEAD` provides a useful comparison but does not prove who made a working-tree change.
 
 **Fix**
@@ -227,7 +227,7 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- `buildTurns` preserves body order, but rendering groups every assistant item before every non-assistant event (`src/renderer/src/components/OpenCodeTimeline.tsx:724-739,868-879`).
+- `buildTurns` preserves body order, but rendering groups every assistant item before every non-assistant event (`src/renderer/src/components/OpenCodeTimeline.tsx`).
 - Interleaved shell, compaction, synthetic, skill, status, or divider events are displayed after later assistant content.
 
 **Fix**
@@ -243,7 +243,7 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Every `shell.trashItem` failure falls back to recursive forced deletion (`src/main/opencode.ts:1061-1068`).
+- Every `shell.trashItem` failure falls back to recursive forced deletion (`src/main/opencode.ts`).
 - The UI cannot distinguish recoverable Trash from permanent deletion or request confirmation.
 
 **Fix**
@@ -258,10 +258,10 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- Closing the final terminal returns before committing the empty tab state (`src/renderer/src/components/TerminalTray.tsx:208-219`).
+- Closing the final terminal returns before committing the empty tab state (`src/renderer/src/components/TerminalTray.tsx`).
 - Reopening the hidden but mounted tray shows a dead terminal.
-- Natural `terminal-exit` messages are emitted by main but ignored by renderer (`src/main/terminal.ts:54-57`, `TerminalTray.tsx:155-169`).
-- Output for unregistered or stale IDs is buffered without a size or age limit (`TerminalTray.tsx:138-166`).
+- Natural `terminal-exit` messages are emitted by main but ignored by renderer (`src/main/terminal.ts`, `TerminalTray.tsx`).
+- Output for unregistered or stale IDs is buffered without a size or age limit (`TerminalTray.tsx`).
 
 **Fix**
 
@@ -319,9 +319,9 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- README says `npm run build` includes typecheck, but the script only builds (`README.md:66-70`, `package.json:9`).
-- `npm run check` omits build (`package.json:13`).
-- CI currently does run all three existing definition-of-done gates: typecheck, docs check, and build (`.github/workflows/check.yml:17-20`).
+- README says `npm run build` includes typecheck, but the script only builds (`README.md`, `package.json`).
+- `npm run check` omits build (`package.json`).
+- CI currently does run all three existing definition-of-done gates: typecheck, docs check, and build (`.github/workflows/check.yml`).
 - There are no test or lint/format gates.
 
 **Fix**
@@ -335,8 +335,8 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- `dev` and `start` use POSIX environment syntax and a macOS-only executable path (`package.json:8-10`).
-- The helper exits on non-macOS but the calling command still sets that macOS path (`scripts/make-dev-app.mjs:8-10`).
+- `dev` and `start` use POSIX environment syntax and a macOS-only executable path (`package.json`).
+- The helper exits on non-macOS but the calling command still sets that macOS path (`scripts/make-dev-app.mjs`).
 - Default Windows npm shells cannot parse the inline assignment.
 - Documentation presents the commands without a platform limitation.
 
@@ -352,7 +352,7 @@ This document is the implementation-ready consolidation of the accurate findings
 
 **Problem**
 
-- The PTY discovers a shell through a login invocation but spawns it without login arguments (`src/main/terminal.ts:30-50`).
+- The PTY discovers a shell through a login invocation but spawns it without login arguments (`src/main/terminal.ts`).
 - Documentation incorrectly calls the resulting PTY a login shell.
 - Documentation says `node-pty` is rebuilt with `@electron/rebuild`, but no script invokes it.
 - Current `node-pty` is Node-API based, so lack of rebuild is not proof of an ABI failure; runtime PTY compatibility is simply unverified.
@@ -403,14 +403,14 @@ Update the project brain to reflect these verified facts:
 
 - Changes/Diff does not prove “exactly what the agent changed.”
 - Baseline policy must match the product decision in item 11.
-- Main forwards SSE events before awaiting `handleServerEvent` (`src/main/opencode.ts:448-451`).
+- Main forwards SSE events before awaiting `handleServerEvent` (`src/main/opencode.ts`).
 - The complete SSE event is nested inside outer `BackendMessage.data`; side handling receives inner `data` or `properties`.
 - The current PTY is not spawned with login arguments.
 - No `@electron/rebuild` script currently exists.
 - `npm run build` does not typecheck.
 - Development/start commands are currently macOS-specific and POSIX-shell-specific.
 - Node 20+ is too broad for the locked toolchain.
-- Startup order is start, register forwarders, register IPC, create window, then asynchronous connect (`src/main/index.ts:524-542`).
+- Startup order is start, register forwarders, register IPC, create window, then asynchronous connect (`src/main/index.ts`).
 - The backend has one active session, not only one service session per app run.
 - `TerminalTray` currently handles terminal data but not exit.
 - Trash failure currently falls back to permanent deletion until item 14 is fixed.
@@ -604,17 +604,17 @@ Scope: items 19, 20, 21, and 22 under the selected macOS-first cross-platform po
 
 Scope: items 23, 24, and 25 after all behavioral units are complete.
 
-- [ ] Reconcile every known documentation-drift item against final source behavior.
-- [ ] Remove stale numeric line references and duplicate method rows.
-- [ ] Rename `docs:check` output and prose to state its exact surface-presence scope.
-- [ ] Check links in all documentation files and reject duplicate inventory rows.
-- [ ] Add stable package-command and supported-Node assertions.
-- [ ] Prefer structured/AST checks where practical without replacing behavioral tests.
-- [ ] Extract activation, persistence, watcher, or transcript boundaries only where established tests show an ownership benefit.
-- [ ] Do not split modules solely by line count or perform a broad rewrite.
-- [ ] Run a final audit against every item and work-unit checkbox in this document.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Reconcile every known documentation-drift item against final source behavior.
+- [x] Remove stale numeric line references and duplicate method rows.
+- [x] Rename `docs:check` output and prose to state its exact surface-presence scope.
+- [x] Check links in all maintained documentation files and reject duplicate inventory rows.
+- [x] Add stable package-command and supported-Node assertions.
+- [x] Prefer structured/AST checks where practical without replacing behavioral tests.
+- [x] Extract activation, persistence, watcher, or transcript boundaries only where established tests show an ownership benefit. Existing focused tests already expose these boundaries; no extraction improved ownership or testability.
+- [x] Do not split modules solely by line count or perform a broad rewrite.
+- [x] Run a final audit against every item and work-unit checkbox in this document.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ## Final acceptance
 
@@ -623,3 +623,10 @@ Scope: items 23, 24, and 25 after all behavioral units are complete.
 - [ ] The final worktree contains no new uncommitted implementation changes.
 - [ ] `npm run check` passes from a clean checkout.
 - [ ] A final review finds no unresolved Critical or High item from this document.
+
+Residual acceptance notes:
+
+- WU-02 retains full Electron redirect/popup harness coverage.
+- WU-05 retains full watcher-phase, reopen/startup-store, and macOS lifecycle harness coverage.
+- The platform smoke verifies launcher and PTY behavior, not the GUI trust-boundary lifecycle.
+- This unit passed `npm run check` in the current worktree, but did not claim a separate clean-checkout run or a new independent final security review.

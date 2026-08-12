@@ -97,11 +97,15 @@ The agent owns version control — the user should never see a dirty tree.
 
 The brain is `AGENTS.md` + `docs/`. It must never drift from the code.
 
-- `npm run docs:check` (see `scripts/check-docs.mjs`) verifies the
-  machine-checkable parts against the source and fails on drift:
-  IPC channels, `OpenShellBackend` public methods, the
-  `window.openshell` contract, handled/not-handled event types, and that
-  every file the docs link to exists.
+- `npm run docs:check` runs the documented surface presence check in
+  `scripts/check-docs.mjs`. It checks `AGENTS.md`, `README.md`, `TODO.md`,
+  `final-document.md`, and every `docs/*.md` file for local Markdown link
+  targets, numeric source references, and duplicate table inventory rows.
+  Against source, it inventories IPC channels, `OpenShellBackend` public
+  methods, the `window.openshell` contract, handled and intentionally unhandled
+  event types, and shared backend message kinds.
+  It also asserts the canonical package command and supported Node metadata.
+  It does not prove prose or runtime behavior; tests own those invariants.
 - **When you change code, update the brain in the same commit**: add the
   new IPC channel / method / event to the relevant docs table. The check
   will tell you exactly what is missing.

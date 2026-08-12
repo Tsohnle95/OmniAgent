@@ -33,13 +33,13 @@ its work while live diffs of changed files appear in the editor.
 
 ## Backend connection
 
-`OpenShellBackend.connect()` (`src/main/opencode.ts:70`):
+`OpenShellBackend.connect()` in `src/main/opencode.ts`:
 
 1. `Service.discover()` — finds an already-registered opencode service.
 2. Falls back to `Service.ensure({ command: ["opencode2", "serve", "--service"] })`
    which spawns the service and waits for it to be ready.
 3. Creates a typed client: `OpenCode.make({ baseUrl, headers })`.
-4. The SSE loop (`runEventLoop`, line 89) re-connects automatically and
+4. The `runEventLoop()` SSE loop re-connects automatically and
    retries every 1.5s; `connect()` is retried every 2s until a client exists.
 
 ## Message flow
@@ -91,11 +91,12 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
 3. Emits `{ kind: "session" }`; renderer resets all UI state.
 4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
-5. Only ONE session exists per app run (history/reopen exists via
-   `openSessionById`, see `docs/main.md`).
+5. The backend owns one active session at a time. Creating or reopening a
+   session replaces that active workspace, while OpenCode retains session
+   history and child sessions.
 6. Closing the window on macOS keeps the backend alive (it is only torn
-   down in `before-quit`); re-activating re-creates the window and
-   re-creates the window while the single-flight event loop remains active.
+   down in `before-quit`); re-activating re-creates the window while the
+   single-flight event loop remains active.
 
 ## Diffs and baselines (how the diff view works)
 

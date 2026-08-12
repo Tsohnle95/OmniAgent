@@ -3,8 +3,9 @@
 `src/main/index.ts` (window + IPC wiring) and
 `src/main/opencode.ts` (the `OpenShellBackend` — all opencode2 traffic).
 
-This is the only place that imports `@opencode-ai/client`. If the client
-API changes shape, only these two files change.
+`src/main/opencode.ts` is the only file that imports `@opencode-ai/client`.
+Provider usage is a separate main-process integration with provider APIs in
+`src/main/provider-usage.ts`.
 
 ## OpenShellBackend (`src/main/opencode.ts`)
 
@@ -55,7 +56,6 @@ Public methods (all used by IPC):
 | `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
 | `switchAgent(workspace, id)` | Switches only the captured active session, then persists the choice |
 | `getState()` | `{id, directory}` or null |
-| `providerUsage()` | `fetchProviderUsage()` → per-provider usage-window/credit snapshots (`ProviderUsageResult[]`) |
 | `sessionSelection()` | `session.get` → `{model?, agent?}` so the UI can restore the session's current picks |
 | `providerUsage()` | Delegates to `src/main/provider-usage.ts` → `ProviderUsageResult[]` for every OAuth provider opencode has stored credentials for |
 
@@ -152,8 +152,8 @@ redirects are canceled. The window is `contextIsolation: true`,
 rasterized `resources/icon.png` + `resources/icon.icns`, the clay
 shell-tile brand mark) is set as the BrowserWindow `icon` on
 Windows/Linux and via `app.dock.setIcon` on macOS; the window flash
-background is the warm `#161410`. In development, `npm run dev` /
-On macOS, `npm run dev` and `npm start` use `scripts/launch.mjs` to run
+background is the warm `#161410`. On macOS, `npm run dev` and `npm start`
+use `scripts/launch.mjs` to run
 `scripts/make-dev-app.mjs`, which copies
 `node_modules/electron/dist/Electron.app` to `dev/OpenShell.app`
 (gitignored), patches its Info.plist (name "OpenShell", icon.icns,
@@ -219,8 +219,9 @@ parameter even for `mode: "none"`; omitting it makes Chromium reject
 the command and leaves the overlay stuck in search mode, flashing
 highlights forever.
 
-Startup (`app.whenReady`): connect → `start()` → register IPC →
-`createWindow()`. On `window-all-closed` non-darwin quits; the backend is
+Startup (`app.whenReady`): `start()` → register backend and terminal forwarders
+→ register IPC → `createWindow()` → begin asynchronous `connect()`. On
+`window-all-closed` non-darwin quits; the backend is
 stopped in `before-quit` (window close on macOS no longer tears the
 session down). On macOS activate: re-creates only the window; the backend's
 single-flight event loop remains active.

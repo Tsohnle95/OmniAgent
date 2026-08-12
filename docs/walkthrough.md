@@ -36,15 +36,15 @@ There are exactly five connection points to keep in your head:
 
 | # | Connection | Lives in |
 |---|---|---|
-| 1 | renderer → main (calls) | `window.openshell.*` (preload) → `ipcMain.handle("shell:*")` (`src/main/index.ts:80`) → `OpenShellBackend` / `TerminalManager` methods |
-| 2 | main → renderer (events) | `backend.onMessage(fwd)` + `terminals.onMessage(fwd)` (`src/main/index.ts:196`) → `webContents.send("shell:message")` → preload `onMessage` → store |
-| 3 | main → opencode2 (REST) | `OpenCode.make(...)` client inside `OpenShellBackend` (`src/main/opencode.ts:255`) |
-| 4 | opencode2 → main (SSE) | `runEventLoop` → `client.event.subscribe()` (`src/main/opencode.ts:277`) |
+| 1 | renderer → main (calls) | `window.openshell.*` (preload) → `registerIpc()` / `handleTrusted()` in `src/main/index.ts` → `OpenShellBackend` / `TerminalManager` methods |
+| 2 | main → renderer (events) | `backend.onMessage(fwd)` + `terminals.onMessage(fwd)` in `app.whenReady()` → `webContents.send("shell:message")` → preload `onMessage` → store |
+| 3 | main → opencode2 (REST) | `OpenCode.make(...)` client inside `OpenShellBackend.connect()` |
+| 4 | opencode2 → main (SSE) | `OpenShellBackend.runEventLoop()` → `client.event.subscribe()` |
 | 5 | main ↔ disk | `fs.watch` on the session dir, `fs` read/write, `settings.json` (userData) |
 
 ## Boot
 
-`app.whenReady()` in `src/main/index.ts:193`:
+`app.whenReady()` in `src/main/index.ts`:
 
 1. `backend.start()` — launches `runEventLoop()` through a single-flight guard;
    repeated calls cannot create parallel subscriptions.
@@ -64,12 +64,12 @@ There are exactly five connection points to keep in your head:
 
 `runEventLoop` then streams forever: each SSE event is forwarded verbatim
 as `{ kind: "event", type, data }` and passed to `handleServerEvent`
-(`src/main/opencode.ts:299`), which intercepts `session.tool.called`
+through `handleServerEvent()`, which intercepts `session.tool.called`
 (baseline snapshotting) and `filesystem.changed` before the renderer sees
 them. On any failure the client is dropped and the loop retries after
 1.5s; `connect()` itself retries every 2s until a client exists.
 
-Meanwhile the renderer boots: the store's mount effect (`src/renderer/src/store.tsx:911`)
+Meanwhile the renderer boots: the mount effect in `StoreProvider`
 probes `health()` and calls `state()` — if the backend still holds a
 session (macOS window closed and reopened), it restores it, reloads
 models/agents, and re-reads the session's model/agent selection. A user
@@ -79,7 +79,7 @@ activation accepted while `state()` is pending supersedes restoration.
 
 1. The Welcome screen calls `selectFolder()` (native dialog) or
    `openSession(dir)`; both land on `OpenShellBackend.openSession`
-   (`src/main/opencode.ts:506`).
+   in `OpenShellBackend`.
 2. The last-used model and agent are read from
    `userData/settings.json` and passed to
    `client.session.create({ location: { directory }, model?, agent? })`.
@@ -99,7 +99,7 @@ screen; clicking one goes down `openSessionById` (see below).
 
 1. `sendPrompt()` appends an optimistic user item to the transcript, then
    `window.openshell.prompt(text, files)` → `backend.prompt()`
-   (`opencode.ts:583`): attachments are stat'd (10 MB cap) and converted
+   in `OpenShellBackend.prompt()`: attachments are stat'd (10 MB cap) and converted
    to `file://` URIs → `client.session.prompt({ sessionID, text, files })`.
 2. The reply never comes back over a request/response channel — it streams
    back over connection #4. Every `session.*` / `message.*` SSE event is
@@ -140,11 +140,11 @@ authoritative agent-attributed changes. Sources feed the per-file baseline map (
    move to renamed targets.
 
 Changes flow: watcher (200ms debounce, `SKIP_DIRS` filter) or the server
-event → `onFsChanged` (`opencode.ts:401`) compares against `lastKnown`,
+event → `OpenShellBackend.onFsChanged()` compares against `lastKnown`,
 assigns a baseline if missing, and emits
 `{ kind: "file-update", file: { path, baseline, content, deleted } }`.
 
-The store merges file-updates into two places (`store.tsx:730`): the
+The store's backend-message handler merges file updates into two places: the
 `agentFiles` map (drives the sidebar CHANGES list) and the open tab. If
 the tab is **not** dirty the update replaces content and baseline; if the
 user has unsaved edits it only updates the baseline and marks the tab
@@ -226,7 +226,7 @@ tray visible.
 `shell:sessions` → `session.list({ limit: 30, order: "desc" })` →
 summaries with parent ids for the Welcome screen and task/subagent links.
 Reopening goes
-`openSessionById` (`opencode.ts:545`): `session.get` recovers the
+`OpenShellBackend.openSessionById()`: `session.get` recovers the
 directory, `activateSession` restarts the watcher, then `message.list` is
 replayed through `replayTranscript`/`replayToolCard` into the same semantic
 `TranscriptItem` shape the live stream produces. Task cards navigate to the

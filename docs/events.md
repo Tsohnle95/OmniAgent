@@ -77,8 +77,8 @@ by the switch statement. Revisit when adding features:
 - `session.moved`, `session.forked`
 - `session.input.steered`, `session.input.queued`
 - `session.compaction.admitted`, `session.revert.*`
-- `filesystem.changed`, `reference.updated` (note: the MAIN process DOES
-  handle `filesystem.changed` — see below)
+- `filesystem.changed`, `reference.updated` (the main process handles the
+  filesystem event separately; see below)
 - `project.*`, `plugin.*`, `command.*`, `skill.*`, `mcp.*`, `vcs.*`,
   `websearch.*`, `pty.*`, `question.*`, `form.*`, `tui.*`
 - `models-dev.refreshed` (fired when the model catalog changes; the app

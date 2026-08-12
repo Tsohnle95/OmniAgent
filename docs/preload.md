@@ -30,7 +30,7 @@ automatically.
 | `writeFile(workspace, rel, content, write)` | `Promise<void>` |
 | `createFile(workspace, rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
 | `createDir(workspace, rel)` | `Promise<void>` — creates a folder, erroring if it exists |
-| `deletePath(workspace, rel)` | `Promise<void>` — moves to Trash (falls back to `rm`) |
+| `deletePath(workspace, rel)` | `Promise<void>` — moves to Trash and preserves failures without permanent deletion |
 | `renamePath(workspace, rel, newName)` | `Promise<void>` — renames within the same folder |
 | `projects()` | `Promise<ProjectInfo[]>` |
 | `models()` | `Promise<ModelOption[]>` |
