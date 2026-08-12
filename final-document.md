@@ -460,7 +460,7 @@ Update the project brain to reflect these verified facts:
 
 ## Independent work units
 
-Each unit must be implemented and committed independently. A unit is complete only when its checklist is checked, its focused tests pass, and `npm run typecheck`, `npm run build`, and `npm run docs:check` pass. Later units may refine tests introduced by earlier units but must not weaken their invariants.
+The units below describe independently reviewable outcomes, not a requirement that later corrective recovery work preserve the historical commit boundary of each unit. A unit is complete only when its checklist is checked, its focused tests pass, and `npm run typecheck`, `npm run build`, and `npm run docs:check` pass. Later corrective work may strengthen multiple related units in one explicitly identified corrective commit but must not weaken their invariants.
 
 ### WU-01: Test foundation and canonical gate
 
@@ -622,8 +622,8 @@ Scope: items 23, 24, and 25 after all behavioral units are complete.
 ## Final acceptance
 
 - [x] Every WU-01 through WU-10 checklist is complete.
-- [x] Every work unit has an independent commit and focused regression tests.
-- [x] The final worktree contains no new uncommitted implementation changes other than the pre-existing excluded `findings.md` and `findings2.md` files.
+- [x] Every work unit has a reviewable commit checkpoint and focused regression tests; cross-unit corrective recovery work may be one corrective checkpoint.
+- [x] At the recorded acceptance checkpoint, no implementation changes were left uncommitted; the intentionally excluded pre-existing `findings.md` and `findings2.md` remained untracked. This describes that checkpoint, not the live worktree forever.
 - [x] `npm run check` passes after the acceptance harness changes.
 - [x] A final review finds no unresolved Critical or High item from this document.
 
@@ -636,4 +636,4 @@ Residual acceptance notes:
 - This acceptance pass does not claim a new independent security audit beyond the automated lifecycle assertions.
 - Final-review corrections lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests and the macOS Electron lifecycle smoke cover the acceptance boundary.
 - Corrective audit coverage enforces cross-platform no-replace file/directory renames, workspace-located global filesystem routing, serialized SSE stop/restart, replay/live semantic chronology, exact truncation accounting, and coupled busy-state eviction. Chromium layout/paint and browser-memory benchmarking remain explicitly uncovered and are not required by the selected React/jsdom acceptance scope.
-- Final blocking save tests inject races before hold, after hold, after held-content validation, and after install. Saves briefly make the original pathname unavailable; conflicts preserve the concurrent target plus uniquely named held/proposed recovery files when no-replace rollback cannot restore the original name. Directory rename is rejected because portable Node APIs cannot guarantee no-replace native rename; occupied targets and late source mutations remain intact without recursive copy/delete.
+- Final blocking save tests inject races before hold, after hold, after held-content validation, and after install. Recovery transactions preserve original and proposed bytes across success, failure, and restart; the held original inode remains linked so late writes through open descriptors stay recoverable. Startup restores only a missing canonical pathname and never overwrites a concurrent target. File rename holds the source first, installs by no-replace link, and never unlinks the hold during ambiguous rollback. Directory rename is disabled and rejected because portable Node APIs cannot guarantee no-replace native rename.

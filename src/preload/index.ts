@@ -9,6 +9,7 @@ import type {
   ProjectInfo,
   PromptFile,
   ProviderUsageResult,
+  RecoveryRecord,
   ReferenceOption,
   ReopenedSession,
   SessionInfo,
@@ -58,6 +59,12 @@ const api = {
     ipcRenderer.invoke("shell:fs-delete", workspace, rel),
   renamePath: (workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-rename", workspace, rel, newName),
+  recoveryRecords: (workspace: WorkspaceIdentity): Promise<RecoveryRecord[]> =>
+    ipcRenderer.invoke("shell:recovery-list", workspace),
+  openRecovery: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
+    ipcRenderer.invoke("shell:recovery-open", workspace, id),
+  acknowledgeRecovery: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
+    ipcRenderer.invoke("shell:recovery-acknowledge", workspace, id),
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
   models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
   modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),

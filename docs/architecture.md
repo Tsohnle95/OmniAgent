@@ -54,6 +54,8 @@ All backend→renderer message kinds are defined in
   emitted by the generation-bound fs watcher (below).
 - `{ kind: "session", session: { id, directory, workspace } }` — emitted when a
   session is opened.
+- `{ kind: "recovery", recovery: { workspace, records } }` — durable artifact
+  inventory emitted on activation and transaction/acknowledgment changes.
 - `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
   exit from the terminal tray (`src/main/terminal.ts`).
 - `{ kind: "ui-command", command }` — main-process requests to the
@@ -146,23 +148,30 @@ updates preserve local edits and pause saving until explicit reload, overwrite,
 or keep-editing then save-merged resolution. Lifecycle changes invalidate
 timers and stale completions; external updates advance a conflict generation so
 an already-started completion cannot clear a newer conflict. Writes create a
-same-directory temporary file, atomically move the current target to a unique
-holding name, validate the held bytes, and install the temporary inode with a
+transaction under workspace-local `.openshell-recovery`, copy proposed bytes
+into a second durable artifact, move the current target inode into the
+transaction, validate the held bytes, and install the temporary inode with a
 no-replace hard link. The original pathname is briefly unavailable between the
-hold and install. A concurrent recreation is never overwritten: the save fails,
-restores the original only when the pathname remains free, and otherwise leaves
-unique held/proposed recovery files beside the concurrent target. Successful
-writes and safe rollbacks remove those artifacts. This protocol requires the
-temporary, holding, and target names to share a filesystem. Writes go through Node `fs` in the main process
+hold and install. A concurrent recreation is never overwritten. Neither success
+nor rollback unlinks the held original inode, so later writes through an
+already-open descriptor remain visible in the recovery artifact. Proposed bytes
+remain durable. Phase metadata is atomically replaced and fsynced; activation
+restores a suitable hard link only when the canonical path is missing, never
+over an existing path. OpenShell never silently deletes recovery artifacts, and
+Acknowledge persists metadata only. This protocol requires recovery and target
+names to share a filesystem. Writes go through Node `fs` in the main process
 (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching. The
-explorer also supports create/rename/delete through `shell:fs-create-*`,
+explorer also supports create/file-rename/delete through `shell:fs-create-*`,
 `shell:fs-rename`, `shell:fs-delete` (delete moves to Trash). File rename uses
 same-filesystem no-replace hard-link/unlink semantics. Portable Node filesystem
 APIs cannot guarantee no-replace directory rename, so directory rename is
 rejected rather than recursively copying and deleting a potentially changing
-source tree. These operations run through the same watcher so baselines and the
-tree stay consistent.
+source tree. File rename moves the source into a durable hold before linking the
+no-replace destination. Rollback only links back into an absent source and never
+unlinks the hold, preserving ambiguity when another process recreates the
+source. These operations run through the same watcher so baselines and the tree
+stay consistent.
 
 Every workspace filesystem call carries the expected workspace UUID and main
 rejects stale generations. Paths are bounded strict relative paths and no
@@ -171,6 +180,11 @@ of a new target. This assumes stable topology during the operation; Node
 pathname APIs cannot fully prevent an external symlink swap after validation.
 Absolute reads are not part of the workspace API; the separate
 app-root-confined source-view channel exists only for DevTools CSS navigation.
+
+`.openshell-recovery` is excluded from watching, Explorer, and application file
+references. The recovery root must be a real directory, transaction ids and
+manifests are validated, and Open resolves a known artifact id in main rather
+than accepting a renderer path.
 
 ## Models, agents, and composer controls
 

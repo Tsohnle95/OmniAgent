@@ -2,12 +2,13 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenShellApi } from "../../preload";
-import type { SessionInfo } from "@shared/types";
+import type { BackendMessage, RecoveryRecord, SessionInfo } from "@shared/types";
 import { StoreProvider, useStore } from "./store";
 
 type Store = ReturnType<typeof useStore>;
 
 let store: Store;
+let messageHandler: ((message: BackendMessage) => void) | null;
 
 function Probe(): ReactNode {
   store = useStore();
@@ -31,7 +32,10 @@ function info(directory: string, generation: number): SessionInfo {
 function api(overrides: Partial<OpenShellApi> = {}): OpenShellApi {
   return {
     platform: "darwin",
-    onMessage: () => () => {},
+    onMessage: (handler) => {
+      messageHandler = handler;
+      return () => { messageHandler = null; };
+    },
     health: async () => true,
     state: async () => null,
     models: async () => [],
@@ -52,6 +56,7 @@ describe("store workspace continuations", () => {
 
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    messageHandler = null;
     window.localStorage.clear();
     container = document.createElement("div");
     document.body.append(container);
@@ -144,5 +149,29 @@ describe("store workspace continuations", () => {
     await act(async () => olderPending);
 
     expect(store.session?.directory).toBe("/newer");
+  });
+
+  it("loads, opens, acknowledges, and identity-gates recovery records", async () => {
+    const record: RecoveryRecord = {
+      id: "1786533818724-e85066e0-7d22-4d91-b476-ba097731f371:original",
+      artifact: "original",
+      originalPath: "save.txt",
+      recoveryPath: ".openshell-recovery/id/original",
+      createdAt: 1,
+      acknowledged: false,
+      reason: "saved"
+    };
+    const recoveryRecords = vi.fn(async () => [record]);
+    const openRecovery = vi.fn(async () => {});
+    const acknowledgeRecovery = vi.fn(async () => {});
+    window.openshell = api({ recoveryRecords, openRecovery, acknowledgeRecovery });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+
+    expect(store.recoveryRecords).toEqual([record]);
+    await act(async () => store.openRecovery(record.id));
+    await act(async () => store.acknowledgeRecovery(record.id));
+    expect(openRecovery).toHaveBeenCalledWith(store.session!.workspace, record.id);
+    expect(acknowledgeRecovery).toHaveBeenCalledWith(store.session!.workspace, record.id);
   });
 });

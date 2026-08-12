@@ -17,6 +17,7 @@ import type {
   PermissionReply,
   PromptFile,
   ProviderUsageResult,
+  RecoveryRecord,
   SessionInfo,
   SessionSummary,
   SessionUsage,
@@ -24,7 +25,8 @@ import type {
   TodoItem,
   TranscriptItem,
   TreeEntry,
-  UserAttachment
+  UserAttachment,
+  WorkspaceIdentity
 } from "@shared/types";
 import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
@@ -71,6 +73,7 @@ interface Store {
   tree: Record<string, TreeEntry[]>;
   expanded: Set<string>;
   toasts: Toast[];
+  recoveryRecords: RecoveryRecord[];
   models: ModelOption[];
   currentModel: ModelOption | null;
   agents: AgentOption[];
@@ -113,12 +116,14 @@ interface Store {
   cancelPending: () => void;
   commitName: (name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
+  openRecovery: (id: string) => Promise<void>;
+  acknowledgeRecovery: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
 
 const HIDDEN_DIRS = new Set([
-  ".git", "node_modules", ".next", ".venv", "__pycache__", ".cache", ".turbo", ".svn", ".hg", ".nx"
+  ".git", "node_modules", ".next", ".venv", "__pycache__", ".cache", ".turbo", ".svn", ".hg", ".nx", ".openshell-recovery"
 ]);
 
 const MAX_EDITABLE_BYTES = 4 * 1024 * 1024;
@@ -280,6 +285,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [tree, setTree] = useState<Record<string, TreeEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [recoveryRecords, setRecoveryRecords] = useState<RecoveryRecord[]>([]);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [currentModel, setCurrentModel] = useState<ModelOption | null>(null);
   const [agents, setAgents] = useState<AgentOption[]>([]);
@@ -377,6 +383,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setTabs([]);
     setActivePath(null);
     setAgentFiles(new Map());
+    setRecoveryRecords([]);
     setTree({});
     setExpanded(new Set());
     setCtxMenu(null);
@@ -386,6 +393,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     tabsRef.current = [];
     todoToolRef.current = "";
   }, [persistence]);
+
+  const loadRecovery = useCallback(async (workspace: WorkspaceIdentity) => {
+    try {
+      const records = await window.openshell.recoveryRecords(workspace);
+      if (sameWorkspace(workspace, sessionRef.current?.workspace)) setRecoveryRecords(records);
+    } catch (error) {
+      if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+        toast(error instanceof Error ? error.message : String(error), "error");
+      }
+    }
+  }, [toast]);
 
   const loadModels = useCallback(async () => {
     const workspace = sessionRef.current?.workspace;
@@ -493,7 +511,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (!activations.current(request)) return;
         pendingActivationRef.current = null;
         resetAll();
+        sessionRef.current = info;
         setSession(info);
+        void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels();
         void loadAgents();
@@ -502,7 +522,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents, persistence, activations]
+    [resetAll, toast, loadModels, loadAgents, loadRecovery, persistence, activations]
   );
 
   const selectFolder = useCallback(async () => {
@@ -513,9 +533,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const info = await window.openshell.selectFolder(request);
       if (!activations.current(request)) return;
       pendingActivationRef.current = null;
-      if (info) {
-        resetAll();
-        setSession(info);
+        if (info) {
+          resetAll();
+          sessionRef.current = info;
+          setSession(info);
+          void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels();
         void loadAgents();
@@ -524,7 +546,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (pendingActivationRef.current === request) pendingActivationRef.current = null;
       if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [resetAll, toast, loadModels, loadAgents, persistence, activations]);
+  }, [resetAll, toast, loadModels, loadAgents, loadRecovery, persistence, activations]);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -544,7 +566,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (!activations.current(request)) return;
         pendingActivationRef.current = null;
         resetAll(true);
+        sessionRef.current = reopened.session;
         setSession(reopened.session);
+        void loadRecovery(reopened.session.workspace);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
           reopened.session.id,
@@ -579,7 +603,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents, loadSessions, persistence, activations]
+    [resetAll, toast, loadModels, loadAgents, loadSessions, loadRecovery, persistence, activations]
   );
 
   const sendPrompt = useCallback(
@@ -1040,6 +1064,26 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       : tab));
   }, []);
 
+  const openRecovery = useCallback(async (id: string) => {
+    const workspace = sessionRef.current?.workspace;
+    if (!workspace) return;
+    try {
+      await window.openshell.openRecovery(workspace, id);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), "error");
+    }
+  }, [toast]);
+
+  const acknowledgeRecovery = useCallback(async (id: string) => {
+    const workspace = sessionRef.current?.workspace;
+    if (!workspace) return;
+    try {
+      await window.openshell.acknowledgeRecovery(workspace, id);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), "error");
+    }
+  }, [toast]);
+
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
@@ -1056,6 +1100,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         sessionRef.current = msg.session ?? null;
         setSession(sessionRef.current);
         if (msg.session) {
+          void loadRecovery(msg.session.workspace);
           void loadModels();
           void loadAgents();
           void loadSessions();
@@ -1069,6 +1114,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           const path = msg.path;
           const line = msg.line;
           void openFileRef.current(path, { mode: "edit", source: path.startsWith("/") }).then(() => requestReveal(path, line));
+        }
+        return;
+      }
+      if (msg.kind === "recovery") {
+        if (msg.recovery && sameWorkspace(msg.recovery.workspace, sessionRef.current?.workspace)) {
+          setRecoveryRecords(msg.recovery.records);
         }
         return;
       }
@@ -1345,6 +1396,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     toggleWordWrap,
     loadAgents,
     loadSessions,
+    loadRecovery,
     reopenSession,
     setSessionBusy,
     updateSessionTranscript,
@@ -1374,6 +1426,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       tree,
       expanded,
       toasts,
+      recoveryRecords,
       models,
       currentModel,
       agents,
@@ -1415,17 +1468,19 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       startRename,
       cancelPending,
       commitName,
-      deleteEntry
+      deleteEntry,
+      openRecovery,
+      acknowledgeRecovery
     }),
     [
-      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts,
+      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts, recoveryRecords,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
       ctxMenu, pendingCreate, pendingRename,
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, replyPermission,
-      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry
+      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, openRecovery, acknowledgeRecovery
     ]
   );
 

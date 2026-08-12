@@ -114,6 +114,27 @@ median or jsdom timing as a cross-machine browser benchmark.
    cards appear with names and elapsed timers, and a file the agent
    touches shows a diff.
 
+## Manual recovery
+
+OpenShell stores save and file-rename transactions in
+`<workspace>/.openshell-recovery/`. Explorer and file watching intentionally
+hide this directory. Each transaction contains `manifest.json` plus one or more
+artifacts named `original`, `temporary`, `proposed`, or `source`. Existing
+artifacts are never removed automatically.
+
+1. Use the recovery notice's Open action to inspect each artifact.
+2. Compare `originalPath`, the current canonical file, and the artifact before
+   manually copying any bytes.
+3. Use Acknowledge when review is complete. This updates `manifest.json` and
+   hides the notice; it does not delete the artifact or directory.
+4. If the UI cannot open the workspace, inspect the transaction directories
+   directly. Do not remove them until applications that may retain old file
+   descriptors have exited and the bytes have been reviewed.
+
+Activation may hard-link an artifact back to a missing canonical path according
+to the recorded phase. It never overwrites an existing path. If both canonical
+and recovery versions exist, manual comparison is required.
+
 ## Driving the renderer headlessly (CDP)
 
 The UI can be inspected and driven over the Chrome DevTools Protocol.

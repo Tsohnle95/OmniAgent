@@ -581,6 +581,18 @@ function registerIpc(): void {
     backend.renamePath(workspace, rel, newName)
   );
 
+  handleTrusted("shell:recovery-list", async (_e, workspace: WorkspaceIdentity) =>
+    backend.listRecovery(workspace)
+  );
+
+  handleTrusted("shell:recovery-open", async (_e, workspace: WorkspaceIdentity, id: string) =>
+    backend.openRecovery(workspace, selectionId(id, "recovery id"))
+  );
+
+  handleTrusted("shell:recovery-acknowledge", async (_e, workspace: WorkspaceIdentity, id: string) =>
+    backend.acknowledgeRecovery(workspace, selectionId(id, "recovery id"))
+  );
+
   handleTrusted("shell:projects", async () => backend.listProjects());
 
   handleTrusted("shell:models", async () => backend.listModels());

@@ -24,6 +24,7 @@ Exposed via `useStore()` (context). State:
 | `tree` | `Record<relPath, TreeEntry[]>` | lazy-loaded explorer cache |
 | `expanded` | `Set<relPath>` | open tree directories |
 | `toasts` | `Toast[]` | transient notifications |
+| `recoveryRecords` | `RecoveryRecord[]` | durable workspace artifacts; unacknowledged records remain actionable across restart |
 | `models` | `ModelOption[]` | for the composer model/strength picker |
 | `currentModel` | `ModelOption \| null` | seeded from the active session selection (falling back to `modelDefault()`), live-updated by `session.model.selected`; includes selected `variant` |
 | `agents` | `AgentOption[]` | for the composer agent picker |
@@ -42,7 +43,8 @@ Actions: `openSession`, `selectFolder`, `reopenSession(id)`,
 `reloadTab`, `overwriteTab`, `mergeTab`,
 `toggleDir`, `replyPermission`, `openCtxMenu`, `closeCtxMenu`,
 `startCreate(parent, kind)`, `startRename(path)`, `cancelPending`,
-`commitName(name)`, `deleteEntry(path)`. `commitName`/`deleteEntry`
+`commitName(name)`, `deleteEntry(path)`, `openRecovery(id)`,
+`acknowledgeRecovery(id)`. `commitName`/`deleteEntry`
 call the `shell:fs-*` mutation channels, then re-list every expanded
 ancestor dir of the touched path so the tree stays current (directories
 emit no `file-update`), move/close matching tabs, and move `agentFiles`
@@ -158,6 +160,11 @@ Key mechanisms:
   compositor work, or browser memory and is not a browser render budget.
 - **Tree normalization** — `filterEntries` hides `HIDDEN_DIRS`; entries
   arrive trailing-slash-free from `listDir` (main process normalizes).
+  `.openshell-recovery` is hidden independently in main and renderer.
+- **Recovery notice** — unacknowledged records are shown persistently with
+  Open and Acknowledge actions. Acknowledge updates manifest metadata and hides
+  the record without deleting bytes. Directories never offer Rename because
+  backend rename is file-only.
 
 ## Components (`src/renderer/src/components/`)
 

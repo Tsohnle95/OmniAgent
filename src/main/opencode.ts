@@ -19,6 +19,7 @@ import type {
   PromptFile,
   ProviderUsageResult,
   ReferenceOption,
+  RecoveryRecord,
   ReopenedSession,
   SessionInfo,
   SessionSelection,
@@ -65,8 +66,22 @@ const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) 
 
 const SKIP_DIRS = new Set([
   ".git", "node_modules", ".next", ".venv", "__pycache__", ".cache", ".turbo", ".nx",
-  ".svn", ".hg", ".idea", ".vscode", "dist", "out", "build", "target", "coverage", ".pytest_cache"
+  ".svn", ".hg", ".idea", ".vscode", ".openshell-recovery", "dist", "out", "build", "target", "coverage", ".pytest_cache"
 ]);
+
+const RECOVERY_DIR = ".openshell-recovery";
+
+interface RecoveryTransaction {
+  version: 1;
+  id: string;
+  operation: "save" | "rename";
+  originalPath: string;
+  targetPath?: string;
+  createdAt: number;
+  phase: "initialized" | "temporary-ready" | "source-held" | "held-validated" | "target-installed" | "failed" | "complete";
+  acknowledged: string[];
+  reason?: RecoveryRecord["reason"];
+}
 
 function modelID(model: { id?: string; modelID?: string }): string {
   return model.id ?? model.modelID ?? "";
@@ -415,7 +430,8 @@ export type MutationPhase =
   | "save:held-validated"
   | "save:target-installed"
   | "rename:source-inspected"
-  | "rename:target-created";
+  | "rename:source-held"
+  | "rename:target-installed";
 
 type MutationPhaseHandler = (phase: MutationPhase, source: string, target: string) => void | Promise<void>;
 
@@ -588,6 +604,218 @@ export class OpenShellBackend {
   private relKey(abs: string, root = this.directory!): string {
     const rel = path.isAbsolute(abs) ? path.relative(root, abs) : abs;
     return rel.split(path.sep).join("/");
+  }
+
+  private recoveryRoot(root: string): string {
+    return path.join(root, RECOVERY_DIR);
+  }
+
+  private async checkedRecoveryRoot(root: string, create = false): Promise<string> {
+    const recoveryRoot = this.recoveryRoot(root);
+    const stat = await fsp.lstat(recoveryRoot).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    });
+    if (!stat && create) {
+      await fsp.mkdir(recoveryRoot, { mode: 0o700 });
+      return recoveryRoot;
+    }
+    if (stat && !stat.isDirectory()) throw new Error("invalid recovery directory");
+    return recoveryRoot;
+  }
+
+  private async syncDirectory(directory: string): Promise<void> {
+    const handle = await fsp.open(directory, "r").catch((error) => {
+      if (["EISDIR", "EINVAL", "EPERM", "ENOTSUP"].includes((error as NodeJS.ErrnoException).code ?? "")) return null;
+      throw error;
+    });
+    if (!handle) return;
+    try {
+      await handle.sync().catch((error) => {
+        if (!["EINVAL", "EPERM", "ENOTSUP"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+      });
+    } finally {
+      await handle.close();
+    }
+  }
+
+  private async writeRecoveryTransaction(directory: string, transaction: RecoveryTransaction): Promise<void> {
+    const temporary = path.join(directory, `manifest-${randomUUID()}.tmp`);
+    const handle = await fsp.open(temporary, "wx", 0o600);
+    try {
+      await handle.writeFile(JSON.stringify(transaction, null, 2), "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await fsp.rename(temporary, path.join(directory, "manifest.json"));
+    await this.syncDirectory(directory);
+  }
+
+  private async createRecoveryTransaction(
+    root: string,
+    operation: RecoveryTransaction["operation"],
+    originalPath: string,
+    targetPath?: string
+  ): Promise<{ directory: string; transaction: RecoveryTransaction }> {
+    const id = `${Date.now()}-${randomUUID()}`;
+    const recoveryRoot = await this.checkedRecoveryRoot(root, true);
+    const directory = path.join(recoveryRoot, id);
+    await fsp.mkdir(directory);
+    const transaction: RecoveryTransaction = {
+      version: 1,
+      id,
+      operation,
+      originalPath,
+      ...(targetPath ? { targetPath } : {}),
+      createdAt: Date.now(),
+      phase: "initialized",
+      acknowledged: []
+    };
+    await this.writeRecoveryTransaction(directory, transaction);
+    await this.syncDirectory(recoveryRoot);
+    return { directory, transaction };
+  }
+
+  private validRecoveryTransaction(value: unknown, id: string): value is RecoveryTransaction {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const transaction = value as Partial<RecoveryTransaction>;
+    const phases = ["initialized", "temporary-ready", "source-held", "held-validated", "target-installed", "failed", "complete"];
+    const artifacts = transaction.operation === "save"
+      ? ["temporary", "original", "proposed"]
+      : ["rename-source"];
+    try {
+      relativePath(transaction.originalPath);
+      if (transaction.operation === "rename") relativePath(transaction.targetPath);
+    } catch {
+      return false;
+    }
+    return transaction.version === 1 &&
+      transaction.id === id &&
+      /^\d{13}-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id) &&
+      (transaction.operation === "save" || transaction.operation === "rename") &&
+      typeof transaction.createdAt === "number" && Number.isSafeInteger(transaction.createdAt) && transaction.createdAt > 0 &&
+      typeof transaction.phase === "string" && phases.includes(transaction.phase) &&
+      Array.isArray(transaction.acknowledged) &&
+      transaction.acknowledged.every((artifact) => typeof artifact === "string" && artifacts.includes(artifact));
+  }
+
+  private async readRecoveryTransactions(root: string): Promise<Array<{
+    directory: string;
+    transaction: RecoveryTransaction;
+  }>> {
+    const recoveryRoot = await this.checkedRecoveryRoot(root);
+    const entries = await fsp.readdir(recoveryRoot, { withFileTypes: true }).catch(() => []);
+    const transactions = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
+      const directory = path.join(recoveryRoot, entry.name);
+      try {
+        const manifest = path.join(directory, "manifest.json");
+        if (!(await fsp.lstat(manifest)).isFile()) return null;
+        const transaction = JSON.parse(await fsp.readFile(manifest, "utf8")) as unknown;
+        if (!this.validRecoveryTransaction(transaction, entry.name)) return null;
+        return { directory, transaction };
+      } catch {
+        return null;
+      }
+    }));
+    return transactions.filter((value): value is NonNullable<typeof value> => value !== null);
+  }
+
+  private async recoveryRecords(root: string): Promise<RecoveryRecord[]> {
+    const transactions = await this.readRecoveryTransactions(root);
+    const records: RecoveryRecord[] = [];
+    for (const { directory, transaction } of transactions) {
+      const artifacts = transaction.operation === "save"
+        ? [["temporary", "temporary"] as const, ["original", "original"] as const, ["proposed", "proposed"] as const]
+        : [["rename-source", "source"] as const];
+      for (const [artifact, name] of artifacts) {
+        const file = path.join(directory, name);
+        if (!(await fsp.lstat(file).catch(() => null))?.isFile()) continue;
+        records.push({
+          id: `${transaction.id}:${artifact}`,
+          artifact,
+          originalPath: transaction.originalPath,
+          recoveryPath: this.relKey(file, root),
+          createdAt: transaction.createdAt,
+          acknowledged: transaction.acknowledged.includes(artifact),
+          reason: transaction.reason ?? (transaction.phase === "complete" ? "saved" : "save-failed")
+        });
+      }
+    }
+    return records.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
+  }
+
+  private async reconcileRecovery(root: string): Promise<void> {
+    const transactions = await this.readRecoveryTransactions(root);
+    for (const item of transactions) {
+      const { directory, transaction } = item;
+      const renameInstalled = transaction.operation === "rename" &&
+        (transaction.phase === "target-installed" || transaction.phase === "complete");
+      const canonicalRel = renameInstalled ? transaction.targetPath! : transaction.originalPath;
+      const canonical = path.join(root, ...canonicalRel.split("/"));
+      if (await fsp.lstat(canonical).catch(() => null)) continue;
+      const candidates = transaction.operation === "rename"
+        ? [path.join(directory, "source")]
+        : transaction.phase === "target-installed" || transaction.phase === "complete"
+          ? [path.join(directory, "temporary"), path.join(directory, "proposed"), path.join(directory, "original")]
+          : [path.join(directory, "original"), path.join(directory, "proposed"), path.join(directory, "temporary")];
+      for (const artifact of candidates) {
+        if (!(await fsp.lstat(artifact).catch(() => null))?.isFile()) continue;
+        await fsp.mkdir(path.dirname(canonical), { recursive: true });
+        try {
+          await fsp.link(artifact, canonical);
+          await this.syncDirectory(path.dirname(canonical));
+          transaction.phase = "complete";
+          transaction.reason = "crash-recovered";
+          await this.writeRecoveryTransaction(directory, transaction);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        }
+        break;
+      }
+    }
+  }
+
+  private async emitRecovery(root = this.directory, workspace = this.workspace): Promise<void> {
+    if (!root || !workspace) return;
+    const records = await this.recoveryRecords(root);
+    if (root !== this.directory || !sameWorkspace(workspace, this.workspace)) return;
+    this.emit({ kind: "recovery", recovery: { workspace, records } });
+  }
+
+  async listRecovery(workspace: WorkspaceIdentity): Promise<RecoveryRecord[]> {
+    return this.recoveryRecords(this.workspaceRoot(workspace));
+  }
+
+  async acknowledgeRecovery(workspace: WorkspaceIdentity, id: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const match = /^(\d{13}-[0-9a-f-]{36}):(temporary|original|proposed|rename-source)$/.exec(id);
+    if (!match) throw new Error("invalid recovery record");
+    const item = (await this.readRecoveryTransactions(root)).find(({ transaction }) => transaction.id === match[1]);
+    if (!item) throw new Error("recovery record not found");
+    const { directory, transaction } = item;
+    const artifact = match[2];
+    if (!(await this.recoveryRecords(root)).some((record) => record.id === id)) throw new Error("recovery record not found");
+    if (!transaction.acknowledged.includes(artifact)) transaction.acknowledged.push(artifact);
+    await this.writeRecoveryTransaction(directory, transaction);
+    await this.emitRecovery(root, workspace);
+  }
+
+  async openRecovery(workspace: WorkspaceIdentity, id: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const record = (await this.recoveryRecords(root)).find((candidate) => candidate.id === id);
+    if (!record) throw new Error("recovery record not found");
+    const match = /^(\d{13}-[0-9a-f-]{36}):(temporary|original|proposed|rename-source)$/.exec(id);
+    if (!match) throw new Error("invalid recovery record");
+    const names: Record<RecoveryRecord["artifact"], string> = {
+      temporary: "temporary",
+      original: "original",
+      proposed: "proposed",
+      "rename-source": "source"
+    };
+    const artifact = path.join(this.recoveryRoot(root), match[1], names[record.artifact]);
+    const result = await shell.openPath(artifact);
+    if (result) throw new Error(result);
   }
 
   private shouldSkip(abs: string, root = this.directory!): boolean {
@@ -808,6 +1036,8 @@ export class OpenShellBackend {
   ): Promise<SessionInfo> {
     const directory = await canonicalWorkspaceRoot(info.directory);
     if (!this.activations.current(generation)) throw new Error("activation superseded");
+    await this.reconcileRecovery(directory);
+    if (!this.activations.current(generation)) throw new Error("activation superseded");
     const workspace = Object.freeze({ id: randomUUID(), generation });
     const activated = { ...info, directory, workspace };
     const context: WatchContext = {
@@ -825,6 +1055,7 @@ export class OpenShellBackend {
     this.watchContext = context;
     this.startWatcher(context);
     this.emit({ kind: "session", session: activated });
+    await this.emitRecovery(directory, workspace);
     return activated;
   }
 
@@ -1064,7 +1295,7 @@ export class OpenShellBackend {
     this.assertTarget(target);
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
     return (arr as { path?: string }[])
-      .filter((r) => r.path)
+      .filter((r) => r.path && r.path !== RECOVERY_DIR && !r.path.startsWith(`${RECOVERY_DIR}/`))
       .map((r) => {
         const rel = r.path as string;
         return {
@@ -1199,10 +1430,9 @@ export class OpenShellBackend {
     });
     assertWorkspace(workspace, this.workspace);
     const arr = Array.isArray(body) ? body : (body as { data?: TreeEntry[] }).data ?? [];
-    return arr.map((e) => ({
-      ...e,
-      path: e.path.replace(/\/+$/, "")
-    }));
+    return arr
+      .map((e) => ({ ...e, path: e.path.replace(/\/+$/, "") }))
+      .filter((e) => e.path !== RECOVERY_DIR && !e.path.startsWith(`${RECOVERY_DIR}/`));
   }
 
   async readFile(workspace: WorkspaceIdentity, rel: string): Promise<string | null> {
@@ -1247,58 +1477,74 @@ export class OpenShellBackend {
       await fsp.mkdir(path.dirname(abs), { recursive: true });
       await confinedPath(root, cleanRel);
       assertWorkspace(workspace, this.workspace);
-      const temporary = path.join(path.dirname(abs), `.${path.basename(abs)}.openshell-${randomUUID()}.tmp`);
-      const holding = path.join(path.dirname(abs), `.${path.basename(abs)}.openshell-${randomUUID()}.held`);
-      const proposed = path.join(path.dirname(abs), `.${path.basename(abs)}.openshell-${randomUUID()}.proposed`);
+      const recovery = await this.createRecoveryTransaction(root, "save", cleanRel);
+      const temporary = path.join(recovery.directory, "temporary");
+      const holding = path.join(recovery.directory, "original");
+      const proposed = path.join(recovery.directory, "proposed");
       let sourceHeld = false;
       let targetInstalled = false;
       try {
-        await fsp.writeFile(temporary, cleanContent, { encoding: "utf8", flag: "wx" });
+        const temporaryHandle = await fsp.open(temporary, "wx", 0o600);
+        try {
+          await temporaryHandle.writeFile(cleanContent, "utf8");
+          await temporaryHandle.sync();
+        } finally {
+          await temporaryHandle.close();
+        }
         await fsp.copyFile(temporary, proposed, constants.COPYFILE_EXCL);
+        const proposedHandle = await fsp.open(proposed, "r");
+        try {
+          await proposedHandle.sync();
+        } finally {
+          await proposedHandle.close();
+        }
         const existing = await fsp.stat(abs).catch(() => null);
         if (existing) await fsp.chmod(temporary, existing.mode);
+        recovery.transaction.phase = "temporary-ready";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
+        await this.syncDirectory(recovery.directory);
         await this.mutationPhase("save:temporary-ready", abs, temporary);
         await confinedPath(root, cleanRel);
         assertWorkspace(workspace, this.workspace);
         await fsp.rename(abs, holding);
+        await this.syncDirectory(path.dirname(abs));
+        await this.syncDirectory(recovery.directory);
         sourceHeld = true;
+        recovery.transaction.phase = "source-held";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
         await this.mutationPhase("save:source-held", holding, abs);
         const heldContent = await fsp.readFile(holding, "utf8");
         if (!write.overwrite && heldContent !== expectedContent) {
           throw new Error("file changed on disk");
         }
+        recovery.transaction.phase = "held-validated";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
         await this.mutationPhase("save:held-validated", holding, abs);
         await fsp.link(temporary, abs);
+        await this.syncDirectory(path.dirname(abs));
         targetInstalled = true;
+        recovery.transaction.phase = "target-installed";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
         await this.mutationPhase("save:target-installed", temporary, abs);
         if (await fsp.readFile(abs, "utf8") !== cleanContent) {
           throw new Error("file changed during save");
         }
-        await fsp.unlink(holding);
-        sourceHeld = false;
-        await fsp.unlink(temporary);
-        targetInstalled = false;
-        await fsp.unlink(proposed);
+        recovery.transaction.phase = "complete";
+        recovery.transaction.reason = "saved";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
       } catch (error) {
         if (sourceHeld && !targetInstalled) {
           try {
             await fsp.link(holding, abs);
-            await fsp.unlink(holding);
-            sourceHeld = false;
           } catch {}
         }
-        await fsp.rm(temporary, { force: true }).catch(() => {});
-        if (!sourceHeld && !targetInstalled) {
-          await fsp.rm(proposed, { force: true }).catch(() => {});
-        }
+        recovery.transaction.reason = "save-failed";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction).catch(() => {});
         const current = await fsp.readFile(abs, "utf8").catch(() => null);
         this.emitFileUpdate(context, abs, current);
-        const recovery = [sourceHeld ? holding : null, sourceHeld || targetInstalled ? proposed : null].filter(Boolean);
-        if (recovery.length > 0) {
-          throw new Error(`file changed during save; recovery files preserved: ${recovery.map((file) => path.basename(file!)).join(", ")}`);
-        }
-        if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("file changed during save");
-        throw error;
+        await this.emitRecovery(root, workspace);
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`${detail}; recovery artifacts preserved in ${this.relKey(recovery.directory, root)}`);
       }
       assertWorkspace(workspace, this.workspace);
       context.snapshots.set(
@@ -1307,6 +1553,7 @@ export class OpenShellBackend {
       );
       context.lastKnown.set(abs, cleanContent);
       this.emitFileUpdate(context, abs, cleanContent, undefined, write);
+      await this.emitRecovery(root, workspace);
     });
   }
 
@@ -1364,32 +1611,42 @@ export class OpenShellBackend {
       const captured = await this.captureDirectMutation(context, abs);
       assertWorkspace(workspace, this.workspace);
       const source = await fsp.lstat(abs);
+      if (source.isDirectory()) throw new Error("directory rename is not supported; rename files only");
       await this.mutationPhase("rename:source-inspected", abs, target);
+      const recovery = await this.createRecoveryTransaction(
+        root,
+        "rename",
+        this.relKey(abs, root),
+        this.relKey(target, root)
+      );
+      const holding = path.join(recovery.directory, "source");
+      let installed = false;
       try {
-        if (source.isDirectory()) {
-          try {
-            await fsp.mkdir(target);
-            await this.mutationPhase("rename:target-created", abs, target);
-            await fsp.rmdir(target);
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code?.includes("EEXIST")) {
-              throw new Error(`destination already exists: ${path.basename(target)}`);
-            }
-            throw error;
-          }
-          throw new Error("safe no-replace directory rename is unavailable on this platform");
-        } else {
-          let created = false;
-          try {
-            await fsp.link(abs, target);
-            created = true;
-            await fsp.unlink(abs);
-          } catch (error) {
-            if (created) await fsp.unlink(target).catch(() => {});
-            throw error;
-          }
-        }
+        await fsp.rename(abs, holding);
+        await this.syncDirectory(path.dirname(abs));
+        await this.syncDirectory(recovery.directory);
+        recovery.transaction.phase = "source-held";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
+        await this.mutationPhase("rename:source-held", holding, abs);
+        await fsp.link(holding, target);
+        await this.syncDirectory(path.dirname(target));
+        installed = true;
+        recovery.transaction.phase = "target-installed";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
+        await this.mutationPhase("rename:target-installed", holding, target);
+        recovery.transaction.phase = "complete";
+        recovery.transaction.reason = "renamed";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction);
       } catch (error) {
+        if (!installed) {
+          try {
+            await fsp.link(holding, abs);
+            await this.syncDirectory(path.dirname(abs));
+          } catch {}
+        }
+        recovery.transaction.reason = "rename-failed";
+        await this.writeRecoveryTransaction(recovery.directory, recovery.transaction).catch(() => {});
+        await this.emitRecovery(root, workspace);
         if ((error as NodeJS.ErrnoException).code?.includes("EEXIST")) {
           throw new Error(`destination already exists: ${path.basename(target)}`);
         }

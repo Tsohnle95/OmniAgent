@@ -21,3 +21,46 @@
 
 .toast.error { border-color: var(--red); color: #f0a0a0; }
 
+.recovery-notice {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(420px, calc(100vh - 80px));
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #735d2d;
+  border-radius: 8px;
+  background: #211d15;
+  box-shadow: 0 12px 32px #0009;
+  color: #eee4cc;
+}
+
+.recovery-notice p {
+  margin: 5px 0 12px;
+  color: #bcb29d;
+  font-size: 12px;
+}
+
+.recovery-record {
+  display: grid;
+  gap: 4px;
+  padding: 9px 0;
+  border-top: 1px solid #ffffff18;
+}
+
+.recovery-record span,
+.recovery-record small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recovery-record small {
+  color: #a89d88;
+}
+
+.recovery-record button {
+  margin-right: 8px;
+}

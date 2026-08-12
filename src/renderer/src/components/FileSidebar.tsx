@@ -231,10 +231,12 @@ function ExplorerMenu(): ReactNode {
       {target && (
         <>
           <div className="ctx-sep" />
-          <button className="ctx-item" onClick={() => startRename(target.path)}>
-            <PencilIcon />
-            Rename…
-          </button>
+          {target.type === "file" && (
+            <button className="ctx-item" onClick={() => startRename(target.path)}>
+              <PencilIcon />
+              Rename…
+            </button>
+          )}
           <button className="ctx-item danger" onClick={() => void deleteEntry(target.path)}>
             <TrashIcon />
             Delete

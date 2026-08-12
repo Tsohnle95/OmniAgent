@@ -32,6 +32,9 @@ automatically.
 | `createDir(workspace, rel)` | `Promise<void>` — creates a folder, erroring if it exists |
 | `deletePath(workspace, rel)` | `Promise<void>` — moves to Trash and preserves failures without permanent deletion |
 | `renamePath(workspace, rel, newName)` | `Promise<void>` — renames within the same folder |
+| `recoveryRecords(workspace)` | `Promise<RecoveryRecord[]>` — persistent durable artifacts for the active workspace |
+| `openRecovery(workspace, id)` | `Promise<void>` — opens a validated artifact selected by record id |
+| `acknowledgeRecovery(workspace, id)` | `Promise<void>` — persists acknowledgment without deleting bytes |
 | `projects()` | `Promise<ProjectInfo[]>` |
 | `models()` | `Promise<ModelOption[]>` |
 | `modelDefault()` | `Promise<ModelOption \| null>` |

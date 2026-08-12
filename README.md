@@ -24,6 +24,9 @@ red/green diff.
   labeled explicitly.
 - **Real-time updates** — the main process watches the repo with `fs.watch`
   and streams per-file updates to the UI.
+- **Durable recovery** — interrupted saves and file renames retain original and
+  proposed artifacts with persistent Open/Acknowledge actions. Acknowledgment
+  never deletes bytes.
 - **Session history** — recent sessions show up on the Welcome screen;
   reopening one replays the transcript and resumes the same context. The
   last-used model is remembered for new sessions.

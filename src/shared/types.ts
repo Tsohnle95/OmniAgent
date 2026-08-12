@@ -110,6 +110,21 @@ export interface FileWriteIdentity {
   overwrite: boolean;
 }
 
+export interface RecoveryRecord {
+  id: string;
+  artifact: "temporary" | "original" | "proposed" | "rename-source";
+  originalPath: string;
+  recoveryPath: string;
+  createdAt: number;
+  acknowledged: boolean;
+  reason: "saved" | "renamed" | "save-failed" | "crash-recovered" | "rename-failed";
+}
+
+export interface RecoveryState {
+  workspace: WorkspaceIdentity;
+  records: RecoveryRecord[];
+}
+
 export interface ProjectInfo {
   directory: string;
   name: string;
@@ -294,7 +309,7 @@ export interface AgentFileState {
 }
 
 export interface BackendMessageBase {
-  kind: "event" | "file-update" | "session" | "ui-command";
+  kind: "event" | "file-update" | "session" | "ui-command" | "recovery";
   type?: string;
   data?: unknown;
   file?: FileUpdate;
@@ -302,6 +317,7 @@ export interface BackendMessageBase {
   command?: string;
   path?: string;
   line?: number;
+  recovery?: RecoveryState;
 }
 
 export type BackendMessage =

@@ -74,4 +74,19 @@ describe("workspace-scoped backend queries", () => {
       type: "file"
     });
   });
+
+  it("excludes recovery artifacts from file references", async () => {
+    const client = { file: { find: vi.fn(async () => [
+      { path: "src/visible.ts" },
+      { path: ".openshell-recovery/transaction/original" }
+    ]) } };
+    const backend = new OpenShellBackend();
+    install(backend, { id: "11111111-1111-4111-8111-111111111111", generation: 1 }, "/workspace", client);
+
+    expect(await backend.searchFiles("visible")).toEqual([{
+      name: "visible.ts",
+      path: "/workspace/src/visible.ts",
+      rel: "src/visible.ts"
+    }]);
+  });
 });

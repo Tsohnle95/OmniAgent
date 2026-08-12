@@ -12,6 +12,7 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `SessionInfo` | `{ id, directory, workspace, parentID?, title?, agent? }` | The active opencode2 session, immutable workspace identity, and parent/child navigation metadata |
 | `SessionSummary` | `{ id, title, directory, updatedAt, parentID?, agent? }` | Recent-session graph used by Welcome and task/subagent links |
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
+| `RecoveryRecord` | `{ id, artifact, originalPath, recoveryPath, createdAt, acknowledged, reason }` | Actionable durable save/rename artifact; acknowledgment does not remove bytes |
 | `FileBaseline` | `{ kind: "known", content } \| { kind: "unknown" }` | First established pre-change state; unknown never substitutes post-change bytes |
 | `FileUpdate` | `{ workspace, sessionID, path, baseline: FileBaseline, content: string \| null, deleted }` | Identity-bound observed workspace change payload |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
@@ -79,11 +80,13 @@ blocks, and provider metadata is retained instead of flattened away.
 
 `BackendMessage` is a discriminated union on `kind`:
 
-- `"event"` / `"file-update"` / `"session"` — shared base
+- `"event"` / `"file-update"` / `"session"` / `"recovery"` — shared base
   (`BackendMessageBase`): `{ kind, type?, data?, file?, session? }` plus
   `{ kind: "ui-command", command }` (main→renderer requests, e.g.
   `toggle-word-wrap` when ⌘W is pressed, or `open-source` with
   `{ path, line }` when a DevTools CSS source link is clicked).
+  Recovery messages carry `{ workspace, records }` so renderer state rejects
+  records emitted for a stale activation.
 - `{ kind: "terminal-data", terminal: TerminalData }`
 - `{ kind: "terminal-exit", terminal: TerminalExit }`
 

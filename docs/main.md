@@ -49,6 +49,9 @@ Public methods (all used by IPC):
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
 | `renamePath(workspace, rel, newName)` | Confined same-folder no-replace file rename; rejects occupied destinations and directory renames where portable no-replace semantics are unavailable |
+| `listRecovery(workspace)` | Lists validated durable recovery artifacts under the active workspace's `.openshell-recovery` directory |
+| `openRecovery(workspace, id)` | Opens the validated artifact selected by opaque recovery record id; never accepts a renderer path |
+| `acknowledgeRecovery(workspace, id)` | Persists acknowledgment in the transaction manifest without deleting artifact bytes |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
@@ -98,6 +101,12 @@ Internals:
 - `emitFileUpdate(context, ...)` — emits identity-bound `{kind:"file-update"}`.
 - `relKey(abs)` — absolute → `/`-separated path relative to the session
   dir; `abs(rel)` the inverse. `shouldSkip` filters `SKIP_DIRS` roots.
+- Recovery transactions live under `.openshell-recovery/<timestamp>-<uuid>`.
+  Atomically replaced, fsynced manifests record save/rename phase and
+  acknowledgment state. Activation reconciles interrupted transactions by
+  hard-linking an artifact only when the canonical pathname is missing. The
+  recovery root rejects symlinks and malformed transaction ids/manifests;
+  artifact Open actions resolve validated ids rather than renderer paths.
 
 ## IPC surface (`src/main/index.ts`)
 
@@ -121,6 +130,9 @@ Internals:
 | `shell:fs-create-dir` | `(workspace, rel) → void` |
 | `shell:fs-delete` | `(workspace, rel) → void` |
 | `shell:fs-rename` | `(workspace, rel, newName) → void` |
+| `shell:recovery-list` | `(workspace) → RecoveryRecord[]` |
+| `shell:recovery-open` | `(workspace, recoveryID) → void` |
+| `shell:recovery-acknowledge` | `(workspace, recoveryID) → void`; metadata only, never deletes bytes |
 | `shell:projects` | `() → ProjectInfo[]` |
 | `shell:models` | `() → ModelOption[]` |
 | `shell:model-default` | `() → ModelOption \| null` |
