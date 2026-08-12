@@ -8,6 +8,10 @@ import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 
 const COLLAPSED_PANEL_W = 44;
+const SIDE_MIN_W = 170;
+const SIDE_MAX_W = 520;
+const AGENT_MIN_W = 300;
+const AGENT_MAX_W = 760;
 
 function useDragResize(
   initial: number,
@@ -17,7 +21,7 @@ function useDragResize(
   open: boolean,
   onOpen: () => void,
   onCollapse?: () => void
-): [number, (e: React.MouseEvent) => void] {
+): [number, React.Dispatch<React.SetStateAction<number>>, (e: React.MouseEvent) => void] {
   const [width, setWidth] = useState(initial);
   const startRef = useRef<{ x: number; width: number; open: boolean } | null>(null);
 
@@ -59,7 +63,7 @@ function useDragResize(
     window.addEventListener("mouseup", up);
   };
 
-  return [width, onMouseDown];
+  return [width, setWidth, onMouseDown];
 }
 
 function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.MouseEvent) => void] {
@@ -101,18 +105,43 @@ function useTrayHeight(): [number, boolean, () => void, () => void, (e: React.Mo
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideOpen, setSideOpen] = useState(true);
-  const [sideW, sideDrag] = useDragResize(250, 170, 520, false, sideOpen, () => setSideOpen(true), () => setSideOpen(false));
+  const [sideW, setSideW, sideDrag] = useDragResize(
+    250,
+    SIDE_MIN_W,
+    SIDE_MAX_W,
+    false,
+    sideOpen,
+    () => setSideOpen(true),
+    () => setSideOpen(false)
+  );
   const [agentOpen, setAgentOpen] = useState(true);
-  const [agentW, agentDrag] = useDragResize(
+  const [agentW, setAgentW, agentDrag] = useDragResize(
     420,
-    300,
-    760,
+    AGENT_MIN_W,
+    AGENT_MAX_W,
     true,
     agentOpen,
     () => setAgentOpen(true),
     () => setAgentOpen(false)
   );
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
+  const [winW, setWinW] = useState(() => window.innerWidth);
+
+  useEffect(() => {
+    const onResize = (): void => setWinW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
+  const agentShown = agentOpen ? agentW : COLLAPSED_PANEL_W;
+  const agentMax = Math.max(AGENT_MIN_W, Math.min(AGENT_MAX_W, winW - sideShown - 2));
+  const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - 2));
+
+  useEffect(() => {
+    setAgentW((w) => Math.min(w, winW - sideShown - 2));
+    setSideW((w) => Math.min(w, winW - agentShown - 2));
+  }, [winW, sideShown, agentShown]);
 
   const cols = [
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
