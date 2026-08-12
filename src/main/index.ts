@@ -1,14 +1,23 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type WebContents } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent, type WebContents } from "electron";
 import path from "node:path";
 import fsp from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
+import {
+  isAllowedMainFrameNavigation,
+  isTrustedIpcSender,
+  trustedApplicationLocation,
+  type TrustedApplicationLocation
+} from "./security";
+import { safeExternalUrl } from "@shared/url-policy";
 import type { CommandOption, PermissionReply, PromptFile, ReferenceOption } from "@shared/types";
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
 let win: BrowserWindow | null = null;
+let trustedLocation: TrustedApplicationLocation | null = null;
 
 const appIconPath = (() => {
   const fromApp = path.join(app.getAppPath(), "resources", "icon.png");
@@ -232,6 +241,9 @@ async function resolveSourcePath(file: string, title: string): Promise<string | 
 }
 
 function createWindow(): BrowserWindow {
+  const rendererUrl = process.env["ELECTRON_RENDERER_URL"] ??
+    pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
+  const location = trustedApplicationLocation(rendererUrl);
   const newWin = new BrowserWindow({
     width: 1480,
     height: 920,
@@ -248,21 +260,33 @@ function createWindow(): BrowserWindow {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       backgroundThrottling: false
     }
   });
   win = newWin;
+  trustedLocation = location;
   inspectPickerActive = false;
   inspectPickerToken++;
   const wc = newWin.webContents;
 
   newWin.on("closed", () => {
-    if (win === newWin) win = null;
+    if (win === newWin) {
+      win = null;
+      trustedLocation = null;
+    }
   });
 
   newWin.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    const external = safeExternalUrl(url);
+    if (external) void shell.openExternal(external);
     return { action: "deny" };
+  });
+  wc.on("will-navigate", (event, url) => {
+    if (!isAllowedMainFrameNavigation(url, true, location)) event.preventDefault();
+  });
+  wc.on("will-redirect", (event, url, _isInPlace, isMainFrame) => {
+    if (!isAllowedMainFrameNavigation(url, isMainFrame, location)) event.preventDefault();
   });
 
   wc.debugger.on("message", (_e, method, params) => {
@@ -385,16 +409,24 @@ function createWindow(): BrowserWindow {
     }
   });
 
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    void newWin.loadURL(process.env["ELECTRON_RENDERER_URL"]);
-  } else {
-    void newWin.loadFile(path.join(__dirname, "../renderer/index.html"));
-  }
+  void newWin.loadURL(rendererUrl);
   return newWin;
 }
 
+function handleTrusted<Args extends unknown[], Result>(
+  channel: string,
+  listener: (event: IpcMainInvokeEvent, ...args: Args) => Result
+): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!trustedLocation || !isTrustedIpcSender(event, win?.webContents ?? null, trustedLocation)) {
+      throw new Error("Rejected IPC from an untrusted sender");
+    }
+    return listener(event, ...args as Args);
+  });
+}
+
 function registerIpc(): void {
-  ipcMain.handle("shell:select-folder", async (e) => {
+  handleTrusted("shell:select-folder", async (e) => {
     const parent = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(parent ?? win!, {
       title: "Open a repository folder",
@@ -404,27 +436,27 @@ function registerIpc(): void {
     return backend.openSession(result.filePaths[0]);
   });
 
-  ipcMain.handle("shell:open-session", async (_e, dir: string) => backend.openSession(dir));
+  handleTrusted("shell:open-session", async (_e, dir: string) => backend.openSession(dir));
 
-  ipcMain.handle("shell:sessions", async () => backend.listSessions());
+  handleTrusted("shell:sessions", async () => backend.listSessions());
 
-  ipcMain.handle("shell:open-session-id", async (_e, sessionID: string) =>
+  handleTrusted("shell:open-session-id", async (_e, sessionID: string) =>
     backend.openSessionById(sessionID)
   );
 
-  ipcMain.handle("shell:prompt", async (_e, text: string, files: PromptFile[] = []) =>
+  handleTrusted("shell:prompt", async (_e, text: string, files: PromptFile[] = []) =>
     backend.prompt(text, files)
   );
 
-  ipcMain.handle("shell:commands", async () => backend.listCommands());
+  handleTrusted("shell:commands", async () => backend.listCommands());
 
-  ipcMain.handle("shell:run-command", async (_e, name: string, args: string = "") =>
+  handleTrusted("shell:run-command", async (_e, name: string, args: string = "") =>
     backend.runCommand(name, args)
   );
 
-  ipcMain.handle("shell:find-files", async (_e, query: string) => backend.searchFiles(query));
+  handleTrusted("shell:find-files", async (_e, query: string) => backend.searchFiles(query));
 
-  ipcMain.handle("shell:select-files", async (e) => {
+  handleTrusted("shell:select-files", async (e) => {
     const parent = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(parent ?? win!, {
       title: "Attach files",
@@ -433,37 +465,37 @@ function registerIpc(): void {
     return result.canceled ? [] : result.filePaths;
   });
 
-  ipcMain.handle("shell:interrupt", async () => backend.interrupt());
+  handleTrusted("shell:interrupt", async () => backend.interrupt());
 
-  ipcMain.handle("shell:fs-list", async (_e, rel: string) => backend.listDir(rel));
+  handleTrusted("shell:fs-list", async (_e, rel: string) => backend.listDir(rel));
 
-  ipcMain.handle("shell:fs-read", async (_e, rel: string) => backend.readFile(rel));
+  handleTrusted("shell:fs-read", async (_e, rel: string) => backend.readFile(rel));
 
-  ipcMain.handle("shell:fs-write", async (_e, rel: string, content: string) =>
+  handleTrusted("shell:fs-write", async (_e, rel: string, content: string) =>
     backend.writeFile(rel, content)
   );
 
-  ipcMain.handle("shell:fs-create-file", async (_e, rel: string) => backend.createFile(rel));
+  handleTrusted("shell:fs-create-file", async (_e, rel: string) => backend.createFile(rel));
 
-  ipcMain.handle("shell:fs-create-dir", async (_e, rel: string) => backend.createDir(rel));
+  handleTrusted("shell:fs-create-dir", async (_e, rel: string) => backend.createDir(rel));
 
-  ipcMain.handle("shell:fs-delete", async (_e, rel: string) => backend.deletePath(rel));
+  handleTrusted("shell:fs-delete", async (_e, rel: string) => backend.deletePath(rel));
 
-  ipcMain.handle("shell:fs-rename", async (_e, rel: string, newName: string) =>
+  handleTrusted("shell:fs-rename", async (_e, rel: string, newName: string) =>
     backend.renamePath(rel, newName)
   );
 
-  ipcMain.handle("shell:projects", async () => backend.listProjects());
+  handleTrusted("shell:projects", async () => backend.listProjects());
 
-  ipcMain.handle("shell:models", async () => backend.listModels());
+  handleTrusted("shell:models", async () => backend.listModels());
 
-  ipcMain.handle("shell:model-default", async () => backend.modelDefault());
+  handleTrusted("shell:model-default", async () => backend.modelDefault());
 
-  ipcMain.handle("shell:switch-model", async (_e, id: string, providerID: string, variant?: string) =>
+  handleTrusted("shell:switch-model", async (_e, id: string, providerID: string, variant?: string) =>
     backend.switchModel(id, providerID, variant)
   );
 
-  ipcMain.handle("shell:permission-reply", async (
+  handleTrusted("shell:permission-reply", async (
     _e,
     requestID: string,
     reply: PermissionReply,
@@ -472,34 +504,34 @@ function registerIpc(): void {
     backend.replyPermission(requestID, reply, sessionID)
   );
 
-  ipcMain.handle("shell:agents", async () => backend.listAgents());
+  handleTrusted("shell:agents", async () => backend.listAgents());
 
-  ipcMain.handle("shell:switch-agent", async (_e, id: string) => backend.switchAgent(id));
+  handleTrusted("shell:switch-agent", async (_e, id: string) => backend.switchAgent(id));
 
-  ipcMain.handle("shell:terminal-start", async (_e, directory: string | null) => {
+  handleTrusted("shell:terminal-start", async (_e, directory: string | null) => {
     const id = await terminals.start(directory);
     return { id };
   });
 
-  ipcMain.handle("shell:terminal-input", async (_e, id: string, data: string) => {
+  handleTrusted("shell:terminal-input", async (_e, id: string, data: string) => {
     terminals.write(id, data);
   });
 
-  ipcMain.handle("shell:terminal-resize", async (_e, id: string, cols: number, rows: number) => {
+  handleTrusted("shell:terminal-resize", async (_e, id: string, cols: number, rows: number) => {
     terminals.resize(id, cols, rows);
   });
 
-  ipcMain.handle("shell:terminal-stop", async (_e, id: string) => {
+  handleTrusted("shell:terminal-stop", async (_e, id: string) => {
     terminals.stop(id);
   });
 
-  ipcMain.handle("shell:state", async () => backend.getState());
+  handleTrusted("shell:state", async () => backend.getState());
 
-  ipcMain.handle("shell:session-selection", async () => backend.sessionSelection());
+  handleTrusted("shell:session-selection", async () => backend.sessionSelection());
 
-  ipcMain.handle("shell:provider-usage", async () => backend.providerUsage());
+  handleTrusted("shell:provider-usage", async () => backend.providerUsage());
 
-  ipcMain.handle("shell:health", async () => backend.connect().catch(() => false));
+  handleTrusted("shell:health", async () => backend.connect().catch(() => false));
 }
 
 if (!app.requestSingleInstanceLock()) {

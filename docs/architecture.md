@@ -64,6 +64,18 @@ All backend→renderer message kinds are defined in
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.
 
+## Renderer trust boundary
+
+The application window is explicitly sandboxed with context isolation and no
+Node integration. Its privileged preload bridge is protected in main: every
+IPC invoke must come from the active window's main frame while it is at the
+exact packaged application document or the configured development origin.
+Unexpected main-frame navigation and redirects are canceled, and all popup
+creation is denied. Markdown and tool attachment anchors prevent same-frame
+navigation and request an external popup instead. Main opens only absolute,
+credential-free `https:` URLs through the operating system; local files,
+custom schemes, malformed targets, and insecure HTTP targets are rejected.
+
 ## Session lifecycle
 
 1. User picks a folder (renderer → `shell:select-folder` / `shell:open-session`).

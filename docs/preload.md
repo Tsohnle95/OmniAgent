@@ -52,6 +52,8 @@ documented in `docs/main.md`. `onMessage` subscribes to
 `ipcRenderer.on("shell:message")` and removes the listener on
 unsubscribe.
 
-Security posture: `contextIsolation: true`, `nodeIntegration: false`.
-The renderer has no direct Node or Electron access — anything it needs
-must be added to this bridge.
+Security posture: `contextIsolation: true`, `nodeIntegration: false`, and
+`sandbox: true`. The renderer has no direct Node or Electron access. Main
+accepts bridge invokes only from the active window's trusted main frame and
+trusted application URL; a document that navigates elsewhere or an untrusted
+subframe cannot use the exposed API.

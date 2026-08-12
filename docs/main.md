@@ -134,8 +134,17 @@ Internals:
 | `shell:health` | `() → boolean` |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend
-message. External links open via `shell.openExternal`. The window is
-`contextIsolation: true`, `nodeIntegration: false`, macOS
+message. Every `shell:*` invoke is accepted only from the active window's
+owned main frame while that frame is at the trusted application location;
+other WebContents, subframes, null frames, and unexpected URLs are rejected
+before the handler runs. External links from Markdown, tool attachments, and
+popup attempts share one policy: only absolute, credential-free `https:` URLs
+reach `shell.openExternal`; malformed URLs, `http:`, `file:`, custom schemes,
+and URLs containing credentials are inert. The popup itself is always denied.
+The main frame may remain at the exact packaged `file:` document or anywhere
+on the configured development origin. Other main-frame navigations and
+redirects are canceled. The window is `contextIsolation: true`,
+`nodeIntegration: false`, `sandbox: true`, macOS
 `titleBarStyle: "hiddenInset"`. The app icon (`resources/icon.svg` →
 rasterized `resources/icon.png` + `resources/icon.icns`, the clay
 shell-tile brand mark) is set as the BrowserWindow `icon` on

@@ -479,16 +479,16 @@ Scope: item 16 and the local portion of item 18.
 
 Scope: items 1 and 2 plus sender validation from item 5.
 
-- [ ] Deny unexpected main-frame navigation and redirects.
-- [ ] Validate IPC sender WebContents, main frame, and trusted application URL.
-- [ ] Prevent Markdown anchors from navigating the application document.
-- [ ] Allowlist safe external URL schemes before `shell.openExternal`.
-- [ ] Handle tool/file links through the same validated policy.
-- [ ] Set `sandbox: true` explicitly without relying on it as the primary control.
-- [ ] Add focused tests for trusted/untrusted navigation, frames, senders, redirects, popups, and URL schemes.
-- [ ] Update security and IPC documentation.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Deny unexpected main-frame navigation and redirects.
+- [x] Validate IPC sender WebContents, main frame, and trusted application URL.
+- [x] Prevent Markdown anchors from navigating the application document.
+- [x] Allowlist safe external URL schemes before `shell.openExternal`.
+- [x] Handle tool/file links through the same validated policy.
+- [x] Set `sandbox: true` explicitly without relying on it as the primary control.
+- [x] Add focused tests for trusted/untrusted navigation, frames, senders, redirects, popups, and URL schemes.
+- [x] Update security and IPC documentation.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-03: Workspace identity and confined capabilities
 

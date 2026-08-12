@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   main: {
+    resolve: {
+      alias: {
+        "@shared": resolve(__dirname, "src/shared")
+      }
+    },
     plugins: [externalizeDepsPlugin({ exclude: ["@opencode-ai/client"] })]
   },
   preload: {

@@ -53,7 +53,7 @@ for (const d of [...readme.matchAll(/`(docs\/[\w.-]+\.md)`/g)].map((m) => m[1]))
 // ----------------------------------------------------------- main/index.ts
 
 const mainIndex = await read("src/main/index.ts");
-const ipcChannels = [...mainIndex.matchAll(/ipcMain\.handle\("(shell:[\w-]+)"/g)].map((m) => m[1]);
+const ipcChannels = [...mainIndex.matchAll(/(?:ipcMain\.handle|handleTrusted)\("(shell:[\w-]+)"/g)].map((m) => m[1]);
 
 const mainDoc = await read("docs/main.md");
 const mainTable = [...mainDoc.matchAll(/^\| `(shell:[\w-]+)` \|/gm)].map((m) => m[1]);

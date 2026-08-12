@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
 import type { ToolCallView, TranscriptItem } from "@shared/types";
+import { ExternalLink } from "./ExternalLink";
 
 const OUTPUT_LIMIT = 6000;
 const CONTEXT_TOOLS = new Set(["read", "glob", "grep", "list"]);
@@ -171,6 +172,7 @@ function highlightCode(text: string): ReactNode {
 }
 
 const MARKDOWN_COMPONENTS: Components = {
+  a: ExternalLink,
   code({ children, className }) {
     const value = String(children ?? "");
     const block = Boolean(className) || value.includes("\n");
@@ -496,11 +498,11 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
             {files.length > 0 && (
               <div data-component="tool-files">
                 {files.map((file) => (
-                  <a href={file.uri} target="_blank" rel="noreferrer" key={`${file.uri}:${file.name ?? ""}`}>
+                  <ExternalLink href={file.uri} key={`${file.uri}:${file.name ?? ""}`}>
                     <span className="codicon codicon-file" />
                     <span>{file.name ?? file.uri}</span>
                     <span data-slot="tool-file-mime">{file.mime}</span>
-                  </a>
+                  </ExternalLink>
                 ))}
               </div>
             )}
