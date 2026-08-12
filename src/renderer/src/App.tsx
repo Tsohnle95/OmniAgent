@@ -10,6 +10,7 @@ import { TerminalTray } from "./components/TerminalTray";
 const COLLAPSED_PANEL_W = 44;
 const SIDE_MIN_W = 170;
 const SIDE_MAX_W = 520;
+const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 300;
 
@@ -126,16 +127,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const agentCapRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
+    if (!agentOpen) return;
     const cap = Math.max(0, winW - sideShown - 2);
-    const anchored = agentOpen && agentCapRef.current !== null && agentW >= agentCapRef.current - 1;
+    const anchored = agentCapRef.current !== null && agentW >= agentCapRef.current - 1;
     agentCapRef.current = cap;
     if (anchored) setAgentW(cap);
     else setAgentW((w) => Math.min(w, cap));
   }, [winW, sideShown, agentOpen, agentW]);
 
   useLayoutEffect(() => {
+    if (!sideOpen) return;
     const cap = Math.max(0, Math.min(SIDE_MAX_W, winW - agentShown - 2));
-    const anchored = sideOpen && sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
+    const anchored = sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
     sideCapRef.current = cap;
     if (anchored) setSideW(cap);
     else setSideW((w) => Math.min(w, cap));
@@ -180,6 +183,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (!stillInMode) prevLayoutRef.current = null;
   }, [sideOpen, agentOpen, agentW, agentCap]);
 
+  const setSidebarOpen = (open: boolean): void => {
+    if (open) setSideW(SIDE_DEFAULT_W);
+    setSideOpen(open);
+  };
+
   const toggleAgentMode = (): void => {
     if (prevLayoutRef.current === null) {
       prevLayoutRef.current = { sideOpen, sideW, agentOpen, agentW };
@@ -221,7 +229,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
-        <FileSidebar collapsed={!sideOpen} onCollapse={setSideOpen} onDrag={sideDrag} />
+        <FileSidebar collapsed={!sideOpen} onCollapse={setSidebarOpen} onDrag={sideDrag} />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         <EditorPane />
         {agentOpen ? (
