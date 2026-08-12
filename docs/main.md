@@ -50,7 +50,20 @@ Public methods (all used by IPC):
 | `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
 | `switchAgent(id)` | `session.switchAgent`; persists the choice to `settings.json` |
 | `getState()` | `{id, directory}` or null |
+| `providerUsage()` | `fetchProviderUsage()` → per-provider usage-window/credit snapshots (`ProviderUsageResult[]`) |
 | `sessionSelection()` | `session.get` → `{model?, agent?}` so the UI can restore the session's current picks |
+| `providerUsage()` | Delegates to `src/main/provider-usage.ts` → `ProviderUsageResult[]` for every OAuth provider opencode has stored credentials for |
+
+Provider usage (`providerUsage()`): the opencode service exposes no
+provider plan/rate-limit API yet, so OpenShell reads the OAuth
+credentials opencode persists (`~/.local/share/opencode/auth.json`,
+plus the desktop-app location) and calls each provider's usage endpoint
+directly — ChatGPT's `/backend-api/wham/usage` (weekly/monthly windows,
+spend control, plan type), Anthropic's `/api/oauth/usage` (5h + weekly
+utilization), GitHub Copilot's `copilot_internal/user` (credits/quota).
+Tokens never leave the main process; the renderer only receives
+normalized snapshots shaped like opencode's upcoming `/usage` response,
+so a future server endpoint can replace the fetchers without UI changes.
 
 Internals:
 
@@ -111,6 +124,7 @@ Internals:
 | `shell:permission-reply` | `(requestID, reply, sessionID?) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `() → SessionSelection \| null` |
+| `shell:provider-usage` | `() → ProviderUsageResult[]` |
 | `shell:health` | `() → boolean` |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend

@@ -12,6 +12,7 @@ import type {
   AgentOption,
   PermissionReply,
   ProjectInfo,
+  ProviderUsageResult,
   ReopenedSession,
   SessionInfo,
   SessionSelection,
@@ -23,6 +24,7 @@ import type {
   TreeEntry,
   ModelOption
 } from "@shared/types";
+import { fetchProviderUsage } from "./provider-usage";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -751,6 +753,10 @@ export class OpenShellBackend {
 
   async getState(): Promise<SessionInfo | null> {
     return this.sessionInfo;
+  }
+
+  async providerUsage(): Promise<ProviderUsageResult[]> {
+    return fetchProviderUsage();
   }
 
   async sessionSelection(): Promise<SessionSelection | null> {

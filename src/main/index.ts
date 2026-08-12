@@ -435,6 +435,8 @@ function registerIpc(): void {
 
   ipcMain.handle("shell:session-selection", async () => backend.sessionSelection());
 
+  ipcMain.handle("shell:provider-usage", async () => backend.providerUsage());
+
   ipcMain.handle("shell:health", async () => backend.connect().catch(() => false));
 }
 

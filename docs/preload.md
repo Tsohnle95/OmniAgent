@@ -41,6 +41,7 @@ automatically.
 | `permissionReply(requestID, reply, sessionID?)` | `Promise<void>` |
 | `state()` | `Promise<SessionInfo \| null>` |
 | `sessionSelection()` | `Promise<SessionSelection \| null>` |
+| `providerUsage()` | `Promise<ProviderUsageResult[]>` |
 | `health()` | `Promise<boolean>` |
 
 All are `ipcRenderer.invoke` wrappers over the `shell:*` channels

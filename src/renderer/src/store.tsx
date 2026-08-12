@@ -15,6 +15,7 @@ import type {
   BackendMessage,
   ModelOption,
   PermissionReply,
+  ProviderUsageResult,
   SessionInfo,
   SessionSummary,
   SessionUsage,
@@ -58,6 +59,8 @@ interface Store {
   todos: TodoItem[];
   transcript: TranscriptItem[];
   sessionUsage: SessionUsage | null;
+  providerUsage: ProviderUsageResult[];
+  providerUsageLoading: boolean;
   tabs: Tab[];
   activePath: string | null;
   agentFiles: Map<string, AgentFileState>;
@@ -77,6 +80,7 @@ interface Store {
   loadSessions: () => Promise<void>;
   sendPrompt: (text: string, files?: string[]) => Promise<void>;
   stop: () => Promise<void>;
+  refreshProviderUsage: () => Promise<void>;
   loadModels: () => Promise<void>;
   switchModel: (id: string, providerID: string, variant?: string) => Promise<void>;
   loadAgents: () => Promise<void>;
@@ -280,6 +284,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [usageBySession, setUsageBySession] = useState<Record<string, SessionUsage>>({});
+  const [providerUsage, setProviderUsage] = useState<ProviderUsageResult[]>([]);
+  const [providerUsageLoading, setProviderUsageLoading] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
@@ -541,6 +547,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     if (sessionID) setSessionBusy(sessionID, false);
     await window.openshell.interrupt().catch(() => {});
   }, [setSessionBusy]);
+
+  const refreshProviderUsage = useCallback(async () => {
+    setProviderUsageLoading(true);
+    try {
+      setProviderUsage(await window.openshell.providerUsage());
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setProviderUsageLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (!busy) return;
@@ -1148,6 +1165,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       todos,
       transcript,
       sessionUsage,
+      providerUsage,
+      providerUsageLoading,
       tabs,
       activePath,
       agentFiles,
@@ -1167,6 +1186,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       loadSessions,
       sendPrompt,
       stop,
+      refreshProviderUsage,
       loadModels,
       switchModel,
       loadAgents,
@@ -1193,10 +1213,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       deleteEntry
     }),
     [
-      session, connected, busy, todos, transcript, sessionUsage, tabs, activePath, agentFiles, tree, expanded, toasts,
+      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
       ctxMenu, pendingCreate, pendingRename,
-      openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,
+      openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, toggleDir, replyPermission,

@@ -34,6 +34,48 @@ export interface SessionUsage {
   };
 }
 
+export type ProviderUsageStatus = "ok" | "stale" | "unavailable" | "unauthenticated" | "unsupported";
+
+export interface UsageWindow {
+  id: string;
+  label: string;
+  usedPercent: number;
+  windowMinutes: number | null;
+  resetsAt: number | null;
+}
+
+export interface ProviderUsageCredits {
+  hasCredits: boolean;
+  unlimited: boolean;
+  balance: string | null;
+  label?: string;
+  total?: number | null;
+  used?: number | null;
+  remaining?: number | null;
+  overagePermitted?: boolean;
+}
+
+export interface ProviderUsageSnapshot {
+  windows: UsageWindow[];
+  credits: ProviderUsageCredits | null;
+  planType: string | null;
+  updatedAt: number;
+}
+
+export interface ProviderUsageError {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+export interface ProviderUsageResult {
+  provider: string;
+  displayName: string;
+  status: ProviderUsageStatus;
+  snapshot: ProviderUsageSnapshot | null;
+  error?: ProviderUsageError | null;
+}
+
 export interface TreeEntry {
   path: string;
   type: "file" | "directory";

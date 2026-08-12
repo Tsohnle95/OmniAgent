@@ -5,6 +5,7 @@ import type {
   ModelOption,
   PermissionReply,
   ProjectInfo,
+  ProviderUsageResult,
   ReopenedSession,
   SessionInfo,
   SessionSelection,
@@ -57,6 +58,7 @@ const api = {
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),
   sessionSelection: (): Promise<SessionSelection | null> =>
     ipcRenderer.invoke("shell:session-selection"),
+  providerUsage: (): Promise<ProviderUsageResult[]> => ipcRenderer.invoke("shell:provider-usage"),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health")
 };
 

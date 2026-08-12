@@ -22,6 +22,8 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `TerminalData` | `{ id, data }` | PTY output chunk (`terminal-data` message) |
 | `TerminalExit` | `{ id, exitCode }` | PTY exit (`terminal-exit` message) |
 | `PermissionReply` | `"once" \| "always" \| "reject"` | Permission card buttons |
+| `ProviderUsageResult` | `{ provider, displayName, status, snapshot, error? }` | Per-provider usage snapshot for the composer usage indicator (`fetchProviderUsage` in `src/main/provider-usage.ts`); `status` is `"ok" \| "stale" \| "unavailable" \| "unauthenticated" \| "unsupported"` |
+| `ProviderUsageSnapshot` | `{ windows: UsageWindow[], credits, planType, updatedAt }` | Usage windows (`{ id, label, usedPercent, windowMinutes, resetsAt }`) plus credits (`{ hasCredits, unlimited, balance, ... }`) or an `error: { code, message, retryable }` |
 
 ## TranscriptItem (agent panel feed)
 

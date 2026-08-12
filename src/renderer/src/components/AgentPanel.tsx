@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
-import type { ModelOption } from "@shared/types";
+import type { ModelOption, ProviderUsageCredits, ProviderUsageResult } from "@shared/types";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
@@ -85,6 +85,87 @@ function formatCost(cost: number): string {
   if (cost >= 1) return `$${cost.toFixed(2)}`;
   if (cost > 0) return `$${cost.toFixed(4)}`;
   return "$0.00";
+}
+
+function formatCount(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return String(value);
+}
+
+function formatPlan(plan: string): string {
+  return plan
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace("Self Serve Business", "Self-serve Business");
+}
+
+function formatResets(resetsAt: number): string {
+  const remainingMs = resetsAt * 1000 - Date.now();
+  if (remainingMs <= 0) return "resets any moment";
+  const minutes = Math.ceil(remainingMs / 60_000);
+  if (minutes < 60) return `resets in ${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours >= 48) {
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    return remHours > 0 ? `resets in ${days}d ${remHours}h` : `resets in ${days}d`;
+  }
+  const rem = minutes % 60;
+  return rem > 0 ? `resets in ${hours}h ${rem}m` : `resets in ${hours}h`;
+}
+
+function windowTone(percent: number): "ok" | "warn" | "danger" {
+  if (percent >= 90) return "danger";
+  if (percent >= 60) return "warn";
+  return "ok";
+}
+
+function formatCredits(credits: ProviderUsageCredits): string {
+  if (credits.unlimited) return "Unlimited";
+  if (credits.used != null && credits.total != null) {
+    return `${formatCount(credits.used)} / ${formatCount(credits.total)}`;
+  }
+  if (credits.remaining != null) return formatCount(credits.remaining);
+  return credits.balance ?? "";
+}
+
+function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNode {
+  const snapshot = result.snapshot;
+  return (
+    <div className="usage-provider">
+      <div className="usage-provider-head">
+        <span className="usage-provider-name">{result.displayName}</span>
+        {snapshot?.planType && <span className="usage-provider-plan">{formatPlan(snapshot.planType)}</span>}
+        <span className={`usage-provider-dot ${result.status}`} title={result.error?.message ?? result.status} />
+      </div>
+      {!snapshot && result.error && <div className="usage-provider-error">{result.error.message}</div>}
+      {snapshot?.windows.map((window) => (
+        <div className="usage-window" key={window.id}>
+          <div className="usage-window-row">
+            <span className="usage-window-label">{window.label}</span>
+            <span className="usage-window-value">{Math.round(window.usedPercent)}%</span>
+          </div>
+          <div className="usage-window-bar">
+            <div
+              className={`usage-window-fill ${windowTone(window.usedPercent)}`}
+              style={{ width: `${Math.min(100, Math.max(0, window.usedPercent))}%` }}
+            />
+          </div>
+          {window.resetsAt && <div className="usage-window-reset">{formatResets(window.resetsAt)}</div>}
+        </div>
+      ))}
+      {snapshot?.credits && (snapshot.credits.hasCredits || snapshot.credits.unlimited || snapshot.credits.used != null || snapshot.credits.remaining != null) && (
+        <div className="usage-credits">
+          <span className="usage-credits-label">{snapshot.credits.label ?? "Credits"}</span>
+          <span className="usage-credits-value">{formatCredits(snapshot.credits)}</span>
+        </div>
+      )}
+      {!snapshot && !result.error && (
+        <div className="usage-provider-error">No usage data reported for this provider.</div>
+      )}
+    </div>
+  );
 }
 
 function Composer(): ReactNode {
@@ -546,13 +627,28 @@ function Composer(): ReactNode {
 }
 
 export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNode {
-  const { busy, todos, transcript, session, sessions, reopenSession, sessionUsage } = useStore();
+  const {
+    busy,
+    todos,
+    transcript,
+    session,
+    sessions,
+    reopenSession,
+    sessionUsage,
+    providerUsage,
+    providerUsageLoading,
+    refreshProviderUsage
+  } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [usageOpen, setUsageOpen] = useState(false);
   const parent = session?.parentID ? sessions.find((item) => item.id === session.parentID) : undefined;
+
+  useEffect(() => {
+    if (usageOpen) void refreshProviderUsage();
+  }, [usageOpen, refreshProviderUsage]);
 
   useEffect(() => {
     if (!usageOpen) return;
@@ -645,12 +741,15 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
         <div className="agent-header-actions">
           <button
             className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""}`}
-            title="Session token usage"
-            aria-label="Session token usage"
+            title="Session and provider usage"
+            aria-label="Session and provider usage"
             aria-expanded={usageOpen}
             onClick={() => setUsageOpen((open) => !open)}
           >
-            <span className="codicon codicon-dashboard" />
+            <svg className="agent-usage-glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+            </svg>
           </button>
           <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
             »
@@ -706,6 +805,37 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
             ) : (
               <div className="agent-usage-empty">No usage recorded for this session yet.</div>
             )}
+            <div className="usage-provider-section">
+              <div className="usage-provider-head">
+                <span className="usage-provider-title">
+                  <svg className="agent-usage-glyph" viewBox="0 0 16 16" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+                  </svg>
+                  Provider usage
+                </span>
+                <button
+                  className="usage-provider-refresh"
+                  title="Refresh provider usage"
+                  aria-label="Refresh provider usage"
+                  onClick={() => void refreshProviderUsage()}
+                >
+                  <span className={`codicon codicon-refresh ${providerUsageLoading ? "spinning" : ""}`} />
+                </button>
+              </div>
+              {providerUsageLoading && providerUsage.length === 0 ? (
+                <div className="usage-provider-loading">
+                  <span className="spinner" />
+                  Checking provider usage…
+                </div>
+              ) : providerUsage.length === 0 ? (
+                <div className="usage-provider-empty">
+                  No providers connected. Sign in with <code>opencode auth login</code> to see plan limits here.
+                </div>
+              ) : (
+                providerUsage.map((result) => <ProviderUsageCard key={result.provider} result={result} />)
+              )}
+            </div>
           </div>
         )}
       </div>
