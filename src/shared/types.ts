@@ -201,6 +201,8 @@ export interface BackendMessageBase {
   file?: FileUpdate;
   session?: SessionInfo;
   command?: string;
+  path?: string;
+  line?: number;
 }
 
 export type BackendMessage =

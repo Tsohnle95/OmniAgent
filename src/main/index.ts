@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, type WebContents } from "electron";
 import path from "node:path";
+import fsp from "node:fs/promises";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
 import type { PermissionReply } from "@shared/types";
@@ -14,15 +15,50 @@ let lastPickedNode = 0;
 let lastPickedAt = 0;
 let devToolsKeyPolling = false;
 
-const DEVTOOLS_KEY_WATCHER = `
+const SKIP_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "out",
+  "dist",
+  "build",
+  ".next",
+  ".turbo",
+  "coverage",
+  ".venv",
+  "venv",
+  "__pycache__"
+]);
+
+const DEVTOOLS_WATCHER = `
 (() => {
-  if (window.__openshellKeyWatchInstalled) return;
-  window.__openshellKeyWatchInstalled = true;
+  if (window.__openshellWatchInstalled) return;
+  window.__openshellWatchInstalled = true;
   window.__openshellKey = null;
+  window.__openshellOpenSource = null;
   window.addEventListener("keydown", (event) => {
     if (event.key === "F12" || event.key === "Escape") {
       window.__openshellKey = event.key;
     }
+  }, true);
+  window.addEventListener("click", (event) => {
+    let link = null;
+    for (const el of event.composedPath ? event.composedPath() : []) {
+      if (el.nodeType !== 1 || !el.textContent) continue;
+      const m = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i.exec(el.textContent.trim());
+      if (m) {
+        link = { el, file: m[1], line: parseInt(m[2], 10) };
+        break;
+      }
+    }
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const titled = link.el.getAttribute("title") ? link.el : link.el.closest("[title]");
+    window.__openshellOpenSource = JSON.stringify({
+      file: link.file,
+      line: link.line,
+      title: titled ? titled.getAttribute("title") || "" : ""
+    });
   }, true);
 })();
 `;
@@ -89,6 +125,53 @@ function stopInspectPicker(wc: WebContents): void {
     .catch((err) => console.error("stopInspectPicker:", err));
 }
 
+async function findFileByBasename(root: string, basename: string, maxDepth = 7): Promise<string | null> {
+  const matches: string[] = [];
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > maxDepth || matches.length >= 5) return;
+    let entries;
+    try {
+      entries = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (matches.length >= 5) return;
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
+        await walk(path.join(dir, entry.name), depth + 1);
+      } else if (entry.isFile() && entry.name === basename) {
+        matches.push(path.join(dir, entry.name));
+      }
+    }
+  };
+  await walk(root, 0);
+  matches.sort((a, b) => a.length - b.length);
+  return matches[0] ?? null;
+}
+
+async function resolveSourcePath(file: string, title: string): Promise<string | null> {
+  const session = await backend.getState();
+  if (!session?.directory) return null;
+  const root = session.directory;
+  if (title.startsWith("file://")) {
+    let abs = title.slice("file://".length);
+    try {
+      abs = decodeURIComponent(abs);
+    } catch {
+      /* keep raw */
+    }
+    if (!path.isAbsolute(abs)) abs = path.join(root, abs);
+    try {
+      if ((await fsp.stat(abs)).isFile()) return path.relative(root, abs);
+    } catch {
+      /* not a file; fall through to basename search */
+    }
+  }
+  const found = await findFileByBasename(root, file);
+  return found ? path.relative(root, found) : null;
+}
+
 function createWindow(): BrowserWindow {
   const newWin = new BrowserWindow({
     width: 1480,
@@ -148,40 +231,64 @@ function createWindow(): BrowserWindow {
     stopInspectPicker(wc);
   });
 
-  const installDevToolsKeyWatcher = (): void => {
+  const installDevToolsWatcher = (): void => {
     const dtc = wc.devToolsWebContents;
     if (!dtc || dtc.isDestroyed()) return;
     const run = (): void => {
-      void dtc.executeJavaScript(DEVTOOLS_KEY_WATCHER).catch(() => {});
+      void dtc.executeJavaScript(DEVTOOLS_WATCHER).catch(() => {});
     };
     if (dtc.isLoading()) dtc.once("dom-ready", run);
     else run();
   };
 
-  const pollDevToolsKeys = async (): Promise<void> => {
+  const pollDevTools = async (): Promise<void> => {
     while (devToolsKeyPolling) {
       await sleep(120);
       const dtc = wc.devToolsWebContents;
       if (!wc.isDevToolsOpened() || wc.isDestroyed() || !dtc || dtc.isDestroyed()) break;
-      const key = await dtc
-        .executeJavaScript(
-          `(() => { const k = window.__openshellKey; window.__openshellKey = null; return k; })()`
-        )
+      const payload = await dtc
+        .executeJavaScript(`(() => {
+          const k = window.__openshellKey;
+          window.__openshellKey = null;
+          const s = window.__openshellOpenSource;
+          window.__openshellOpenSource = null;
+          return JSON.stringify({ key: k, source: s });
+        })()`)
         .catch(() => null);
-      if (key === "F12") {
+      if (typeof payload !== "string") continue;
+      let parsed: { key?: string | null; source?: string | null };
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+      if (parsed.key === "F12") {
         wc.closeDevTools();
-      } else if (key === "Escape" && inspectPickerActive) {
+      } else if (parsed.key === "Escape" && inspectPickerActive) {
         stopInspectPicker(wc);
+      }
+      if (typeof parsed.source === "string") {
+        try {
+          const src = JSON.parse(parsed.source) as { file?: string; line?: number; title?: string };
+          if (typeof src.file === "string" && typeof src.line === "number") {
+            const rel = await resolveSourcePath(src.file, src.title ?? "");
+            if (rel) {
+              wc.send("shell:message", { kind: "ui-command", command: "open-source", path: rel, line: src.line });
+            }
+          }
+        } catch (err) {
+          console.error("open-source:", err);
+        }
       }
     }
     devToolsKeyPolling = false;
   };
 
   wc.on("devtools-opened", () => {
-    installDevToolsKeyWatcher();
+    installDevToolsWatcher();
     if (!devToolsKeyPolling) {
       devToolsKeyPolling = true;
-      void pollDevToolsKeys();
+      void pollDevTools();
     }
   });
 

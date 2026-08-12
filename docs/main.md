@@ -140,6 +140,13 @@ cannot use it (Electron's `InspectableWebContents` delegate never
 implements `PreHandleKeyboardEvent`), so a keydown watcher is injected
 into the frontend page with `executeJavaScript` and polled from main —
 F12 closes DevTools, Esc stops the picker, whichever side has focus.
+The same watcher intercepts clicks on CSS rule source links (the
+`styles.css:12` links in the Styles panel): it prevents the frontend's
+own reveal, resolves the file against the session directory (basename
+search, skipping `node_modules` etc.) and re-sends it as a
+`ui-command` `open-source` with `{ path, line }` so the editor opens
+the file at the clicked rule — DevTools edits are ephemeral, the
+editor's are not.
 Picks are deduped (Chromium fires `inspectNodeRequested` twice per
 click, once from pointer events, once from mouse events) and the
 picker lifecycle is token-guarded so stale async arm calls can never

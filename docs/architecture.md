@@ -57,7 +57,9 @@ All backend→renderer message kinds are defined in
 - `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
   exit from the terminal tray (`src/main/terminal.ts`).
 - `{ kind: "ui-command", command }` — main-process requests to the
-  renderer (currently `toggle-word-wrap` when ⌘W / Ctrl+W is pressed).
+  renderer (`toggle-word-wrap` when ⌘W / Ctrl+W is pressed;
+  `open-source` with `{ path, line }` when a CSS rule's source link is
+  clicked in DevTools — the editor opens that file at that line).
 
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.

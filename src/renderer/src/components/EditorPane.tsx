@@ -2,6 +2,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { languageForPath } from "../monaco";
 import { useStore } from "../store";
+import { registerEditor, unregisterEditor } from "../reveal";
 import type { Tab } from "@shared/types";
 
 const EDITOR_OPTIONS = {
@@ -90,6 +91,8 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
     [wordWrap]
   );
 
+  useEffect(() => () => unregisterEditor(tab.path), [tab.path]);
+
   return (
     <div className="editor-wrap">
       <div className="editor-toolbar">
@@ -140,6 +143,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           language={language}
           original={tab.baseline ?? ""}
           modified={tab.content}
+          onMount={(ed) => registerEditor(tab.path, ed.getModifiedEditor())}
           options={{
             ...options,
             readOnly: true,
@@ -154,6 +158,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           language={language}
           path={tab.path}
           value={tab.content}
+          onMount={(ed) => registerEditor(tab.path, ed)}
           options={options}
           onChange={(value) => {
             if (value !== undefined) editContent(tab.path, value);

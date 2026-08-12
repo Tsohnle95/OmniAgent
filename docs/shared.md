@@ -71,7 +71,8 @@ blocks, and provider metadata is retained instead of flattened away.
 - `"event"` / `"file-update"` / `"session"` — shared base
   (`BackendMessageBase`): `{ kind, type?, data?, file?, session? }` plus
   `{ kind: "ui-command", command }` (main→renderer requests, e.g.
-  `toggle-word-wrap` when ⌘W is pressed).
+  `toggle-word-wrap` when ⌘W is pressed, or `open-source` with
+  `{ path, line }` when a DevTools CSS source link is clicked).
 - `{ kind: "terminal-data", terminal: TerminalData }`
 - `{ kind: "terminal-exit", terminal: TerminalExit }`
 

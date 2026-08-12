@@ -219,7 +219,9 @@ resolved child session; a child header navigates back to its parent.
   the renderer. F12 toggles a bottom-docked DevTools; ⌘⇧C toggles live
   element picking — CDP `Overlay.setInspectMode` for the Firefox-style
   hover highlight, with the click routed through `inspectElement` so the
-  Elements panel selects the node.
+  Elements panel selects the node. Clicking a rule's source link in the
+  Styles panel (`styles.css:12`) sends an `open-source` `ui-command` so
+  the file opens in the editor at that exact line.
 - ⌥O toggles the terminal tray; drag dividers resize the sidebar, agent
   panel, and tray (dragging the tray to the bottom closes it on release).
 

@@ -24,6 +24,7 @@ import type {
   UserAttachment
 } from "@shared/types";
 import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { requestReveal } from "./reveal";
 
 export interface Toast {
   id: number;
@@ -694,6 +695,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     },
     [tabs, toast]
   );
+  const openFileRef = useRef(openFile);
+  openFileRef.current = openFile;
 
   const commitName = useCallback(
     async (name: string) => {
@@ -846,6 +849,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (msg.kind === "ui-command") {
         if (msg.command === "toggle-word-wrap") {
           toggleWordWrap();
+        } else if (msg.command === "open-source" && typeof msg.path === "string" && typeof msg.line === "number") {
+          const path = msg.path;
+          const line = msg.line;
+          void openFileRef.current(path, { mode: "edit" }).then(() => requestReveal(path, line));
         }
         return;
       }
