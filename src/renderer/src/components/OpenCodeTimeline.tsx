@@ -186,7 +186,7 @@ function Markdown({ text, streaming }: { text: string; streaming: boolean }): Re
   const value = usePacedText(text, streaming);
   if (!value) return null;
   return (
-    <div data-component="markdown">
+    <div data-component="markdown" data-streaming={streaming ? "true" : "false"}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{value}</ReactMarkdown>
     </div>
   );
