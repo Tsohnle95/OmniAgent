@@ -28,10 +28,13 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 Union discriminated on `kind`:
 
 - `user` — `{ id, text }` prompt bubble
+- `pending-input` — internal admitted user/synthetic input retained until
+  promotion or cancellation; never rendered as a chat row
 - `assistant` — `{ id, messageID, parts, completed, retry?, error? }`;
   `parts` is the ordered OpenCode content stream (`AssistantPartView[]`)
 - `permission` — `{ id, requestID, action, resources, pending }`
-- `selection` — a visible agent/model switch
+- `selection` — retained agent/model switch metadata, filtered from the chat
+  timeline
 - `synthetic` / `system` / `skill` — non-assistant protocol messages with their supplied text
 - `shell` — a session shell command plus running/terminal state, output, and exit code
 - `compaction` — running/completed/failed compaction with its streamed summary

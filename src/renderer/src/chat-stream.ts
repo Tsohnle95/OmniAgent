@@ -288,6 +288,39 @@ function partFromProjection(part: Record<string, any>, created: number): Assista
   };
 }
 
+function promoteInput(items: TranscriptItem[], inputID: string): TranscriptItem[] {
+  const pendingIndex = items.findIndex((item) => item.kind === "pending-input" && item.id === inputID);
+  if (pendingIndex === -1) return items;
+  const pending = items[pendingIndex];
+  if (pending.kind !== "pending-input") return items;
+  if (pending.inputType === "synthetic") {
+    const promoted: Extract<TranscriptItem, { kind: "synthetic" }> = {
+      kind: "synthetic",
+      id: pending.id,
+      text: pending.text,
+      ...(pending.description ? { description: pending.description } : {})
+    };
+    return items.map((item, index) => index === pendingIndex ? promoted : item);
+  }
+  const promoted: Extract<TranscriptItem, { kind: "user" }> = {
+    kind: "user",
+    id: pending.id,
+    text: pending.text,
+    ...(pending.attachments?.length ? { attachments: pending.attachments } : {})
+  };
+  const optimisticIndex = items.findIndex((item) =>
+    item.kind === "user" && item.id.startsWith("user-") && item.text === promoted.text
+  );
+  if (optimisticIndex === -1) {
+    return items.map((item, index) => index === pendingIndex ? promoted : item);
+  }
+  return items.flatMap((item, index) => {
+    if (index === optimisticIndex) return [promoted];
+    if (index === pendingIndex) return [];
+    return [item];
+  });
+}
+
 export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent): TranscriptItem[] {
   const data = event.data;
   const id = messageID(data);
@@ -302,24 +335,19 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         const attachments = files.flatMap((file): { name: string }[] =>
           typeof file.name === "string" && file.name ? [{ name: file.name }] : []
         );
-        const item: Extract<TranscriptItem, { kind: "user" }> = {
-          kind: "user",
+        return upsertItem(items, {
+          kind: "pending-input",
           id: inputID,
+          inputType: "user",
           text: String(payload.text ?? ""),
           ...(attachments.length > 0 ? { attachments } : {})
-        };
-        const optimistic = items.findIndex((current) =>
-          current.kind === "user" && current.id.startsWith("user-") && current.text === item.text
-        );
-        if (optimistic >= 0) {
-          return items.map((current, index) => index === optimistic ? item : current);
-        }
-        return upsertItem(items, item);
+        });
       }
       if (input.type === "synthetic") {
         return upsertItem(items, {
-          kind: "synthetic",
+          kind: "pending-input",
           id: inputID,
+          inputType: "synthetic",
           text: String(payload.text ?? ""),
           ...(typeof payload.description === "string" ? { description: payload.description } : {})
         });
@@ -327,9 +355,11 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
       return items;
     }
     case "session.input.cancelled":
-      return items.filter((item) => item.id !== String(data.inputID ?? ""));
+      return items.filter((item) =>
+        item.kind !== "pending-input" || item.id !== String(data.inputID ?? "")
+      );
     case "session.input.promoted":
-      return items;
+      return promoteInput(items, String(data.inputID ?? ""));
     case "session.agent.selected":
       return upsertItem(items, {
         kind: "selection",

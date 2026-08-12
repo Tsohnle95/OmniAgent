@@ -66,9 +66,10 @@ Key mechanisms:
   `loadAgents()` once the backend client is up, so a boot or reconnect that
   first hit a silent empty catalog (no client yet) is retried and the
   composer agent/model menus never stay empty.
-- **V2 session reducer** — `chat-stream.ts` folds admitted input, agent/model
-  switches, synthetic/skill/shell/compaction messages, assistant lifecycle,
-  and legacy `message.*` projections into ordered `TranscriptItem`s. Tool
+- **V2 session reducer** — `chat-stream.ts` buffers admitted input until its
+  promoted event, retains non-chat agent/model switches as internal state, and
+  folds synthetic/skill/shell/compaction messages, assistant lifecycle, and
+  legacy `message.*` projections into ordered `TranscriptItem`s. Tool
   state retains parsed input, content blocks, metadata, execution state, and
   provider state. Durable end/snapshot events are authoritative; terminal
   tool states cannot regress when events arrive late.
@@ -85,9 +86,10 @@ Key mechanisms:
 - **V2 transcript replay** — reopened sessions accept OpenCode's flat
   `SessionMessageInfo[]` plus legacy `info`/`parts` projections and reconstruct
   the same user, selection, synthetic/system/skill/shell, assistant, and
-  compaction items used by the live reducer. Renderer startup reopens the
-  backend's active session silently so a reload hydrates persisted messages
-  before new live events continue. `mergeChatHistory` reconciles replay with
+  compaction items used by the live reducer. Selection items remain available
+  for state reconstruction but are filtered from the chat timeline. Renderer
+  startup reopens the backend's active session silently so a reload hydrates
+  persisted messages before new live events continue. `mergeChatHistory` reconciles replay with
   any global SSE events received during the request, preserving terminal tool
   states and the longest streamed text/reasoning values.
 
@@ -97,8 +99,9 @@ Key mechanisms:
 
 - **OpenCode web transcript presentation** — `OpenCodeTimeline.tsx` ports the
   current OpenCode timeline rows and message-part slots to React. User messages
-  use the subtle right-aligned layer bubble; assistant markdown and reasoning
-  summaries are flat, ordered, visible, and paced while streaming; the generic
+  use the subtle right-aligned layer bubble; assistant markdown is flat and
+  paced while streamed reasoning stays ordered behind a collapsed Thinking
+  disclosure and is rendered only when the user expands it; the generic
   TextShimmer Thinking row appears only before any renderable part; adjacent read/glob/grep/list
   parts group across assistant messages into Exploring/Explored; task calls use
   OpenCode's agent-colored delegation card and todo writes are hidden from the

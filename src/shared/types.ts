@@ -119,6 +119,14 @@ export type AssistantPartView =
 export type TranscriptItem =
   | { kind: "user"; id: string; text: string; attachments?: UserAttachment[] }
   | {
+      kind: "pending-input";
+      id: string;
+      inputType: "user" | "synthetic";
+      text: string;
+      attachments?: UserAttachment[];
+      description?: string;
+    }
+  | {
       kind: "assistant";
       id: string;
       messageID: string;

@@ -105,8 +105,8 @@ screen; clicking one goes down `openSessionById` (see below).
    frame, coalescing adjacent deltas (`coalesceChatStream`), then runs
    `processMessage` → `reduceChatStream` (`chat-stream.ts`). Each event is
    reduced under its own `sessionID`, retaining child/subagent streams while
-   the active projection renders admitted input, semantic session messages,
-   and ordered text/reasoning/tool parts.
+   admitted input remains invisible until promotion and the active projection
+   renders semantic session messages and ordered text/reasoning/tool parts.
    `normalizeStreamEvent` also adapts `permission.v2.*` names and legacy
    envelopes so one reducer handles every service version.
 3. The busy lifecycle is a per-session side channel:
@@ -114,9 +114,9 @@ screen; clicking one goes down `openSessionById` (see below).
    `succeeded/failed/interrupted` and `session.idle` clear it;
    `session.status` mirrors `busy`/`idle`/`retry` (retry detail attaches to
    the latest assistant).
-4. `session.model.selected` / `session.agent.selected` become visible
-   timeline entries and update the pickers when they belong to the active
-   session, mirroring the local `switchModel`/`switchAgent` calls.
+4. `session.model.selected` / `session.agent.selected` remain internal control
+   entries and update the pickers when they belong to the active session,
+   mirroring the local `switchModel`/`switchAgent` calls without creating chat.
 5. Stop: `stop()` → `shell:interrupt` → `client.session.interrupt`.
 
 ## The diff pipeline

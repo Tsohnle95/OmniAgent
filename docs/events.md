@@ -22,9 +22,9 @@ is backgrounded.
 | `session.created` | Adds or reconciles the session graph entry, including `parentID`, agent, title, and directory so task calls can resolve child sessions |
 | `session.renamed` | Updates the matching session title and timestamp |
 | `session.deleted` | Removes the session from the graph |
-| `session.input.admitted` | Materializes queued user/synthetic input in the addressed session and reconciles an optimistic local user message by text |
-| `session.input.promoted` | Retains the admitted input as the canonical timeline entry; delivery state is intentionally not visualized |
-| `session.input.cancelled` | Removes the admitted input by `inputID` |
+| `session.input.admitted` | Buffers user/synthetic input as an internal `pending-input`; it does not create a visible chat row |
+| `session.input.promoted` | Materializes the buffered input as the canonical user/synthetic timeline entry and reconciles an optimistic local user message by text |
+| `session.input.cancelled` | Discards the buffered input by `inputID` without removing a promoted chat message |
 | `session.execution.started` | Sets `busy = true`; activity is shown by the agent header rather than a transcript status bubble |
 | `session.execution.succeeded` | Sets `busy = false`, completes the active assistant, and clears retry state without adding transcript noise |
 | `session.execution.failed` | Sets `busy = false`, completes the active assistant, clears retry state, and adds an error status line |
@@ -37,9 +37,9 @@ is backgrounded.
 | `session.text.started` | Adds one ordered text part for the message/ordinal |
 | `session.text.delta` | Appends streamed text to that part |
 | `session.text.ended` | Replaces the part with the authoritative final text and marks it complete |
-| `session.reasoning.started` | Adds one ordered reasoning part; non-empty reasoning is rendered as streamed Markdown in event order |
+| `session.reasoning.started` | Adds one ordered reasoning part behind a collapsed Thinking disclosure in event order |
 | `session.reasoning.delta` | Appends streamed reasoning to that part |
-| `session.reasoning.ended` | Replaces the part with authoritative final reasoning and keeps it visible after completion |
+| `session.reasoning.ended` | Replaces the part with authoritative final reasoning and keeps it available through the disclosure after completion |
 | `session.tool.input.started` | Adds an inline tool part with its real name and begins the argument buffer |
 | `session.tool.input.delta` | Appends to the live tool argument buffer |
 | `session.tool.input.ended` | Replaces the argument buffer with authoritative input text |
@@ -61,8 +61,8 @@ is backgrounded.
 | `message.part.updated` | Authoritatively reconciles an ordered legacy text, reasoning, or tool part |
 | `message.part.delta` | Appends a legacy text/reasoning field delta |
 | `message.part.removed` | Removes the projected part |
-| `session.model.selected` | Adds a visible model-switch timeline entry; also updates `currentModel` when this is the active session |
-| `session.agent.selected` | Adds a visible agent-switch timeline entry; also updates `currentAgent` when this is the active session |
+| `session.model.selected` | Retains internal model-switch metadata and updates `currentModel` for the active session; it does not create a chat row |
+| `session.agent.selected` | Retains internal agent-switch metadata and updates `currentAgent` for the active session; it does not create a chat row |
 | `todo.updated` | Replaces the active session todo list rendered in the dock above the composer; `todowrite` tool-part input/metadata is also consumed as a beta-protocol fallback |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
 | `permission.replied` | Marks `data.requestID` resolved, recording `resolvedWith` from `data.reply` |

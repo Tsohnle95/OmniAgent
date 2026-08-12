@@ -15,7 +15,7 @@ red/green diff.
   view is a Monaco diff editor showing exactly what the agent changed this
   session, updating in real time as files change.
 - **Agent panel (right)** — OpenCode's web timeline presentation: flat
-  streaming markdown and reasoning summaries, grouped Exploring/Explored
+  streaming markdown and collapsible reasoning, grouped Exploring/Explored
   context activity, navigable subagent task cards, semantic shell/skill/
   compaction entries, borderless tool triggers, docked permission prompts,
   and the integrated prompt input. Stop interrupts the session.
@@ -89,7 +89,7 @@ Open requests from real usage live in `TODO.md` — pick them up in a fresh
 session. Delivered so far (see `git log`):
 
 - **OpenCode web chat streaming** — OpenCode's per-session V2 reducer behavior,
-  child-session task navigation, persistent reasoning summaries, semantic
+  child-session task navigation, persistent collapsible reasoning, semantic
   session messages, timeline row construction,
   message-part DOM structure, turn-wide context grouping, specialized task and
   todo surfaces, dark V2 tokens, markdown typography, paced text,

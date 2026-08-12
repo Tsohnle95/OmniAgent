@@ -12,6 +12,7 @@ const TEXT_RENDER_SNAP = /[\s.,!?;:)\]]/;
 
 type AssistantItem = Extract<TranscriptItem, { kind: "assistant" }>;
 type AssistantPart = AssistantItem["parts"][number];
+type VisibleTimelineItem = Exclude<TranscriptItem, { kind: "permission" | "pending-input" | "selection" }>;
 
 const AGENT_TONES: Record<string, string> = {
   build: "#c3d4fd",
@@ -191,10 +192,30 @@ function ReasoningPart({
   part: Extract<AssistantPart, { kind: "reasoning" }>;
   streaming: boolean;
 }): ReactNode {
+  const [open, setOpen] = useState(false);
   if (!part.text) return null;
+  const active = streaming && !part.complete;
+  const contentID = `reasoning-${part.id}`;
   return (
-    <div data-component="reasoning-part" data-timeline-part-id={part.id}>
-      <Markdown text={part.text} streaming={streaming && !part.complete} />
+    <div
+      data-component="reasoning-part"
+      data-expanded={open ? "true" : "false"}
+      data-timeline-part-id={part.id}
+    >
+      <button
+        data-slot="reasoning-part-trigger"
+        aria-controls={contentID}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span data-slot="reasoning-part-title"><TextShimmer text="Thinking" active={active} /></span>
+        <span className={`codicon codicon-chevron-${open ? "down" : "right"}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <div data-slot="reasoning-part-content" id={contentID}>
+          <Markdown text={part.text} streaming={active} />
+        </div>
+      )}
     </div>
   );
 }
@@ -641,10 +662,10 @@ function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming
 type TimelineTurn = {
   id: string;
   user?: Extract<TranscriptItem, { kind: "user" }>;
-  body: Exclude<TranscriptItem, { kind: "user" | "permission" }>[];
+  body: Exclude<VisibleTimelineItem, { kind: "user" }>[];
 };
 
-function buildTurns(timeline: Exclude<TranscriptItem, { kind: "permission" }>[]): TimelineTurn[] {
+function buildTurns(timeline: VisibleTimelineItem[]): TimelineTurn[] {
   const turns: TimelineTurn[] = [];
   let current: TimelineTurn | undefined;
   for (const item of timeline) {
@@ -665,7 +686,7 @@ function buildTurns(timeline: Exclude<TranscriptItem, { kind: "permission" }>[])
 function TimelineEvent({
   item
 }: {
-  item: Exclude<TranscriptItem, { kind: "user" | "assistant" | "permission" }>;
+  item: Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>;
 }): ReactNode {
   if (item.kind === "status") {
     return (
@@ -681,17 +702,6 @@ function TimelineEvent({
           <span data-slot="compaction-part-line" />
           <span data-slot="compaction-part-label">Session compacted</span>
           <span data-slot="compaction-part-line" />
-        </div>
-      </TimelineRow>
-    );
-  }
-  if (item.kind === "selection") {
-    return (
-      <TimelineRow tag="SessionEvent">
-        <div data-component="session-event">
-          <span className={`codicon codicon-${item.selection === "agent" ? "account" : "server-process"}`} />
-          <span data-slot="session-event-title">{item.title}</span>
-          {item.detail && <span data-slot="session-event-detail">{item.detail}</span>}
         </div>
       </TimelineRow>
     );
@@ -783,7 +793,9 @@ export function OpenCodeTimeline({
   lastAssistantId: string | null;
 }): ReactNode {
   const timeline = useMemo(
-    () => transcript.filter((item) => item.kind !== "permission"),
+    () => transcript.filter((item): item is VisibleTimelineItem =>
+      item.kind !== "permission" && item.kind !== "pending-input" && item.kind !== "selection"
+    ),
     [transcript]
   );
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
@@ -803,7 +815,7 @@ export function OpenCodeTimeline({
               {turn.user && <UserMessage item={turn.user} />}
               {assistants.length > 0 && <AssistantTurn items={assistants} streaming={live} />}
               {turn.body
-                .filter((item): item is Exclude<TranscriptItem, { kind: "user" | "assistant" | "permission" }> =>
+                .filter((item): item is Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }> =>
                   item.kind !== "assistant")
                 .map((item) => <TimelineEvent item={item} key={item.id} />)}
             </div>

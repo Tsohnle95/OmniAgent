@@ -61,7 +61,7 @@ Internals:
   the active session including parent/title/agent metadata, resets baselines,
   restarts the watcher, and emits `{kind:"session"}`.
 - `replayTranscript(messages)` — converts `message.list` output to
-  `TranscriptItem[]`: user, selection, synthetic/system/skill/shell,
+  `TranscriptItem[]`: user, internal selection, synthetic/system/skill/shell,
   assistant, and compaction messages in persisted order. Tool status comes
   from streaming/running/completed/error; parsed input, text/file content,
   metadata, provider state, duration, retry, error, and completion are restored.
