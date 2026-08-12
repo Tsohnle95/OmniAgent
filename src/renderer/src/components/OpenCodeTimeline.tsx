@@ -174,10 +174,20 @@ const MARKDOWN_COMPONENTS: Components = {
   code({ children, className }) {
     const value = String(children ?? "");
     const block = Boolean(className) || value.includes("\n");
+    const codeText = value.replace(/\n$/, "");
     return (
-      <code className={className} data-code-language={className?.match(/language-([\w+-]+)/)?.[1] ?? "text"}>
-        {block ? highlightCode(value.replace(/\n$/, "")) : children}
-      </code>
+      block ? (
+        <>
+          <code className={className} data-code-language={className?.match(/language-([\w+-]+)/)?.[1] ?? "text"}>
+            {highlightCode(codeText)}
+          </code>
+          <CopyResponse text={codeText} target="code" />
+        </>
+      ) : (
+        <code className={className} data-code-language={className?.match(/language-([\w+-]+)/)?.[1] ?? "text"}>
+          {children}
+        </code>
+      )
     );
   }
 };
@@ -192,8 +202,9 @@ function Markdown({ text, streaming }: { text: string; streaming: boolean }): Re
   );
 }
 
-function CopyResponse({ text }: { text: string }): ReactNode {
+function CopyResponse({ text, target = "response" }: { text: string; target?: "response" | "code" }): ReactNode {
   const [copied, setCopied] = useState(false);
+  const label = target === "code" ? "code" : "response";
   const copy = async (): Promise<void> => {
     if (!text) return;
     const ok = await navigator.clipboard.writeText(text).then(() => true, () => false);
@@ -203,10 +214,10 @@ function CopyResponse({ text }: { text: string }): ReactNode {
   };
   return (
     <button
-      data-slot="text-part-copy-button"
+      data-slot={target === "code" ? "code-block-copy-button" : "text-part-copy-button"}
       className="icon-btn"
-      aria-label={copied ? "Copied" : "Copy response"}
-      title={copied ? "Copied" : "Copy response"}
+      aria-label={copied ? "Copied" : `Copy ${label}`}
+      title={copied ? "Copied" : `Copy ${label}`}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => void copy()}
     >

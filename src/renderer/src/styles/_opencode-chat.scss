@@ -286,12 +286,13 @@
 [data-component="markdown"] blockquote { border-inline-start: 0.5px solid var(--v2-border-border-base); margin: 1rem 0; padding-inline-start: 0.5rem; color: var(--v2-text-text-muted); }
 [data-component="markdown"] hr { border: none; height: 0; margin: 32px 0; }
 [data-component="markdown"] pre {
+  position: relative;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
   margin: 12px 0 24px;
-  padding: 12px;
+  padding: 34px 16px 16px;
   overflow-x: hidden;
   overflow-y: auto;
   border: 0.5px solid var(--v2-border-border-base);
@@ -311,6 +312,27 @@
   color: var(--v2-text-text-base);
   line-height: 1.65;
 }
+[data-component="markdown"] pre > [data-slot="code-block-copy-button"] {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0.5px solid var(--v2-border-border-base);
+  border-radius: 5px;
+  background: color-mix(in oklch, var(--v2-background-bg-layer-03) 88%, transparent);
+  color: var(--v2-icon-icon-muted);
+  opacity: 0.82;
+  z-index: 1;
+}
+[data-component="markdown"] pre > [data-slot="code-block-copy-button"]:hover,
+[data-component="markdown"] pre > [data-slot="code-block-copy-button"]:focus-visible {
+  background: var(--v2-background-bg-layer-03);
+  color: var(--v2-text-text-base);
+  opacity: 1;
+}
+[data-component="markdown"] pre > [data-slot="code-block-copy-button"] .codicon { font-size: 14px; }
 [data-component="markdown"] code { font-family: var(--font-family-mono); }
 [data-component="markdown"] :not(pre) > code { direction: ltr; unicode-bidi: isolate; color: var(--v2-text-text-base); font-weight: var(--font-weight-medium); padding: 2px 4px; border-radius: 4px; background: color-mix(in oklch, var(--v2-text-text-base) var(--markdown-inline-code-bg-mix), transparent); }
 [data-component="text-part"] [data-component="markdown"][data-streaming="true"] {

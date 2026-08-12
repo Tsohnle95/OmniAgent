@@ -58,6 +58,9 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;

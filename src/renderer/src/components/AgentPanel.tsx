@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
@@ -537,6 +537,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
   const { busy, todos, transcript, session, sessions, reopenSession } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const scrollFrameRef = useRef<number | null>(null);
   const parent = session?.parentID ? sessions.find((item) => item.id === session.parentID) : undefined;
 
   const lastAssistantId = useMemo(() => {
@@ -547,10 +548,34 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
     return null;
   }, [transcript]);
 
+  const scheduleScrollToBottom = (): void => {
+    if (!stickRef.current || scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const el = scrollRef.current;
+      if (!el || !stickRef.current) return;
+      el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    });
+  };
+
+  useLayoutEffect(() => {
+    scheduleScrollToBottom();
+  }, [transcript, busy]);
+
   useEffect(() => {
     const el = scrollRef.current;
-    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
-  }, [transcript, busy]);
+    const content = el?.querySelector<HTMLElement>('[data-slot="session-turn-list"]');
+    if (!el || !content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => scheduleScrollToBottom());
+    observer.observe(content);
+    return () => {
+      observer.disconnect();
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+        scrollFrameRef.current = null;
+      }
+    };
+  }, []);
 
   const onScroll = (): void => {
     const el = scrollRef.current;
