@@ -32,7 +32,7 @@ Public methods (all used by IPC):
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
 | `openSession(directory)` | `session.create({location:{directory}, model?: saved, agent?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
-| `openSessionById(sessionID)` | `session.get` to recover the directory, activates it, then `message.list` → replay transcript |
+| `openSessionById(sessionID)` | `session.get` to recover the directory and cumulative usage (`cost` + `tokens`, surfaced as `usage`), activates it, then `message.list` → replay transcript |
 | `prompt(text, files?)` | `session.prompt({sessionID, text, files?})`; `files` are `PromptFile[]` — absolute paths validated (file + ≤10 MB) and converted to file URIs, with optional `mention` spans into the prompt text |
 | `listCommands()` | `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
 | `runCommand(name, args?)` | `session.skill({sessionID, skill})` when the name matches a skill, else `session.command({sessionID, command, arguments?})` |

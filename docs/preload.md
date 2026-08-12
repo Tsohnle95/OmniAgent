@@ -17,7 +17,7 @@ automatically.
 | `selectFolder()` | `Promise<SessionInfo \| null>` |
 | `openSession(dir)` | `Promise<SessionInfo>` |
 | `sessions()` | `Promise<SessionSummary[]>` |
-| `openSessionById(sessionID)` | `Promise<ReopenedSession>` (session + replayed transcript) |
+| `openSessionById(sessionID)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`) |
 | `prompt(text, files?)` | `Promise<void>`; files are `PromptFile[]` — paths from `selectFiles()` or @-mentions (with `mention` spans) |
 | `commands()` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
 | `runCommand(name, args?)` | `Promise<void>` — runs a slash command or skill in the active session |

@@ -507,6 +507,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               [reopened.session.id]: Boolean(running?.kind === "assistant" && !running.completed)
             });
         setTodos(reopened.todos);
+        if (reopened.usage) {
+          setUsageBySession((current) => ({ ...current, [reopened.session.id]: reopened.usage! }));
+        }
         if (!silent) toast(`Reopened session in ${reopened.session.directory}`);
         void loadModels();
         void loadAgents();
