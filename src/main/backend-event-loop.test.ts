@@ -33,7 +33,7 @@ describe("BackendEventLoop", () => {
     expect(loop.active()).toBe(false);
   });
 
-  it("aborts a pending run without hanging when work delays its lifecycle boundary", async () => {
+  it("waits for an aborted run to settle", async () => {
     const loop = new BackendEventLoop();
     const exited = deferred();
     const release = deferred();
@@ -43,10 +43,12 @@ describe("BackendEventLoop", () => {
       exited.resolve();
     });
     await turn();
-    await loop.stop();
-    expect(loop.active()).toBe(false);
+    const stopping = loop.stop();
+    expect(loop.active()).toBe(true);
     release.resolve();
+    await stopping;
     await exited.promise;
+    expect(loop.active()).toBe(false);
   });
 
   it("invalidates streaming work before restart and never revives the old generation", async () => {
@@ -54,28 +56,38 @@ describe("BackendEventLoop", () => {
     const firstReady = deferred();
     const firstExit = deferred();
     const seen: string[] = [];
+    let concurrent = 0;
+    let maximum = 0;
     let firstGeneration = 0;
     loop.start(async (signal, generation) => {
+      concurrent += 1;
+      maximum = Math.max(maximum, concurrent);
       firstGeneration = generation;
       firstReady.resolve();
       await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
       if (loop.current(generation)) seen.push("stale");
+      concurrent -= 1;
       firstExit.resolve();
     });
     await firstReady.promise;
-    await loop.stop();
+    const stopping = loop.stop();
     expect(loop.current(firstGeneration)).toBe(false);
 
     const restarted = deferred();
     loop.start(async (_signal, generation) => {
+      concurrent += 1;
+      maximum = Math.max(maximum, concurrent);
       expect(loop.current(generation)).toBe(true);
       seen.push("fresh");
       restarted.resolve();
+      concurrent -= 1;
     });
+    await stopping;
     await restarted.promise;
     await firstExit.promise;
     await turn();
     expect(seen).toEqual(["fresh"]);
+    expect(maximum).toBe(1);
     expect(loop.active()).toBe(false);
   });
 });

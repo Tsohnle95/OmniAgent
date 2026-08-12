@@ -48,7 +48,7 @@ Public methods (all used by IPC):
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
-| `renamePath(workspace, rel, newName)` | Confined same-folder rename; moves tracked snapshot state |
+| `renamePath(workspace, rel, newName)` | Confined same-folder no-replace rename; rejects occupied destinations and moves tracked snapshot state |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
@@ -74,7 +74,8 @@ Internals:
 
 - `runEventLoop()` — reconnecting SSE loop; forwards every event as
   `{kind:"event", type, data}` then runs `handleServerEvent` (see
-  `docs/events.md`).
+  `docs/events.md`). Stop/restart serializes subscription lifetimes, and
+  filesystem side handling requires a matching top-level event location.
 - `activateSession(generation, info)` — canonicalizes, checks latest-request-wins,
   creates `{id, generation}` identity and workspace-scoped watcher maps, then
   commits and emits `{kind:"session"}`.

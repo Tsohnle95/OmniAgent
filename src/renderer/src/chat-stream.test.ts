@@ -64,4 +64,22 @@ describe("chat stream replay", () => {
     expect(transcript[0]).toMatchObject({ kind: "shell", output: expect.stringContaining("characters omitted") });
     expect(transcript[0].kind === "shell" ? transcript[0].output?.length : 0).toBe(MAX_RETAINED_OUTPUT_CHARS);
   });
+
+  it("preserves live semantic chronology around replayed assistants", () => {
+    const assistant = (id: string): TranscriptItem => ({
+      kind: "assistant", id, messageID: id, parts: [], completed: true
+    });
+    const history = [assistant("a1"), assistant("a2")];
+    const live: TranscriptItem[] = [
+      { kind: "shell", id: "shell", shellID: "shell", command: "pwd", status: "exited" },
+      assistant("a1"),
+      { kind: "skill", id: "skill", skill: "review", name: "Review", text: "" },
+      assistant("a2"),
+      { kind: "compaction", id: "compact", status: "completed", reason: "auto", summary: "done" }
+    ];
+
+    expect(mergeChatHistory(history, live).map((item) => item.id)).toEqual([
+      "shell", "a1", "skill", "a2", "compact"
+    ]);
+  });
 });

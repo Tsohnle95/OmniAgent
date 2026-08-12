@@ -2,9 +2,17 @@ export class BackendEventLoop {
   private generation = 0;
   private controller: AbortController | null = null;
   private running: Promise<void> | null = null;
+  private pending: ((signal: AbortSignal, generation: number) => Promise<void>) | null = null;
 
   start(run: (signal: AbortSignal, generation: number) => Promise<void>): void {
-    if (this.running) return;
+    if (this.running) {
+      if (this.controller?.signal.aborted) this.pending = run;
+      return;
+    }
+    this.launch(run);
+  }
+
+  private launch(run: (signal: AbortSignal, generation: number) => Promise<void>): void {
     const generation = ++this.generation;
     const controller = new AbortController();
     this.controller = controller;
@@ -14,6 +22,9 @@ export class BackendEventLoop {
       if (this.running !== running) return;
       this.running = null;
       this.controller = null;
+      const pending = this.pending;
+      this.pending = null;
+      if (pending) this.launch(pending);
     }).catch(() => {});
   }
 
@@ -25,10 +36,9 @@ export class BackendEventLoop {
     ++this.generation;
     const controller = this.controller;
     const running = this.running;
-    this.controller = null;
-    this.running = null;
+    this.pending = null;
     controller?.abort();
-    void running?.catch(() => {});
+    await running?.catch(() => {});
   }
 
   active(): boolean {

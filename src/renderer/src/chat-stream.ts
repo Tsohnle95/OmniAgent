@@ -735,21 +735,22 @@ function mergeAssistant(
 }
 
 export function mergeChatHistory(history: TranscriptItem[], live: TranscriptItem[]): TranscriptItem[] {
-  const result = [...history];
-  for (const item of live) {
-    const index = result.findIndex((current) =>
-      current.id === item.id || (
-        current.kind === "assistant" && item.kind === "assistant" && current.messageID === item.messageID
-      )
+  const matches = (left: TranscriptItem, right: TranscriptItem): boolean =>
+    left.id === right.id || (
+      left.kind === "assistant" && right.kind === "assistant" && left.messageID === right.messageID
     );
-    if (index === -1) {
-      result.push(item);
-      continue;
-    }
-    const current = result[index];
-    result[index] = current.kind === "assistant" && item.kind === "assistant"
+  const result = live.map((item) => {
+    const current = history.find((candidate) => matches(candidate, item));
+    return current?.kind === "assistant" && item.kind === "assistant"
       ? mergeAssistant(current, item)
-      : item;
+      : current ?? item;
+  });
+  for (let historyIndex = 0; historyIndex < history.length; historyIndex += 1) {
+    const item = history[historyIndex];
+    if (result.some((current) => matches(current, item))) continue;
+    const next = history.slice(historyIndex + 1).find((candidate) => result.some((current) => matches(current, candidate)));
+    if (next) result.splice(result.findIndex((current) => matches(current, next)), 0, item);
+    else result.push(item);
   }
   return result;
 }

@@ -535,6 +535,7 @@ Scope: items 7, 8, and 9.
 - [x] Check watcher generation after awaits and before mutation/emission.
 - [x] Include identity on session and file-update messages and reject stale renderer updates.
 - [x] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
+- [x] Await stopped subscription settlement before restart and bind global filesystem events to the active watch location/generation.
 - [x] Add deterministic generation acceptance, stale await, mutation-target capture, persistence conflict, workspace completion/picker, and backend event-loop duplicate-start/stop/completion/restart tests. Full watcher phase, reopen/startup store, and Electron macOS lifecycle harnesses remain acceptance work.
 - [x] Update session, watcher, startup, and event-loop documentation.
 - [x] Pass `npm run check`.
@@ -549,6 +550,7 @@ Scope: items 11, 12, and 13 under the selected observed-session-changes policy.
 - [x] Label Changes/Diff as observed workspace changes rather than authoritative agent attribution.
 - [x] Document Git, non-git, shell, skipped-path, and first-observation limits.
 - [x] Preserve timeline body order and group only contiguous assistant runs.
+- [x] Preserve live-only shell, skill, and compaction interleaving when authoritative replay is merged during streaming.
 - [x] Add baseline lifecycle tests for tool, shell, editor, create, delete, rename, Git, and non-git cases.
 - [x] Add DOM-order tests for every interleaved semantic timeline event.
 - [x] Update all baseline, Changes, and timeline documentation.
@@ -579,6 +581,7 @@ Scope: item 17.
 - [x] Record proxy budgets for reducer/update latency, timeline derivation, estimated row count, and retained output. Actual React/browser render cost and DOM size remain unmeasured.
 - [x] Cap or summarize retained tool and shell output.
 - [x] Define retention/eviction for inactive session streams and usage records.
+- [x] Report retained-output omission counts exactly and evict per-session busy state with transcript records.
 - [ ] Measure actual React/browser render cost before deciding whether transcript indexing, context partitioning, or virtualization is justified.
 - [x] Add regression coverage for the selected retention behavior.
 - [x] Document performance budgets and retention policy.
@@ -619,10 +622,10 @@ Scope: items 23, 24, and 25 after all behavioral units are complete.
 ## Final acceptance
 
 - [ ] Every WU-01 through WU-10 checklist is complete. WU-08 retains an actual render benchmark/decision.
-- [ ] Every work unit has an independent commit and focused regression tests.
+- [x] Every work unit has an independent commit and focused regression tests.
 - [ ] The final worktree contains no new uncommitted implementation changes.
 - [ ] `npm run check` passes from a clean checkout.
-- [ ] A final review finds no unresolved Critical or High item from this document.
+- [x] A final review finds no unresolved Critical or High item from this document.
 
 Residual acceptance notes:
 
@@ -632,3 +635,4 @@ Residual acceptance notes:
 - The platform smoke verifies launcher and PTY behavior, not the GUI trust-boundary lifecycle.
 - This unit passed `npm run check` in the current worktree, but did not claim a separate clean-checkout run or a new independent final security review.
 - Final-review corrections now lock packaged renderer selection to the bundled file, make PTY startup IDs known before output/exit, capture direct delete/rename baselines, broaden bounded IPC schemas, and reconcile stale writes after close/reopen. Focused tests cover each correction; full Electron GUI trust-boundary lifecycle coverage remains residual.
+- Corrective audit coverage now enforces cross-platform no-replace file/directory renames, workspace-located global filesystem routing, serialized SSE stop/restart, replay/live semantic chronology, exact truncation accounting, and coupled busy-state eviction. Actual React/browser render measurement and full Electron GUI lifecycle coverage remain residual.

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -105,5 +105,55 @@ describe("direct mutation observed changes", () => {
         deleted: false
       }
     ]);
+  });
+
+  it("rejects an occupied file destination and preserves both files", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await writeFile(path.join(root, "source.txt"), "source");
+    await writeFile(path.join(root, "target.txt"), "target");
+
+    await expect(backend.renamePath(workspace, "source.txt", "target.txt"))
+      .rejects.toThrow("destination already exists: target.txt");
+
+    expect(await readFile(path.join(root, "source.txt"), "utf8")).toBe("source");
+    expect(await readFile(path.join(root, "target.txt"), "utf8")).toBe("target");
+    expect(messages).toEqual([]);
+  });
+
+  it("rejects an occupied directory destination and preserves both trees", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await mkdir(path.join(root, "source"));
+    await mkdir(path.join(root, "target"));
+    await writeFile(path.join(root, "source", "value.txt"), "source");
+    await writeFile(path.join(root, "target", "value.txt"), "target");
+
+    await expect(backend.renamePath(workspace, "source", "target"))
+      .rejects.toThrow("destination already exists: target");
+
+    expect(await readFile(path.join(root, "source", "value.txt"), "utf8")).toBe("source");
+    expect(await readFile(path.join(root, "target", "value.txt"), "utf8")).toBe("target");
+    expect(messages).toEqual([]);
+  });
+
+  it("routes global filesystem events only to their matching active workspace", async () => {
+    const { backend, root, messages } = await backendFixture();
+    const other = await mkdtemp(path.join(tmpdir(), "openshell-other-"));
+    roots.push(other);
+    await writeFile(path.join(root, "active.txt"), "active");
+    await writeFile(path.join(other, "foreign.txt"), "foreign");
+    const handle = (backend as unknown as {
+      handleServerEvent: (
+        type: string,
+        data: unknown,
+        location?: { directory?: string }
+      ) => Promise<void>;
+    }).handleServerEvent.bind(backend);
+
+    await handle("filesystem.changed", { file: "foreign.txt", event: "change" }, { directory: other });
+    await handle("filesystem.changed", { file: "active.txt", event: "change" }, { directory: root });
+    await handle("filesystem.changed", { file: "active.txt", event: "change" });
+
+    expect(messages.map((message) => message.kind === "file-update" ? message.file?.path : null))
+      .toEqual(["active.txt"]);
   });
 });

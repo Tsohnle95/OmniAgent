@@ -127,9 +127,10 @@ Key mechanisms:
   timeline. Synthetic `<system-reminder>` entries are also retained for
   replay but filtered from the chat. Renderer
   startup reopens the backend's active session silently so a reload hydrates
-  persisted messages before new live events continue. `mergeChatHistory` reconciles replay with
-  any global SSE events received during the request, preserving terminal tool
-  states and the longest streamed text/reasoning values.
+  persisted messages before new live events continue. `mergeChatHistory`
+  reconciles replay with any global SSE events received during the request,
+  preserving the live timeline's semantic interleaving, terminal tool states,
+  and the longest streamed text/reasoning values.
 
 - **Parent/child navigation** — `session.created` plus `session.list` maintain
   parent ids. Task cards use upstream's metadata-first, parent/title/agent

@@ -30,7 +30,7 @@ import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStream
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { LatestGeneration, sameWorkspace } from "@shared/generation";
-import { retainSessionRecord } from "@shared/retention";
+import { retainMatchingSessionRecords, retainSessionRecord } from "@shared/retention";
 
 export interface Toast {
   id: number;
@@ -300,6 +300,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const busy = session ? Boolean(busyBySession[session.id]) : false;
   const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
   const sessionUsage = session ? usageBySession[session.id] ?? null : null;
+
+  useEffect(() => {
+    setBusyBySession((current) => retainMatchingSessionRecords(current, transcriptsBySession, session?.id));
+  }, [session?.id, transcriptsBySession]);
 
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;

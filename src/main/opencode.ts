@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promises as fsp } from "node:fs";
-import { watch, type FSWatcher } from "node:fs";
+import { constants, watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -519,10 +519,16 @@ export class OpenShellBackend {
         if (!this.eventLoop.current(generation)) return;
         for await (const evt of this.client!.event.subscribe({ signal })) {
           if (this.stopped || !this.eventLoop.current(generation)) return;
-          const typed = evt as { type?: string; event?: string; data?: unknown; properties?: unknown };
+          const typed = evt as {
+            type?: string;
+            event?: string;
+            data?: unknown;
+            properties?: unknown;
+            location?: { directory?: string };
+          };
           const type = typed.type ?? typed.event ?? "unknown";
           this.emit({ kind: "event", type, data: evt });
-          await this.handleServerEvent(type, typed.data ?? typed.properties).catch(() => {});
+          await this.handleServerEvent(type, typed.data ?? typed.properties, typed.location).catch(() => {});
           if (!this.eventLoop.current(generation)) return;
         }
       } catch (err) {
@@ -534,7 +540,11 @@ export class OpenShellBackend {
     }
   }
 
-  private async handleServerEvent(type: string, data: unknown): Promise<void> {
+  private async handleServerEvent(
+    type: string,
+    data: unknown,
+    location?: { directory?: string }
+  ): Promise<void> {
     if (!this.directory) return;
     const d = data as { sessionID?: string };
     if (d && "sessionID" in d && d.sessionID && d.sessionID !== this.sessionID) return;
@@ -544,9 +554,12 @@ export class OpenShellBackend {
     } else if (type === "filesystem.changed") {
       const f = data as { file: string; event: "add" | "change" | "unlink" };
       const context = this.watchContext;
-      if (context && typeof f?.file === "string") {
-        await this.onFsChanged(context, this.abs(f.file, context.root), f.event);
-      }
+      if (!context || !this.currentWatch(context) || typeof f?.file !== "string") return;
+      if (typeof location?.directory !== "string" || path.resolve(location.directory) !== context.root) return;
+      const abs = this.abs(f.file, context.root);
+      const rel = path.relative(context.root, abs);
+      if (!rel || rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) return;
+      await this.onFsChanged(context, abs, f.event);
     }
   }
 
@@ -1309,7 +1322,44 @@ export class OpenShellBackend {
       const target = await confinedPath(root, parent ? `${parent}/${fileName(newName)}` : fileName(newName));
       const captured = await this.captureDirectMutation(context, abs);
       assertWorkspace(workspace, this.workspace);
-      await fsp.rename(abs, target);
+      const source = await fsp.lstat(abs);
+      try {
+        if (source.isDirectory()) {
+          await fsp.mkdir(target);
+          try {
+            const entries = await fsp.readdir(abs);
+            await Promise.all(entries.map((entry) => fsp.cp(
+              path.join(abs, entry),
+              path.join(target, entry),
+              { recursive: true, force: false, errorOnExist: true, preserveTimestamps: true }
+            )));
+          } catch (error) {
+            await fsp.rm(target, { recursive: true, force: true });
+            throw error;
+          }
+          await fsp.rm(abs, { recursive: true });
+        } else {
+          let created = false;
+          try {
+            try {
+              await fsp.link(abs, target);
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+              await fsp.copyFile(abs, target, constants.COPYFILE_EXCL);
+            }
+            created = true;
+            await fsp.unlink(abs);
+          } catch (error) {
+            if (created) await fsp.unlink(target).catch(() => {});
+            throw error;
+          }
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code?.includes("EEXIST")) {
+          throw new Error(`destination already exists: ${path.basename(target)}`);
+        }
+        throw error;
+      }
       assertWorkspace(workspace, this.workspace);
       context.snapshots.set(abs, captured.baseline);
       context.lastKnown.delete(abs);
