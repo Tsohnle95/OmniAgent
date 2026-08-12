@@ -597,7 +597,14 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
           </button>
         )}
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
-        <span className="agent-title">{session?.parentID ? session.title ?? session.agent ?? "Subagent" : "Agent"}</span>
+        <span className="agent-title">
+          {session?.parentID ? session.title ?? session.agent ?? "Subagent" : "Agent"}
+          {!session?.parentID && session?.directory && (
+            <span className="agent-workspace" title={session.directory}>
+              {session.directory.split("/").filter(Boolean).pop()}
+            </span>
+          )}
+        </span>
         <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
           »
         </button>

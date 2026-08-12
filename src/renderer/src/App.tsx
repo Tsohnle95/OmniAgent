@@ -121,10 +121,24 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const agentMax = Math.max(AGENT_MIN_W, winW - sideShown - 2);
   const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - 2));
 
+  const sideCapRef = useRef<number | null>(null);
+  const agentCapRef = useRef<number | null>(null);
+
   useLayoutEffect(() => {
-    setAgentW((w) => Math.min(w, Math.max(0, winW - sideShown - 2)));
-    setSideW((w) => Math.min(w, Math.max(0, winW - agentShown - 2)));
-  }, [winW, sideShown, agentShown]);
+    const cap = Math.max(0, winW - sideShown - 2);
+    const anchored = agentOpen && agentCapRef.current !== null && agentW >= agentCapRef.current - 1;
+    agentCapRef.current = cap;
+    if (anchored) setAgentW(cap);
+    else setAgentW((w) => Math.min(w, cap));
+  }, [winW, sideShown, agentOpen, agentW]);
+
+  useLayoutEffect(() => {
+    const cap = Math.max(0, Math.min(SIDE_MAX_W, winW - agentShown - 2));
+    const anchored = sideOpen && sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
+    sideCapRef.current = cap;
+    if (anchored) setSideW(cap);
+    else setSideW((w) => Math.min(w, cap));
+  }, [winW, agentShown, sideOpen, sideW]);
 
   const sideDrag = useDragResize(
     sideW,

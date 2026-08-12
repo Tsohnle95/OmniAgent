@@ -33,6 +33,13 @@
 
 .agent-title { font-weight: 600; }
 
+.agent-title .agent-workspace {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
 .agent-session-back { flex: 0 0 24px; }
 
 .agent-collapse { margin-left: auto; }
