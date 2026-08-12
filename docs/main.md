@@ -133,15 +133,20 @@ Protocol (`webContents.debugger`, `Overlay.setInspectMode` with
 `inspectElement` at the picked node's box-model center
 (`DOM.getBoxModel`) — overlay events only reach our debugger session,
 and the Elements panel only selects nodes on browser-side inspects.
-Esc, picking an element, ⌘⇧C, or closing DevTools exits the mode;
-Esc and F12 are bound on both the app and the DevTools webContents so
-they work whichever side has focus. Picks are deduped (Chromium fires
-`inspectNodeRequested` twice per click, once from pointer events, once
-from mouse events) and the picker lifecycle is token-guarded so stale
-async arm calls can never re-arm or wedge the state. Gotcha:
-`highlightConfig` is a required parameter even for `mode: "none"`;
-omitting it makes Chromium reject the command and leaves the overlay
-stuck in search mode, flashing highlights forever.
+Esc, picking an element, ⌘⇧C, or closing DevTools exits the mode.
+Keyboard handling is split: the app webContents uses
+`before-input-event` (F12 toggle, Esc, ⌘⇧C); the DevTools webContents
+cannot use it (Electron's `InspectableWebContents` delegate never
+implements `PreHandleKeyboardEvent`), so a keydown watcher is injected
+into the frontend page with `executeJavaScript` and polled from main —
+F12 closes DevTools, Esc stops the picker, whichever side has focus.
+Picks are deduped (Chromium fires `inspectNodeRequested` twice per
+click, once from pointer events, once from mouse events) and the
+picker lifecycle is token-guarded so stale async arm calls can never
+re-arm or wedge the state. Gotcha: `highlightConfig` is a required
+parameter even for `mode: "none"`; omitting it makes Chromium reject
+the command and leaves the overlay stuck in search mode, flashing
+highlights forever.
 
 Startup (`app.whenReady`): connect → `start()` → register IPC →
 `createWindow()`. On `window-all-closed` non-darwin quits; the backend is

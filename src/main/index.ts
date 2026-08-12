@@ -12,6 +12,20 @@ let inspectPickerToken = 0;
 let overlayEnabled = false;
 let lastPickedNode = 0;
 let lastPickedAt = 0;
+let devToolsKeyPolling = false;
+
+const DEVTOOLS_KEY_WATCHER = `
+(() => {
+  if (window.__openshellKeyWatchInstalled) return;
+  window.__openshellKeyWatchInstalled = true;
+  window.__openshellKey = null;
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "F12" || event.key === "Escape") {
+      window.__openshellKey = event.key;
+    }
+  }, true);
+})();
+`;
 
 const INSPECT_HIGHLIGHT = {
   showInfo: true,
@@ -98,7 +112,6 @@ function createWindow(): BrowserWindow {
   inspectPickerActive = false;
   inspectPickerToken++;
   const wc = newWin.webContents;
-  let boundDevTools: WebContents | null = null;
 
   newWin.on("closed", () => {
     if (win === newWin) win = null;
@@ -130,24 +143,47 @@ function createWindow(): BrowserWindow {
     inspectPickerActive = false;
     overlayEnabled = false;
   });
-  wc.on("devtools-closed", () => stopInspectPicker(wc));
+  wc.on("devtools-closed", () => {
+    devToolsKeyPolling = false;
+    stopInspectPicker(wc);
+  });
 
-  const bindDevToolsKeys = (): void => {
+  const installDevToolsKeyWatcher = (): void => {
     const dtc = wc.devToolsWebContents;
-    if (!dtc || dtc === boundDevTools) return;
-    boundDevTools = dtc;
-    dtc.on("before-input-event", (event, input) => {
-      if (input.type !== "keyDown" || input.meta || input.control || input.alt || input.shift) return;
-      if (input.key === "F12") {
-        event.preventDefault();
+    if (!dtc || dtc.isDestroyed()) return;
+    const run = (): void => {
+      void dtc.executeJavaScript(DEVTOOLS_KEY_WATCHER).catch(() => {});
+    };
+    if (dtc.isLoading()) dtc.once("dom-ready", run);
+    else run();
+  };
+
+  const pollDevToolsKeys = async (): Promise<void> => {
+    while (devToolsKeyPolling) {
+      await sleep(120);
+      const dtc = wc.devToolsWebContents;
+      if (!wc.isDevToolsOpened() || wc.isDestroyed() || !dtc || dtc.isDestroyed()) break;
+      const key = await dtc
+        .executeJavaScript(
+          `(() => { const k = window.__openshellKey; window.__openshellKey = null; return k; })()`
+        )
+        .catch(() => null);
+      if (key === "F12") {
         wc.closeDevTools();
-      } else if (input.key === "Escape" && inspectPickerActive) {
-        event.preventDefault();
+      } else if (key === "Escape" && inspectPickerActive) {
         stopInspectPicker(wc);
       }
-    });
+    }
+    devToolsKeyPolling = false;
   };
-  wc.on("devtools-opened", bindDevToolsKeys);
+
+  wc.on("devtools-opened", () => {
+    installDevToolsKeyWatcher();
+    if (!devToolsKeyPolling) {
+      devToolsKeyPolling = true;
+      void pollDevToolsKeys();
+    }
+  });
 
   newWin.webContents.on("before-input-event", (event, input) => {
     const mod = process.platform === "darwin" ? input.meta : input.control;
