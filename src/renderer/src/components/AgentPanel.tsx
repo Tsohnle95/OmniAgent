@@ -325,7 +325,7 @@ function Composer(): ReactNode {
             <span className="codicon codicon-chevron-down" />
           </button>
           <button
-            className={`composer-selector model ${menu === "model" ? "open" : ""}`}
+            className={`composer-selector model ${menu === "model" && modelView !== "strength" ? "open" : ""}`}
             title="Change model and response strength"
             onClick={() => {
               setMenu(menu === "model" ? null : "model");
@@ -337,7 +337,7 @@ function Composer(): ReactNode {
           </button>
           {currentModel?.variants && currentModel.variants.length > 0 && (
             <button
-              className={`composer-selector strength ${menu === "model" ? "open" : ""}`}
+              className={`composer-selector strength ${menu === "model" && modelView === "strength" ? "open" : ""}`}
               title="Change response strength"
               onClick={() => {
                 if (menu === "model" && modelView === "strength") {

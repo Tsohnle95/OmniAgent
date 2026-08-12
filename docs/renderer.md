@@ -60,6 +60,10 @@ Key mechanisms:
   `sessionSelection()` before falling back to `modelDefault()`, so a newly
   created or reopened GPT/agent session cannot be mislabeled with the previous
   session's model in the composer.
+- **Catalog self-heal** — a `connected` effect re-runs `loadModels()` /
+  `loadAgents()` once the backend client is up, so a boot or reconnect that
+  first hit a silent empty catalog (no client yet) is retried and the
+  composer agent/model menus never stay empty.
 - **Ordered assistant reducer** — `chat-stream.ts` folds V2 lifecycle events
   and legacy `message.*` projections into one assistant message whose ordered
   parts are text, reasoning, and tool calls. Durable end/snapshot events are

@@ -1017,6 +1017,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     replyPermission
   ]);
 
+  useEffect(() => {
+    if (!connected || !sessionRef.current) return;
+    void loadModels();
+    void loadAgents();
+  }, [connected, loadModels, loadAgents]);
+
   const value = useMemo<Store>(
     () => ({
       session,
