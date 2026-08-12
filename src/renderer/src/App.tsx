@@ -10,6 +10,7 @@ import { TerminalTray } from "./components/TerminalTray";
 const COLLAPSED_PANEL_W = 44;
 const SIDE_MIN_W = 170;
 const SIDE_MAX_W = 520;
+const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 300;
 
 function useDragResize(
@@ -106,7 +107,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
   const [agentOpen, setAgentOpen] = useState(true);
-  const [agentW, setAgentW] = useState(420);
+  const [agentW, setAgentW] = useState(AGENT_DEFAULT_W);
   const [trayH, trayOpen, toggleTray, closeTray, trayDrag] = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
 
@@ -196,7 +197,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         ) : (
           <>
             <div className="divider collapsed" onMouseDown={agentDrag} />
-            <AgentTray onExpand={() => setAgentOpen(true)} onDrag={agentDrag} />
+            <AgentTray
+              onExpand={() => {
+                setAgentW(AGENT_DEFAULT_W);
+                setAgentOpen(true);
+              }}
+              onDrag={agentDrag}
+            />
           </>
         )}
       </div>
