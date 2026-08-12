@@ -20,6 +20,7 @@ export class EditorPersistence {
   private epochs = new Map<string, number>();
   private expected = new Map<string, FileWriteIdentity & { content: string }>();
   private persisted = new Map<string, string>();
+  private conflicts = new Map<string, number>();
   private sequence = 0;
 
   constructor(private readonly writer: Writer, private readonly delay = 900) {}
@@ -40,6 +41,7 @@ export class EditorPersistence {
   async save(snapshot: SaveSnapshot): Promise<SaveResult> {
     const key = this.key(snapshot.workspace, snapshot.path);
     const epoch = this.epochs.get(key) ?? 0;
+    const conflict = this.conflicts.get(key) ?? 0;
     const previous = this.queues.get(key) ?? Promise.resolve();
     let result: SaveResult = "cancelled";
     const task = previous.catch(() => {}).then(async () => {
@@ -59,7 +61,7 @@ export class EditorPersistence {
         throw error;
       }
       this.persisted.set(key, snapshot.content);
-      if ((this.epochs.get(key) ?? 0) === epoch) result = "saved";
+      if ((this.epochs.get(key) ?? 0) === epoch && (this.conflicts.get(key) ?? 0) === conflict) result = "saved";
     });
     this.queues.set(key, task);
     try {
@@ -73,6 +75,7 @@ export class EditorPersistence {
   classify(workspace: WorkspaceIdentity, update: FileUpdate): FileUpdateOrigin {
     const key = this.key(workspace, update.path);
     if (!update.write) {
+      this.conflicts.set(key, (this.conflicts.get(key) ?? 0) + 1);
       if (update.content === null) this.persisted.delete(key);
       else this.persisted.set(key, update.content);
       return "external";
@@ -126,7 +129,8 @@ export class EditorPersistence {
       ...this.queues.keys(),
       ...this.expected.keys(),
       ...this.persisted.keys(),
-      ...this.epochs.keys()
+      ...this.epochs.keys(),
+      ...this.conflicts.keys()
     ]);
   }
 
@@ -135,6 +139,7 @@ export class EditorPersistence {
     this.expected.delete(key);
     this.persisted.delete(key);
     this.epochs.set(key, (this.epochs.get(key) ?? 0) + 1);
+    this.conflicts.delete(key);
   }
 
   private clearTimer(key: string): void {

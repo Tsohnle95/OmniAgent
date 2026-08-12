@@ -485,7 +485,7 @@ Scope: items 1 and 2 plus sender validation from item 5.
 - [x] Allowlist safe external URL schemes before `shell.openExternal`.
 - [x] Handle tool/file links through the same validated policy.
 - [x] Set `sandbox: true` explicitly without relying on it as the primary control.
-- [x] Add focused tests for trusted/untrusted navigation, frames, senders, redirects, popups, and URL schemes.
+- [x] Add focused policy/component tests for trusted/untrusted senders, frame locations, navigation, and URL schemes. Full Electron redirect/popup harness coverage remains acceptance work.
 - [x] Update security and IPC documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.
@@ -499,10 +499,10 @@ Scope: items 5, 6, and the shared workspace contract required by items 3, 7, and
 - [x] Reject stale workspace operations in main.
 - [x] Separate workspace-relative reads from privileged source-view reads.
 - [x] Reject absolute paths, parent traversal, malformed values, and oversized payloads on workspace APIs.
-- [x] Define and enforce an intermediate-symlink confinement policy.
+- [x] Define and enforce a stable-topology no-symlink policy with the external symlink-swap residual documented.
 - [x] Stop trusting renderer-provided terminal cwd for ordinary workspace terminals.
 - [x] Validate terminal IDs, input size, rows, and columns.
-- [x] Add path, symlink, stale-workspace, malformed-argument, and terminal-validation tests.
+- [x] Add direct path-policy, existing-symlink, stale-workspace helper, malformed-argument, and terminal-manager validation tests.
 - [x] Update shared, preload, main, and security documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.
@@ -513,12 +513,12 @@ Scope: items 3, 4, and 10.
 
 - [x] Give every tab edit a monotonically increasing revision.
 - [x] Save exact content with workspace identity and revision rather than reading a stale render closure.
-- [x] Serialize writes per workspace/file or otherwise prevent stale write completion.
+- [x] Serialize renderer saves per workspace/file and main filesystem mutations per workspace; use atomic replacement for writes.
 - [x] Clear dirty state only for the matching completed revision.
 - [x] Cancel or migrate timers and expected-write state on reset, close, delete, rename, switch, and unmount.
 - [x] Detect confirmed write echoes without treating genuine external updates as echoes.
 - [x] Block conflicted saves until explicit reload, overwrite, or merge resolution.
-- [x] Add fake-timer/deferred-write tests for typing, manual save, reverse completion, conflict, close, delete, rename, and workspace switch.
+- [x] Add fake-timer/deferred persistence tests for typing, manual save, ordering, in-flight conflict generation, and lifecycle invalidation labeled close/delete/rename/workspace switch.
 - [x] Update editor/save/conflict documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.
@@ -529,13 +529,13 @@ Scope: items 7, 8, and 9.
 
 - [x] Define latest-request-wins activation semantics.
 - [x] Assign activation generations at request acceptance.
-- [x] Serialize/cancel activation work and discard stale main and renderer completions.
+- [x] Use latest-request-wins acceptance in main and renderer and discard stale completions; remote activation work may finish but cannot commit.
 - [x] Guard file, tree, model, agent, and selection responses by generation.
 - [x] Capture watcher root/session/generation and workspace-scoped maps.
 - [x] Check watcher generation after awaits and before mutation/emission.
 - [x] Include identity on session and file-update messages and reject stale renderer updates.
 - [x] Make backend event-loop startup idempotent and prevent parallel SSE subscriptions.
-- [x] Add deterministic activation, watcher-phase, reopen, startup-restoration, and macOS-reactivation tests.
+- [x] Add deterministic generation acceptance, stale await, mutation-target capture, persistence conflict, and backend event-loop single-flight seam tests. Full watcher phase, reopen/startup store, and Electron macOS lifecycle harnesses remain acceptance work.
 - [x] Update session, watcher, startup, and event-loop documentation.
 - [x] Pass `npm run check`.
 - [x] Commit as one independently revertible unit.

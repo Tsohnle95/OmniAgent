@@ -21,6 +21,7 @@ State:
   cannot create parallel SSE subscriptions or reconnect loops
 - `activations` — monotonic latest-request-wins generation assigned before the
   first activation await
+- `mutations` — serializes write/create/delete/rename operations per workspace
 
 Public methods (all used by IPC):
 
@@ -30,15 +31,16 @@ Public methods (all used by IPC):
 | `start()` | Start the SSE event loop if one is not already running |
 | `stop()` | Stop the event loop + fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
+| `beginActivation(requestGeneration)` | Accept a renderer user action before native dialog/backend awaits and return the backend generation |
 | `openSession(directory)` | Accepts a generation, calls `session.create`, and commits only if still latest; starts the generation-bound watcher and emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
 | `openSessionById(sessionID)` | Accepts a generation, loads `session.get` plus replay, then commits only if still latest |
-| `prompt(text, files?)` | `session.prompt({sessionID, text, files?})`; `files` are `PromptFile[]` — absolute paths validated (file + ≤10 MB) and converted to file URIs, with optional `mention` spans into the prompt text |
+| `prompt(workspace, text, files?)` | Captures and verifies the workspace/session around attachment awaits, then calls `session.prompt` |
 | `listCommands()` | `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
-| `runCommand(name, args?)` | `session.skill({sessionID, skill})` when the name matches a skill, else `session.command({sessionID, command, arguments?})` |
+| `runCommand(workspace, name, args?)` | Captures and verifies the workspace/session around skill lookup and command mutation |
 | `searchFiles(query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
-| `interrupt()` | `session.interrupt`, errors swallowed |
-| `replyPermission(requestID, reply, sessionID?)` | `permission.reply` against the supplied owning session (active session fallback); reply is `"once"|"always"|"reject"` |
+| `interrupt(workspace)` | Interrupts the captured active session and rejects stale completion |
+| `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured active workspace session |
 | `listDir(workspace, rel)` | Validates active identity and confinement, then `file.list`; strips trailing slashes |
 | `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
 | `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; checks expected disk content unless explicitly overwriting and emits an identified `file-update` |
@@ -49,9 +51,9 @@ Public methods (all used by IPC):
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
 | `modelDefault()` | `model.default`, maps the same |
-| `switchModel(id, providerID, variant?)` | `session.switchModel`; persists the model and variant to `settings.json` |
+| `switchModel(workspace, id, providerID, variant?)` | Switches only the captured active session, then persists the selection |
 | `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
-| `switchAgent(id)` | `session.switchAgent`; persists the choice to `settings.json` |
+| `switchAgent(workspace, id)` | Switches only the captured active session, then persists the choice |
 | `getState()` | `{id, directory}` or null |
 | `providerUsage()` | `fetchProviderUsage()` → per-provider usage-window/credit snapshots (`ProviderUsageResult[]`) |
 | `sessionSelection()` | `session.get` → `{model?, agent?}` so the UI can restore the session's current picks |
@@ -100,16 +102,16 @@ Internals:
 
 | Channel | Args → Returns |
 |---|---|
-| `shell:select-folder` | `() → SessionInfo \| null` (native dialog) |
-| `shell:open-session` | `(dir) → SessionInfo` |
+| `shell:select-folder` | `(generation) → SessionInfo \| null` (generation accepted before native dialog) |
+| `shell:open-session` | `(dir, generation) → SessionInfo` |
 | `shell:sessions` | `() → SessionSummary[]` |
-| `shell:open-session-id` | `(sessionID) → ReopenedSession` |
-| `shell:prompt` | `(text, files?) → void`; files are `PromptFile[]` — absolute paths converted to file URIs, each with optional `mention { start, end, text }` spans into the prompt text |
+| `shell:open-session-id` | `(sessionID, generation) → ReopenedSession` |
+| `shell:prompt` | `(workspace, text, files?) → void` |
 | `shell:commands` | `() → CommandOption[]` (opencode slash commands + skills for the session directory) |
-| `shell:run-command` | `(name, args?) → void` (runs a slash command or skill in the active session) |
+| `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |
 | `shell:select-files` | `() → string[]` (native multi-file dialog) |
-| `shell:interrupt` | `() → void` |
+| `shell:interrupt` | `(workspace) → void` |
 | `shell:fs-list` | `(workspace, rel) → TreeEntry[]` |
 | `shell:fs-read` | `(workspace, rel) → string \| null` |
 | `shell:source-read` | `(absolutePath) → string \| null`; app-root-confined DevTools source view only |
@@ -121,14 +123,14 @@ Internals:
 | `shell:projects` | `() → ProjectInfo[]` |
 | `shell:models` | `() → ModelOption[]` |
 | `shell:model-default` | `() → ModelOption \| null` |
-| `shell:switch-model` | `(id, providerID, variant?) → void` |
+| `shell:switch-model` | `(workspace, id, providerID, variant?) → void` |
 | `shell:agents` | `() → AgentOption[]` |
-| `shell:switch-agent` | `(id) → void` |
+| `shell:switch-agent` | `(workspace, id) → void` |
 | `shell:terminal-start` | `(workspace) → { id }`; main supplies the canonical active workspace cwd |
 | `shell:terminal-input` | `(workspace, id, data) → void` |
 | `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |
 | `shell:terminal-stop` | `(workspace, id) → void` |
-| `shell:permission-reply` | `(requestID, reply, sessionID?) → void` |
+| `shell:permission-reply` | `(workspace, requestID, reply, sessionID) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `() → SessionSelection \| null` |
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |
@@ -198,8 +200,10 @@ Workspace paths are strict `/`-separated relative paths: absolute paths,
 empty file paths, traversal, backslashes, NULs, duplicate separators, and
 oversized values are rejected. Main canonicalizes the root and rejects any
 existing symlink component, including intermediate symlink parents for new
-targets. This deliberately means Explorer workspace capabilities do not follow
-symlinks. File content is capped at 8 MiB. The separate `source-read` channel
+targets. This stable-topology policy means Explorer capabilities do not follow
+symlinks, but Node pathname APIs cannot eliminate an external symlink swap
+between validation and use. File content and every `expectedContent` value are
+capped at 8 MiB, including explicit overwrites. The separate `source-read` channel
 accepts only absolute descendants of the canonical application root and exists
 solely to preserve DevTools source navigation. Terminal ids use `term-N`, input
 is capped at 1 MiB per invoke, dimensions are positive integers bounded to

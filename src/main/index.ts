@@ -441,32 +441,34 @@ function handleTrusted<Args extends unknown[], Result>(
 }
 
 function registerIpc(): void {
-  handleTrusted("shell:select-folder", async (e) => {
+  handleTrusted("shell:select-folder", async (e, requestGeneration: number) => {
+    const generation = backend.beginActivation(requestGeneration);
     const parent = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(parent ?? win!, {
       title: "Open a repository folder",
       properties: ["openDirectory"]
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return backend.openSession(result.filePaths[0]);
+    return backend.openSession(result.filePaths[0], generation);
   });
 
-  handleTrusted("shell:open-session", async (_e, dir: string) => backend.openSession(dir));
+  handleTrusted("shell:open-session", async (_e, dir: string, requestGeneration: number) =>
+    backend.openSession(dir, backend.beginActivation(requestGeneration)));
 
   handleTrusted("shell:sessions", async () => backend.listSessions());
 
-  handleTrusted("shell:open-session-id", async (_e, sessionID: string) =>
-    backend.openSessionById(sessionID)
+  handleTrusted("shell:open-session-id", async (_e, sessionID: string, requestGeneration: number) =>
+    backend.openSessionById(sessionID, backend.beginActivation(requestGeneration))
   );
 
-  handleTrusted("shell:prompt", async (_e, text: string, files: PromptFile[] = []) =>
-    backend.prompt(text, files)
+  handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []) =>
+    backend.prompt(workspace, text, files)
   );
 
   handleTrusted("shell:commands", async () => backend.listCommands());
 
-  handleTrusted("shell:run-command", async (_e, name: string, args: string = "") =>
-    backend.runCommand(name, args)
+  handleTrusted("shell:run-command", async (_e, workspace: WorkspaceIdentity, name: string, args: string = "") =>
+    backend.runCommand(workspace, name, args)
   );
 
   handleTrusted("shell:find-files", async (_e, query: string) => backend.searchFiles(query));
@@ -480,7 +482,7 @@ function registerIpc(): void {
     return result.canceled ? [] : result.filePaths;
   });
 
-  handleTrusted("shell:interrupt", async () => backend.interrupt());
+  handleTrusted("shell:interrupt", async (_e, workspace: WorkspaceIdentity) => backend.interrupt(workspace));
 
   handleTrusted("shell:fs-list", async (_e, workspace: WorkspaceIdentity, rel: string) =>
     backend.listDir(workspace, rel)
@@ -529,22 +531,23 @@ function registerIpc(): void {
 
   handleTrusted("shell:model-default", async () => backend.modelDefault());
 
-  handleTrusted("shell:switch-model", async (_e, id: string, providerID: string, variant?: string) =>
-    backend.switchModel(id, providerID, variant)
+  handleTrusted("shell:switch-model", async (_e, workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string) =>
+    backend.switchModel(workspace, id, providerID, variant)
   );
 
   handleTrusted("shell:permission-reply", async (
     _e,
+    workspace: WorkspaceIdentity,
     requestID: string,
     reply: PermissionReply,
-    sessionID?: string
+    sessionID: string
   ) =>
-    backend.replyPermission(requestID, reply, sessionID)
+    backend.replyPermission(workspace, requestID, reply, sessionID)
   );
 
   handleTrusted("shell:agents", async () => backend.listAgents());
 
-  handleTrusted("shell:switch-agent", async (_e, id: string) => backend.switchAgent(id));
+  handleTrusted("shell:switch-agent", async (_e, workspace: WorkspaceIdentity, id: string) => backend.switchAgent(workspace, id));
 
   handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity) => {
     const state = await backend.getState();

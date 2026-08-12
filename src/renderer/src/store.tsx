@@ -82,6 +82,7 @@ interface Store {
   reopenSession: (sessionID: string) => Promise<void>;
   loadSessions: () => Promise<void>;
   sendPrompt: (text: string, files?: PromptFile[]) => Promise<void>;
+  runCommand: (name: string, args?: string) => Promise<void>;
   stop: () => Promise<void>;
   refreshProviderUsage: () => Promise<void>;
   loadModels: () => Promise<void>;
@@ -414,12 +415,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     async (id: string, providerID: string, variant?: string) => {
       const workspace = sessionRef.current?.workspace;
       try {
-        await window.openshell.switchModel(id, providerID, variant);
+        if (!workspace) return;
+        await window.openshell.switchModel(workspace, id, providerID, variant);
         if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
         const base = modelsRef.current.find((m) => m.id === id && m.providerID === providerID);
         if (base) setCurrentModel({ ...base, ...(variant ? { variant } : {}) });
       } catch (err) {
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
     [toast]
@@ -456,10 +458,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     async (id: string) => {
       const workspace = sessionRef.current?.workspace;
       try {
-        await window.openshell.switchAgent(id);
+        if (!workspace) return;
+        await window.openshell.switchAgent(workspace, id);
         if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
       } catch (err) {
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
     [toast]
@@ -479,7 +482,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       pendingActivationRef.current = request;
       try {
         persistence.cancelAll();
-        const info = await window.openshell.openSession(dir);
+        const info = await window.openshell.openSession(dir, request);
         if (!activations.current(request)) return;
         pendingActivationRef.current = null;
         resetAll();
@@ -489,7 +492,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         void loadAgents();
       } catch (err) {
         if (pendingActivationRef.current === request) pendingActivationRef.current = null;
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
     [resetAll, toast, loadModels, loadAgents, persistence, activations]
@@ -500,7 +503,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     pendingActivationRef.current = request;
     try {
       persistence.cancelAll();
-      const info = await window.openshell.selectFolder();
+      const info = await window.openshell.selectFolder(request);
       if (!activations.current(request)) return;
       pendingActivationRef.current = null;
       if (info) {
@@ -512,7 +515,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     } catch (err) {
       if (pendingActivationRef.current === request) pendingActivationRef.current = null;
-      toast(err instanceof Error ? err.message : String(err), "error");
+      if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
     }
   }, [resetAll, toast, loadModels, loadAgents, persistence, activations]);
 
@@ -530,7 +533,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       pendingActivationRef.current = request;
       try {
         persistence.cancelAll();
-        const reopened = await window.openshell.openSessionById(sessionID);
+        const reopened = await window.openshell.openSessionById(sessionID, request);
         if (!activations.current(request)) return;
         pendingActivationRef.current = null;
         resetAll(true);
@@ -559,7 +562,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         void loadSessions();
       } catch (err) {
         if (pendingActivationRef.current === request) pendingActivationRef.current = null;
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
     [resetAll, toast, loadModels, loadAgents, loadSessions, persistence, activations]
@@ -581,19 +584,30 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       };
       updateActiveTranscript((prev) => [...prev, userItem]);
       setTodos([]);
+      const workspace = session.workspace;
       try {
-        await window.openshell.prompt(promptText, files);
+        await window.openshell.prompt(workspace, promptText, files);
       } catch (err) {
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
     [session, toast, updateActiveTranscript]
   );
 
+  const runCommand = useCallback(async (name: string, args = "") => {
+    const workspace = sessionRef.current?.workspace;
+    if (!workspace) return;
+    try {
+      await window.openshell.runCommand(workspace, name, args);
+    } catch (error) {
+      if (sameWorkspace(workspace, sessionRef.current?.workspace)) throw error;
+    }
+  }, []);
+
   const stop = useCallback(async () => {
-    const sessionID = sessionRef.current?.id;
-    if (sessionID) setSessionBusy(sessionID, false);
-    await window.openshell.interrupt().catch(() => {});
+    const current = sessionRef.current;
+    if (current) setSessionBusy(current.id, false);
+    if (current) await window.openshell.interrupt(current.workspace).catch(() => {});
   }, [setSessionBusy]);
 
   const refreshProviderUsage = useCallback(async () => {
@@ -618,7 +632,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const replyPermission = useCallback(
     async (requestID: string, reply: PermissionReply) => {
       try {
-        await window.openshell.permissionReply(requestID, reply, sessionRef.current?.id);
+        const current = sessionRef.current;
+        if (!current) return;
+        await window.openshell.permissionReply(current.workspace, requestID, reply, current.id);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
         return;
@@ -756,6 +772,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         return;
       }
+      const activation = activations.snapshot();
       try {
         const workspace = sessionRef.current?.workspace;
         const agentFile = agentFilesRef.current.get(path);
@@ -764,6 +781,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           : workspace
             ? await window.openshell.readFile(workspace, path)
             : null;
+        if (!activations.current(activation)) return;
         if (!opts?.source && !sameWorkspace(workspace, sessionRef.current?.workspace)) return;
         if (content === null && agentFile?.deleted) content = "";
         if (content === null) {
@@ -796,10 +814,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setTabs((prev) => [...prev, tab]);
         setActivePath(path);
       } catch (err) {
-        toast(err instanceof Error ? err.message : String(err), "error");
+        if (activations.current(activation)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [tabs, toast]
+    [tabs, toast, activations]
   );
   const openFileRef = useRef(openFile);
   openFileRef.current = openFile;
@@ -1237,7 +1255,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               }
             ];
           });
-          if (automatic) void window.openshell.permissionReply(requestID, "once", targetSessionID);
+          const current = sessionRef.current;
+          if (automatic && current && targetSessionID === current.id) {
+            void window.openshell.permissionReply(current.workspace, requestID, "once", targetSessionID);
+          }
           break;
         }
         case "permission.replied": {
@@ -1338,6 +1359,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       reopenSession,
       loadSessions,
       sendPrompt,
+      runCommand,
       stop,
       refreshProviderUsage,
       loadModels,
@@ -1372,7 +1394,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
       ctxMenu, pendingCreate, pendingRename,
-      openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, refreshProviderUsage, loadModels, switchModel,
+      openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, replyPermission,

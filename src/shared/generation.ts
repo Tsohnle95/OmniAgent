@@ -3,12 +3,21 @@ import type { WorkspaceIdentity } from "./types";
 export class LatestGeneration {
   private value = 0;
 
-  accept(): number {
+  accept(requested?: number): number {
+    if (requested !== undefined) {
+      if (!Number.isSafeInteger(requested) || requested < 1) throw new Error("invalid activation generation");
+      this.value = Math.max(this.value + 1, requested);
+      return this.value;
+    }
     return ++this.value;
   }
 
   current(generation: number): boolean {
     return generation === this.value;
+  }
+
+  snapshot(): number {
+    return this.value;
   }
 
   invalidate(): void {

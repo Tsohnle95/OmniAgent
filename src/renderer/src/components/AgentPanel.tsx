@@ -237,6 +237,7 @@ function Composer(): ReactNode {
     currentAgent,
     switchAgent,
     sendPrompt,
+    runCommand,
     stop,
     busy
   } = useStore();
@@ -311,7 +312,7 @@ function Composer(): ReactNode {
     const text = input.trim();
     const command = /^\/(\S+)(?:\s+([\s\S]*))?$/.exec(text);
     if (command) {
-      void window.openshell.runCommand(command[1], command[2] ?? "").catch((err) =>
+      void runCommand(command[1], command[2] ?? "").catch((err) =>
         setNotice(err instanceof Error ? err.message : String(err))
       );
       setInput("");
@@ -489,7 +490,7 @@ function Composer(): ReactNode {
     if (c.kind === "command") {
       setInput("");
       setCompletion(null);
-      void window.openshell.runCommand(item.insert, rest.trim()).catch((err) =>
+      void runCommand(item.insert, rest.trim()).catch((err) =>
         setNotice(err instanceof Error ? err.message : String(err))
       );
       return;

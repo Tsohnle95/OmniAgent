@@ -17,6 +17,19 @@ describe("latest generation", () => {
     expect(second).toBe(2);
     expect(generations.current(first)).toBe(false);
     expect(generations.current(second)).toBe(true);
+    expect(generations.snapshot()).toBe(second);
+  });
+
+  it("makes a later folder action supersede an earlier unresolved dialog", async () => {
+    const generations = new LatestGeneration();
+    const firstDialog = deferred<string>();
+    const first = generations.accept();
+    const firstResult = latestOnly(generations, first, firstDialog.promise);
+    const second = generations.accept();
+    const secondResult = latestOnly(generations, second, Promise.resolve("second folder"));
+    firstDialog.resolve("first folder");
+    await expect(firstResult).resolves.toBeUndefined();
+    await expect(secondResult).resolves.toBe("second folder");
   });
 
   it("invalidates accepted startup work", () => {

@@ -25,20 +25,20 @@ const api = {
     ipcRenderer.on("shell:message", listener);
     return () => ipcRenderer.removeListener("shell:message", listener);
   },
-  selectFolder: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder"),
-  openSession: (dir: string): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir),
+  selectFolder: (generation: number): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder", generation),
+  openSession: (dir: string, generation: number): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir, generation),
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
-  openSessionById: (sessionID: string): Promise<ReopenedSession> =>
-    ipcRenderer.invoke("shell:open-session-id", sessionID),
-  prompt: (text: string, files: PromptFile[] = []): Promise<void> =>
-    ipcRenderer.invoke("shell:prompt", text, files),
+  openSessionById: (sessionID: string, generation: number): Promise<ReopenedSession> =>
+    ipcRenderer.invoke("shell:open-session-id", sessionID, generation),
+  prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<void> =>
+    ipcRenderer.invoke("shell:prompt", workspace, text, files),
   commands: (): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands"),
-  runCommand: (name: string, args: string = ""): Promise<void> =>
-    ipcRenderer.invoke("shell:run-command", name, args),
+  runCommand: (workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> =>
+    ipcRenderer.invoke("shell:run-command", workspace, name, args),
   references: (query: string): Promise<ReferenceOption[]> =>
     ipcRenderer.invoke("shell:find-files", query),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
-  interrupt: (): Promise<void> => ipcRenderer.invoke("shell:interrupt"),
+  interrupt: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:interrupt", workspace),
   listDir: (workspace: WorkspaceIdentity, rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
     ipcRenderer.invoke("shell:fs-list", workspace, rel),
   readFile: (workspace: WorkspaceIdentity, rel: string): Promise<string | null> =>
@@ -62,10 +62,10 @@ const api = {
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
   models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
   modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),
-  switchModel: (id: string, providerID: string, variant?: string): Promise<void> =>
-    ipcRenderer.invoke("shell:switch-model", id, providerID, variant),
+  switchModel: (workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string): Promise<void> =>
+    ipcRenderer.invoke("shell:switch-model", workspace, id, providerID, variant),
   agents: (): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents"),
-  switchAgent: (id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", id),
+  switchAgent: (workspace: WorkspaceIdentity, id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", workspace, id),
   terminalStart: (workspace: WorkspaceIdentity): Promise<TerminalStartResult> =>
     ipcRenderer.invoke("shell:terminal-start", workspace),
   terminalInput: (workspace: WorkspaceIdentity, id: string, data: string): Promise<void> =>
@@ -74,8 +74,8 @@ const api = {
     ipcRenderer.invoke("shell:terminal-resize", workspace, id, cols, rows),
   terminalStop: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
     ipcRenderer.invoke("shell:terminal-stop", workspace, id),
-  permissionReply: (requestID: string, reply: PermissionReply, sessionID?: string): Promise<void> =>
-    ipcRenderer.invoke("shell:permission-reply", requestID, reply, sessionID),
+  permissionReply: (workspace: WorkspaceIdentity, requestID: string, reply: PermissionReply, sessionID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:permission-reply", workspace, requestID, reply, sessionID),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),
   sessionSelection: (): Promise<SessionSelection | null> =>
     ipcRenderer.invoke("shell:session-selection"),

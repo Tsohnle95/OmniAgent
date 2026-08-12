@@ -138,6 +138,24 @@ describe("EditorPersistence", () => {
     })).toBe("external");
   });
 
+  it("does not report an in-flight save as successful after an external update", async () => {
+    const pending = deferred();
+    const value = snapshot("one", "file.ts", "ours", 4);
+    const persistence = new EditorPersistence(async () => { await pending.promise; });
+    const saving = persistence.save(value);
+    await flushPromises();
+    expect(persistence.classify(value.workspace, {
+      workspace: value.workspace,
+      sessionID: "session",
+      path: value.path,
+      baseline: "disk",
+      content: "outside",
+      deleted: false
+    })).toBe("external");
+    pending.resolve();
+    await expect(saving).resolves.toBe("cancelled");
+  });
+
   it.each([
     ["close", (p: EditorPersistence) => p.cancelPath(workspace("one"), "dir/file.ts")],
     ["delete", (p: EditorPersistence) => p.cancelPrefix(workspace("one"), "dir")],

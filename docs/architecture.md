@@ -79,6 +79,8 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
 ## Session lifecycle
 
 1. User picks a folder (renderer → `shell:select-folder` / `shell:open-session`).
+   Main accepts the renderer generation before a native dialog opens, so a
+   later user action wins even if an earlier dialog resolves later.
 2. `openSession(directory)` creates the session via
    `client.session.create({ location: { directory }, model?, agent? })` —
    the last-used model and agent are read from `settings.json` (userData)
@@ -120,12 +122,17 @@ from its content can be toggled to the Diff view (Monaco `DiffEditor`).
 
 The renderer is fully editable. Each edit increments its tab revision and
 autosave captures the exact workspace, path, content, expected disk content,
-and revision after a 900ms debounce; ⌘S saves immediately. Writes serialize
-per workspace/file and their identified echoes clear only matching state.
+and revision after a 900ms debounce; ⌘S saves immediately. Saves serialize
+per workspace/file in the renderer and all filesystem mutations serialize per
+workspace in main; identified echoes clear only matching state.
 Normal writes require the disk to still equal the last saved content. External
 updates preserve local edits and pause saving until explicit reload, overwrite,
 or keep-editing then save-merged resolution. Lifecycle changes invalidate
-timers and stale completions. Writes go through Node `fs` in the main process
+timers and stale completions; external updates advance a conflict generation so
+an already-started completion cannot clear a newer conflict. Writes use a
+same-directory temporary file and rename for atomic replacement. Expected-content
+comparison is not an OS-level CAS, so an external writer can still race between
+comparison and replacement. Writes go through Node `fs` in the main process
 (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching. The
 explorer also supports create/rename/delete through `shell:fs-create-*`,
@@ -136,7 +143,9 @@ the tree stay consistent.
 Every workspace filesystem call carries the expected workspace UUID and main
 rejects stale generations. Paths are bounded strict relative paths and no
 existing symlink component may be traversed, including an intermediate parent
-of a new target. Absolute reads are not part of the workspace API; the separate
+of a new target. This assumes stable topology during the operation; Node
+pathname APIs cannot fully prevent an external symlink swap after validation.
+Absolute reads are not part of the workspace API; the separate
 app-root-confined source-view channel exists only for DevTools CSS navigation.
 
 ## Models, agents, and composer controls

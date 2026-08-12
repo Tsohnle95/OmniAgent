@@ -54,11 +54,14 @@ a workspace switch. `open-source` uses the separate privileged source-view read
 only for absolute app paths; normal editor reads are workspace-relative.
 
 Session activation is latest-request-wins in both renderer and main. The store
-assigns a request generation before folder selection/open/reopen awaits, ignores
+assigns a request generation before folder selection/open/reopen awaits and
+passes it through IPC so main accepts folder selection before the dialog, ignores
 session messages while a newer activation is pending, and discards stale
 responses. File, tree, model, agent, selection, and startup-restoration
 responses capture workspace identity and mutate state only while it still
-matches. `file-update` is accepted only when both its session ID and full
+matches. Source reads capture activation generation too, while newly requested
+app-source tabs remain independent of workspace-relative reads. Stale activation
+failures are discarded without user toasts. `file-update` is accepted only when both its session ID and full
 workspace identity match the active session.
 
 Key mechanisms:
@@ -96,6 +99,8 @@ Key mechanisms:
   matching current revision; ⌘S cancels the timer and saves that revision.
 - **Lifecycle and conflicts** — reset, close, delete, rename, switch, and
   unmount invalidate relevant timers, expected echoes, and completions.
+  External updates advance a per-path conflict generation, so completion of a
+  write already in flight cannot clear the newer conflict.
   External updates preserve edits and pause saving until explicit Reload,
   Overwrite, or Keep editing to merge followed by Save merged content.
 - **Diff wiring** — tabs carry `baseline` (from `agentFiles`) and the
