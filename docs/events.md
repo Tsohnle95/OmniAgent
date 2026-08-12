@@ -63,6 +63,8 @@ is backgrounded.
 | `message.part.removed` | Removes the projected part |
 | `session.model.selected` | Retains internal model-switch metadata and updates `currentModel` for the active session; it does not create a chat row |
 | `session.agent.selected` | Retains internal agent-switch metadata and updates `currentAgent` for the active session; it does not create a chat row |
+| `session.usage.updated` | Records cumulative session token usage (`tokens`) and cost (`cost`) for the addressed session; drives the token-usage popup in the agent header |
+| `session.usage.recorded` | Same usage snapshot as `session.usage.updated` on the durable legacy stream; handled identically |
 | `todo.updated` | Replaces the active session todo list rendered in the dock above the composer; `todowrite` tool-part input/metadata is also consumed as a beta-protocol fallback |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
 | `permission.replied` | Marks `data.requestID` resolved, recording `resolvedWith` from `data.reply` |
@@ -74,7 +76,7 @@ by the switch statement. Revisit when adding features:
 
 - `session.moved`, `session.forked`
 - `session.input.steered`, `session.input.queued`
-- `session.usage.updated`, `session.compaction.admitted`, `session.revert.*`
+- `session.compaction.admitted`, `session.revert.*`
 - `filesystem.changed`, `reference.updated` (note: the MAIN process DOES
   handle `filesystem.changed` — see below)
 - `project.*`, `plugin.*`, `command.*`, `skill.*`, `mcp.*`, `vcs.*`,

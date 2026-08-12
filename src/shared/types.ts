@@ -21,6 +21,19 @@ export interface ReopenedSession {
   todos: TodoItem[];
 }
 
+export interface SessionUsage {
+  cost: number;
+  tokens: {
+    input: number;
+    output: number;
+    reasoning: number;
+    cache: {
+      read: number;
+      write: number;
+    };
+  };
+}
+
 export interface TreeEntry {
   path: string;
   type: "file" | "directory";

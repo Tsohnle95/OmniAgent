@@ -75,6 +75,18 @@ function formatVariant(variant: string | undefined): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(count >= 100_000 ? 0 : 1)}k`;
+  return String(count);
+}
+
+function formatCost(cost: number): string {
+  if (cost >= 1) return `$${cost.toFixed(2)}`;
+  if (cost > 0) return `$${cost.toFixed(4)}`;
+  return "$0.00";
+}
+
 function Composer(): ReactNode {
   const {
     approvalMode,
@@ -534,11 +546,36 @@ function Composer(): ReactNode {
 }
 
 export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNode {
-  const { busy, todos, transcript, session, sessions, reopenSession } = useStore();
+  const { busy, todos, transcript, session, sessions, reopenSession, sessionUsage } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [usageOpen, setUsageOpen] = useState(false);
   const parent = session?.parentID ? sessions.find((item) => item.id === session.parentID) : undefined;
+
+  useEffect(() => {
+    if (!usageOpen) return;
+    const onDown = (e: MouseEvent): void => {
+      if (!headerRef.current?.contains(e.target as Node)) setUsageOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setUsageOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [usageOpen]);
+
+  const usage = sessionUsage;
+  const usageTotal = usage
+    ? usage.tokens.input + usage.tokens.output + usage.tokens.reasoning + usage.tokens.cache.read + usage.tokens.cache.write
+    : 0;
+  const usageShare = (count: number): string =>
+    usageTotal > 0 ? `${(count / usageTotal) * 100}%` : "0%";
 
   const lastAssistantId = useMemo(() => {
     for (let i = transcript.length - 1; i >= 0; i -= 1) {
@@ -585,7 +622,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
 
   return (
     <div className="agent-panel">
-      <div className="agent-header">
+      <div className="agent-header" ref={headerRef}>
         {session?.parentID && (
           <button
             className="icon-btn agent-session-back"
@@ -605,9 +642,72 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
             </span>
           )}
         </span>
-        <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
-          »
-        </button>
+        <div className="agent-header-actions">
+          <button
+            className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""}`}
+            title="Session token usage"
+            aria-label="Session token usage"
+            aria-expanded={usageOpen}
+            onClick={() => setUsageOpen((open) => !open)}
+          >
+            <span className="codicon codicon-dashboard" />
+          </button>
+          <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
+            »
+          </button>
+        </div>
+        {usageOpen && (
+          <div className="agent-usage-popup">
+            <div className="agent-usage-head">
+              <span className="codicon codicon-dashboard" />
+              Session usage
+            </div>
+            {usage ? (
+              <>
+                <div className="agent-usage-cost">
+                  <span className="agent-usage-cost-label">Total cost</span>
+                  <span className="agent-usage-cost-value">{formatCost(usage.cost)}</span>
+                </div>
+                {usageTotal > 0 && (
+                  <div className="agent-usage-bar">
+                    <span className="agent-usage-seg input" style={{ width: usageShare(usage.tokens.input) }} />
+                    <span className="agent-usage-seg output" style={{ width: usageShare(usage.tokens.output) }} />
+                    <span className="agent-usage-seg reasoning" style={{ width: usageShare(usage.tokens.reasoning) }} />
+                    <span className="agent-usage-seg cache" style={{ width: usageShare(usage.tokens.cache.read) }} />
+                  </div>
+                )}
+                <div className="agent-usage-rows">
+                  <div className="agent-usage-row">
+                    <span className="agent-usage-row-label">Input</span>
+                    <span className="agent-usage-row-value">{formatTokens(usage.tokens.input)}</span>
+                  </div>
+                  <div className="agent-usage-row">
+                    <span className="agent-usage-row-label">Output</span>
+                    <span className="agent-usage-row-value">{formatTokens(usage.tokens.output)}</span>
+                  </div>
+                  <div className="agent-usage-row">
+                    <span className="agent-usage-row-label">Reasoning</span>
+                    <span className="agent-usage-row-value">{formatTokens(usage.tokens.reasoning)}</span>
+                  </div>
+                  <div className="agent-usage-row">
+                    <span className="agent-usage-row-label">Cache read</span>
+                    <span className="agent-usage-row-value">{formatTokens(usage.tokens.cache.read)}</span>
+                  </div>
+                  <div className="agent-usage-row">
+                    <span className="agent-usage-row-label">Cache write</span>
+                    <span className="agent-usage-row-value">{formatTokens(usage.tokens.cache.write)}</span>
+                  </div>
+                </div>
+                <div className="agent-usage-total">
+                  <span className="agent-usage-total-label">Total tokens</span>
+                  <span className="agent-usage-total-value">{formatTokens(usageTotal)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="agent-usage-empty">No usage recorded for this session yet.</div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>

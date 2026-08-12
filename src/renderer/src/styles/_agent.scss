@@ -7,6 +7,7 @@
 }
 
 .agent-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -42,7 +43,110 @@
 
 .agent-session-back { flex: 0 0 24px; }
 
-.agent-collapse { margin-left: auto; }
+.agent-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-usage-toggle { flex: 0 0 24px; }
+
+.agent-usage-toggle .codicon { font-size: 14px; }
+
+.agent-usage-toggle.open { color: var(--accent); }
+
+.agent-usage-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 10px;
+  width: 264px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 10px 12px;
+  z-index: 60;
+}
+
+.agent-usage-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.agent-usage-head .codicon { font-size: 12px; }
+
+.agent-usage-cost {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.agent-usage-cost-label { font-size: 12px; color: var(--text-dim); }
+
+.agent-usage-cost-value { font-size: 16px; font-weight: 700; color: var(--text); }
+
+.agent-usage-bar {
+  display: flex;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  gap: 1px;
+}
+
+.agent-usage-bar .agent-usage-seg { height: 100%; }
+
+.agent-usage-seg.input { background: var(--accent); }
+
+.agent-usage-seg.output { background: var(--text); }
+
+.agent-usage-seg.reasoning { background: #b083f0; }
+
+.agent-usage-seg.cache { background: var(--green); }
+
+.agent-usage-rows { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+
+.agent-usage-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.agent-usage-row-label { color: var(--text-dim); }
+
+.agent-usage-row-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-usage-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+  font-size: 12px;
+}
+
+.agent-usage-total-label { color: var(--text-faint); font-weight: 600; }
+
+.agent-usage-total-value {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-usage-empty { color: var(--text-faint); font-size: 12.5px; padding: 2px 0 4px; }
 
 .agent-tray {
   background: transparent;

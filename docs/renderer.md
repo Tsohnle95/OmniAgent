@@ -15,6 +15,7 @@ Exposed via `useStore()` (context). State:
 | `busy` | `boolean` | active-session projection of the per-session busy map |
 | `todos` | `TodoItem[]` | live OpenCode todo state shown in the prompt dock while the session executes |
 | `transcript` | `TranscriptItem[]` | active-session projection of the per-session transcript map |
+| `sessionUsage` | `SessionUsage \| null` | active-session projection of cumulative token usage/cost from `session.usage.updated` / `session.usage.recorded`; shown in the agent header popup |
 | `tabs` | `Tab[]` | open editor tabs, one per path |
 | `activePath` | `string \| null` | active tab path |
 | `agentFiles` | `Map<path, AgentFileState>` | `{baseline, content, deleted}` — what the agent touched; drives the Changes list + diff baselines |

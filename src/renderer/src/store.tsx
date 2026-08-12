@@ -17,6 +17,7 @@ import type {
   PermissionReply,
   SessionInfo,
   SessionSummary,
+  SessionUsage,
   Tab,
   TodoItem,
   TranscriptItem,
@@ -56,6 +57,7 @@ interface Store {
   busy: boolean;
   todos: TodoItem[];
   transcript: TranscriptItem[];
+  sessionUsage: SessionUsage | null;
   tabs: Tab[];
   activePath: string | null;
   agentFiles: Map<string, AgentFileState>;
@@ -131,6 +133,27 @@ function normalizeTodos(value: unknown): TodoItem[] {
 
 function todoToolName(value: string): boolean {
   return value.toLowerCase().replace(/[^a-z]/g, "") === "todowrite";
+}
+
+function normalizeSessionUsage(value: unknown): SessionUsage | null {
+  if (!value || typeof value !== "object") return null;
+  const data = value as Record<string, unknown>;
+  const tokens = data.tokens as Record<string, unknown> | undefined;
+  if (!tokens || typeof tokens !== "object") return null;
+  const cache = tokens.cache as Record<string, unknown> | undefined;
+  const num = (n: unknown): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+  return {
+    cost: num(data.cost),
+    tokens: {
+      input: num(tokens.input),
+      output: num(tokens.output),
+      reasoning: num(tokens.reasoning),
+      cache: {
+        read: num(cache?.read),
+        write: num(cache?.write)
+      }
+    }
+  };
 }
 
 function todoSnapshotFromTranscript(items: TranscriptItem[]): { key: string; todos: TodoItem[] } | null {
@@ -256,11 +279,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     () => window.localStorage.getItem("wordWrap") === "on"
   );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [usageBySession, setUsageBySession] = useState<Record<string, SessionUsage>>({});
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
   const busy = session ? Boolean(busyBySession[session.id]) : false;
   const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
+  const sessionUsage = session ? usageBySession[session.id] ?? null : null;
 
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;
@@ -940,6 +965,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           if (targetSessionID) setSessions((current) => current.filter((item) => item.id !== targetSessionID));
           break;
         }
+        case "session.usage.updated":
+        case "session.usage.recorded": {
+          const usage = normalizeSessionUsage(data);
+          if (!targetSessionID || !usage) break;
+          setUsageBySession((current) => ({ ...current, [targetSessionID]: usage }));
+          break;
+        }
         case "session.execution.started": {
           if (targetSessionID) setSessionBusy(targetSessionID, true);
           break;
@@ -1115,6 +1147,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       busy,
       todos,
       transcript,
+      sessionUsage,
       tabs,
       activePath,
       agentFiles,
@@ -1160,7 +1193,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       deleteEntry
     }),
     [
-      session, connected, busy, todos, transcript, tabs, activePath, agentFiles, tree, expanded, toasts,
+      session, connected, busy, todos, transcript, sessionUsage, tabs, activePath, agentFiles, tree, expanded, toasts,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
       ctxMenu, pendingCreate, pendingRename,
       openSession, selectFolder, reopenSession, loadSessions, sendPrompt, stop, loadModels, switchModel,
