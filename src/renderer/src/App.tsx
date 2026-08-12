@@ -213,14 +213,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     agentOpen ? `${agentW}px` : `${COLLAPSED_PANEL_W}px`
   ].join(" ");
 
-  const prevLayoutRef = useRef<{ sideOpen: boolean; sideW: number; agentOpen: boolean; agentW: number } | null>(null);
+  const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const agentCap = Math.max(0, winW - sideShown - 2);
-  const inAgentMode = prevLayoutRef.current !== null;
+  const inAgentMode = prevSidebarRef.current !== null;
 
   useEffect(() => {
-    if (prevLayoutRef.current === null) return;
+    if (prevSidebarRef.current === null) return;
     const stillInMode = !sideOpen && agentOpen && Math.abs(agentW - agentCap) < 2;
-    if (!stillInMode) prevLayoutRef.current = null;
+    if (!stillInMode) prevSidebarRef.current = null;
   }, [sideOpen, agentOpen, agentW, agentCap]);
 
   const setSidebarOpen = (open: boolean): void => {
@@ -229,18 +229,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
 
   const toggleAgentMode = (): void => {
-    if (prevLayoutRef.current === null) {
-      prevLayoutRef.current = { sideOpen, sideW, agentOpen, agentW };
+    if (prevSidebarRef.current === null) {
+      prevSidebarRef.current = { open: sideOpen, width: sideW };
       setSideOpen(false);
       setAgentOpen(true);
       setAgentW(Math.max(0, winW - COLLAPSED_PANEL_W - 2));
     } else {
-      const prev = prevLayoutRef.current;
-      prevLayoutRef.current = null;
-      setSideOpen(prev.sideOpen);
-      setSideW(prev.sideW);
-      setAgentOpen(prev.agentOpen);
-      setAgentW(prev.agentW);
+      const prev = prevSidebarRef.current;
+      prevSidebarRef.current = null;
+      setSideOpen(prev.open);
+      setSideW(prev.width);
+      setAgentOpen(true);
+      setAgentW(AGENT_MIN_W);
     }
   };
 
@@ -252,7 +252,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           <button
             className={`icon-btn ${inAgentMode ? "on" : ""}`}
             title={inAgentMode
-              ? "Restore previous layout"
+              ? "Exit agent mode — restore the file panel and shrink the agent to its minimum width"
               : "Agent mode — collapse the sidebar and expand the agent panel to a single chat view"}
             onClick={toggleAgentMode}
           >

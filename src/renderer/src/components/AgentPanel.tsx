@@ -327,6 +327,28 @@ function Composer(): ReactNode {
     setMenu(null);
   };
 
+  const cycleAgent = (): void => {
+    if (agents.length === 0) return;
+    const index = agents.findIndex((agent) => agent.id === currentAgent?.id);
+    void switchAgent(agents[(index + 1) % agents.length].id);
+  };
+
+  const cycleFavorite = (): void => {
+    if (favoriteList.length === 0) return;
+    const index = favoriteList.findIndex(
+      (model) => model.id === currentModel?.id && model.providerID === currentModel?.providerID
+    );
+    chooseModel(favoriteList[(index + 1) % favoriteList.length]);
+  };
+
+  const cycleStrength = (): void => {
+    const variants = currentModel?.variants;
+    if (!currentModel || !variants || variants.length === 0) return;
+    const options: (string | undefined)[] = [undefined, ...variants];
+    const index = options.findIndex((option) => option === currentModel.variant);
+    void switchModel(currentModel.id, currentModel.providerID, options[(index + 1) % options.length]);
+  };
+
   const toggleFavorite = (model: ModelOption): void => {
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -393,6 +415,22 @@ function Composer(): ReactNode {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send();
+              return;
+            }
+            if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+            const key = e.key.toLowerCase();
+            if (key === "tab") {
+              e.preventDefault();
+              e.stopPropagation();
+              cycleAgent();
+            } else if (key === "p") {
+              e.preventDefault();
+              e.stopPropagation();
+              cycleFavorite();
+            } else if (key === "s") {
+              e.preventDefault();
+              e.stopPropagation();
+              cycleStrength();
             }
           }}
         />
