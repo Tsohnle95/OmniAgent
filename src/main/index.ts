@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, type WebContents } from "electron";
 import path from "node:path";
 import fsp from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
 import type { PermissionReply } from "@shared/types";
@@ -8,6 +9,12 @@ import type { PermissionReply } from "@shared/types";
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
 let win: BrowserWindow | null = null;
+
+const appIconPath = (() => {
+  const fromApp = path.join(app.getAppPath(), "resources", "icon.png");
+  const fromOut = path.join(__dirname, "../../resources/icon.png");
+  return existsSync(fromApp) ? fromApp : fromOut;
+})();
 let inspectPickerActive = false;
 let inspectPickerToken = 0;
 let overlayEnabled = false;
@@ -179,7 +186,8 @@ function createWindow(): BrowserWindow {
     minWidth: 200,
     minHeight: 640,
     title: "OpenShell",
-    backgroundColor: "#111114",
+    icon: appIconPath,
+    backgroundColor: "#161410",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     movable: true,
     resizable: true,
@@ -451,6 +459,13 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     app.setName("OpenShell");
+    if (process.platform === "darwin") {
+      try {
+        app.dock?.setIcon(appIconPath);
+      } catch {
+        // icon is cosmetic
+      }
+    }
     backend.start();
     const fwd = (msg: unknown): void => {
       if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;

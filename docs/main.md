@@ -116,7 +116,10 @@ Internals:
 Outbound: `webContents.send("shell:message", msg)` for every backend
 message. External links open via `shell.openExternal`. The window is
 `contextIsolation: true`, `nodeIntegration: false`, macOS
-`titleBarStyle: "hiddenInset"`.
+`titleBarStyle: "hiddenInset"`. The app icon (`resources/icon.svg` →
+rasterized `resources/icon.png`, the clay shell-tile brand mark) is set as
+the BrowserWindow `icon` on Windows/Linux and via `app.dock.setIcon` on
+macOS; the window flash background is the warm `#161410`.
 
 PTY messages come from a second emitter, `TerminalManager`
 (`src/main/terminal.ts`): it forwards `{kind:"terminal-data",

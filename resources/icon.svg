@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.46" r="0.55">
+      <stop offset="0" stop-color="#d97757" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#d97757" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="#1b1915"/>
+  <rect width="1024" height="1024" rx="228" fill="url(#glow)"/>
+  <g transform="translate(50.24 -255.93) scale(14.43)">
+    <path d="M32 51 L7.75 37 A 28 28 0 0 1 20.17 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M32 51 L56.25 37 A 28 28 0 0 0 43.83 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M32 51 L10.55 33 M32 51 L14.92 28.77" fill="none" stroke="#d97757" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
+    <path d="M32 51 L49.08 28.77 M32 51 L53.45 33" fill="none" stroke="#d97757" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
+    <path d="M26 25 L32 30.5 L26 36" fill="none" stroke="#ece7dc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
