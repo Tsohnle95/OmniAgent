@@ -85,8 +85,9 @@ models/agents, and re-reads the session's model/agent selection.
 3. `activateSession()` (`:494`) stores `sessionID`/`directory`, clears all
    baseline state, starts the `fs.watch` watcher, and emits
    `{ kind: "session" }`.
-4. The store reacts (`store.tsx:714`): `setSession`, `resetAll()` (clears
-   transcript, tabs, tree), then `loadModels()` + `loadAgents()`. The
+4. The opening action resets workspace state and the store reacts to the
+   emitted session message with `setSession`, `loadModels()`, `loadAgents()`,
+   and `loadSessions()`. The
    `Root` component switches from `Welcome` to the three-pane `Layout`.
 
 Recent sessions (`shell:sessions` → `session.list`) populate the Welcome
@@ -102,16 +103,20 @@ screen; clicking one goes down `openSessionById` (see below).
    back over connection #4. Every `session.*` / `message.*` SSE event is
    forwarded and the store's `onMessage` effect queues them into a 16ms
    frame, coalescing adjacent deltas (`coalesceChatStream`), then runs
-   `processMessage` → `reduceChatStream` (`chat-stream.ts`), which folds
-   events into ordered text/reasoning/tool parts on `TranscriptItem`s.
+   `processMessage` → `reduceChatStream` (`chat-stream.ts`). Each event is
+   reduced under its own `sessionID`, retaining child/subagent streams while
+   the active projection renders admitted input, semantic session messages,
+   and ordered text/reasoning/tool parts.
    `normalizeStreamEvent` also adapts `permission.v2.*` names and legacy
    envelopes so one reducer handles every service version.
-3. The busy lifecycle is a side channel: `session.execution.started` sets
-   `busy`, `succeeded/failed/interrupted` and `session.idle` clear it;
+3. The busy lifecycle is a per-session side channel:
+   `session.execution.started` sets that session busy,
+   `succeeded/failed/interrupted` and `session.idle` clear it;
    `session.status` mirrors `busy`/`idle`/`retry` (retry detail attaches to
    the latest assistant).
-4. `session.model.selected` / `session.agent.selected` update the pickers
-   live, mirroring the local `switchModel`/`switchAgent` calls.
+4. `session.model.selected` / `session.agent.selected` become visible
+   timeline entries and update the pickers when they belong to the active
+   session, mirroring the local `switchModel`/`switchAgent` calls.
 5. Stop: `stop()` → `shell:interrupt` → `client.session.interrupt`.
 
 ## The diff pipeline
@@ -192,12 +197,13 @@ kills every PTY at `before-quit`.
 ## Session history and reopen
 
 `shell:sessions` → `session.list({ limit: 30, order: "desc" })` →
-summaries for the Welcome screen. Reopening goes
+summaries with parent ids for the Welcome screen and task/subagent links.
+Reopening goes
 `openSessionById` (`opencode.ts:545`): `session.get` recovers the
 directory, `activateSession` restarts the watcher, then `message.list` is
-replayed through `replayTranscript`/`replayToolCard` into the same
-`TranscriptItem` shape the live stream produces — so a mid-run reopen
-restores persisted parts first and live events continue seamlessly.
+replayed through `replayTranscript`/`replayToolCard` into the same semantic
+`TranscriptItem` shape the live stream produces. Task cards navigate to the
+resolved child session; a child header navigates back to its parent.
 
 ## Window lifecycle and shortcuts
 

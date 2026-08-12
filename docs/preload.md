@@ -38,7 +38,7 @@ automatically.
 | `terminalInput(id, data)` | `Promise<void>` |
 | `terminalResize(id, cols, rows)` | `Promise<void>` |
 | `terminalStop(id)` | `Promise<void>` |
-| `permissionReply(requestID, reply)` | `Promise<void>` |
+| `permissionReply(requestID, reply, sessionID?)` | `Promise<void>` |
 | `state()` | `Promise<SessionInfo \| null>` |
 | `sessionSelection()` | `Promise<SessionSelection \| null>` |
 | `health()` | `Promise<boolean>` |

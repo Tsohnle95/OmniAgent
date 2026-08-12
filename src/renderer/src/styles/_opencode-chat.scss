@@ -179,6 +179,18 @@
   user-select: text;
 }
 
+[data-component="reasoning-part"] {
+  width: 100%;
+  margin-top: 12px;
+  color: var(--v2-text-text-muted);
+  user-select: text;
+}
+
+[data-component="reasoning-part"] [data-component="markdown"] {
+  color: var(--v2-text-text-muted);
+  font-size: 13px;
+}
+
 [data-component="text-part"] [data-slot="text-part-copy-wrapper"] {
   min-height: 24px;
   margin-top: 4px;
@@ -363,6 +375,20 @@
   color: var(--v2-state-fg-danger);
 }
 
+[data-component="tool-files"] { display: flex; flex-direction: column; gap: 4px; }
+[data-component="tool-files"] a {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--v2-text-text-accent);
+  font: 12px/18px var(--font-family-sans);
+  text-decoration: none;
+}
+[data-component="tool-files"] a:hover { text-decoration: underline; }
+[data-component="tool-files"] a > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+[data-component="tool-files"] [data-slot="tool-file-mime"] { margin-left: auto; color: var(--v2-text-text-faint); }
+
 [data-component="context-tool-group-trigger"] {
   width: 100%;
   min-height: 24px;
@@ -404,6 +430,19 @@
   padding: 8px 12px;
   border-radius: 8px;
   background: var(--v2-background-bg-layer-01);
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+[data-component="task-tool-surface"]:not(:disabled) { cursor: pointer; }
+[data-component="task-tool-surface"]:not(:disabled):hover { background: var(--v2-background-bg-layer-02); }
+[data-component="task-tool-surface"]:disabled { cursor: default; }
+[data-component="task-tool-surface"] [data-slot="task-tool-open"] {
+  flex: 0 0 auto;
+  color: var(--v2-icon-icon-muted);
+  font-size: 14px;
 }
 
 [data-component="task-tool-card"] [data-slot="basic-tool-tool-info-structured"],
@@ -529,15 +568,51 @@
   font: var(--font-weight-medium) 14px/20px var(--font-family-sans);
 }
 
-.session-turn-thinking-heading {
-  flex: 1 1 auto;
+[data-component="session-event"] {
+  width: 100%;
+  min-width: 0;
+  padding-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--v2-text-text-faint);
+  font: 12px/18px var(--font-family-sans);
+}
+
+[data-component="session-event"] [data-slot="session-event-title"] { color: var(--v2-text-text-muted); }
+[data-component="session-event"] [data-slot="session-event-detail"] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--v2-text-text-faint);
-  font-weight: var(--font-weight-regular);
 }
+
+[data-component="session-message"] {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 0.5px solid var(--v2-border-border-base);
+  border-radius: 7px;
+  background: var(--v2-background-bg-layer-01);
+}
+
+[data-component="session-message"] [data-slot="session-message-label"] {
+  color: var(--v2-text-text-muted);
+  font: var(--font-weight-medium) 12px/18px var(--font-family-sans);
+}
+
+[data-component="session-message"] [data-slot="session-message-detail"] {
+  color: var(--v2-text-text-faint);
+  font: 11px/16px var(--font-family-mono);
+}
+
+[data-component="session-message"] [data-component="markdown"] {
+  margin-top: 6px;
+  color: var(--v2-text-text-muted);
+  font-size: 13px;
+}
+
+[data-component="compaction-message"] { width: 100%; }
 
 .error-card {
   width: 100%;

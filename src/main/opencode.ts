@@ -17,6 +17,7 @@ import type {
   SessionSelection,
   SessionSummary,
   TodoItem,
+  ToolContentView,
   ToolCallView,
   TranscriptItem,
   TreeEntry,
@@ -111,6 +112,29 @@ function toolContentText(content: unknown[] | undefined): string {
     .join("\n");
 }
 
+function toolContentViews(content: unknown): ToolContentView[] | undefined {
+  if (!Array.isArray(content)) return undefined;
+  const items = content.flatMap((raw): ToolContentView[] => {
+    if (!raw || typeof raw !== "object") return [];
+    const item = raw as Record<string, unknown>;
+    if (item.type === "text") return [{ type: "text", text: String(item.text ?? "") }];
+    if (item.type !== "file" || typeof item.uri !== "string" || typeof item.mime !== "string") return [];
+    return [{
+      type: "file",
+      uri: item.uri,
+      mime: item.mime,
+      ...(typeof item.name === "string" ? { name: item.name } : {})
+    }];
+  });
+  return items.length > 0 ? items : undefined;
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
 function replayToolCard(part: Record<string, unknown>): ToolCallView {
   const state = (part.state ?? {}) as Record<string, unknown>;
   const input = state.input;
@@ -130,9 +154,12 @@ function replayToolCard(part: Record<string, unknown>): ToolCallView {
     startedAt: time.created ?? Date.now(),
     duration: completed ? Math.max(0, completed - ran) : undefined,
     paths: collectFilePaths(input),
-    metadata: state.metadata && typeof state.metadata === "object" && !Array.isArray(state.metadata)
-      ? state.metadata as Record<string, unknown>
-      : undefined
+    metadata: record(state.metadata),
+    inputValue: input,
+    content: toolContentViews(state.content),
+    ...(typeof part.executed === "boolean" ? { executed: part.executed } : {}),
+    providerState: record(part.providerState),
+    providerResultState: record(part.providerResultState)
   };
 }
 
@@ -196,7 +223,80 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
       const text = String(
         info.text ?? parts.filter((part) => part.type === "text").map((part) => part.text ?? "").join("\n")
       );
-      if (text.trim()) out.push({ kind: "user", id: String(info.id), text });
+      const files = Array.isArray(info.files) ? info.files as Record<string, unknown>[] : [];
+      const attachments = files.flatMap((file): { name: string }[] =>
+        typeof file.name === "string" && file.name ? [{ name: file.name }] : []
+      );
+      if (text.trim()) {
+        out.push({
+          kind: "user",
+          id: String(info.id),
+          text,
+          ...(attachments.length > 0 ? { attachments } : {})
+        });
+      }
+      continue;
+    }
+    if (type === "agent-switched") {
+      out.push({
+        kind: "selection",
+        id: String(info.id),
+        selection: "agent",
+        title: "Agent switched",
+        detail: String(info.agent ?? "")
+      });
+      continue;
+    }
+    if (type === "model-switched") {
+      const model = record(info.model);
+      const id = String(model?.id ?? "");
+      const provider = String(model?.providerID ?? "");
+      out.push({
+        kind: "selection",
+        id: String(info.id),
+        selection: "model",
+        title: "Model switched",
+        detail: [provider, id].filter(Boolean).join(" / ")
+      });
+      continue;
+    }
+    if (type === "synthetic") {
+      out.push({
+        kind: "synthetic",
+        id: String(info.id),
+        text: String(info.text ?? ""),
+        ...(typeof info.description === "string" ? { description: info.description } : {})
+      });
+      continue;
+    }
+    if (type === "system") {
+      out.push({ kind: "system", id: String(info.id), text: String(info.text ?? "") });
+      continue;
+    }
+    if (type === "skill") {
+      out.push({
+        kind: "skill",
+        id: String(info.id),
+        skill: String(info.skill ?? ""),
+        name: String(info.name ?? info.skill ?? "Skill"),
+        text: String(info.text ?? "")
+      });
+      continue;
+    }
+    if (type === "shell") {
+      const output = record(info.output);
+      const status = ["running", "exited", "timeout", "killed"].includes(String(info.status))
+        ? String(info.status) as "running" | "exited" | "timeout" | "killed"
+        : "running";
+      out.push({
+        kind: "shell",
+        id: String(info.id),
+        shellID: String(info.shellID ?? info.id),
+        command: String(info.command ?? ""),
+        status,
+        ...(typeof output?.output === "string" ? { output: output.output } : {}),
+        ...(["number", "string"].includes(typeof info.exit) ? { exit: info.exit as number | string } : {})
+      });
       continue;
     }
     if (type === "assistant") {
@@ -243,16 +343,18 @@ function replayTranscript(messages: unknown[]): TranscriptItem[] {
       continue;
     }
     if (type === "compaction") {
-      const status = (info.status ?? "") as string;
-      if (status === "running") {
-        const summary = String(info.summary ?? "").trim();
-        out.push({
-          kind: "status",
-          id: String(info.id),
-          text: `Context compacted${summary ? `: ${summary}` : ""}`,
-          tone: "info"
-        });
-      }
+      const status = ["running", "completed", "failed"].includes(String(info.status))
+        ? String(info.status) as "running" | "completed" | "failed"
+        : "completed";
+      out.push({
+        kind: "compaction",
+        id: String(info.id),
+        status,
+        reason: info.reason === "manual" ? "manual" : "auto",
+        summary: String(info.summary ?? ""),
+        ...(typeof info.recent === "string" ? { recent: info.recent } : {}),
+        ...(info.error ? { error: String(record(info.error)?.message ?? info.error) } : {})
+      });
     }
   }
   return out;
@@ -264,6 +366,7 @@ export class OpenShellBackend {
   private client: Client | null = null;
   private sessionID: string | null = null;
   private directory: string | null = null;
+  private sessionInfo: SessionInfo | null = null;
   private snapshots = new Map<string, string | null>();
   private lastKnown = new Map<string, string>();
   private watcher: FSWatcher | null = null;
@@ -544,16 +647,16 @@ export class OpenShellBackend {
     }
   }
 
-  private async activateSession(id: string, directory: string): Promise<SessionInfo> {
-    this.sessionID = id;
-    this.directory = directory;
+  private async activateSession(info: SessionInfo): Promise<SessionInfo> {
+    this.sessionID = info.id;
+    this.directory = info.directory;
+    this.sessionInfo = info;
     this.snapshots.clear();
     this.lastKnown.clear();
     this.hasGit = null;
     this.startWatcher();
-    const session: SessionInfo = { id, directory };
-    this.emit({ kind: "session", session });
-    return session;
+    this.emit({ kind: "session", session: info });
+    return info;
   }
 
   async openSession(directory: string): Promise<SessionInfo> {
@@ -564,10 +667,22 @@ export class OpenShellBackend {
       ...(saved ? { model: saved } : {}),
       ...(agent ? { agent } : {})
     });
-    const info = res as { id?: string; data?: { id?: string } };
+    const info = res as {
+      id?: string;
+      title?: string;
+      parentID?: string;
+      agent?: string;
+      data?: { id?: string; title?: string; parentID?: string; agent?: string };
+    };
     const id = info.id ?? info.data?.id;
     if (!id) throw new Error("session create returned no id");
-    return this.activateSession(id, directory);
+    return this.activateSession({
+      id,
+      directory,
+      ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
+      ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
+      ...(info.agent ?? info.data?.agent ? { agent: info.agent ?? info.data?.agent } : {})
+    });
   }
 
   async listSessions(): Promise<SessionSummary[]> {
@@ -578,6 +693,8 @@ export class OpenShellBackend {
       id?: string;
       modelID?: string;
       title?: string;
+      parentID?: string;
+      agent?: string;
       location?: { directory?: string };
       time?: { updated?: number; created?: number };
     }[])
@@ -589,7 +706,9 @@ export class OpenShellBackend {
           id: s.id,
           title: s.title?.trim() ? s.title : path.basename(directory),
           directory,
-          updatedAt: updated
+          updatedAt: updated,
+          ...(s.parentID ? { parentID: s.parentID } : {}),
+          ...(s.agent ? { agent: s.agent } : {})
         };
       })
       .filter((s): s is SessionSummary => s !== null);
@@ -600,13 +719,28 @@ export class OpenShellBackend {
     const res = await this.client.session.get({ sessionID });
     const info = res as {
       id?: string;
+      title?: string;
+      parentID?: string;
+      agent?: string;
       location?: { directory?: string };
-      data?: { id?: string; location?: { directory?: string } };
+      data?: {
+        id?: string;
+        title?: string;
+        parentID?: string;
+        agent?: string;
+        location?: { directory?: string };
+      };
     };
     const id = info.id ?? info.data?.id;
     const directory = info.location?.directory ?? info.data?.location?.directory;
     if (!id || !directory) throw new Error("session not found");
-    const session = await this.activateSession(id, directory);
+    const session = await this.activateSession({
+      id,
+      directory,
+      ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
+      ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
+      ...(info.agent ?? info.data?.agent ? { agent: info.agent ?? info.data?.agent } : {})
+    });
     const messagesRes = await this.client.message.list({ sessionID: id }).catch(() => null);
     const messages = messagesRes
       ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
@@ -616,7 +750,7 @@ export class OpenShellBackend {
   }
 
   async getState(): Promise<SessionInfo | null> {
-    return this.sessionID && this.directory ? { id: this.sessionID, directory: this.directory } : null;
+    return this.sessionInfo;
   }
 
   async sessionSelection(): Promise<SessionSelection | null> {
@@ -741,10 +875,11 @@ export class OpenShellBackend {
     };
   }
 
-  async replyPermission(requestID: string, reply: PermissionReply): Promise<void> {
-    if (!this.client || !this.sessionID) throw new Error("no active session");
+  async replyPermission(requestID: string, reply: PermissionReply, sessionID?: string): Promise<void> {
+    const targetSessionID = sessionID ?? this.sessionID;
+    if (!this.client || !targetSessionID) throw new Error("no active session");
     await this.client.permission.reply({
-      sessionID: this.sessionID,
+      sessionID: targetSessionID,
       requestID,
       reply
     });

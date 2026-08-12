@@ -11,7 +11,7 @@ API changes shape, only these two files change.
 State:
 
 - `client` — `OpenCode.make()` result, null until connected
-- `sessionID`, `directory` — the active session
+- `sessionID`, `directory`, `sessionInfo` — the active session plus optional parent/title/agent metadata
 - `snapshots: Map<absPath, baseline>` — per-file diff baselines
 - `lastKnown: Map<absPath, content>` — last content seen by the watcher
 - `watcher` — recursive `fs.watch` on the session directory
@@ -31,11 +31,11 @@ Public methods (all used by IPC):
 | `stop()` | Stop the event loop + fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
 | `openSession(directory)` | `session.create({location:{directory}, model?: saved, agent?: saved})`, resets baselines, starts watcher, emits `{kind:"session"}` |
-| `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt}` |
+| `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
 | `openSessionById(sessionID)` | `session.get` to recover the directory, activates it, then `message.list` → replay transcript |
 | `prompt(text, files?)` | `session.prompt({sessionID, text, files?: selected file URIs})` |
 | `interrupt()` | `session.interrupt`, errors swallowed |
-| `replyPermission(requestID, reply)` | `permission.reply`, reply is `"once"|"always"|"reject"` |
+| `replyPermission(requestID, reply, sessionID?)` | `permission.reply` against the supplied owning session (active session fallback); reply is `"once"|"always"|"reject"` |
 | `listDir(rel)` | `file.list`, strips trailing slashes from directory paths |
 | `readFile(rel)` | Read a file via the API; `null` if unreadable |
 | `writeFile(rel, content)` | Write via Node `fs` (no API write endpoint); updates snapshots and emits `file-update` |
@@ -57,15 +57,14 @@ Internals:
 - `runEventLoop()` — reconnecting SSE loop; forwards every event as
   `{kind:"event", type, data}` then runs `handleServerEvent` (see
   `docs/events.md`).
-- `activateSession(id, directory)` — shared by `openSession` /
-  `openSessionById`: sets the active session, resets baselines, restarts
-  the watcher, emits `{kind:"session"}`.
+- `activateSession(info)` — shared by `openSession` / `openSessionById`: sets
+  the active session including parent/title/agent metadata, resets baselines,
+  restarts the watcher, and emits `{kind:"session"}`.
 - `replayTranscript(messages)` — converts `message.list` output to
-  `TranscriptItem[]`: user text plus assistant text/reasoning/tool parts in
-  persisted order. Tool status comes from streaming/running/completed/error,
-  output accepts both content blocks and legacy output/error fields, duration
-  comes from `time.ran`→`time.completed`, and assistant retry/error/completion
-  state is restored. A running compaction becomes a status line.
+  `TranscriptItem[]`: user, selection, synthetic/system/skill/shell,
+  assistant, and compaction messages in persisted order. Tool status comes
+  from streaming/running/completed/error; parsed input, text/file content,
+  metadata, provider state, duration, retry, error, and completion are restored.
 - `snapshotInputs(input)` — recursively walks the tool-call input for
   `filePath`/`file_path`/`path` keys and snapshots those files
   (skips http URLs, dedupes).
@@ -107,7 +106,7 @@ Internals:
 | `shell:terminal-input` | `(id, data) → void` |
 | `shell:terminal-resize` | `(id, cols, rows) → void` |
 | `shell:terminal-stop` | `(id) → void` |
-| `shell:permission-reply` | `(requestID, reply) → void` |
+| `shell:permission-reply` | `(requestID, reply, sessionID?) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `() → SessionSelection \| null` |
 | `shell:health` | `() → boolean` |

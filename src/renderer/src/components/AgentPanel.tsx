@@ -534,9 +534,10 @@ function Composer(): ReactNode {
 }
 
 export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNode {
-  const { busy, todos, transcript } = useStore();
+  const { busy, todos, transcript, session, sessions, reopenSession } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const parent = session?.parentID ? sessions.find((item) => item.id === session.parentID) : undefined;
 
   const lastAssistantId = useMemo(() => {
     for (let i = transcript.length - 1; i >= 0; i -= 1) {
@@ -560,8 +561,18 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
   return (
     <div className="agent-panel">
       <div className="agent-header">
+        {session?.parentID && (
+          <button
+            className="icon-btn agent-session-back"
+            title={`Back to ${parent?.title ?? "parent session"}`}
+            aria-label={`Back to ${parent?.title ?? "parent session"}`}
+            onClick={() => void reopenSession(session.parentID!)}
+          >
+            <span className="codicon codicon-arrow-left" />
+          </button>
+        )}
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
-        <span className="agent-title">Agent</span>
+        <span className="agent-title">{session?.parentID ? session.title ?? session.agent ?? "Subagent" : "Agent"}</span>
         <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
           »
         </button>

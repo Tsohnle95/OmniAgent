@@ -1,4 +1,4 @@
-import type { AssistantPartView, ToolCallView, TranscriptItem } from "@shared/types";
+import type { AssistantPartView, ToolCallView, ToolContentView, TranscriptItem } from "@shared/types";
 
 export interface ChatStreamEvent {
   id: string;
@@ -53,6 +53,24 @@ function toolOutput(data: Record<string, any>): string {
       .join("\n");
   }
   return stringify(content);
+}
+
+function toolContent(data: Record<string, any>): ToolContentView[] | undefined {
+  const content = data.content;
+  if (!Array.isArray(content)) return undefined;
+  const items = content.flatMap((raw): ToolContentView[] => {
+    if (!raw || typeof raw !== "object") return [];
+    const item = raw as Record<string, unknown>;
+    if (item.type === "text") return [{ type: "text", text: String(item.text ?? "") }];
+    if (item.type !== "file" || typeof item.uri !== "string" || typeof item.mime !== "string") return [];
+    return [{
+      type: "file",
+      uri: item.uri,
+      mime: item.mime,
+      ...(typeof item.name === "string" ? { name: item.name } : {})
+    }];
+  });
+  return items.length > 0 ? items : undefined;
 }
 
 function paths(input: unknown): string[] {
@@ -139,6 +157,29 @@ function updateLatestAssistant(
   if (index === -1) return items;
   return items.map((item, itemIndex) =>
     itemIndex === index && item.kind === "assistant" ? update(item) : item
+  );
+}
+
+function upsertItem(items: TranscriptItem[], item: TranscriptItem): TranscriptItem[] {
+  const index = items.findIndex((current) => current.id === item.id);
+  if (index === -1) return [...items, item];
+  return items.map((current, itemIndex) => itemIndex === index ? item : current);
+}
+
+function updateLatestCompaction(
+  items: TranscriptItem[],
+  update: (item: Extract<TranscriptItem, { kind: "compaction" }>) => Extract<TranscriptItem, { kind: "compaction" }>
+): TranscriptItem[] {
+  let index = -1;
+  for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
+    if (items[itemIndex].kind === "compaction") {
+      index = itemIndex;
+      break;
+    }
+  }
+  if (index === -1) return items;
+  return items.map((item, itemIndex) =>
+    itemIndex === index && item.kind === "compaction" ? update(item) : item
   );
 }
 
@@ -237,7 +278,12 @@ function partFromProjection(part: Record<string, any>, created: number): Assista
       startedAt,
       ...(completedAt ? { duration: Math.max(0, completedAt - startedAt) } : {}),
       paths: paths(input),
-      metadata: metadata(state.metadata)
+      metadata: metadata(state.metadata),
+      inputValue: input,
+      content: toolContent(state),
+      ...(typeof part.executed === "boolean" ? { executed: part.executed } : {}),
+      providerState: metadata(part.providerState),
+      providerResultState: metadata(part.providerResultState)
     }
   };
 }
@@ -246,6 +292,161 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
   const data = event.data;
   const id = messageID(data);
   switch (event.type) {
+    case "session.input.admitted": {
+      const input = data.input as Record<string, any> | undefined;
+      const payload = input?.data as Record<string, any> | undefined;
+      const inputID = String(data.inputID ?? event.id);
+      if (!input || !payload) return items;
+      if (input.type === "user") {
+        const files = Array.isArray(payload.files) ? payload.files as Record<string, unknown>[] : [];
+        const attachments = files.flatMap((file): { name: string }[] =>
+          typeof file.name === "string" && file.name ? [{ name: file.name }] : []
+        );
+        const item: Extract<TranscriptItem, { kind: "user" }> = {
+          kind: "user",
+          id: inputID,
+          text: String(payload.text ?? ""),
+          ...(attachments.length > 0 ? { attachments } : {})
+        };
+        const optimistic = items.findIndex((current) =>
+          current.kind === "user" && current.id.startsWith("user-") && current.text === item.text
+        );
+        if (optimistic >= 0) {
+          return items.map((current, index) => index === optimistic ? item : current);
+        }
+        return upsertItem(items, item);
+      }
+      if (input.type === "synthetic") {
+        return upsertItem(items, {
+          kind: "synthetic",
+          id: inputID,
+          text: String(payload.text ?? ""),
+          ...(typeof payload.description === "string" ? { description: payload.description } : {})
+        });
+      }
+      return items;
+    }
+    case "session.input.cancelled":
+      return items.filter((item) => item.id !== String(data.inputID ?? ""));
+    case "session.input.promoted":
+      return items;
+    case "session.agent.selected":
+      return upsertItem(items, {
+        kind: "selection",
+        id: event.id,
+        selection: "agent",
+        title: "Agent switched",
+        detail: String(data.agent ?? "")
+      });
+    case "session.model.selected": {
+      const model = data.model as Record<string, unknown> | undefined;
+      const detail = [model?.providerID, model?.id].filter((part) => typeof part === "string" && part).join(" / ");
+      return upsertItem(items, {
+        kind: "selection",
+        id: event.id,
+        selection: "model",
+        title: "Model switched",
+        detail
+      });
+    }
+    case "session.synthetic":
+      return upsertItem(items, {
+        kind: "synthetic",
+        id: event.id,
+        text: String(data.text ?? ""),
+        ...(typeof data.description === "string" ? { description: data.description } : {})
+      });
+    case "session.skill.activated":
+      return upsertItem(items, {
+        kind: "skill",
+        id: event.id,
+        skill: String(data.id ?? ""),
+        name: String(data.name ?? data.id ?? "Skill"),
+        text: String(data.text ?? "")
+      });
+    case "session.shell.started": {
+      const shell = data.shell as Record<string, any> | undefined;
+      if (!shell) return items;
+      return upsertItem(items, {
+        kind: "shell",
+        id: event.id,
+        shellID: String(shell.id ?? event.id),
+        command: String(shell.command ?? ""),
+        status: "running"
+      });
+    }
+    case "session.shell.ended": {
+      const shell = data.shell as Record<string, any> | undefined;
+      if (!shell) return items;
+      const shellID = String(shell.id ?? "");
+      const output = data.output as Record<string, unknown> | undefined;
+      const index = items.findIndex((item) => item.kind === "shell" && item.shellID === shellID);
+      const item: Extract<TranscriptItem, { kind: "shell" }> = {
+        kind: "shell",
+        id: index >= 0 ? items[index].id : event.id,
+        shellID: shellID || event.id,
+        command: String(shell.command ?? ""),
+        status: ["exited", "timeout", "killed"].includes(String(shell.status))
+          ? shell.status as "exited" | "timeout" | "killed"
+          : "exited",
+        ...(typeof output?.output === "string" ? { output: output.output } : {}),
+        ...(typeof shell.exit === "number" ? { exit: shell.exit } : {})
+      };
+      return index >= 0
+        ? items.map((current, itemIndex) => itemIndex === index ? item : current)
+        : [...items, item];
+    }
+    case "session.compaction.started":
+      return upsertItem(items, {
+        kind: "compaction",
+        id: event.id,
+        status: "running",
+        reason: data.reason === "manual" ? "manual" : "auto",
+        summary: "",
+        recent: String(data.recent ?? "")
+      });
+    case "session.compaction.delta":
+      return updateLatestCompaction(items, (item) => ({
+        ...item,
+        summary: item.summary + String(data.text ?? "")
+      }));
+    case "session.compaction.ended": {
+      const updated = updateLatestCompaction(items, (item) => ({
+        ...item,
+        status: "completed",
+        reason: data.reason === "manual" ? "manual" : "auto",
+        summary: String(data.text ?? item.summary),
+        recent: String(data.recent ?? item.recent ?? "")
+      }));
+      return updated === items
+        ? [...items, {
+            kind: "compaction",
+            id: event.id,
+            status: "completed",
+            reason: data.reason === "manual" ? "manual" : "auto",
+            summary: String(data.text ?? ""),
+            recent: String(data.recent ?? "")
+          }]
+        : updated;
+    }
+    case "session.compaction.failed": {
+      const updated = updateLatestCompaction(items, (item) => ({
+        ...item,
+        status: "failed",
+        reason: data.reason === "manual" ? "manual" : "auto",
+        error: errorText(data.error) || "Compaction failed"
+      }));
+      return updated === items
+        ? [...items, {
+            kind: "compaction",
+            id: event.id,
+            status: "failed",
+            reason: data.reason === "manual" ? "manual" : "auto",
+            summary: "",
+            error: errorText(data.error) || "Compaction failed"
+          }]
+        : updated;
+    }
     case "session.step.started":
       return updateAssistant(
         items.map((item) =>
@@ -352,8 +553,11 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
           title: tool.title === "tool" ? inferTool(input) : tool.title,
           detail: toolDetail(input),
           input: stringify(input),
+          inputValue: input,
           paths: paths(input),
           metadata: metadata(data.metadata) ?? tool.metadata,
+          ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
+          providerState: metadata(data.state) ?? tool.providerState,
           startedAt: tool.startedAt ?? event.created
         };
       });
@@ -369,7 +573,10 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
             ...tool,
             status: "success",
             output: toolOutput(data),
+            content: toolContent(data),
             metadata: metadata(data.metadata) ?? tool.metadata,
+            ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
+            providerResultState: metadata(data.resultState) ?? tool.providerResultState,
             progress: undefined,
             duration: Math.max(0, event.created - (tool.startedAt ?? event.created))
           }
@@ -380,7 +587,10 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
             ...tool,
             status: "failed",
             output: toolOutput(data) || errorText(data.error) || "Tool failed",
+            content: toolContent(data),
             metadata: metadata(data.metadata) ?? tool.metadata,
+            ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
+            providerResultState: metadata(data.resultState) ?? tool.providerResultState,
             progress: undefined,
             duration: Math.max(0, event.created - (tool.startedAt ?? event.created))
           }
@@ -448,6 +658,69 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
     default:
       return items;
   }
+}
+
+function mergeAssistantPart(history: AssistantPartView, live: AssistantPartView): AssistantPartView {
+  if (history.kind !== live.kind) return live;
+  if (history.kind === "text" && live.kind === "text") {
+    return {
+      ...live,
+      text: live.text.length >= history.text.length ? live.text : history.text,
+      complete: history.complete || live.complete
+    };
+  }
+  if (history.kind === "reasoning" && live.kind === "reasoning") {
+    return {
+      ...live,
+      text: live.text.length >= history.text.length ? live.text : history.text,
+      complete: history.complete || live.complete
+    };
+  }
+  if (history.kind !== "tool" || live.kind !== "tool") return live;
+  const historyTerminal = history.tool.status !== "running";
+  const liveTerminal = live.tool.status !== "running";
+  if (historyTerminal && !liveTerminal) return history;
+  return { ...history, ...live, tool: { ...history.tool, ...live.tool } };
+}
+
+function mergeAssistant(
+  history: Extract<TranscriptItem, { kind: "assistant" }>,
+  live: Extract<TranscriptItem, { kind: "assistant" }>
+): Extract<TranscriptItem, { kind: "assistant" }> {
+  const parts = [...history.parts];
+  for (const livePart of live.parts) {
+    const index = parts.findIndex((part) => part.id === livePart.id);
+    if (index === -1) parts.push(livePart);
+    else parts[index] = mergeAssistantPart(parts[index], livePart);
+  }
+  return {
+    ...history,
+    ...live,
+    parts,
+    completed: history.completed || live.completed,
+    retry: live.retry ?? history.retry,
+    error: live.error ?? history.error
+  };
+}
+
+export function mergeChatHistory(history: TranscriptItem[], live: TranscriptItem[]): TranscriptItem[] {
+  const result = [...history];
+  for (const item of live) {
+    const index = result.findIndex((current) =>
+      current.id === item.id || (
+        current.kind === "assistant" && item.kind === "assistant" && current.messageID === item.messageID
+      )
+    );
+    if (index === -1) {
+      result.push(item);
+      continue;
+    }
+    const current = result[index];
+    result[index] = current.kind === "assistant" && item.kind === "assistant"
+      ? mergeAssistant(current, item)
+      : item;
+  }
+  return result;
 }
 
 function deltaKey(event: ChatStreamEvent): string | null {

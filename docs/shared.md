@@ -8,7 +8,8 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 
 | Type | Shape | Used for |
 |---|---|---|
-| `SessionInfo` | `{ id, directory }` | The active opencode2 session |
+| `SessionInfo` | `{ id, directory, parentID?, title?, agent? }` | The active opencode2 session and its parent/child navigation metadata |
+| `SessionSummary` | `{ id, title, directory, updatedAt, parentID?, agent? }` | Recent-session graph used by Welcome and task/subagent links |
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
 | `FileUpdate` | `{ path, baseline: string \| null, content: string \| null, deleted }` | Watcher payload; `baseline` is what the agent started from |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
@@ -30,6 +31,10 @@ Union discriminated on `kind`:
 - `assistant` — `{ id, messageID, parts, completed, retry?, error? }`;
   `parts` is the ordered OpenCode content stream (`AssistantPartView[]`)
 - `permission` — `{ id, requestID, action, resources, pending }`
+- `selection` — a visible agent/model switch
+- `synthetic` / `system` / `skill` — non-assistant protocol messages with their supplied text
+- `shell` — a session shell command plus running/terminal state, output, and exit code
+- `compaction` — running/completed/failed compaction with its streamed summary
 - `status` — `{ id, text, tone: "info" \| "success" \| "error" }`
 - `divider` — `{ id }` visual separator per execution
 
@@ -39,10 +44,11 @@ parts carry `{ id, text, complete }`; `tool` parts carry
 panel render reasoning, tools, and responses exactly where OpenCode emitted
 them instead of flattening each category into a separate block.
 
-`ToolCallView`: `{ id, title, detail, status: "running" \| "success" \|
-"failed", input?, output?, progress?, startedAt?, duration?, paths? }` —
-`input` is the live-streamed argument buffer, `progress` is current tool
-metadata, and `startedAt`/`duration` feed the elapsed timer.
+`ToolCallView`: `{ id, title, detail, status, input?, inputValue?, output?,
+content?, progress?, startedAt?, duration?, paths?, metadata?, executed?,
+providerState?, providerResultState? }` — `input` is the live argument buffer,
+`inputValue` preserves parsed protocol input, `content` preserves text/file
+blocks, and provider metadata is retained instead of flattened away.
 
 ## UI state
 

@@ -12,9 +12,9 @@ Exposed via `useStore()` (context). State:
 |---|---|---|
 | `session` | `SessionInfo \| null` | null → Welcome screen |
 | `connected` | `boolean` | from `health()` on mount |
-| `busy` | `boolean` | true while the agent executes |
+| `busy` | `boolean` | active-session projection of the per-session busy map |
 | `todos` | `TodoItem[]` | live OpenCode todo state shown in the prompt dock while the session executes |
-| `transcript` | `TranscriptItem[]` | the agent panel feed |
+| `transcript` | `TranscriptItem[]` | active-session projection of the per-session transcript map |
 | `tabs` | `Tab[]` | open editor tabs, one per path |
 | `activePath` | `string \| null` | active tab path |
 | `agentFiles` | `Map<path, AgentFileState>` | `{baseline, content, deleted}` — what the agent touched; drives the Changes list + diff baselines |
@@ -48,9 +48,11 @@ Key mechanisms:
 
 - **Event dispatch** — the `onMessage` effect handles `session` /
   `file-update` / `event` messages. The event switch is documented in
-  `docs/events.md`. Events are filtered through the active-session ref;
-  current V2 `data` and legacy `properties` envelopes are normalized before
-  dispatch. OpenCode's V2 permission names are adapted to the common names.
+  `docs/events.md`. Every session event is reduced under its own `sessionID`;
+  only selection-specific side effects such as the composer model and todo
+  dock are gated to the active session. Current V2 `data` and legacy
+  `properties` envelopes are normalized before dispatch. OpenCode's V2
+  permission names are adapted to the common names.
 - **OpenCode stream batching** — events queue for a 16ms frame and adjacent
   text, reasoning, and tool-input deltas are coalesced before React updates.
   Adjacent authoritative snapshots of the same legacy part collapse to the
@@ -64,10 +66,12 @@ Key mechanisms:
   `loadAgents()` once the backend client is up, so a boot or reconnect that
   first hit a silent empty catalog (no client yet) is retried and the
   composer agent/model menus never stay empty.
-- **Ordered assistant reducer** — `chat-stream.ts` folds V2 lifecycle events
-  and legacy `message.*` projections into one assistant message whose ordered
-  parts are text, reasoning, and tool calls. Durable end/snapshot events are
-  authoritative; terminal tool states cannot regress when events arrive late.
+- **V2 session reducer** — `chat-stream.ts` folds admitted input, agent/model
+  switches, synthetic/skill/shell/compaction messages, assistant lifecycle,
+  and legacy `message.*` projections into ordered `TranscriptItem`s. Tool
+  state retains parsed input, content blocks, metadata, execution state, and
+  provider state. Durable end/snapshot events are authoritative; terminal
+  tool states cannot regress when events arrive late.
 - **Editor vs. watcher dedupe** — `expectedRef` holds the last content the
   editor wrote or the store applied; `editContent` and the file-update
   handler both consult it so the editor's own echoes don't mark tabs
@@ -78,16 +82,24 @@ Key mechanisms:
   watcher's `file-update` keeps them fresh; `stale`/`deleted` flags
   surface external changes.
 
-- **V2 transcript replay** — reopened sessions accept OpenCode's `info` plus
-  `parts`/`content` message projection and reconstruct the same ordered
-  assistant parts, tool output, retry, error, and completion state used by the
-  live reducer.
+- **V2 transcript replay** — reopened sessions accept OpenCode's flat
+  `SessionMessageInfo[]` plus legacy `info`/`parts` projections and reconstruct
+  the same user, selection, synthetic/system/skill/shell, assistant, and
+  compaction items used by the live reducer. Renderer startup reopens the
+  backend's active session silently so a reload hydrates persisted messages
+  before new live events continue. `mergeChatHistory` reconciles replay with
+  any global SSE events received during the request, preserving terminal tool
+  states and the longest streamed text/reasoning values.
+
+- **Parent/child navigation** — `session.created` plus `session.list` maintain
+  parent ids. Task cards use upstream's metadata-first, parent/title/agent
+  fallback to open a child transcript, and child headers return to the parent.
 
 - **OpenCode web transcript presentation** — `OpenCodeTimeline.tsx` ports the
   current OpenCode timeline rows and message-part slots to React. User messages
-  use the subtle right-aligned layer bubble; assistant markdown is flat and
-  paced while streaming; reasoning stays hidden while its extracted heading
-  appears beside the active TextShimmer Thinking row; adjacent read/glob/grep/list
+  use the subtle right-aligned layer bubble; assistant markdown and reasoning
+  summaries are flat, ordered, visible, and paced while streaming; the generic
+  TextShimmer Thinking row appears only before any renderable part; adjacent read/glob/grep/list
   parts group across assistant messages into Exploring/Explored; task calls use
   OpenCode's agent-colored delegation card and todo writes are hidden from the
   transcript in favor of the live prompt-dock checklist; remaining tools use

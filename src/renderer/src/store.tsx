@@ -23,7 +23,7 @@ import type {
   TreeEntry,
   UserAttachment
 } from "@shared/types";
-import { coalesceChatStream, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
 
 export interface Toast {
   id: number;
@@ -170,6 +170,19 @@ function filterEntries(entries: TreeEntry[]): TreeEntry[] {
 }
 
 const CHAT_STREAM_TYPES = new Set([
+  "session.input.admitted",
+  "session.input.promoted",
+  "session.input.cancelled",
+  "session.agent.selected",
+  "session.model.selected",
+  "session.synthetic",
+  "session.skill.activated",
+  "session.shell.started",
+  "session.shell.ended",
+  "session.compaction.started",
+  "session.compaction.delta",
+  "session.compaction.ended",
+  "session.compaction.failed",
   "session.step.started",
   "session.step.ended",
   "session.step.failed",
@@ -222,9 +235,9 @@ let toastId = 0;
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [connected, setConnected] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busyBySession, setBusyBySession] = useState<Record<string, boolean>>({});
   const [todos, setTodos] = useState<TodoItem[]>([]);
-  const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
+  const [transcriptsBySession, setTranscriptsBySession] = useState<Record<string, TranscriptItem[]>>({});
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [agentFiles, setAgentFiles] = useState<Map<string, AgentFileState>>(new Map());
@@ -245,6 +258,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
+  const busy = session ? Boolean(busyBySession[session.id]) : false;
+  const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
 
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;
@@ -266,16 +281,41 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const sessionRef = useRef<SessionInfo | null>(session);
   sessionRef.current = session;
 
+  const updateSessionTranscript = useCallback(
+    (sessionID: string, update: (items: TranscriptItem[]) => TranscriptItem[]) => {
+      setTranscriptsBySession((current) => {
+        const items = current[sessionID] ?? [];
+        const next = update(items);
+        return next === items ? current : { ...current, [sessionID]: next };
+      });
+    },
+    []
+  );
+
+  const updateActiveTranscript = useCallback(
+    (update: (items: TranscriptItem[]) => TranscriptItem[]) => {
+      const sessionID = sessionRef.current?.id;
+      if (sessionID) updateSessionTranscript(sessionID, update);
+    },
+    [updateSessionTranscript]
+  );
+
+  const setSessionBusy = useCallback((sessionID: string, value: boolean) => {
+    setBusyBySession((current) => current[sessionID] === value
+      ? current
+      : { ...current, [sessionID]: value });
+  }, []);
+
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
     setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
 
-  const resetAll = useCallback(() => {
-    setBusy(false);
+  const resetAll = useCallback((preserveSessionStreams = false) => {
+    if (!preserveSessionStreams) setBusyBySession({});
     setTodos([]);
-    setTranscript([]);
+    if (!preserveSessionStreams) setTranscriptsBySession({});
     setTabs([]);
     setActivePath(null);
     setAgentFiles(new Map());
@@ -414,21 +454,35 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [toast]);
 
   const reopenSession = useCallback(
-    async (sessionID: string) => {
+    async (sessionID: string, silent = false) => {
       try {
         const reopened = await window.openshell.openSessionById(sessionID);
-        resetAll();
+        resetAll(true);
         setSession(reopened.session);
-        setTranscript(reopened.transcript);
+        setTranscriptsBySession((current) => ({
+          ...current,
+          [reopened.session.id]: mergeChatHistory(
+            reopened.transcript,
+            current[reopened.session.id] ?? []
+          )
+        }));
+        const running = [...reopened.transcript].reverse().find((item) => item.kind === "assistant");
+        setBusyBySession((current) => reopened.session.id in current
+          ? current
+          : {
+              ...current,
+              [reopened.session.id]: Boolean(running?.kind === "assistant" && !running.completed)
+            });
         setTodos(reopened.todos);
-        toast(`Reopened session in ${reopened.session.directory}`);
+        if (!silent) toast(`Reopened session in ${reopened.session.directory}`);
         void loadModels();
         void loadAgents();
+        void loadSessions();
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents]
+    [resetAll, toast, loadModels, loadAgents, loadSessions]
   );
 
   const sendPrompt = useCallback(
@@ -445,7 +499,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         text: promptText,
         ...(attachments.length > 0 ? { attachments } : {})
       };
-      setTranscript((prev) => [...prev, userItem]);
+      updateActiveTranscript((prev) => [...prev, userItem]);
       setTodos([]);
       try {
         await window.openshell.prompt(promptText, files);
@@ -453,13 +507,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [session, toast]
+    [session, toast, updateActiveTranscript]
   );
 
   const stop = useCallback(async () => {
-    setBusy(false);
+    const sessionID = sessionRef.current?.id;
+    if (sessionID) setSessionBusy(sessionID, false);
     await window.openshell.interrupt().catch(() => {});
-  }, []);
+  }, [setSessionBusy]);
 
   useEffect(() => {
     if (!busy) return;
@@ -472,12 +527,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const replyPermission = useCallback(
     async (requestID: string, reply: PermissionReply) => {
       try {
-        await window.openshell.permissionReply(requestID, reply);
+        await window.openshell.permissionReply(requestID, reply, sessionRef.current?.id);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
         return;
       }
-      setTranscript((prev) =>
+      updateActiveTranscript((prev) =>
         prev.map((item) =>
           item.kind === "permission" && item.requestID === requestID
             ? { ...item, pending: false, resolvedWith: reply }
@@ -485,7 +540,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         )
       );
     },
-    [toast]
+    [toast, updateActiveTranscript]
   );
 
   const toggleApprovalMode = useCallback(() => {
@@ -781,10 +836,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (msg.kind === "session") {
         sessionRef.current = msg.session ?? null;
         setSession(sessionRef.current);
-        resetAll();
         if (msg.session) {
           void loadModels();
           void loadAgents();
+          void loadSessions();
         }
         return;
       }
@@ -835,24 +890,61 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const streamEvent = normalizeStreamEvent(msg);
       if (!streamEvent) return;
       const { data, type } = streamEvent;
-      if (data.sessionID && sessionRef.current && data.sessionID !== sessionRef.current.id) return;
-      if (CHAT_STREAM_TYPES.has(type)) {
-        setTranscript((prev) => reduceChatStream(prev, streamEvent));
+      const targetSessionID = typeof data.sessionID === "string"
+        ? data.sessionID
+        : sessionRef.current?.id;
+      const active = Boolean(targetSessionID && targetSessionID === sessionRef.current?.id);
+      if (targetSessionID && CHAT_STREAM_TYPES.has(type)) {
+        updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
       }
 
       switch (type) {
+        case "session.created": {
+          const location = data.location as { directory?: string } | undefined;
+          const directory = location?.directory ?? streamEvent.data.location?.directory;
+          if (!targetSessionID || typeof directory !== "string") break;
+          const summary: SessionSummary = {
+            id: targetSessionID,
+            title: typeof data.title === "string" && data.title.trim()
+              ? data.title
+              : directory.split(/[\\/]/).pop() ?? directory,
+            directory,
+            updatedAt: streamEvent.created,
+            ...(typeof data.parentID === "string" ? { parentID: data.parentID } : {}),
+            ...(typeof data.agent === "string" ? { agent: data.agent } : {})
+          };
+          setSessions((current) => {
+            const index = current.findIndex((item) => item.id === summary.id);
+            if (index === -1) return [summary, ...current];
+            return current.map((item, itemIndex) => itemIndex === index ? summary : item);
+          });
+          break;
+        }
+        case "session.renamed": {
+          if (!targetSessionID || typeof data.title !== "string") break;
+          setSessions((current) => current.map((item) =>
+            item.id === targetSessionID
+              ? { ...item, title: data.title, updatedAt: streamEvent.created }
+              : item
+          ));
+          break;
+        }
+        case "session.deleted": {
+          if (targetSessionID) setSessions((current) => current.filter((item) => item.id !== targetSessionID));
+          break;
+        }
         case "session.execution.started": {
-          setBusy(true);
+          if (targetSessionID) setSessionBusy(targetSessionID, true);
           break;
         }
         case "session.execution.succeeded":
         case "session.execution.failed":
         case "session.execution.interrupted": {
-          setBusy(false);
-          setTodos([]);
+          if (targetSessionID) setSessionBusy(targetSessionID, false);
+          if (active) setTodos([]);
           const ok = type === "session.execution.succeeded";
-          if (!ok) {
-            setTranscript((prev) => [
+          if (!ok && targetSessionID) {
+            updateSessionTranscript(targetSessionID, (prev) => [
               ...prev,
               {
                 kind: "status",
@@ -865,15 +957,16 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           break;
         }
         case "session.idle": {
-          setBusy(false);
-          setTodos([]);
+          if (targetSessionID) setSessionBusy(targetSessionID, false);
+          if (active) setTodos([]);
           break;
         }
         case "todo.updated": {
-          setTodos(normalizeTodos(data.todos));
+          if (active) setTodos(normalizeTodos(data.todos));
           break;
         }
         case "session.model.selected": {
+          if (!active) break;
           const model = data.model as { id?: string; providerID?: string; variant?: string } | undefined;
           if (model?.id && model.providerID) {
             const match = modelsRef.current.find(
@@ -887,6 +980,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           break;
         }
         case "session.agent.selected": {
+          if (!active) break;
           const agent = data.agent as string | undefined;
           if (agent) {
             setCurrentAgent(
@@ -897,11 +991,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         case "session.status": {
           const status = data.status as { type?: string; attempt?: number; message?: string; next?: number } | undefined;
-          if (status?.type === "busy") setBusy(true);
-          if (status?.type === "idle") setBusy(false);
-          if (status?.type === "retry") {
-            setBusy(true);
-            setTranscript((prev) => {
+          if (status?.type === "busy" && targetSessionID) setSessionBusy(targetSessionID, true);
+          if (status?.type === "idle" && targetSessionID) setSessionBusy(targetSessionID, false);
+          if (status?.type === "retry" && targetSessionID) {
+            setSessionBusy(targetSessionID, true);
+            updateSessionTranscript(targetSessionID, (prev) => {
               const assistant = [...prev].reverse().find((item) => item.kind === "assistant");
               if (!assistant || assistant.kind !== "assistant") return prev;
               return prev.map((item) =>
@@ -923,7 +1017,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "permission.asked": {
           const requestID = String(data.id);
           const automatic = approvalModeRef.current === "approve";
-          setTranscript((prev) => {
+          if (!targetSessionID) break;
+          updateSessionTranscript(targetSessionID, (prev) => {
             if (prev.some((i) => i.kind === "permission" && i.requestID === requestID)) return prev;
             return [
               ...prev,
@@ -939,13 +1034,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               }
             ];
           });
-          if (automatic) void replyPermission(requestID, "once");
+          if (automatic) void window.openshell.permissionReply(requestID, "once", targetSessionID);
           break;
         }
         case "permission.replied": {
           const requestID = String(data.requestID ?? data.id);
           const reply = (data.reply as PermissionReply | undefined) ?? "reject";
-          setTranscript((prev) =>
+          if (!targetSessionID) break;
+          updateSessionTranscript(targetSessionID, (prev) =>
             prev.map((item) =>
               item.kind === "permission" && item.requestID === requestID
                 ? { ...item, pending: false, resolvedWith: reply }
@@ -983,38 +1079,20 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
     void window.openshell.health().then(setConnected);
     void window.openshell.state().then((s) => {
-      if (!s) return;
-      sessionRef.current = s;
-      setSession((prev) => (prev && prev.id === s.id && prev.directory === s.directory ? prev : s));
-      void loadModels();
-      void loadAgents();
-      void window.openshell.sessionSelection().then((sel) => {
-        if (!sel) return;
-        if (sel.model) {
-          const base = modelsRef.current.find(
-            (m) => m.id === sel.model!.id && m.providerID === sel.model!.providerID
-          );
-          setCurrentModel({
-            ...(base ?? { id: sel.model!.id, providerID: sel.model!.providerID, name: sel.model!.id }),
-            ...(sel.model!.variant ? { variant: sel.model!.variant } : {})
-          });
-        }
-        if (sel.agent) {
-          const found = agentsRef.current.find((a) => a.id === sel.agent!.id);
-          setCurrentAgent(found ?? { ...sel.agent! });
-        }
-      });
+      if (s) void reopenSession(s.id, true);
     });
     return () => {
       off();
       if (timer !== null) clearTimeout(timer);
     };
   }, [
-    resetAll,
     loadModels,
     toggleWordWrap,
     loadAgents,
-    replyPermission
+    loadSessions,
+    reopenSession,
+    setSessionBusy,
+    updateSessionTranscript
   ]);
 
   useEffect(() => {

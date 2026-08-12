@@ -15,10 +15,10 @@ red/green diff.
   view is a Monaco diff editor showing exactly what the agent changed this
   session, updating in real time as files change.
 - **Agent panel (right)** — OpenCode's web timeline presentation: flat
-  streaming markdown, hidden reasoning with the active Thinking heading,
-  grouped Exploring/Explored context activity, borderless tool triggers,
-  docked permission prompts, and the integrated prompt input. Stop interrupts
-  the session.
+  streaming markdown and reasoning summaries, grouped Exploring/Explored
+  context activity, navigable subagent task cards, semantic shell/skill/
+  compaction entries, borderless tool triggers, docked permission prompts,
+  and the integrated prompt input. Stop interrupts the session.
 - **Changes list** — files the agent has touched, listed at the top of the
   sidebar; click any file to jump straight into its diff.
 - **Real-time updates** — the main process watches the repo with `fs.watch`
@@ -37,11 +37,11 @@ All API traffic happens in the Electron **main process** using
 - Sessions: `client.session.create({ location: { directory } })`,
   `client.session.prompt`, `client.session.interrupt`.
 - Streaming: `client.event.subscribe()` (SSE) — events forwarded to the renderer
-  over IPC, batched at OpenCode's 16ms cadence, and folded into ordered text,
-  reasoning, and tool parts. The renderer handles the full
-  `session.text.*`, `session.reasoning.*`, `session.tool.*`, `session.step.*`,
-  retry/execution/status lifecycle, legacy `message.*` projections, and
-  permission events.
+  over IPC, batched at OpenCode's 16ms cadence, and folded into per-session
+  timelines. The renderer retains parent and child streams and handles admitted
+  input, agent/model switches, synthetic/skill/shell/compaction messages, the
+  full text/reasoning/tool/step/retry/execution lifecycle, legacy `message.*`
+  projections, and permission events.
 - Permissions: `client.permission.reply({ sessionID, requestID, reply })`
   (once / always / reject).
 - Files: `client.file.list/read`; writes go through Node `fs` in the main
@@ -88,7 +88,9 @@ npm start          # run the production build
 Open requests from real usage live in `TODO.md` — pick them up in a fresh
 session. Delivered so far (see `git log`):
 
-- **OpenCode web chat streaming** — OpenCode's timeline row construction,
+- **OpenCode web chat streaming** — OpenCode's per-session V2 reducer behavior,
+  child-session task navigation, persistent reasoning summaries, semantic
+  session messages, timeline row construction,
   message-part DOM structure, turn-wide context grouping, specialized task and
   todo surfaces, dark V2 tokens, markdown typography, paced text,
   TextShimmer animation, context-tool grouping, and flat BasicTool triggers are

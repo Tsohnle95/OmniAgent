@@ -8,10 +8,10 @@ the README roadmap; this file is the actionable queue.
 
 - [x] Replace custom chat visuals with OpenCode's web timeline presentation.
       Done: the renderer uses source-derived timeline rows and message-part
-      slots, flat markdown, Thinking/TextShimmer, Exploring context groups,
-      borderless BasicTool triggers, and OpenCode V2 dark tokens. The old
-      bubbles, tool cards, reasoning accordions, typing dots, and cursor path
-      were removed.
+      slots, flat markdown and reasoning summaries, Thinking/TextShimmer,
+      Exploring context groups, navigable subagent cards, semantic session
+      messages, borderless BasicTool triggers, and OpenCode V2 dark tokens.
+      The old bubbles, tool cards, typing dots, and cursor path were removed.
 
 
 ## Sessions
@@ -33,9 +33,10 @@ the README roadmap; this file is the actionable queue.
 ## Reliability / correctness
 
 - [x] Replace the custom flattened chat stream with OpenCode's stream model.
-      Done: events are batched/coalesced at 16ms, V2 session lifecycle events
-      reduce into ordered text/reasoning/tool parts, legacy message projections
-      use the same model, and session replay restores that exact structure.
+      Done: events are batched/coalesced at 16ms and reduced by session id;
+      child/subagent streams are retained, V2 input/selection/synthetic/skill/
+      shell/assistant/compaction events become ordered timeline items, legacy
+      projections use the same model, and replay restores that structure.
 - [x] Confirm `session.model.selected` always fires on session create, or
       rely fully on the `modelDefault()` seed (currently both exist).
       Both paths kept: the model is passed to `session.create` so

@@ -1,6 +1,9 @@
 export interface SessionInfo {
   id: string;
   directory: string;
+  parentID?: string;
+  title?: string;
+  agent?: string;
 }
 
 export interface SessionSummary {
@@ -8,6 +11,8 @@ export interface SessionSummary {
   title: string;
   directory: string;
   updatedAt: number;
+  parentID?: string;
+  agent?: string;
 }
 
 export interface ReopenedSession {
@@ -95,7 +100,16 @@ export interface ToolCallView {
   duration?: number;
   paths?: string[];
   metadata?: Record<string, unknown>;
+  inputValue?: unknown;
+  content?: ToolContentView[];
+  executed?: boolean;
+  providerState?: Record<string, unknown>;
+  providerResultState?: Record<string, unknown>;
 }
+
+export type ToolContentView =
+  | { type: "text"; text: string }
+  | { type: "file"; uri: string; mime: string; name?: string };
 
 export type AssistantPartView =
   | { kind: "text"; id: string; text: string; complete: boolean }
@@ -121,6 +135,34 @@ export type TranscriptItem =
       resources: string[];
       pending: boolean;
       resolvedWith?: PermissionReply;
+    }
+  | {
+      kind: "selection";
+      id: string;
+      selection: "agent" | "model";
+      title: string;
+      detail?: string;
+    }
+  | { kind: "synthetic"; id: string; text: string; description?: string }
+  | { kind: "system"; id: string; text: string }
+  | { kind: "skill"; id: string; skill: string; name: string; text: string }
+  | {
+      kind: "shell";
+      id: string;
+      shellID: string;
+      command: string;
+      status: "running" | "exited" | "timeout" | "killed";
+      output?: string;
+      exit?: number | string;
+    }
+  | {
+      kind: "compaction";
+      id: string;
+      status: "running" | "completed" | "failed";
+      reason: "auto" | "manual";
+      summary: string;
+      recent?: string;
+      error?: string;
     }
   | { kind: "status"; id: string; text: string; tone: "info" | "success" | "error" }
   | { kind: "divider"; id: string };

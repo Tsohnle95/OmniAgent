@@ -139,8 +139,13 @@ function registerIpc(): void {
     backend.switchModel(id, providerID, variant)
   );
 
-  ipcMain.handle("shell:permission-reply", async (_e, requestID: string, reply: PermissionReply) =>
-    backend.replyPermission(requestID, reply)
+  ipcMain.handle("shell:permission-reply", async (
+    _e,
+    requestID: string,
+    reply: PermissionReply,
+    sessionID?: string
+  ) =>
+    backend.replyPermission(requestID, reply, sessionID)
   );
 
   ipcMain.handle("shell:agents", async () => backend.listAgents());

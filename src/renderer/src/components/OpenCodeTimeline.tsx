@@ -184,6 +184,21 @@ function TextPart({ part, streaming }: { part: Extract<AssistantPart, { kind: "t
   );
 }
 
+function ReasoningPart({
+  part,
+  streaming
+}: {
+  part: Extract<AssistantPart, { kind: "reasoning" }>;
+  streaming: boolean;
+}): ReactNode {
+  if (!part.text) return null;
+  return (
+    <div data-component="reasoning-part" data-timeline-part-id={part.id}>
+      <Markdown text={part.text} streaming={streaming && !part.complete} />
+    </div>
+  );
+}
+
 function parseInput(value: string | undefined): Record<string, unknown> {
   if (!value) return {};
   try {
@@ -286,21 +301,40 @@ function SubagentIcon(): ReactNode {
 }
 
 function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
-  const { agents } = useStore();
+  const { agents, sessions, session, reopenSession } = useStore();
   const input = parseInput(tool.input);
   const requested = typeof input.subagent_type === "string" ? input.subagent_type : "";
   const configured = agents.find((agent) =>
     agent.id.toLowerCase() === requested.toLowerCase() || agent.name.toLowerCase() === requested.toLowerCase()
   );
   const title = configured?.name ?? titleCase(requested || "Task");
-  const childSession = typeof tool.metadata?.sessionId === "string" ? tool.metadata.sessionId : "";
+  const metadataSession = typeof tool.metadata?.sessionId === "string"
+    ? tool.metadata.sessionId
+    : typeof tool.metadata?.sessionID === "string"
+      ? tool.metadata.sessionID
+      : "";
+  const fallbackSession = sessions
+    .filter((candidate) => candidate.parentID === session?.id)
+    .filter((candidate) => typeof input.description === "string"
+      ? candidate.title.startsWith(input.description)
+      : true)
+    .filter((candidate) => requested
+      ? candidate.agent?.toLowerCase() === requested.toLowerCase() || candidate.title.includes(`@${requested}`)
+      : true)
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id;
+  const childSession = metadataSession || fallbackSession || "";
   const detail = typeof input.description === "string" && input.description ? input.description : childSession;
   const subtitle = tool.metadata?.background === true && detail ? `${detail} (background)` : detail;
   const running = tool.status === "running";
   const style = { "--task-agent-color": agentTone(requested, configured?.color) } as CSSProperties;
   return (
     <div data-component="task-tool-card" style={style} data-timeline-part-id={tool.id}>
-      <div data-component="task-tool-surface">
+      <button
+        data-component="task-tool-surface"
+        disabled={!childSession}
+        title={childSession ? `Open ${title} session` : undefined}
+        onClick={() => childSession && void reopenSession(childSession)}
+      >
         <div data-slot="basic-tool-tool-info-structured">
           <div data-slot="basic-tool-tool-info-main">
             {running ? (
@@ -312,7 +346,8 @@ function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
             {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
           </div>
         </div>
-      </div>
+        {childSession && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
+      </button>
     </div>
   );
 }
@@ -322,7 +357,8 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
   const [open, setOpen] = useState(tool.status === "failed");
   const presentation = toolPresentation(tool);
   const output = tool.output ?? "";
-  const expandable = tool.status !== "running" && output.length > 0;
+  const files = tool.content?.filter((item) => item.type === "file") ?? [];
+  const expandable = tool.status !== "running" && (output.length > 0 || files.length > 0);
   const truncated = output.length > OUTPUT_LIMIT;
   const activateSubtitle = (): void => {
     if (presentation.path) void openFile(presentation.path);
@@ -375,9 +411,22 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
         )}
         {expandable && open && (
           <div data-slot="collapsible-content">
-            <pre data-component="tool-output" data-error={tool.status === "failed" ? "true" : undefined}>
-              {truncated ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output}
-            </pre>
+            {output && (
+              <pre data-component="tool-output" data-error={tool.status === "failed" ? "true" : undefined}>
+                {truncated ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output}
+              </pre>
+            )}
+            {files.length > 0 && (
+              <div data-component="tool-files">
+                {files.map((file) => (
+                  <a href={file.uri} target="_blank" rel="noreferrer" key={`${file.uri}:${file.name ?? ""}`}>
+                    <span className="codicon codicon-file" />
+                    <span>{file.name ?? file.uri}</span>
+                    <span data-slot="tool-file-mime">{file.mime}</span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -456,19 +505,6 @@ function ContextToolGroup({ tools, busy }: { tools: ToolCallView[]; busy: boolea
   );
 }
 
-function reasoningHeading(text: string): string {
-  const markdown = text.replace(/\r\n?/g, "\n");
-  const html = markdown.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g, " ");
-  const atx = markdown.match(/^\s{0,3}#{1,6}[ \t]+(.+?)(?:[ \t]+#+[ \t]*)?$/m)?.[1];
-  const setext = markdown.match(/^([^\n]+)\n(?:=+|-+)\s*$/m)?.[1];
-  const strong = markdown.match(/^\s*(?:\*\*|__)(.+?)(?:\*\*|__)\s*$/m)?.[1];
-  return (html ?? atx ?? setext ?? strong ?? "")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[*_~]+/g, "")
-    .trim();
-}
-
 function TimelineRow({ tag, children, previous }: { tag: string; children: ReactNode; previous?: boolean }): ReactNode {
   return (
     <div data-timeline-row={tag} className={previous ? "opencode-row previous-assistant-part" : "opencode-row"}>
@@ -510,7 +546,7 @@ type TurnPart = { item: AssistantItem; part: AssistantPart };
 function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming: boolean }): ReactNode {
   const rows: ReactNode[] = [];
   const parts: TurnPart[] = items.flatMap((item) => item.parts
-    .filter((part) => part.kind !== "reasoning")
+    .filter((part) => part.kind === "tool" || Boolean(part.text.trim()))
     .filter((part) => part.kind !== "tool" || toolKey(part.tool.title) !== "todowrite")
     .map((part) => ({ item, part })));
   const contextStarts = parts
@@ -547,6 +583,17 @@ function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming
       previous = true;
       continue;
     }
+    if (part.kind === "reasoning") {
+      rows.push(
+        <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
+          <div data-slot="session-turn-assistant-content">
+            <ReasoningPart part={part} streaming={streaming && item.id === items.at(-1)?.id} />
+          </div>
+        </TimelineRow>
+      );
+      previous = true;
+      continue;
+    }
     if (part.kind !== "text" || !part.text) continue;
     rows.push(
       <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
@@ -558,21 +605,16 @@ function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming
     previous = true;
   }
 
-  if (streaming) {
-    const heading = items.flatMap((item) => item.parts)
-      .filter((part): part is Extract<AssistantPart, { kind: "reasoning" }> => part.kind === "reasoning")
-      .map((part) => reasoningHeading(part.text))
-      .find(Boolean);
+  const latest = items.at(-1);
+  if (streaming && parts.length === 0 && !latest?.retry && !latest?.error) {
     rows.push(
       <TimelineRow tag="Thinking" previous={previous} key={`${items.at(-1)?.id ?? "assistant"}:thinking`}>
         <div data-slot="session-turn-thinking">
           <TextShimmer text="Thinking" />
-          {heading && <span className="session-turn-thinking-heading">{heading}</span>}
         </div>
       </TimelineRow>
     );
   }
-  const latest = items.at(-1);
   if (latest?.retry) {
     rows.push(
       <TimelineRow tag="Retry" previous key={`${latest.id}:retry`}>
@@ -618,6 +660,100 @@ function buildTurns(timeline: Exclude<TranscriptItem, { kind: "permission" }>[])
     current.body.push(item);
   }
   return turns;
+}
+
+function TimelineEvent({
+  item
+}: {
+  item: Exclude<TranscriptItem, { kind: "user" | "assistant" | "permission" }>;
+}): ReactNode {
+  if (item.kind === "status") {
+    return (
+      <TimelineRow tag="Error">
+        <div className={`error-card ${item.tone}`}>{item.text}</div>
+      </TimelineRow>
+    );
+  }
+  if (item.kind === "divider") {
+    return (
+      <TimelineRow tag="TurnDivider">
+        <div data-component="compaction-part">
+          <span data-slot="compaction-part-line" />
+          <span data-slot="compaction-part-label">Session compacted</span>
+          <span data-slot="compaction-part-line" />
+        </div>
+      </TimelineRow>
+    );
+  }
+  if (item.kind === "selection") {
+    return (
+      <TimelineRow tag="SessionEvent">
+        <div data-component="session-event">
+          <span className={`codicon codicon-${item.selection === "agent" ? "account" : "server-process"}`} />
+          <span data-slot="session-event-title">{item.title}</span>
+          {item.detail && <span data-slot="session-event-detail">{item.detail}</span>}
+        </div>
+      </TimelineRow>
+    );
+  }
+  if (item.kind === "shell") {
+    return (
+      <TimelineRow tag="ShellMessage">
+        <div data-slot="session-turn-assistant-content">
+          <ToolPart tool={{
+            id: item.shellID,
+            title: "shell",
+            detail: item.command ? `$ ${item.command}` : "",
+            status: item.status === "running" ? "running" : item.status === "exited" && (!item.exit || item.exit === 0)
+              ? "success"
+              : "failed",
+            input: JSON.stringify({ command: item.command }),
+            inputValue: { command: item.command },
+            output: item.output
+          }} />
+        </div>
+      </TimelineRow>
+    );
+  }
+  if (item.kind === "compaction") {
+    const label = item.status === "running"
+      ? "Compacting session"
+      : item.status === "failed"
+        ? "Compaction failed"
+        : "Session compacted";
+    return (
+      <TimelineRow tag="Compaction">
+        <div data-component="compaction-message" data-status={item.status}>
+          <div data-component="compaction-part">
+            <span data-slot="compaction-part-line" />
+            <span data-slot="compaction-part-label">
+              {item.status === "running" ? <TextShimmer text={label} /> : label}
+            </span>
+            <span data-slot="compaction-part-line" />
+          </div>
+          {item.summary && <Markdown text={item.summary} streaming={item.status === "running"} />}
+          {item.error && <div className="error-card">{item.error}</div>}
+        </div>
+      </TimelineRow>
+    );
+  }
+  const label = item.kind === "skill"
+    ? `Skill activated · ${item.name}`
+    : item.kind === "synthetic"
+      ? item.description || "System message"
+      : "System message";
+  const text = item.text;
+  return (
+    <TimelineRow tag="SessionEvent">
+      <div data-component="session-message" data-kind={item.kind}>
+        <div data-slot="session-message-label">{label}</div>
+        {item.kind === "skill" && item.skill && (
+          <div data-slot="session-message-detail">{item.skill}</div>
+        )}
+        {text && <Markdown text={text} streaming={false} />}
+      </div>
+    </TimelineRow>
+  );
 }
 
 function PermissionPrompt({ item }: { item: Extract<TranscriptItem, { kind: "permission" }> }): ReactNode {
@@ -666,19 +802,10 @@ export function OpenCodeTimeline({
               {turn.user && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
               {turn.user && <UserMessage item={turn.user} />}
               {assistants.length > 0 && <AssistantTurn items={assistants} streaming={live} />}
-              {turn.body.filter((item) => item.kind !== "assistant").map((item) => item.kind === "status" ? (
-                <TimelineRow tag="Error" key={item.id}>
-                  <div className={`error-card ${item.tone}`}>{item.text}</div>
-                </TimelineRow>
-              ) : (
-                <TimelineRow tag="TurnDivider" key={item.id}>
-                  <div data-component="compaction-part">
-                    <span data-slot="compaction-part-line" />
-                    <span data-slot="compaction-part-label">Session compacted</span>
-                    <span data-slot="compaction-part-line" />
-                  </div>
-                </TimelineRow>
-              ))}
+              {turn.body
+                .filter((item): item is Exclude<TranscriptItem, { kind: "user" | "assistant" | "permission" }> =>
+                  item.kind !== "assistant")
+                .map((item) => <TimelineEvent item={item} key={item.id} />)}
             </div>
           );
         })}

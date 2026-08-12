@@ -52,8 +52,8 @@ const api = {
   terminalResize: (id: string, cols: number, rows: number): Promise<void> =>
     ipcRenderer.invoke("shell:terminal-resize", id, cols, rows),
   terminalStop: (id: string): Promise<void> => ipcRenderer.invoke("shell:terminal-stop", id),
-  permissionReply: (requestID: string, reply: PermissionReply): Promise<void> =>
-    ipcRenderer.invoke("shell:permission-reply", requestID, reply),
+  permissionReply: (requestID: string, reply: PermissionReply, sessionID?: string): Promise<void> =>
+    ipcRenderer.invoke("shell:permission-reply", requestID, reply, sessionID),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),
   sessionSelection: (): Promise<SessionSelection | null> =>
     ipcRenderer.invoke("shell:session-selection"),
