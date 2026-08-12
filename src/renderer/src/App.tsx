@@ -68,7 +68,7 @@ function useDragResize(
 }
 
 const TRAY_HEADER_H = 30;
-const TRAY_SNAP_H = 60;
+const TRAY_SNAP_H = 32;
 
 function useTrayHeight(): {
   height: number;
@@ -92,14 +92,6 @@ function useTrayHeight(): {
     if (startRef.current) return;
     startRef.current = { y: e.clientY, height, live: height };
     setDragging(true);
-    const move = (ev: MouseEvent): void => {
-      if (!startRef.current) return;
-      const dy = startRef.current.y - ev.clientY;
-      const h = Math.min(520, Math.max(TRAY_HEADER_H, startRef.current.height + dy));
-      startRef.current.live = h;
-      if (h > TRAY_SNAP_H) lastFullRef.current = h;
-      setHeight(h);
-    };
     const up = (): void => {
       if (startRef.current) {
         const h = startRef.current.live;
@@ -115,6 +107,22 @@ function useTrayHeight(): {
       setDragging(false);
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
+    };
+    const move = (ev: MouseEvent): void => {
+      if (!startRef.current) return;
+      if (ev.clientY >= window.innerHeight) {
+        startRef.current = null;
+        setDragging(false);
+        setOpen(false);
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        return;
+      }
+      const dy = startRef.current.y - ev.clientY;
+      const h = Math.min(520, Math.max(TRAY_HEADER_H, startRef.current.height + dy));
+      startRef.current.live = h;
+      if (h > TRAY_SNAP_H) lastFullRef.current = h;
+      setHeight(h);
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
