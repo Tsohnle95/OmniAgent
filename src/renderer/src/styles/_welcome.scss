@@ -38,19 +38,15 @@
 }
 
 .welcome-mark {
+  color: var(--clay);
+  --shell-prompt: var(--cream);
   line-height: 0;
   user-select: none;
 }
 
-.welcome-mark-svg {
+.welcome-mark .shell-mark {
   filter: drop-shadow(0 0 16px rgba(217, 119, 87, 0.35));
 }
-
-.welcome-mark-shell { stroke: var(--clay); }
-
-.welcome-mark-ray { stroke: var(--clay); opacity: 0.5; }
-
-.welcome-mark-prompt { stroke: var(--cream); }
 
 .welcome-title {
   margin: 0;

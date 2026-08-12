@@ -1,89 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useStore } from "../store";
+import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
+import { ShellMark } from "./ShellMark";
 import type { TreeEntry } from "@shared/types";
-
-const FILE_ICONS: Record<string, string> = {
-  ts: "codicon-file-code",
-  tsx: "codicon-file-code",
-  js: "codicon-file-code",
-  jsx: "codicon-file-code",
-  mjs: "codicon-file-code",
-  cjs: "codicon-file-code",
-  json: "codicon-json",
-  jsonc: "codicon-json",
-  md: "codicon-markdown",
-  mdx: "codicon-markdown",
-  css: "codicon-symbol-color",
-  scss: "codicon-symbol-color",
-  less: "codicon-symbol-color",
-  html: "codicon-file-code",
-  py: "codicon-python",
-  go: "codicon-file-code",
-  rs: "codicon-file-code",
-  rb: "codicon-file-code",
-  java: "codicon-file-code",
-  kt: "codicon-file-code",
-  c: "codicon-file-code",
-  h: "codicon-file-code",
-  cpp: "codicon-file-code",
-  cs: "codicon-file-code",
-  php: "codicon-file-code",
-  sh: "codicon-terminal",
-  zsh: "codicon-terminal",
-  bash: "codicon-terminal",
-  sql: "codicon-database",
-  yml: "codicon-file-code",
-  yaml: "codicon-file-code",
-  toml: "codicon-file-code",
-  xml: "codicon-file-code",
-  txt: "codicon-file-text",
-  log: "codicon-file-text",
-  csv: "codicon-file-text",
-  ini: "codicon-file-text",
-  conf: "codicon-file-text",
-  env: "codicon-file-text",
-  gitignore: "codicon-file-text",
-  png: "codicon-file-media",
-  jpg: "codicon-file-media",
-  jpeg: "codicon-file-media",
-  gif: "codicon-file-media",
-  svg: "codicon-file-media",
-  webp: "codicon-file-media",
-  ico: "codicon-file-media",
-  pdf: "codicon-file-pdf",
-  zip: "codicon-file-zip",
-  tar: "codicon-file-zip",
-  gz: "codicon-file-zip",
-  tgz: "codicon-file-zip",
-  dmg: "codicon-file-zip",
-  pkg: "codicon-file-zip",
-  bin: "codicon-file-binary",
-  exe: "codicon-file-binary",
-  dll: "codicon-file-binary",
-  so: "codicon-file-binary",
-  dylib: "codicon-file-binary"
-};
-
-function fileIcon(name: string): string {
-  if (name.includes(".")) {
-    const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
-    const hit = FILE_ICONS[ext];
-    if (hit) return hit;
-  }
-  return FILE_ICONS[name.toLowerCase()] ?? "codicon-file";
-}
-
-function FileIcon({ name, isDir, open }: { name: string; isDir: boolean; open?: boolean }): ReactNode {
-  if (isDir) {
-    return (
-      <span className={`fdir ${open ? "open" : ""}`}>
-        <span className={`codicon ${open ? "codicon-folder-opened" : "codicon-folder"}`} />
-      </span>
-    );
-  }
-  const icon = fileIcon(name);
-  return <span className={`codicon ffile ${icon}`} />;
-}
 
 function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
   const { startCreate, openCtxMenu } = useStore();
@@ -107,7 +26,7 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
           startCreate(parent, "file");
         }}
       >
-        <span className="codicon codicon-new-file" />
+        <PlusIcon />
       </button>
       <button
         className="tree-row-action"
@@ -117,10 +36,10 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
           startCreate(parent, "dir");
         }}
       >
-        <span className="codicon codicon-new-folder" />
+        <FolderPlusIcon />
       </button>
       <button className="tree-row-action" title="More actions…" onClick={menu}>
-        <span className="codicon codicon-more" />
+        <EllipsisIcon />
       </button>
     </span>
   );
@@ -302,22 +221,22 @@ function ExplorerMenu(): ReactNode {
   return (
     <div className="ctx-menu" ref={menuRef} style={{ left, top }}>
       <button className="ctx-item" onClick={() => startCreate(parent, "file")}>
-        <span className="codicon codicon-new-file" />
+        <PlusIcon />
         New File…
       </button>
       <button className="ctx-item" onClick={() => startCreate(parent, "dir")}>
-        <span className="codicon codicon-new-folder" />
+        <FolderPlusIcon />
         New Folder…
       </button>
       {target && (
         <>
           <div className="ctx-sep" />
           <button className="ctx-item" onClick={() => startRename(target.path)}>
-            <span className="codicon codicon-edit" />
+            <PencilIcon />
             Rename…
           </button>
           <button className="ctx-item danger" onClick={() => void deleteEntry(target.path)}>
-            <span className="codicon codicon-trash" />
+            <TrashIcon />
             Delete
           </button>
         </>
@@ -399,7 +318,7 @@ export function FileSidebar({
             onCollapse(true);
           }}
         >
-          <span className="codicon codicon-files" />
+          <ShellMark size={20} />
         </button>
       </div>
     );
@@ -432,7 +351,9 @@ export function FileSidebar({
         >
           <span>CHANGES</span>
           <span className="sidebar-count push">{changes.length}</span>
-          <span className={`codicon ${changesOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
+          <span className="section-chevron">
+            <ChevronIcon open={changesOpen} />
+          </span>
         </button>
       </div>
       {changesOpen && (
@@ -477,7 +398,9 @@ export function FileSidebar({
           onClick={() => setExplorerOpen((o) => !o)}
         >
           <span>EXPLORER</span>
-          <span className={`codicon push ${explorerOpen ? "codicon-chevron-up" : "codicon-chevron-down"}`} />
+          <span className="section-chevron push">
+            <ChevronIcon open={explorerOpen} />
+          </span>
         </button>
       </div>
       {explorerOpen && (

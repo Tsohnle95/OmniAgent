@@ -160,7 +160,13 @@
 
 .section-toggle .push { margin-left: auto; }
 
-.section-toggle .codicon { font-size: 11px; flex-shrink: 0; }
+.section-toggle .si-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  transition: transform 120ms ease;
+}
+
+.section-toggle .si-chevron.open { transform: rotate(180deg); }
 
 .changes-list {
   flex: 1;
@@ -210,7 +216,7 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.tree-row.file.active .ffile { color: var(--accent); }
+.tree-row.file.active .si-icon { color: var(--accent); }
 
 .tree-row.file.deleted .tree-name { color: var(--red); text-decoration: line-through; }
 
@@ -222,26 +228,17 @@
 
 .tree-meta.deleted { color: var(--red); }
 
-.fdir {
+.tree-row .si-icon {
   width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  color: #d8b88a;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  transition: color 100ms ease;
 }
 
-.fdir.open { color: var(--accent); }
+.tree-row.dir .si-icon { color: #d8b88a; transition: color 100ms ease; }
 
-.ffile {
-  width: 16px;
-  flex-shrink: 0;
-  color: var(--text-dim);
-  font-size: 14.5px;
-  display: inline-flex;
-  align-items: center;
-}
+.tree-row.dir.open .si-icon { color: var(--accent); }
+
+.tree-row.file .si-icon { color: var(--text-dim); }
 
 .tree-name {
   flex: 1;
@@ -304,15 +301,17 @@
   transition: background 100ms ease;
 }
 
-.ctx-item .codicon { font-size: 14px; color: var(--text-dim); }
+.ctx-item .si-mini { color: var(--text-dim); flex-shrink: 0; }
 
 .ctx-item:hover { background: var(--bg-hover); }
 
-.ctx-item:hover .codicon { color: var(--accent); }
+.ctx-item:hover .si-mini { color: var(--accent); }
 
 .ctx-item.danger { color: var(--red); }
 
-.ctx-item.danger:hover .codicon { color: var(--red); }
+.ctx-item.danger .si-mini { color: var(--red); }
+
+.ctx-item.danger:hover .si-mini { color: var(--red); }
 
 .ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
 
@@ -360,4 +359,8 @@
 
 .tree-row-action:hover { background: var(--bg-active); color: var(--accent); }
 
-.tree-row-action .codicon { font-size: 13px; }
+.tree-row-action .si-mini { flex-shrink: 0; }
+
+.activity-btn {
+  --shell-prompt: var(--accent);
+}
