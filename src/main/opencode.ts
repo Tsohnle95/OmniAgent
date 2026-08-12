@@ -905,6 +905,13 @@ export class OpenShellBackend {
   }
 
   async readFile(rel: string): Promise<string | null> {
+    if (path.isAbsolute(rel)) {
+      try {
+        return await fsp.readFile(rel, "utf8");
+      } catch {
+        return null;
+      }
+    }
     if (!this.client || !this.directory) throw new Error("no active session");
     const res = await this.client.file.read({
       location: { directory: this.directory },

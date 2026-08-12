@@ -48,24 +48,36 @@ const DEVTOOLS_WATCHER = `
     }
   }, true);
   window.addEventListener("click", (event) => {
-    let link = null;
+    let file = null;
+    let line = null;
+    let title = "";
     for (const el of event.composedPath ? event.composedPath() : []) {
-      if (el.nodeType !== 1 || !el.textContent) continue;
-      const m = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i.exec(el.textContent.trim());
-      if (m) {
-        link = { el, file: m[1], line: parseInt(m[2], 10) };
-        break;
+      if (el.nodeType !== 1) continue;
+      const elTitle = el.getAttribute ? el.getAttribute("title") : null;
+      if (elTitle) {
+        const m = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i.exec(elTitle);
+        if (m) {
+          file = m[1];
+          line = parseInt(m[2], 10);
+          title = elTitle;
+          break;
+        }
+      }
+      if (!file && el.textContent) {
+        const m = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i.exec(el.textContent.trim());
+        if (m) {
+          file = m[1];
+          line = parseInt(m[2], 10);
+          const titled = el.closest("[title]");
+          title = titled ? titled.getAttribute("title") || "" : "";
+          break;
+        }
       }
     }
-    if (!link) return;
+    if (file == null || line == null) return;
     event.preventDefault();
     event.stopPropagation();
-    const titled = link.el.getAttribute("title") ? link.el : link.el.closest("[title]");
-    window.__openshellOpenSource = JSON.stringify({
-      file: link.file,
-      line: link.line,
-      title: titled ? titled.getAttribute("title") || "" : ""
-    });
+    window.__openshellOpenSource = JSON.stringify({ file, line, title });
   }, true);
 })();
 `;
@@ -157,26 +169,66 @@ async function findFileByBasename(root: string, basename: string, maxDepth = 7):
   return matches[0] ?? null;
 }
 
-async function resolveSourcePath(file: string, title: string): Promise<string | null> {
-  const session = await backend.getState();
-  if (!session?.directory) return null;
-  const root = session.directory;
-  if (title.startsWith("file://")) {
-    let abs = title.slice("file://".length);
+async function isFile(p: string): Promise<boolean> {
+  try {
+    return (await fsp.stat(p)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function sourceTarget(title: string): string | null {
+  const t = title.trim();
+  return t ? t.replace(/:(\d+)\s*$/, "") : null;
+}
+
+function toAbsolute(root: string, target: string): string | null {
+  if (target.startsWith("file://")) {
+    let p = target.slice("file://".length);
     try {
-      abs = decodeURIComponent(abs);
+      p = decodeURIComponent(p);
     } catch {
       /* keep raw */
     }
-    if (!path.isAbsolute(abs)) abs = path.join(root, abs);
+    if (!path.isAbsolute(p)) p = path.join(root, p);
+    return p;
+  }
+  if (/^https?:\/\//i.test(target)) {
     try {
-      if ((await fsp.stat(abs)).isFile()) return path.relative(root, abs);
+      const u = new URL(target);
+      return path.join(root, decodeURIComponent(u.pathname).replace(/^\/+/, ""));
     } catch {
-      /* not a file; fall through to basename search */
+      return null;
     }
   }
-  const found = await findFileByBasename(root, file);
-  return found ? path.relative(root, found) : null;
+  if (path.isAbsolute(target)) return target;
+  return path.join(root, target.replace(/^\/+/, ""));
+}
+
+async function resolveInRoot(root: string, file: string, title: string): Promise<string | null> {
+  const target = sourceTarget(title) ?? (file.includes("/") || file.includes("\\") ? file : null);
+  if (target) {
+    const abs = toAbsolute(root, target);
+    if (abs && (await isFile(abs))) return abs;
+  }
+  if (!file.includes("/") && !file.includes("\\")) {
+    return findFileByBasename(root, file);
+  }
+  return null;
+}
+
+async function resolveSourcePath(file: string, title: string): Promise<string | null> {
+  const session = await backend.getState();
+  const roots: string[] = [];
+  if (session?.directory) roots.push(session.directory);
+  const appRoot = app.getAppPath();
+  if (appRoot !== session?.directory) roots.push(appRoot);
+  for (const root of roots) {
+    const resolved = await resolveInRoot(root, file, title);
+    if (!resolved) continue;
+    return root === session?.directory ? path.relative(root, resolved) : resolved;
+  }
+  return null;
 }
 
 function createWindow(): BrowserWindow {
@@ -282,6 +334,8 @@ function createWindow(): BrowserWindow {
             const rel = await resolveSourcePath(src.file, src.title ?? "");
             if (rel) {
               wc.send("shell:message", { kind: "ui-command", command: "open-source", path: rel, line: src.line });
+            } else {
+              console.warn("open-source: no local file for", src.file, src.title ?? "");
             }
           }
         } catch (err) {

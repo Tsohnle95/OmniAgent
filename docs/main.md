@@ -166,11 +166,17 @@ into the frontend page with `executeJavaScript` and polled from main —
 F12 closes DevTools, Esc stops the picker, whichever side has focus.
 The same watcher intercepts clicks on CSS rule source links (the
 `styles.css:12` links in the Styles panel): it prevents the frontend's
-own reveal, resolves the file against the session directory (basename
-search, skipping `node_modules` etc.) and re-sends it as a
-`ui-command` `open-source` with `{ path, line }` so the editor opens
-the file at the clicked rule — DevTools edits are ephemeral, the
-editor's are not.
+own reveal, detects the link by its `title="<url>:<line>"` attribute
+(text matching is a fallback), and re-sends it as a `ui-command`
+`open-source` with `{ path, line }` so the editor opens the file at
+the clicked rule — DevTools edits are ephemeral, the editor's are not.
+Path resolution strips the `:line` suffix and accepts `file://` and
+dev-server `http(s)://` URLs (mapping the URL path onto the session
+directory), falling back to a basename search that skips `node_modules`
+etc. If the file isn't in the session — DevTools always inspects
+OpenShell's own renderer, so the inspected stylesheets are the app's —
+resolution falls back to the app directory and the file is opened by
+absolute path.
 Picks are deduped (Chromium fires `inspectNodeRequested` twice per
 click, once from pointer events, once from mouse events) and the
 picker lifecycle is token-guarded so stale async arm calls can never
