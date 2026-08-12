@@ -172,9 +172,10 @@ then Save merged content. ⌘S saves the current revision immediately.
 
 Create/rename/delete (`shell:fs-create-*`, `shell:fs-rename`,
 `shell:fs-delete`) are plain `fs` operations in the backend; delete moves
-to Trash and re-emits a deleted `file-update` for tracked paths; rename
-moves the baseline snapshot along. The renderer refreshes the tree and
-rewrites tab/`agentFiles` paths to match.
+to Trash and re-emits a deleted `file-update` for tracked paths; a Trash
+failure is returned unchanged and shown by the renderer, with no permanent
+deletion fallback. Rename moves the baseline snapshot along. The renderer
+refreshes the tree and rewrites tab/`agentFiles` paths to match.
 
 All filesystem calls include the activation's workspace identity. Main rejects
 stale identities, malformed/bounded relative paths, traversal, absolute paths,
@@ -212,7 +213,12 @@ macOS), spawns it via `node-pty` with cwd = session directory (or home),
 and forwards PTY output as `terminal-data` over the same
 `shell:message` channel (connection #2). Keystrokes go down
 `terminalInput`; the xterm `fit` addon sends `terminalResize`. `stopAll`
-kills every PTY at `before-quit`.
+kills every PTY at `before-quit`. Renderer startup buffers exist only for
+terminal IDs awaiting xterm registration and are byte-, chunk-, and age-bound.
+`terminal-exit` removes the matching tab and selects a remaining neighbor.
+The last explicit tab close hides a committed empty tray; reopening stays
+empty until the user presses `+`, while a natural final exit leaves the empty
+tray visible.
 
 ## Session history and reopen
 

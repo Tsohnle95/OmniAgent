@@ -37,6 +37,7 @@ import { fetchProviderUsage } from "./provider-usage";
 import { WorkspaceOperationCoordinator } from "./operation-coordinator";
 import { BackendEventLoop } from "./backend-event-loop";
 import { knownBaseline, observedBaseline, preserveBaseline, unknownBaseline } from "./file-baseline";
+import { movePathToTrash } from "./trash";
 import {
   assertPermissionSession,
   assertWorkspaceTarget,
@@ -1259,11 +1260,7 @@ export class OpenShellBackend {
       if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
       const abs = await confinedPath(root, relativePath(rel));
       assertWorkspace(workspace, this.workspace);
-      try {
-        await shell.trashItem(abs);
-      } catch {
-        await fsp.rm(abs, { recursive: true, force: true });
-      }
+      await movePathToTrash(abs, (target) => shell.trashItem(target));
       assertWorkspace(workspace, this.workspace);
       if (context.snapshots.has(abs) || context.lastKnown.has(abs)) {
         const baseline = context.snapshots.get(abs) ?? knownBaseline(context.lastKnown.get(abs) ?? "");

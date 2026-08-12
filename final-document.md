@@ -559,17 +559,17 @@ Scope: items 11, 12, and 13 under the selected observed-session-changes policy.
 
 Scope: items 14 and 15.
 
-- [ ] Remove automatic permanent deletion after Trash failure.
-- [ ] Surface the original Trash failure to the user.
-- [ ] If permanent deletion remains available, make it a separate confined and explicitly confirmed action.
-- [ ] Commit empty terminal state before hiding the final tab.
-- [ ] Handle natural terminal exits and select a valid neighboring tab.
-- [ ] Buffer output only for terminals awaiting registration and enforce byte/chunk limits.
-- [ ] Define and implement empty-tray reopen behavior.
-- [ ] Add Trash failure, confirmation, final-close, natural-exit, startup-output, stale-ID, and buffer-limit tests.
-- [ ] Update deletion and terminal documentation.
-- [ ] Pass `npm run check`.
-- [ ] Commit as one independently revertible unit.
+- [x] Remove automatic permanent deletion after Trash failure.
+- [x] Surface the original Trash failure to the user.
+- [x] Omit permanent deletion rather than exposing a separate destructive action.
+- [x] Commit empty terminal state before hiding the final tab.
+- [x] Handle natural terminal exits and select a valid neighboring tab.
+- [x] Buffer output only for terminals awaiting registration and enforce byte/chunk limits.
+- [x] Define and implement empty-tray reopen behavior.
+- [x] Add Trash success/failure, final-close, natural-exit, startup-output, stale-ID, stale-cleanup, reset, and buffer-limit tests; confirmation is not applicable because permanent deletion is omitted.
+- [x] Update deletion and terminal documentation.
+- [x] Pass `npm run check`.
+- [x] Commit as one independently revertible unit.
 
 ### WU-08: Performance retention and benchmark
 

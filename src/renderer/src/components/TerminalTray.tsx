@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
 import type { WorkspaceIdentity } from "@shared/types";
+import { PendingTerminalOutput, removeTerminal, type TerminalTabs } from "../terminal-state";
 
 const THEME = {
   background: "#131316",
@@ -114,11 +115,6 @@ function TermInstance({ id, active, height, workspace, onRegister, onUnregister 
   );
 }
 
-interface TermView {
-  id: string;
-  name: string;
-}
-
 export function TerminalTray({
   height,
   snapped,
@@ -132,39 +128,35 @@ export function TerminalTray({
 }): ReactNode {
   const { session } = useStore();
   const workspace = session!.workspace;
-  const [terms, setTerms] = useState<TermView[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [{ terms, activeId }, setTabs] = useState<TerminalTabs>({ terms: [], activeId: null });
   const [notice, setNotice] = useState("");
   const counterRef = useRef(0);
   const bootTokenRef = useRef(0);
   const writersRef = useRef<Map<string, (data: string) => void>>(new Map());
-  const bufferRef = useRef<Map<string, string[]>>(new Map());
+  const pendingOutputRef = useRef(new PendingTerminalOutput());
 
   const onRegister = useCallback((id: string, writer: (data: string) => void): void => {
     writersRef.current.set(id, writer);
-    const buffered = bufferRef.current.get(id);
-    if (buffered) {
-      bufferRef.current.delete(id);
-      for (const data of buffered) writer(data);
-    }
+    for (const data of pendingOutputRef.current.register(id)) writer(data);
   }, []);
 
   const onUnregister = useCallback((id: string): void => {
     writersRef.current.delete(id);
-    bufferRef.current.delete(id);
+    pendingOutputRef.current.remove(id);
   }, []);
 
   useEffect(() => {
     const off = window.openshell.onMessage((msg) => {
-      if (msg.kind !== "terminal-data") return;
-      const terminal = msg.terminal!;
-      const writer = writersRef.current.get(terminal.id);
-      if (writer) {
-        writer(terminal.data);
-      } else {
-        const arr = bufferRef.current.get(terminal.id) ?? [];
-        arr.push(terminal.data);
-        bufferRef.current.set(terminal.id, arr);
+      if (msg.kind === "terminal-data") {
+        const terminal = msg.terminal;
+        const writer = writersRef.current.get(terminal.id);
+        if (writer) writer(terminal.data);
+        else pendingOutputRef.current.write(terminal.id, terminal.data);
+      } else if (msg.kind === "terminal-exit") {
+        const id = msg.terminal.id;
+        writersRef.current.delete(id);
+        pendingOutputRef.current.remove(id);
+        setTabs((current) => removeTerminal(current, id));
       }
     });
     return off;
@@ -174,9 +166,9 @@ export function TerminalTray({
     setNotice("");
     try {
       const { id } = await window.openshell.terminalStart(workspace);
+      pendingOutputRef.current.awaitRegistration(id);
       const name = `Terminal ${++counterRef.current}`;
-      setTerms((prev) => [...prev, { id, name }]);
-      setActiveId(id);
+      setTabs((current) => ({ terms: [...current.terms, { id, name }], activeId: id }));
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "Could not start a terminal");
     }
@@ -184,8 +176,9 @@ export function TerminalTray({
 
   useEffect(() => {
     const token = ++bootTokenRef.current;
-    setTerms([]);
-    setActiveId(null);
+    setTabs({ terms: [], activeId: null });
+    writersRef.current.clear();
+    pendingOutputRef.current.clear();
     void (async () => {
       try {
         const { id } = await window.openshell.terminalStart(workspace);
@@ -193,9 +186,9 @@ export function TerminalTray({
           void window.openshell.terminalStop(workspace, id).catch(() => {});
           return;
         }
+        pendingOutputRef.current.awaitRegistration(id);
         const name = `Terminal ${++counterRef.current}`;
-        setTerms([{ id, name }]);
-        setActiveId(id);
+        setTabs({ terms: [{ id, name }], activeId: id });
       } catch (err) {
         if (token === bootTokenRef.current) {
           setNotice(err instanceof Error ? err.message : "Could not start a terminal");
@@ -209,16 +202,11 @@ export function TerminalTray({
 
   const closeTerminal = (id: string): void => {
     void window.openshell.terminalStop(workspace, id).catch(() => {});
-    const idx = terms.findIndex((t) => t.id === id);
-    const next = terms.filter((t) => t.id !== id);
-    if (next.length === 0) {
-      onClose();
-      return;
-    }
-    setTerms(next);
-    if (activeId === id) {
-      setActiveId(next[Math.max(0, idx - 1)]?.id ?? next[0]?.id ?? null);
-    }
+    const next = removeTerminal({ terms, activeId }, id);
+    writersRef.current.delete(id);
+    pendingOutputRef.current.remove(id);
+    setTabs(next);
+    if (next.terms.length === 0) onClose();
   };
 
   return (
@@ -237,7 +225,7 @@ export function TerminalTray({
           <span
             key={term.id}
             className={`terminal-tab ${term.id === activeId ? "active" : ""}`}
-            onClick={() => setActiveId(term.id)}
+            onClick={() => setTabs((current) => ({ ...current, activeId: term.id }))}
           >
             {term.name}
             <button
@@ -272,7 +260,7 @@ export function TerminalTray({
             onUnregister={onUnregister}
           />
         ))}
-        {terms.length === 0 && <div className="terminal-empty">No terminal open — press + to start one.</div>}
+        {terms.length === 0 && <div className="terminal-empty">No terminal open. Press + to start one.</div>}
       </div>
     </div>
   );

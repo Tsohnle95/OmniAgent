@@ -46,7 +46,7 @@ Public methods (all used by IPC):
 | `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; checks expected disk content unless explicitly overwriting and emits an identified `file-update` |
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
-| `deletePath(workspace, rel)` | Confined `shell.trashItem` with current `rm -rf` fallback; emits tracked deletion |
+| `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
 | `renamePath(workspace, rel, newName)` | Confined same-folder rename; moves tracked snapshot state |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |

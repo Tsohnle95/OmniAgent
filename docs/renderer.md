@@ -151,7 +151,7 @@ Key mechanisms:
 | `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | React port of OpenCode's web timeline/message-part presentation; walks each turn body chronologically and groups only contiguous assistant runs, preserving interleaved shell, compaction, synthetic, skill, status, and divider rows |
 | `OpenCodeTodoDock` | `OpenCodeTodoDock.tsx` | OpenCode prompt-dock todo progress and checklist surface driven by `todo.updated` plus `todowrite` tool-state fallback; `todowrite` calls never appear as transcript tools |
 | `AgentTray` | `AgentTray.tsx` | Shown when the agent panel is collapsed: transparent 44px strip mirroring the left activity bar, with a busy dot and model icon button that expands the panel back |
-| `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, fits + resizes the PTY on layout change, restarts on session change |
+| `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, removes naturally exited tabs and selects a neighbor, bounds startup output awaiting xterm registration, fits + resizes the PTY on layout change, and restarts on session change |
 
 ## Styles (`src/renderer/src/styles/`)
 
@@ -171,6 +171,12 @@ presentational declarations remain in the owning SCSS partial.
 Terminal input flows: keystrokes → `terminalInput(id, data)`; output
 streams back via `onMessage` (`terminal-data`). The xterm `fit` addon +
 `ResizeObserver` keep the PTY dimensions in sync (`terminalResize`).
+Only terminal IDs returned by `terminalStart` and awaiting xterm registration
+can buffer startup output. Buffers retain at most 64 chunks / 256 KiB for ten
+seconds and are cleared on exit, close, registration, or workspace reset.
+Closing the final tab commits an empty tab state before hiding the tray;
+reopening shows that empty state and requires the explicit `+` action to start
+a new process. A natural final exit leaves the empty tray visible.
 The tray is toggled from the titlebar (⌥O) and drag-resized via the
 `tray-divider`. Dragging the divider down to the bottom of the window
 shrinks the tray to a 26px minimum and closes it only when the mouse is
