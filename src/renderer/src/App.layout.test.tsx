@@ -278,7 +278,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([569, 949]);
   });
 
-  it("pushes a flush neighbor so panels never overlap", async () => {
+  it("stops a panel at its neighbor's edge without touching it", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -294,33 +294,11 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([380, 180]);
-    expect(agentLefts()).toEqual([669, 1049]);
-    expect(agentLefts()[1] + agentWidths()[1]).toBeCloseTo(1229, 0);
+    expect(agentWidths()).toEqual([280, 280]);
+    expect(agentLefts()).toEqual([669, 949]);
   });
 
-  it("returns the neighbor as the boundary is dragged back", async () => {
-    await act(async () => root.render(<App />));
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
-    await act(async () => {
-      dispatch({ kind: "session", session: info("/two", 2) });
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-
-    const handles = container.querySelectorAll<HTMLElement>(".agent-col .panel-resize-right");
-    await act(async () => {
-      handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1100 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1050 }));
-      window.dispatchEvent(new MouseEvent("mouseup", {}));
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-
-    expect(agentWidths()).toEqual([330, 230]);
-    expect(agentLefts()).toEqual([669, 999]);
-  });
-
-  it("extends the anchored panel into its neighbor", async () => {
+  it("stops the anchored panel at its neighbor's edge", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -336,8 +314,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([180, 380]);
-    expect(agentLefts()).toEqual([669, 849]);
+    expect(agentWidths()).toEqual([280, 280]);
+    expect(agentLefts()).toEqual([669, 949]);
   });
 
   it("keeps the original agent panel right-anchored and resizes from its left edge", async () => {
