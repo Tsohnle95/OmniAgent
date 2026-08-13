@@ -389,6 +389,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setCtxMenu(null);
     setPendingCreate(null);
     setPendingRename(null);
+    setCurrentAgent(null);
+    setCurrentModel(null);
     agentFilesRef.current = new Map();
     tabsRef.current = [];
     todoToolRef.current = "";
@@ -469,10 +471,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         return list;
       });
-      setCurrentAgent((cur) => {
-        const id = selection?.agent?.id ?? cur?.id;
-        if (!id) return null;
-        return list.find((agent) => agent.id === id) ?? selection?.agent ?? cur ?? null;
+      setCurrentAgent(() => {
+        const id = selection?.agent?.id ?? sessionRef.current?.agent ?? "build";
+        return list.find((agent) => agent.id === id) ?? selection?.agent ?? { id, name: id };
       });
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
@@ -486,6 +487,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (!workspace) return;
         await window.openshell.switchAgent(workspace, id);
         if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
+        const base = agentsRef.current.find((agent) => agent.id === id);
+        if (base) setCurrentAgent(base);
       } catch (err) {
         if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
       }

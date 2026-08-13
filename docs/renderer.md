@@ -26,9 +26,9 @@ Exposed via `useStore()` (context). State:
 | `toasts` | `Toast[]` | transient notifications |
 | `recoveryRecords` | `RecoveryRecord[]` | durable workspace artifacts; unacknowledged records remain actionable across restart |
 | `models` | `ModelOption[]` | for the composer model/strength picker |
-| `currentModel` | `ModelOption \| null` | seeded from the active session selection (falling back to `modelDefault()`), live-updated by `session.model.selected`; includes selected `variant` |
+| `currentModel` | `ModelOption \| null` | seeded per session from the active session selection (falling back to `modelDefault()`), cleared on session switches so a new session never displays the previous session's model; live-updated by `session.model.selected`; includes selected `variant` |
 | `agents` | `AgentOption[]` | for the composer agent picker |
-| `currentAgent` | `AgentOption \| null` | live-updated by `session.agent.selected` |
+| `currentAgent` | `AgentOption \| null` | seeded per session from the session selection, falling back to the session's creation agent and then `build`; cleared on session switches so a new session never displays the previous session's agent; live-updated by `session.agent.selected` and optimistic `switchAgent` |
 | `approvalMode` | `ApprovalMode` | `ask` shows permission cards; `approve` automatically replies `once` |
 | `wordWrap` | `boolean` | Monaco `wordWrap` setting, persisted to `localStorage` ("wordWrap") |
 | `sessions` | `SessionSummary[]` | recent sessions for the Welcome screen |
