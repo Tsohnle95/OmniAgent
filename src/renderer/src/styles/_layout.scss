@@ -89,6 +89,11 @@
   right: 0;
 }
 
+.panel-gap {
+  background: var(--bg-elev);
+  min-width: 0;
+}
+
 .panel-add-col {
   display: flex;
   align-items: center;
