@@ -356,7 +356,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   const sideCapRef = useRef<number | null>(null);
   const agentCapRef = useRef<number | null>(null);
-  const agentOpen = singlePanel && panels.length === 1 && (slots[panels[0].workspace.id]?.open ?? true);
 
   const slotsRef = useRef(slots);
   slotsRef.current = slots;
@@ -454,18 +453,43 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
-  const agentCap = Math.max(0, winW - sideShown - 2);
   const inAgentMode = prevSidebarRef.current !== null;
 
   useEffect(() => {
     if (prevSidebarRef.current === null) return;
-    const stillInMode = !sideOpen && agentOpen && panels.length === 1 && Math.abs(slotShown(panels[0]) - agentCap) < 2;
-    if (!stillInMode) prevSidebarRef.current = null;
-  }, [sideOpen, agentOpen, slots, agentCap, panels]);
+    const anyPanelOpen = panels.some((panel) => slots[panel.workspace.id]?.open ?? true);
+    if (!(!sideOpen && anyPanelOpen)) prevSidebarRef.current = null;
+  }, [sideOpen, slots, panels]);
 
   const setSidebarOpen = (open: boolean): void => {
     if (open) setSideW(SIDE_DEFAULT_W);
     setSideOpen(open);
+  };
+
+  const distributeEvenly = (sideShownAt: number): void => {
+    setSlots((current) => {
+      const anchorId = panels[0]?.workspace.id ?? null;
+      const openIDs = panels
+        .filter((panel) => panel.workspace.id === anchorId || (current[panel.workspace.id]?.open ?? true))
+        .map((panel) => panel.workspace.id);
+      if (openIDs.length === 0) return current;
+      const area = Math.max(0, winW - sideShownAt - 1);
+      const total = Math.max(0, winW - fixedPanelChrome - sideShownAt);
+      const width = Math.max(COLLAPSED_PANEL_W, Math.floor(total / openIDs.length));
+      const anchorW = Math.max(COLLAPSED_PANEL_W, total - width * (openIDs.length - 1));
+      const next: Record<string, PanelSlot> = {};
+      let boundary = Math.max(0, area - anchorW);
+      for (const panel of [...panels].reverse()) {
+        const id = panel.workspace.id;
+        if (id === anchorId || !openIDs.includes(id)) continue;
+        boundary -= width;
+        next[id] = { open: true, width, left: Math.max(0, boundary) };
+      }
+      if (anchorId) {
+        next[anchorId] = { open: true, width: anchorW, left: 0 };
+      }
+      return { ...current, ...next };
+    });
   };
 
   const toggleAgentMode = (): void => {
@@ -474,19 +498,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (prevSidebarRef.current === null) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
       setSideOpen(false);
-      setSlots((current) => ({
-        ...current,
-        [anchor.workspace.id]: { open: true, width: Math.max(0, winW - COLLAPSED_PANEL_W - 2), left: 0 }
-      }));
+      distributeEvenly(COLLAPSED_PANEL_W);
     } else {
       const prev = prevSidebarRef.current;
       prevSidebarRef.current = null;
       setSideOpen(prev.open);
       setSideW(prev.width);
-      setSlots((current) => ({
-        ...current,
-        [anchor.workspace.id]: { open: true, width: AGENT_MIN_W, left: 0 }
-      }));
+      distributeEvenly(prev.open ? prev.width : COLLAPSED_PANEL_W);
     }
   };
 
@@ -535,8 +553,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           <button
             className={`icon-btn ${inAgentMode ? "on" : ""}`}
             title={inAgentMode
-              ? "Exit agent mode — restore the file panel and shrink the agent to its minimum width"
-              : "Agent mode — collapse the sidebar and expand the agent panel to a single chat view"}
+              ? "Exit agent mode — restore the file tray and shrink every model evenly to make room"
+              : "Agent mode — collapse the file tray and split all open agents evenly across the app"}
             onClick={toggleAgentMode}
           >
             <span className="codicon codicon-robot" />

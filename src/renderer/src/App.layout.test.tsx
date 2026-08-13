@@ -359,4 +359,51 @@ describe("Layout panel sizing", () => {
     expect(cols[1].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
     expect(cols[0].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
   });
+
+  it("agent mode splits open agents evenly and exit restores the file tray with an even shrink", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const modeButton = (): HTMLButtonElement =>
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!;
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentLefts()).toEqual([2, 718]);
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(gridCols()[0]).toBe("250px");
+    expect(agentWidths()).toEqual([613, 614]);
+    expect(agentLefts()).toEqual([2, 615]);
+  });
+
+  it("agent mode splits three open agents evenly with the anchor rightmost", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      dispatch({ kind: "session", session: info("/three", 3) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([477, 477, 478]);
+    expect(agentLefts()).toEqual([3, 480, 957]);
+  });
 });
