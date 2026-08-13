@@ -22,7 +22,7 @@ Wave 3 (sequential): folder drag-and-drop (sidebar/store)
 Wave 4 (last, cross-cutting — restructures session state): concurrent
 multi-session/window support
 
-- [ ] - `.openshell-recovery/` transactions are never deleted, so every app-mediated save leaves 3 full file copies behind and the dir grows forever. Add retention: on activation, purge `complete`/`failed`/`acknowledged` transactions older than 24h, and interrupted (`source-held`/`held-validated`) ones older than 7 days. (`.openshell-recovery/` is already gitignored.)
+- [x] - `.openshell-recovery/` transactions are never deleted, so every app-mediated save leaves 3 full file copies behind and the dir grows forever. Add retention: on activation, purge `complete`/`failed`/`acknowledged` transactions older than 24h, and interrupted (`source-held`/`held-validated`) ones older than 7 days. (`.openshell-recovery/` is already gitignored.)
 
 - [x] - there seems to be a run failed every time i push code to github? what is this? does it need to exist? — Fixed: `scripts/check-docs.mjs` still required the deleted `final-document.md`, breaking the `verify` job on every push. Removed the reference; CI gate is green again.
 
@@ -41,7 +41,7 @@ multi-session/window support
 
 - [ ] When I go to create a folder or anything in the explorer area, I'm not able to drag folders out of their current hierarchy and into different places, so I need to be able to do that.
 
-- [ ] - add w3c or equivalent html and css validation functionality like in vs code
+- [x] - add w3c or equivalent html and css validation functionality like in vs code
 
 - [ ] I want to be able to start entirely new model sessions, where it spawns another identical model panel with the same resizing panel logic, where you can pick another work space, etc. also add a sessions tab with the recents and saved workspaces, so i can swap sessions easily By clicking them.
 
