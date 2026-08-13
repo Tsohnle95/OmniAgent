@@ -50,7 +50,7 @@ Public methods (all used by IPC):
 | `openRecovery(workspace, id)` | Opens the validated artifact selected by opaque recovery record id; never accepts a renderer path |
 | `acknowledgeRecovery(workspace, id)` | Persists acknowledgment in the transaction manifest without deleting artifact bytes |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
-| `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants}` |
+| `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants, limit?}` (`limit.context` = the model's context-window size) |
 | `modelDefault()` | `model.default`, maps the same |
 | `switchModel(workspace, id, providerID, variant?)` | Switches only the captured active session, then persists the selection |
 | `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |

@@ -72,6 +72,12 @@
   display: block;
 }
 
+.agent-usage-toggle.ok { color: var(--green); }
+
+.agent-usage-toggle.warn { color: var(--yellow); }
+
+.agent-usage-toggle.danger { color: var(--red); }
+
 .agent-usage-toggle:hover {
   background: var(--bg-hover);
   border-color: var(--accent);
@@ -138,6 +144,55 @@
 .agent-usage-cost-label { font-size: 12px; color: var(--text-dim); }
 
 .agent-usage-cost-value { font-size: 16px; font-weight: 700; color: var(--text); }
+
+.agent-usage-context { margin-bottom: 8px; }
+
+.agent-usage-context-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+
+.agent-usage-context-label { color: var(--text-dim); }
+
+.agent-usage-context-percent {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-usage-context-percent.ok { color: var(--green); }
+
+.agent-usage-context-percent.warn { color: var(--yellow); }
+
+.agent-usage-context-percent.danger { color: var(--red); }
+
+.agent-usage-context-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-active);
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.agent-usage-context-fill { height: 100%; border-radius: 3px; }
+
+.agent-usage-context-fill.ok { background: var(--green); }
+
+.agent-usage-context-fill.warn { background: var(--yellow); }
+
+.agent-usage-context-fill.danger { background: var(--red); }
+
+.agent-usage-context-counts {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
 
 .agent-usage-bar {
   display: flex;

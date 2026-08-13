@@ -136,6 +136,7 @@ export interface ModelOption {
   name: string;
   variants?: string[];
   variant?: string;
+  limit?: { context: number };
 }
 
 export interface AgentOption {

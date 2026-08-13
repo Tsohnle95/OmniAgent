@@ -180,6 +180,12 @@ function windowTone(percent: number): "ok" | "warn" | "danger" {
   return "ok";
 }
 
+function contextTone(percent: number): "ok" | "warn" | "danger" {
+  if (percent >= 85) return "danger";
+  if (percent >= 60) return "warn";
+  return "ok";
+}
+
 function formatCredits(credits: ProviderUsageCredits): string {
   if (credits.unlimited) return "Unlimited";
   if (credits.used != null && credits.total != null) {
@@ -935,6 +941,7 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
     sessions,
     reopenSession,
     sessionUsage,
+    currentModel,
     providerUsage,
     providerUsageLoading,
     refreshProviderUsage
@@ -972,6 +979,14 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
     : 0;
   const usageShare = (count: number): string =>
     usageTotal > 0 ? `${(count / usageTotal) * 100}%` : "0%";
+  const contextLimit =
+    typeof currentModel?.limit?.context === "number" && Number.isFinite(currentModel.limit.context) && currentModel.limit.context > 0
+      ? currentModel.limit.context
+      : null;
+  const contextUsed = usage ? usage.tokens.input : 0;
+  const contextFraction = contextLimit ? Math.min(1, Math.max(0, contextUsed / contextLimit)) : 0;
+  const contextPercent = contextFraction * 100;
+  const glyphTone = contextLimit ? contextTone(contextPercent) : null;
 
   const lastAssistantId = useMemo(() => {
     for (let i = transcript.length - 1; i >= 0; i -= 1) {
@@ -1045,15 +1060,35 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
         </span>
         <div className="agent-header-actions">
           <button
-            className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""}`}
+            className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
             title="Session and provider usage"
             aria-label="Session and provider usage"
             aria-expanded={usageOpen}
             onClick={() => setUsageOpen((open) => !open)}
           >
             <svg className="agent-usage-glyph" viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
-              <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+              <circle
+                cx="8"
+                cy="8"
+                r="6.4"
+                fill="none"
+                stroke="currentColor"
+                strokeOpacity="0.3"
+                strokeWidth="2.4"
+              />
+              {contextLimit && contextFraction > 0 && (
+                <circle
+                  cx="8"
+                  cy="8"
+                  r="6.4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeDasharray={`${contextFraction * 40.21} 40.21`}
+                  transform="rotate(-90 8 8)"
+                />
+              )}
             </svg>
           </button>
           <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
@@ -1072,6 +1107,26 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
                   <span className="agent-usage-cost-label">Total cost</span>
                   <span className="agent-usage-cost-value">{formatCost(usage.cost)}</span>
                 </div>
+                {contextLimit !== null && (
+                  <div className="agent-usage-context">
+                    <div className="agent-usage-context-head">
+                      <span className="agent-usage-context-label">Context window</span>
+                      <span className={`agent-usage-context-percent ${contextTone(contextPercent)}`}>
+                        {Math.round(contextPercent)}%
+                      </span>
+                    </div>
+                    <div className="agent-usage-context-bar">
+                      <div
+                        className={`agent-usage-context-fill ${contextTone(contextPercent)}`}
+                        style={{ width: `${Math.min(100, Math.max(0, contextPercent))}%` }}
+                      />
+                    </div>
+                    <div className="agent-usage-context-counts">
+                      <span>{formatTokens(contextUsed)}</span>
+                      <span>of {formatTokens(contextLimit)} tokens</span>
+                    </div>
+                  </div>
+                )}
                 {usageTotal > 0 && (
                   <div className="agent-usage-bar">
                     <span className="agent-usage-seg input" style={{ width: usageShare(usage.tokens.input) }} />

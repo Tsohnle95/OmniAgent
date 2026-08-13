@@ -1338,13 +1338,17 @@ export class OpenShellBackend {
       name?: string;
       enabled?: boolean;
       variants?: { id?: string }[];
+      limit?: { context?: number };
     }[])
       .filter((m) => m.enabled !== false)
        .map((m) => ({
          id: modelID(m),
          providerID: m.providerID ?? "",
          name: m.name ?? modelID(m) ?? "model",
-         variants: variantIDs(m.variants)
+         variants: variantIDs(m.variants),
+         ...(typeof m.limit?.context === "number" && Number.isFinite(m.limit.context) && m.limit.context > 0
+           ? { limit: { context: m.limit.context } }
+           : {})
       }))
       .filter((m) => m.id && m.providerID);
   }
@@ -1393,7 +1397,7 @@ export class OpenShellBackend {
     );
     if (!sameWorkspace(workspace, this.workspace)) return null;
     const data = res as {
-      data?: { id?: string; providerID?: string; name?: string; variants?: { id?: string }[]; variant?: string };
+      data?: { id?: string; providerID?: string; name?: string; variants?: { id?: string }[]; variant?: string; limit?: { context?: number } };
     };
      const m = data?.data ?? (res as {
        id?: string;
@@ -1402,6 +1406,7 @@ export class OpenShellBackend {
       name?: string;
       variants?: { id?: string }[];
       variant?: string;
+      limit?: { context?: number };
     });
      const id = m ? modelID(m) : "";
      if (!id || !m?.providerID) return null;
@@ -1410,7 +1415,10 @@ export class OpenShellBackend {
        providerID: m.providerID,
        name: m.name ?? id,
        variants: variantIDs(m.variants),
-      ...(m.variant ? { variant: m.variant } : {})
+      ...(m.variant ? { variant: m.variant } : {}),
+      ...(typeof m.limit?.context === "number" && Number.isFinite(m.limit.context) && m.limit.context > 0
+        ? { limit: { context: m.limit.context } }
+        : {})
     };
   }
 

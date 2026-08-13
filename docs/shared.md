@@ -16,7 +16,7 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `FileBaseline` | `{ kind: "known", content } \| { kind: "unknown" }` | First established pre-change state; unknown never substitutes post-change bytes |
 | `FileUpdate` | `{ workspace, sessionID, path, baseline: FileBaseline, content: string \| null, deleted }` | Identity-bound observed workspace change payload |
 | `ProjectInfo` | `{ directory, name }` | Recent-projects list on Welcome |
-| `ModelOption` | `{ id, providerID, name, variants?, variant? }` | Model picker options + current model/strength selection |
+| `ModelOption` | `{ id, providerID, name, variants?, variant?, limit? }` | Model picker options + current model/strength selection; `limit = { context }` is the model's total context-window size from the catalog, used for the usage popup's context fill |
 | `AgentOption` | `{ id, name }` | Agent picker options + current selection |
 | `CommandOption` | `{ name, description?, kind? }` | Slash commands and skills offered by `/` completion and run via `runCommand` (`kind: "command" \| "skill"`) |
 | `ReferenceOption` | `{ name, path, rel, description? }` | `file.find` search results for `@` mentions; `path` is absolute, `rel` is relative to the session directory |
@@ -29,7 +29,7 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `PermissionReply` | `"once" \| "always" \| "reject"` | Permission card buttons |
 | `ProviderUsageResult` | `{ provider, displayName, status, snapshot, error? }` | Per-provider usage snapshot for the composer usage indicator (`fetchProviderUsage` in `src/main/provider-usage.ts`); `status` is `"ok" \| "stale" \| "unavailable" \| "unauthenticated" \| "unsupported"` |
 | `ReopenedSession` | `{ session, transcript, todos, usage: SessionUsage \| null }` | `openSessionById` result; `usage` is the cumulative `{ cost, tokens }` from `session.get`, also streamed live via `session.usage.updated` |
-| `SessionUsage` | `{ cost, tokens: { input, output, reasoning, cache: { read, write } } }` | Cumulative session token usage/cost shown in the agent header usage popup |
+| `SessionUsage` | `{ cost, tokens: { input, output, reasoning, cache: { read, write } } }` | Cumulative session token usage/cost shown in the agent header usage popup; the popup derives context-window fill from `tokens.input` vs the active model's `limit.context` |
 | `ProviderUsageSnapshot` | `{ windows: UsageWindow[], credits, planType, updatedAt }` | Usage windows (`{ id, label, usedPercent, windowMinutes, resetsAt }`) plus credits (`{ hasCredits, unlimited, balance, ... }`) or an `error: { code, message, retryable }` |
 
 ## TranscriptItem (agent panel feed)

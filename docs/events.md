@@ -66,7 +66,7 @@ is backgrounded.
 | `agent.updated` | Refetches the agent catalog for the active session so the composer agent picker recovers from a lazy or empty first load |
 | `catalog.updated` | Refetches the model catalog so the composer model picker stays current |
 | `models-dev.refreshed` | Legacy model-catalog change event; handled identically to `catalog.updated` |
-| `session.usage.updated` | Records cumulative session token usage (`tokens`) and cost (`cost`) for the addressed session; drives the token-usage popup in the agent header |
+| `session.usage.updated` | Records cumulative session token usage (`tokens`) and cost (`cost`) for the addressed session; drives the token-usage popup in the agent header (context-window utilization is computed renderer-side from `tokens.input` vs the active model's `limit.context` delivered by `shell:models`) |
 | `session.usage.recorded` | Same usage snapshot as `session.usage.updated` on the durable legacy stream; handled identically |
 | `todo.updated` | Replaces the active session todo list rendered in the dock above the composer; `todowrite` tool-part input/metadata is also consumed as a beta-protocol fallback |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
