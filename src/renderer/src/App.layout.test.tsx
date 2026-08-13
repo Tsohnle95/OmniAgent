@@ -344,4 +344,19 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()[0]).toBeCloseTo(230, 0);
     expect(agentLefts()[0]).toBeCloseTo(1229 - 230, 0);
   });
+
+  it("keeps the anchored panel close button while model panels keep theirs", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const cols = agentCols();
+    expect(cols[0].querySelector(".agent-close")).not.toBeNull();
+    expect(cols[1].querySelector(".agent-close")).toBeNull();
+    expect(cols[1].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
+    expect(cols[0].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
+  });
 });

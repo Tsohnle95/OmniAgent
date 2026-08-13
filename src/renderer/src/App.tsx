@@ -251,7 +251,7 @@ function PanelColumn({
   if (slot.open) {
     return (
       <div className="agent-col" style={{ left: `${slot.left}px`, width: `${slot.width}px` }}>
-        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={resizeLeft} onResizeRight={isAnchor ? undefined : resizeRight} onPanelDrag={isAnchor ? undefined : slideBy} />
+        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={resizeLeft} onResizeRight={isAnchor ? undefined : resizeRight} onPanelDrag={isAnchor ? undefined : slideBy} />
       </div>
     );
   }

@@ -933,6 +933,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
 
 export function AgentPanel({
   session,
+  isAnchor,
   onCollapse,
   onFocus,
   onClose,
@@ -941,6 +942,7 @@ export function AgentPanel({
   onPanelDrag
 }: {
   session?: SessionInfo | null;
+  isAnchor?: boolean;
   onCollapse: () => void;
   onFocus?: () => void;
   onClose?: () => void;
@@ -1078,14 +1080,16 @@ export function AgentPanel({
             <span className="codicon codicon-arrow-left" />
           </button>
         )}
-        <button
-          className={`agent-dot agent-close ${busy ? "busy" : ""}`}
-          title="Close model panel"
-          aria-label="Close model panel"
-          onClick={() => onClose?.()}
-        >
-          <span className="codicon codicon-close" />
-        </button>
+        {!isAnchor && (
+          <button
+            className={`agent-dot agent-close ${busy ? "busy" : ""}`}
+            title="Close model panel"
+            aria-label="Close model panel"
+            onClick={() => onClose?.()}
+          >
+            <span className="codicon codicon-close" />
+          </button>
+        )}
         <span className="agent-title">
           {activeSession?.parentID
             ? activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? (parent ? `${parent.title} subagent` : "Subagent session")
