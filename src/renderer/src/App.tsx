@@ -168,22 +168,41 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const agentCapRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
-    if (!agentOpen) return;
-    const cap = Math.max(0, winW - sideShown - 2);
-    const anchored = agentCapRef.current !== null && agentW >= agentCapRef.current - 1;
-    agentCapRef.current = cap;
-    if (anchored) setAgentW(cap);
-    else setAgentW((w) => Math.min(w, cap));
-  }, [winW, sideShown, agentOpen, agentW]);
-
-  useLayoutEffect(() => {
-    if (!sideOpen) return;
-    const cap = Math.max(0, Math.min(SIDE_MAX_W, winW - agentShown - 2));
-    const anchored = sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
-    sideCapRef.current = cap;
-    if (anchored) setSideW(cap);
-    else setSideW((w) => Math.min(w, cap));
-  }, [winW, agentShown, sideOpen, sideW]);
+    if (!sideOpen && !agentOpen) return;
+    const avail = Math.max(0, winW - 2);
+    const agentLimit = Math.max(0, avail - sideShown);
+    const sideLimit = Math.max(0, Math.min(SIDE_MAX_W, avail - agentShown));
+    const agentAnchored = agentOpen && agentCapRef.current !== null && agentW >= agentCapRef.current - 1;
+    const sideAnchored = sideOpen && sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
+    if (agentOpen) agentCapRef.current = agentLimit;
+    if (sideOpen) sideCapRef.current = sideLimit;
+    const total = sideShown + agentShown;
+    if (total <= avail) {
+      if (agentAnchored) setAgentW(agentLimit);
+      if (sideAnchored) setSideW(sideLimit);
+      return;
+    }
+    if (!sideOpen || !agentOpen) {
+      if (agentOpen) setAgentW(agentLimit);
+      else setSideW(sideLimit);
+      return;
+    }
+    if (agentAnchored !== sideAnchored) {
+      if (agentAnchored) setAgentW(agentLimit);
+      else setSideW(sideLimit);
+      return;
+    }
+    if (agentAnchored) {
+      const nextAgent = Math.max(COLLAPSED_PANEL_W, agentLimit);
+      setAgentW(nextAgent);
+      setSideW(Math.max(COLLAPSED_PANEL_W, Math.min(sideShown, avail - nextAgent)));
+      return;
+    }
+    const nextSide = Math.max(COLLAPSED_PANEL_W, Math.round((sideShown * avail) / total));
+    const nextAgent = Math.max(COLLAPSED_PANEL_W, avail - nextSide);
+    setSideW(nextSide);
+    setAgentW(nextAgent);
+  }, [winW, sideOpen, agentOpen, sideW, agentW]);
 
   const sideDrag = useDragResize(
     sideW,
