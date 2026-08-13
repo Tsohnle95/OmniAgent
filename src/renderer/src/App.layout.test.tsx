@@ -406,4 +406,26 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()).toEqual([477, 477, 478]);
     expect(agentLefts()).toEqual([3, 480, 957]);
   });
+
+  it("restores a single agent to its default right-anchored width after agent mode", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const modeButton = (): HTMLButtonElement =>
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!;
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(gridCols()[0]).toBe("250px");
+    expect(agentWidths()).toEqual([280]);
+    expect(agentLefts()).toEqual([949]);
+  });
 });

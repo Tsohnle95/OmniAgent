@@ -458,7 +458,12 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   useEffect(() => {
     if (prevSidebarRef.current === null) return;
     const anyPanelOpen = panels.some((panel) => slots[panel.workspace.id]?.open ?? true);
-    if (!(!sideOpen && anyPanelOpen)) prevSidebarRef.current = null;
+    if (!(!sideOpen && anyPanelOpen)) {
+      prevSidebarRef.current = null;
+      if (sideOpen && panels.length === 1 && anyPanelOpen) {
+        setSlotWidth(panels[0].workspace.id, AGENT_DEFAULT_W);
+      }
+    }
   }, [sideOpen, slots, panels]);
 
   const setSidebarOpen = (open: boolean): void => {
@@ -466,13 +471,16 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     setSideOpen(open);
   };
 
-  const distributeEvenly = (sideShownAt: number): void => {
+  const distributeEvenly = (sideShownAt: number, singleRestore: boolean): void => {
     setSlots((current) => {
       const anchorId = panels[0]?.workspace.id ?? null;
       const openIDs = panels
         .filter((panel) => panel.workspace.id === anchorId || (current[panel.workspace.id]?.open ?? true))
         .map((panel) => panel.workspace.id);
       if (openIDs.length === 0) return current;
+      if (singleRestore && openIDs.length === 1 && anchorId) {
+        return { ...current, [anchorId]: { open: true, width: AGENT_DEFAULT_W, left: 0 } };
+      }
       const area = Math.max(0, winW - sideShownAt - 1);
       const total = Math.max(0, winW - fixedPanelChrome - sideShownAt);
       const width = Math.max(COLLAPSED_PANEL_W, Math.floor(total / openIDs.length));
@@ -498,13 +506,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (prevSidebarRef.current === null) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
       setSideOpen(false);
-      distributeEvenly(COLLAPSED_PANEL_W);
+      distributeEvenly(COLLAPSED_PANEL_W, false);
     } else {
       const prev = prevSidebarRef.current;
       prevSidebarRef.current = null;
       setSideOpen(prev.open);
       setSideW(prev.width);
-      distributeEvenly(prev.open ? prev.width : COLLAPSED_PANEL_W);
+      distributeEvenly(prev.open ? prev.width : COLLAPSED_PANEL_W, true);
     }
   };
 
