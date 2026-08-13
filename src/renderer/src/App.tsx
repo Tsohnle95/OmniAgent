@@ -183,7 +183,8 @@ function PanelColumn({
   maxW,
   isLast,
   onSlot,
-  onFocus
+  onFocus,
+  onClose
 }: {
   session: SessionInfo;
   slot: PanelSlot;
@@ -191,6 +192,7 @@ function PanelColumn({
   isLast: boolean;
   onSlot: (slot: PanelSlot) => void;
   onFocus: () => void;
+  onClose: () => void;
 }): ReactNode {
   const view = usePanel(session.workspace);
   const label = view.currentModel?.name ?? "Model";
@@ -215,7 +217,7 @@ function PanelColumn({
     return (
       <>
         <div className="divider" onMouseDown={drag} />
-        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} />
+         <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} />
       </>
     );
   }
@@ -232,7 +234,7 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels, focusSession, activeSessionID, selectFolder } = useStore();
+  const { panels, focusSession, closePanel, selectFolder } = useStore();
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
@@ -463,6 +465,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             isLast={index === panels.length - 1}
             onSlot={(slot) => setSlots((current) => ({ ...current, [panel.workspace.id]: slot }))}
             onFocus={() => focusSession(panel.id)}
+            onClose={() => closePanel(panel.id)}
           />
         ))}
       </div>

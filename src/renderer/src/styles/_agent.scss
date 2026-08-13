@@ -16,15 +16,39 @@
 }
 
 .agent-dot {
+  position: relative;
   width: 8px;
   height: 8px;
+  flex: 0 0 8px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--text-faint);
+  color: transparent;
+  cursor: pointer;
 }
 
 .agent-dot.busy {
   background: var(--green);
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+.agent-close .codicon { display: none; }
+
+.agent-close:hover {
+  width: 12px;
+  height: 12px;
+  flex-basis: 12px;
+  margin: -2px;
+  background: var(--red);
+  color: #fff;
+  animation: none;
+}
+
+.agent-close:hover .codicon {
+  display: block;
+  font-size: 8px;
+  line-height: 12px;
 }
 
 @keyframes pulse {
