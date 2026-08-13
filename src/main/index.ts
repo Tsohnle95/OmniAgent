@@ -564,6 +564,11 @@ function registerIpc(): void {
 
   handleTrusted("shell:active-sessions", async () => backend.activeSessions());
 
+  handleTrusted("shell:close-session", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.closeSession(workspace);
+  });
+
   handleTrusted("shell:open-session-id", async (_e, sessionID: string, requestGeneration: number) =>
     backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)))
   );

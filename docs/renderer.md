@@ -45,10 +45,13 @@ Actions: `openSession` / `selectFolder` (spawn a new panel), `reopenSession(id, 
 `refreshProviderUsage`, `loadModels(workspace?)`, `switchModel(id, providerID, variant?, workspace?)`,
 `loadAgents(workspace?)`, `switchAgent(id, workspace?)`, `toggleApprovalMode`, `toggleWordWrap`,
 `openFile(path, {mode}, workspace?)`, `closeTab`, `setActive`, `setTabMode`, `editContent`, `saveTab`,
-`reloadTab`, `overwriteTab`, `mergeTab`, `toggleDir`, `replyPermission(requestID, reply, sessionID?)`,
+`reloadTab`, `overwriteTab`, `mergeTab`, `toggleDir`, `ensureRootOpen`,
+`replyPermission(requestID, reply, sessionID?)`,
 `openCtxMenu`, `closeCtxMenu`, `startCreate(parent, kind)`, `startRename(path)`, `cancelPending`,
 `commitName(name)`, `deleteEntry(path)`, `moveEntry(path, destDir)`,
-`openRecovery(id)`, `acknowledgeRecovery(id)`. The optional workspace/session parameters let
+`openRecovery(id)`, `acknowledgeRecovery(id)`. `closePanel` invokes
+`shell:close-session` so main tears down the panel's backend context
+(watcher, context map) while the opencode session stays reopenable. The optional workspace/session parameters let
 a background panel's composer act on its own session while the focused session's editor keeps
 its state; they default to the focused session. `commitName`/`deleteEntry`/
 `moveEntry` call the `shell:fs-*` mutation channels, then re-list every expanded
@@ -96,8 +99,11 @@ Key mechanisms:
   file content blocks remain available. Live reduction and replay hydration use
   the same policy. The active stream plus the four most recently updated
   inactive streams are retained in memory; usage records follow the same LRU
-  policy. Evicted sessions remain reopenable and are hydrated from OpenCode on
-  demand.
+  policy. Open panels are exempt from eviction, so a background panel's
+  transcript and usage can never be silently blanked by other sessions'
+  streams. A panel whose record was evicted while closed (or is otherwise
+  missing) is re-hydrated from OpenCode when it is focused or reopened, so
+  closed sessions remain reopenable and are hydrated on demand.
 - **Selection parity** — catalog refreshes reconcile against
   `sessionSelection()` before falling back to `modelDefault()`, so a newly
   created or reopened GPT/agent session cannot be mislabeled with the previous
@@ -195,7 +201,7 @@ Key mechanisms:
 |---|---|---|
 | `App` | `App.tsx` | Layout: titlebar + N-panel grid (one `PanelColumn` per open session, each with the same drag/collapse/tray behavior; a `+` column and titlebar buttons spawn more panels; the sessions rail toggles from the titlebar) + optional bottom tray; (`useDragResize`; `minmax(0,1fr)` center, panels grow to meet each other on narrow windows) + optional bottom tray; left panel resizes to its original minimum and closes with its header arrow, each session panel tracks the drag all the way down and switches to a 44px model strip only when dragged to that width; a panel's drag cap is the window minus the sidebar and the other panels' shown widths (no fixed max), so it can be dragged to meet its neighbors on any window width — full chatbot view when the sidebar is collapsed; a panel sitting at its cap is anchored, so window resizes grow or shrink it in lockstep with the opposite panel, and only dragging the divider detaches it; one layout effect resolves all panels in a single pass so a window narrower than the panels never oscillates: with one panel, an anchored agent takes the window remainder and the sidebar keeps its width, and when neither is anchored they split the available width proportionally; with multiple panels, open panels share the remaining width, capped to their current widths when the window shrinks; reopening a panel from its tray button restores the 280px default width and reopening the collapsed sidebar from its Explorer button uses the same 280px default; closed trays can be dragged outward from their divider to reopen the original pane; clicking a panel focuses it (its editor/tree/terminal state swaps in); titlebar shows a sessions toggle (running panels, recents, saved workspaces — `SessionsTab`), an open-another-workspace button, an agent-mode toggle (collapse sidebar + slam the last agent panel to the single chat view; clicking again restores the sidebar and reduces the agent panel to its 300px minimum width, and manually leaving the layout exits the mode), a tray toggle, and busy/idle status; composer shortcuts Shift+Tab cycles the agent, Shift+P cycles favorited models, Shift+S cycles response-strength variants; word-wrap shortcuts (⌘W intercepted in main, ⌥Z via `e.code`); darwin class for the traffic-light inset |
 | `Welcome` | `Welcome.tsx` | Editorial two-column launcher: the shared `ShellMark` SVG (clay scallop-shell line art with a cream prompt chevron in its opening), serif wordmark (bundled Cormorant Garamond), folder pick (`selectFolder()`), and a hairline-bordered frame with Sessions/Projects tabs populated from `sessions()` / `projects()`; both tab lists stay mounted as stacked grid panes (`visibility: hidden` when inactive) so the frame height never changes on tab switch; session rows reopen via `openSessionById` |
-| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel for observed workspace file changes (known baselines open as diffs; unknown baselines are labeled observed), plus the EXPLORER tree, create/rename/delete actions, and drag-and-drop moves onto folders or the root |
+| `FileSidebar` | `FileSidebar.tsx` | CHANGES panel for observed workspace file changes (known baselines open as diffs; unknown baselines are labeled observed), plus the EXPLORER tree, create/rename/delete actions, and drag-and-drop moves onto folders or the root; each newly focused session ensure-opens the explorer root (`ensureRootOpen` expands and refreshes it without ever collapsing a previously visited workspace) |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor`, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
 | `SessionsTab` | `SessionsTab.tsx` | Sessions rail: running panels (focus/close), recent sessions (reopen; "open" badge when already running), saved workspaces (`projects()` → new session), and an "Open another workspace" spawn affordance |
 | `AgentPanel` | `AgentPanel.tsx` | `session`-parameterized panel hosting the OpenCode timeline and V2 prompt dock: todo checklist, exact web placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, compact send/stop button, and smart auto-scroll; the composer resolves `/` into a slash-command picker (built-ins like `/compact` first, then `command.list` + `skill.list`; skills run via `session.skill`, `/compact` via `session.compact`) that runs via `runCommand` (Enter on a leading-`/` prompt runs it too) and `@` into a file-mention picker (`file.find` search, debounced per keystroke) that inserts `@rel` tokens attached to the prompt as `PromptFile`s with mention spans; header arrow collapses it at the same time as the resize gesture reaches the model strip width; a coin-token toggle in the header opens a usage popup (session tokens/cost from `sessionUsage`, per-provider plan limits from `providerUsage`); the toggle glyph is a ring whose arc and color (green < 60% → amber → red ≥ 85%) track context-window fill, and the popup shows a "Context window" fill bar with percent and `input of limit tokens` — input tokens vs the active model's `limit.context` — hidden when the model reports no context limit |

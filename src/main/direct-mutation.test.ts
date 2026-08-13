@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { chmod, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +38,7 @@ async function backendFixture(
   root: string;
   messages: BackendMessage[];
 }> {
-  const root = await mkdtemp(path.join(tmpdir(), "openshell-mutation-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-mutation-")));
   roots.push(root);
   const backend = new OpenShellBackend(mutationPhase);
   const context = {
@@ -578,6 +578,24 @@ describe("direct mutation observed changes", () => {
     expect(await readFile(path.join(root, "guide.txt"), "utf8")).toBe("root");
     expect(messages.map((message) => (message.kind === "file-update" ? message.file?.path : null)))
       .toEqual(["docs/guide.txt", "guide.txt"]);
+  });
+
+  it("rejects the recovery directory as move source or destination", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await mkdir(path.join(root, "docs"));
+    await mkdir(path.join(root, ".openshell-recovery"), { recursive: true });
+    await writeFile(path.join(root, "docs", "note.txt"), "x");
+
+    await expect(backend.movePath(workspace, ".openshell-recovery", "docs"))
+      .rejects.toThrow("cannot move the recovery directory");
+    await expect(backend.movePath(workspace, "docs/note.txt", ".openshell-recovery"))
+      .rejects.toThrow("cannot move into the recovery directory");
+    await expect(backend.movePath(workspace, "docs", ".openshell-recovery/archive"))
+      .rejects.toThrow("cannot move into the recovery directory");
+
+    expect(await readFile(path.join(root, "docs", "note.txt"), "utf8")).toBe("x");
+    expect(await readdir(path.join(root, ".openshell-recovery"))).toEqual([]);
+    expect(messages).toEqual([]);
   });
 
   it("rejects missing, occupied, traversal, and self-descendant move destinations", async () => {

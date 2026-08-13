@@ -325,6 +325,7 @@ export function FileSidebar({
     selectFolder,
     tree,
     toggleDir,
+    ensureRootOpen,
     agentFiles,
     openFile,
     expanded,
@@ -346,9 +347,9 @@ export function FileSidebar({
     const key = session ? `${session.id}::${session.directory}` : null;
     if (key && loadedSessionKey.current !== key) {
       loadedSessionKey.current = key;
-      void toggleDir("");
+      void ensureRootOpen();
     }
-  }, [session, toggleDir]);
+  }, [session, ensureRootOpen]);
 
   const drag: DragHandlers = {
     dragPath,

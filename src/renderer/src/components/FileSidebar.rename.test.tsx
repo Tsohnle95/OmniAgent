@@ -8,6 +8,7 @@ const store = {
   selectFolder: vi.fn(),
   tree: { "": [{ path: "folder", type: "directory" as const }] },
   toggleDir: vi.fn(),
+  ensureRootOpen: vi.fn(),
   agentFiles: new Map(),
   openFile: vi.fn(),
   expanded: new Set([""]),

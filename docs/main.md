@@ -47,6 +47,7 @@ Public methods (all used by IPC):
 | `openSession(directory)` | Accepts a generation, calls `session.create`, and activates a new context (a new concurrent panel); starts the context watcher and emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
 | `activeSessions()` | The open contexts' `SessionInfo` in activation order, primary last (startup restore) |
+| `closeSession(workspace)` | Tears down the addressed context (stops its watcher, removes it from the context map) when its panel closes; the opencode session itself stays alive so recents can reopen it |
 | `openSessionById(sessionID)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
 | `prompt(workspace, text, files?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt` |
@@ -62,7 +63,7 @@ Public methods (all used by IPC):
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
 | `renamePath(workspace, rel, newName)` | Confined same-folder no-replace file rename; rejects occupied destinations and directory renames where portable no-replace semantics are unavailable |
-| `movePath(workspace, rel, newParent)` | Confined cross-folder move for files and directories via one atomic `fs.rename` (no recovery hold — see architecture); rejects self/descendant, missing, occupied, and cross-filesystem destinations; emits a tracked deletion at the source and, for files, an addition at the target |
+| `movePath(workspace, rel, newParent)` | Confined cross-folder move for files and directories via one atomic `fs.rename` (no recovery hold — see architecture); rejects self/descendant, missing, occupied, cross-filesystem, and `.openshell-recovery` source/destination paths; emits a tracked deletion at the source and, for files, an addition at the target |
 | `listRecovery(workspace)` | Lists validated durable recovery artifacts under the addressed workspace's `.openshell-recovery` directory |
 | `openRecovery(workspace, id)` | Opens the validated artifact selected by opaque recovery record id; never accepts a renderer path |
 | `acknowledgeRecovery(workspace, id)` | Persists acknowledgment in the transaction manifest without deleting artifact bytes |
@@ -141,6 +142,7 @@ Internals:
 | `shell:open-session` | `(dir, generation) → SessionInfo` |
 | `shell:sessions` | `() → SessionSummary[]` |
 | `shell:active-sessions` | `() → SessionInfo[]` — open backend sessions, most recently activated last |
+| `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `shell:open-session-id` | `(sessionID, generation) → ReopenedSession` |
 | `shell:prompt` | `(workspace, text, files?) → void` |
 | `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |

@@ -19,6 +19,7 @@ const store = {
     "alpha/sub": []
   },
   toggleDir: vi.fn(),
+  ensureRootOpen: vi.fn(),
   agentFiles: new Map(),
   openFile: vi.fn(),
   expanded: new Set(["", "alpha", "alpha/sub"]),
@@ -59,6 +60,8 @@ describe("FileSidebar drag-and-drop moves", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     store.moveEntry.mockClear();
+    store.ensureRootOpen.mockClear();
+    store.toggleDir.mockClear();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -68,6 +71,13 @@ describe("FileSidebar drag-and-drop moves", () => {
     act(() => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+  });
+
+  it("ensure-opens the explorer root when the focused session changes", () => {
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+
+    expect(store.ensureRootOpen).toHaveBeenCalledTimes(1);
+    expect(store.toggleDir).not.toHaveBeenCalled();
   });
 
   it("moves a file into a folder on drop", () => {

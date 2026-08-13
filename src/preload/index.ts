@@ -30,6 +30,7 @@ const api = {
   openSession: (dir: string, generation: number): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir, generation),
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
   activeSessions: (): Promise<SessionInfo[]> => ipcRenderer.invoke("shell:active-sessions"),
+  closeSession: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:close-session", workspace),
   openSessionById: (sessionID: string, generation: number): Promise<ReopenedSession> =>
     ipcRenderer.invoke("shell:open-session-id", sessionID, generation),
   prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<void> =>

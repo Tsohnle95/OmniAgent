@@ -45,6 +45,13 @@ function api(overrides: Partial<OpenShellApi> = {}): OpenShellApi {
     agents: async () => [],
     sessions: async () => [],
     openSession: async (directory, generation) => info(directory, generation),
+    openSessionById: async (sessionID: string) => ({
+      session: { ...info("/reopened", 0), id: sessionID },
+      transcript: [],
+      todos: [],
+      usage: null
+    }),
+    closeSession: async () => {},
     readFile: async () => "content",
     listDir: async () => [],
     ...overrides
@@ -255,8 +262,13 @@ describe("store workspace continuations", () => {
     expect(store.tabs.map((tab) => tab.path)).toEqual(["two.txt"]);
   });
 
-  it("reopens an already-open session by focusing its panel without a backend call", async () => {
-    const openSessionById = vi.fn();
+  it("reopens an already-open session by focusing its panel and hydrating a missing transcript", async () => {
+    const openSessionById = vi.fn(async (sessionID: string) => ({
+      session: { ...info("/reopened", 0), id: sessionID },
+      transcript: [],
+      todos: [],
+      usage: null
+    }));
     window.openshell = api({ openSessionById });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
@@ -266,23 +278,28 @@ describe("store workspace continuations", () => {
 
     await act(async () => store.reopenSession(first.id));
 
-    expect(openSessionById).not.toHaveBeenCalled();
+    expect(openSessionById).toHaveBeenCalledWith(first.id, expect.any(Number));
     expect(store.panels).toHaveLength(2);
     expect(store.session?.id).toBe(first.id);
   });
 
-  it("closes a panel and keeps the neighbor focused", async () => {
-    window.openshell = api();
+  it("closes a panel, tears down its backend context, and keeps the neighbor focused", async () => {
+    const closeSession = vi.fn(async () => {});
+    window.openshell = api({ closeSession });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
     await act(async () => store.openSession("/two"));
     expect(store.session?.id).toBe(store.panels[1].id);
+    const closedWorkspace = store.panels[1].workspace;
 
     await act(async () => store.closePanel(store.panels[1].id));
+    expect(closeSession).toHaveBeenCalledWith(closedWorkspace);
     expect(store.panels.map((panel) => panel.id)).toEqual([store.panels[0].id]);
     expect(store.session?.id).toBe(store.panels[0].id);
+    const lastWorkspace = store.panels[0].workspace;
 
     await act(async () => store.closePanel(store.panels[0].id));
+    expect(closeSession).toHaveBeenCalledWith(lastWorkspace);
     expect(store.panels).toHaveLength(0);
     expect(store.session).toBeNull();
   });
@@ -327,5 +344,23 @@ describe("store workspace continuations", () => {
     await act(async () => store.acknowledgeRecovery(record.id));
     expect(openRecovery).toHaveBeenCalledWith(store.session!.workspace, record.id);
     expect(acknowledgeRecovery).toHaveBeenCalledWith(store.session!.workspace, record.id);
+  });
+
+  it("ensureRootOpen refreshes an already-expanded root instead of collapsing it", async () => {
+    const listDir = vi.fn(async () => [{ path: "alpha", type: "directory" as const }]);
+    window.openshell = api({ listDir });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+
+    await act(async () => { await store.ensureRootOpen(); });
+    expect(store.expanded.has("")).toBe(true);
+    expect(listDir).toHaveBeenCalledTimes(1);
+
+    listDir.mockClear();
+    await act(async () => { await store.ensureRootOpen(); });
+
+    expect(store.expanded.has("")).toBe(true);
+    expect(listDir).toHaveBeenCalledTimes(1);
+    expect(store.tree[""]).toHaveLength(1);
   });
 });

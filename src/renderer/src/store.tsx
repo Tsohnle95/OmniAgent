@@ -122,6 +122,7 @@ interface Store {
   overwriteTab: (path: string) => Promise<void>;
   mergeTab: (path: string) => void;
   toggleDir: (path: string) => Promise<void>;
+  ensureRootOpen: () => Promise<void>;
   replyPermission: (requestID: string, reply: PermissionReply, sessionID?: string) => Promise<void>;
   ctxMenu: CtxMenuState | null;
   pendingCreate: PendingCreate | null;
@@ -359,6 +360,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
+  const transcriptsBySessionRef = useRef(transcriptsBySession);
+  transcriptsBySessionRef.current = transcriptsBySession;
   const agentFilesByWorkspaceRef = useRef(agentFilesByWorkspace);
   agentFilesByWorkspaceRef.current = agentFilesByWorkspace;
   const expandedByWorkspaceRef = useRef(expandedByWorkspace);
@@ -404,6 +407,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const workspaceOfSession = useCallback(
     (sessionID: string): WorkspaceIdentity | null =>
       panelsRef.current.find((panel) => panel.id === sessionID)?.workspace ?? null,
+    []
+  );
+
+  const protectedSessionIDs = useCallback(
+    (): Set<string> => new Set(panelsRef.current.map((panel) => panel.id)),
     []
   );
 
@@ -453,10 +461,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         const next = update(items);
         return next === items
           ? current
-          : retainSessionRecord(current, sessionID, next, sessionRef.current?.id);
+          : retainSessionRecord(current, sessionID, next, protectedSessionIDs());
       });
     },
-    []
+    [protectedSessionIDs]
   );
 
   const setSessionBusy = useCallback((sessionID: string, value: boolean) => {
@@ -478,6 +486,43 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setPanels(panelsRef.current);
   }, []);
 
+  const hydrateTranscript = useCallback(
+    async (sessionID: string): Promise<void> => {
+      const request = ++requestSeqRef.current;
+      try {
+        const reopened = await window.openshell.openSessionById(sessionID, request);
+        if (!panelForSession(sessionID)) return;
+        setTranscriptsBySession((current) => retainSessionRecord(
+          current,
+          sessionID,
+          mergeChatHistory(reopened.transcript, current[sessionID] ?? []),
+          protectedSessionIDs()
+        ));
+        const running = [...reopened.transcript].reverse().find((item) => item.kind === "assistant");
+        setBusyBySession((current) => sessionID in current
+          ? current
+          : {
+              ...current,
+              [sessionID]: Boolean(running?.kind === "assistant" && !running.completed)
+            });
+        setTodosFor(reopened.session.workspace.id, reopened.todos);
+        if (reopened.usage) {
+          setUsageBySession((current) => retainSessionRecord(
+            current,
+            sessionID,
+            reopened.usage!,
+            protectedSessionIDs()
+          ));
+        }
+      } catch (err) {
+        if (panelForSession(sessionID)) {
+          toast(err instanceof Error ? err.message : String(err), "error");
+        }
+      }
+    },
+    [toast, panelForSession, setTodosFor, protectedSessionIDs]
+  );
+
   const focusSession = useCallback((sessionID: string): void => {
     const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
     if (!panel) return;
@@ -488,11 +533,16 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setCtxMenu(null);
     setPendingCreate(null);
     setPendingRename(null);
-  }, []);
+    if (!transcriptsBySessionRef.current[sessionID]) void hydrateTranscript(sessionID);
+  }, [hydrateTranscript]);
 
   const closePanel = useCallback((sessionID: string): void => {
+    const closing = panelsRef.current.find((panel) => panel.id === sessionID);
     panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
     setPanels(panelsRef.current);
+    if (closing) {
+      void window.openshell.closeSession(closing.workspace).catch(() => {});
+    }
     if (sessionRef.current?.id === sessionID) {
       const neighbor = panelsRef.current[panelsRef.current.length - 1] ?? null;
       sessionRef.current = neighbor;
@@ -677,6 +727,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     async (sessionID: string, silent = false) => {
       const existing = panelForSession(sessionID);
       if (existing) {
+        if (!transcriptsBySessionRef.current[sessionID]) void hydrateTranscript(sessionID);
         if (!silent) {
           focusSession(sessionID);
           void loadSessions();
@@ -702,7 +753,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             reopened.transcript,
             current[reopened.session.id] ?? []
           ),
-          reopened.session.id
+          protectedSessionIDs()
         ));
         const running = [...reopened.transcript].reverse().find((item) => item.kind === "assistant");
         setBusyBySession((current) => reopened.session.id in current
@@ -717,7 +768,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             current,
             reopened.session.id,
             reopened.usage!,
-            reopened.session.id
+            protectedSessionIDs()
           ));
         }
         if (!silent) toast(`Reopened session in ${reopened.session.directory}`);
@@ -728,7 +779,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [attachPanel, focusSession, panelForSession, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery]
+    [attachPanel, focusSession, panelForSession, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
   );
 
   const sendPrompt = useCallback(
@@ -847,6 +898,30 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           const entries = await window.openshell.listDir(target, path);
           if (!panelFor(target)) return;
           setTreeFor(target.id, (prev) => ({ ...prev, [path]: sortEntries(filterEntries(entries)) }));
+        } catch (err) {
+          toast(err instanceof Error ? err.message : String(err), "error");
+        }
+      }
+    },
+    [treeByWorkspace, toast, panelFor, setExpandedFor, setTreeFor]
+  );
+
+  const ensureRootOpen = useCallback(
+    async (): Promise<void> => {
+      const target = sessionRef.current?.workspace;
+      if (!target) return;
+      const current = expandedByWorkspaceRef.current[target.id] ?? new Set<string>();
+      const wasOpen = current.has("");
+      if (!wasOpen) {
+        const next = new Set(current);
+        next.add("");
+        setExpandedFor(target.id, next);
+      }
+      if (wasOpen || !treeByWorkspace[target.id]?.[""]) {
+        try {
+          const entries = await window.openshell.listDir(target, "");
+          if (!panelFor(target)) return;
+          setTreeFor(target.id, (prev) => ({ ...prev, "": sortEntries(filterEntries(entries)) }));
         } catch (err) {
           toast(err instanceof Error ? err.message : String(err), "error");
         }
@@ -1415,7 +1490,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             current,
             targetSessionID,
             usage,
-            sessionRef.current?.id
+            protectedSessionIDs()
           ));
           break;
         }
@@ -1624,6 +1699,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     panelFor,
     panelForSession,
     workspaceOfSession,
+    protectedSessionIDs,
     setTodosFor,
     setRecoveryFor,
     setAgentFilesFor,
@@ -1719,6 +1795,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       overwriteTab,
       mergeTab,
       toggleDir,
+      ensureRootOpen,
       replyPermission,
       ctxMenu,
       pendingCreate,
@@ -1740,7 +1817,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       focusSession, closePanel, openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
-      editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, replyPermission,
+      editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
       openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, moveEntry, openRecovery, acknowledgeRecovery
     ]
   );

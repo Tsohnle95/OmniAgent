@@ -36,12 +36,15 @@ export function retainSessionRecord<T>(
   records: Record<string, T>,
   sessionID: string,
   value: T,
-  activeSessionID?: string
+  protectedIDs?: string | ReadonlySet<string>
 ): Record<string, T> {
   const next = { ...records };
   delete next[sessionID];
   next[sessionID] = value;
-  const inactive = Object.keys(next).filter((id) => id !== activeSessionID);
+  const protectedSet = protectedIDs instanceof Set
+    ? protectedIDs
+    : new Set(protectedIDs ? [protectedIDs] : []);
+  const inactive = Object.keys(next).filter((id) => !protectedSet.has(id));
   for (const id of inactive.slice(0, -MAX_INACTIVE_SESSION_RECORDS)) delete next[id];
   return next;
 }

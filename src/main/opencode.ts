@@ -623,14 +623,28 @@ export class OpenShellBackend {
     } else if (type === "filesystem.changed") {
       const f = data as { file: string; event: "add" | "change" | "unlink" };
       if (typeof f?.file !== "string") return;
+      const reportedRoot = typeof location?.directory === "string"
+        ? await this.reportedRoot(location.directory)
+        : null;
+      if (!reportedRoot) return;
       for (const context of this.contexts.values()) {
-        if (typeof location?.directory !== "string" || path.resolve(location.directory) !== context.directory) continue;
+        if (reportedRoot !== context.directory) continue;
         const abs = this.abs(f.file, context.directory);
         const rel = path.relative(context.directory, abs);
         if (!rel || rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) continue;
         await this.onFsChanged(context.watchContext, abs, f.event);
       }
     }
+  }
+
+  private readonly reportedRoots = new Map<string, string>();
+
+  private async reportedRoot(directory: string): Promise<string> {
+    const cached = this.reportedRoots.get(directory);
+    if (cached !== undefined) return cached;
+    const resolved = await fsp.realpath(directory).catch(() => path.resolve(directory));
+    this.reportedRoots.set(directory, resolved);
+    return resolved;
   }
 
   // ---------- filesystem watching + agent baselines ----------
@@ -1238,6 +1252,17 @@ export class OpenShellBackend {
     return sessions;
   }
 
+  async closeSession(workspace: WorkspaceIdentity): Promise<void> {
+    const context = this.contextFor(workspace);
+    context.activations.invalidate();
+    this.stopWatcher(context);
+    this.contexts.delete(workspace.id);
+    if (this.primary === workspace.id) {
+      const keys = [...this.contexts.keys()];
+      this.primary = keys.length > 0 ? keys[keys.length - 1] : null;
+    }
+  }
+
   async workspaceDirectory(workspace: WorkspaceIdentity): Promise<string> {
     return this.contextFor(workspace).directory;
   }
@@ -1744,11 +1769,18 @@ export class OpenShellBackend {
       const context = this.contextFor(workspace);
       const watchContext = context.watchContext;
       if (!this.currentWatch(watchContext)) throw new Error("stale workspace");
-      const abs = await confinedPath(root, relativePath(rel));
+      const clean = relativePath(rel);
+      if (clean === RECOVERY_DIR || clean.startsWith(`${RECOVERY_DIR}/`)) {
+        throw new Error("cannot move the recovery directory");
+      }
       const parentRel = relativePath(newParent, true);
-      if (parentRel === rel || parentRel.startsWith(`${rel}/`)) {
+      if (parentRel === RECOVERY_DIR || parentRel.startsWith(`${RECOVERY_DIR}/`)) {
+        throw new Error("cannot move into the recovery directory");
+      }
+      if (parentRel === clean || parentRel.startsWith(`${clean}/`)) {
         throw new Error("cannot move a folder into itself");
       }
+      const abs = await confinedPath(root, clean);
       const parentDir = await confinedPath(root, parentRel, true);
       const parentStat = await fsp.lstat(parentDir).catch(() => null);
       if (!parentStat?.isDirectory()) throw new Error("destination folder does not exist");

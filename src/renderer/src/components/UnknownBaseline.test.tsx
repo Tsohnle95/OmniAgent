@@ -30,6 +30,7 @@ const store = {
   selectFolder: vi.fn(),
   tree: { "": [] },
   toggleDir: vi.fn(),
+  ensureRootOpen: vi.fn(),
   agentFiles: new Map([[tab.path, unknownFile]]),
   openFile: vi.fn(),
   expanded: new Set<string>(),

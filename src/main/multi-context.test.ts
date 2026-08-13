@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -192,6 +192,69 @@ describe("concurrent session contexts", () => {
     await handle("session.tool.called", { sessionID: first.id, input: { filePath: "one.txt" } });
 
     expect([...firstContext.watchContext.snapshots.keys()].some((key) => key.endsWith("one.txt"))).toBe(true);
+    await backend.stop();
+  });
+
+  it("routes filesystem events reported through a symlinked root to the canonical context", async () => {
+    const real = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-real-")));
+    const links = await mkdtemp(path.join(tmpdir(), "openshell-multi-links-"));
+    roots.push(real, links);
+    await writeFile(path.join(real, "note.txt"), "before");
+    const link = path.join(links, "root");
+    await symlink(real, link);
+    const { backend, messages } = await fixture();
+    const client = clientWith({ "session-one": link });
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(link, 1);
+    expect(first.directory).toBe(real);
+
+    const handle = (backend as unknown as {
+      handleServerEvent: (
+        type: string,
+        data: unknown,
+        location?: { directory?: string }
+      ) => Promise<void>;
+    }).handleServerEvent.bind(backend);
+    messages.length = 0;
+    await handle("filesystem.changed", { file: "note.txt", event: "change" }, { directory: link });
+
+    const updates = messages.filter((message) => message.kind === "file-update");
+    expect(updates).toHaveLength(1);
+    const file = updates[0].kind === "file-update" ? updates[0].file : null;
+    expect(file?.path).toBe("note.txt");
+    expect(file?.sessionID).toBe(first.id);
+    await backend.stop();
+  });
+
+  it("closes a session context, stopping its watcher, and recreates a fresh context on reopen", async () => {
+    const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-close-")));
+    roots.push(one);
+    const { backend } = await fixture();
+    const client = clientWith({ "session-one": one });
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(one, 1);
+    const contextMap = backend as unknown as {
+      contexts: Map<string, { watcher: { close: () => void } | null }>;
+    };
+    const firstContext = contextMap.contexts.get(first.workspace.id)!;
+    expect(firstContext.watcher).toBeTruthy();
+    const closeSpy = vi.spyOn(firstContext.watcher!, "close");
+
+    await backend.closeSession(first.workspace);
+
+    expect(closeSpy).toHaveBeenCalled();
+    expect(contextMap.contexts.has(first.workspace.id)).toBe(false);
+    expect(await backend.activeSessions()).toHaveLength(0);
+
+    const reopened = await backend.openSessionById(first.id, 2);
+
+    expect(reopened.session.workspace.id).not.toBe(first.workspace.id);
+    expect(await backend.activeSessions()).toHaveLength(1);
+    expect(contextMap.contexts.get(reopened.session.workspace.id)?.watcher).toBeTruthy();
     await backend.stop();
   });
 });

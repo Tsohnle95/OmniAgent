@@ -100,8 +100,14 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    with its own watcher, snapshots, and recovery state. Every `shell:*`
    invoke addresses one workspace identity, resolved against the context map.
    One global SSE loop feeds all sessions; events route by session id and
-   `filesystem.changed` fans out to every context on that directory.
-6. Closing the window on macOS keeps the backend alive (it is only torn
+   `filesystem.changed` fans out to every context on the reported directory
+   (the reported path is realpath-canonicalized before matching, so
+   symlinked or case-differing roots reach the right context).
+6. Closing a panel invokes `shell:close-session`: main stops that context's
+   fs watcher and removes it from the context map (the opencode session
+   itself stays alive so recents can reopen it), and reopening the session
+   later activates a fresh context with a fresh workspace identity.
+7. Closing the window on macOS keeps the backend alive (it is only torn
    down in `before-quit`); re-activating re-creates the window while the
    single-flight event loop remains active. Shutdown aborts the active SDK SSE
    subscription and stops every context watcher. On renderer reload,
@@ -198,7 +204,8 @@ copy. The backend emits a tracked deletion at the source and, for files,
 an addition carrying the captured baseline at the target; files inside a
 moved directory surface through the fs watcher, and the renderer
 re-lists both the old parent and the destination. The source/target
-confinement rules are identical to the other mutations.
+confinement rules are identical to the other mutations, and
+`.openshell-recovery` is rejected as both source and destination.
 
 Every workspace filesystem call carries the expected workspace UUID and main
 rejects stale generations. Paths are bounded strict relative paths and no
