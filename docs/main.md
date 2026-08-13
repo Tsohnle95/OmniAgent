@@ -15,9 +15,6 @@ State:
 - `sessionID`, canonical `directory`, `workspace`, `sessionInfo` — the active session and immutable activation identity plus optional parent/title/agent metadata
 - `watchContext` — immutable activation root/session/workspace plus workspace-scoped `snapshots`, `lastKnown`, and `hasGit`
 - `watcher` — recursive `fs.watch` on the session directory
-- `settingsPath` — `app.getPath("userData")/settings.json`, holds the
-  last-used `{model:{id,providerID,variant?}}` and `{agent:{id}}` so new sessions
-  start on the same model/agent
 - `stopped` and `eventLoop` — `start()` is single-flight, while stop aborts and
   invalidates the generation-owned SSE lifecycle before a later restart subscribes
 - `activations` — monotonic latest-request-wins generation assigned before the

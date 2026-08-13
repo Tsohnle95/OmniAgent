@@ -86,12 +86,12 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    Main accepts the renderer generation before a native dialog opens, so a
    later user action wins even if an earlier dialog resolves later.
 2. `openSession(directory)` creates the session via
-   `client.session.create({ location: { directory }, model?, agent? })` —
-   the last-used model and agent are read from `settings.json` (userData)
-   and passed along; stores `sessionID`/`directory`, clears baseline
-   state, canonicalizes the workspace root, assigns a fresh immutable workspace
-   UUID plus request generation, and starts the fs watcher. Activations are
-   latest-request-wins and stale completions never commit.
+   `client.session.create({ location: { directory } })` — opencode's own
+   defaults pick the model and agent; stores `sessionID`/`directory`, clears
+   baseline state, canonicalizes the workspace root, assigns a fresh
+   immutable workspace UUID plus request generation, and starts the fs
+   watcher. Activations are latest-request-wins and stale completions never
+   commit.
 3. Emits `{ kind: "session" }`; renderer resets all UI state.
 4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
@@ -203,7 +203,9 @@ Switching calls `client.session.switchModel({ sessionID, model })`, including
 Agents come from `client.agent.list()`; the selection is updated live by
 `session.agent.selected` and switched via
 `client.session.switchAgent({ sessionID, agent })`. Both choices are
-persisted to `settings.json` so new sessions start with them. The composer
+session-scoped only: a new session starts on opencode's configured defaults
+(`default_agent` / default model), and OpenShell never writes preferences of
+its own. The composer
 also opens a native multi-file picker; the main process converts selected
 files to `file://` URIs for the prompt API. Its approval toggle is local UI
 state: approve mode automatically replies `once` to each permission request.

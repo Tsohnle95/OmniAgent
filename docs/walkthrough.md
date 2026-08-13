@@ -40,7 +40,7 @@ There are exactly five connection points to keep in your head:
 | 2 | main → renderer (events) | `backend.onMessage(fwd)` + `terminals.onMessage(fwd)` in `app.whenReady()` → `webContents.send("shell:message")` → preload `onMessage` → store |
 | 3 | main → opencode2 (REST) | `OpenCode.make(...)` client inside `OpenShellBackend.connect()` |
 | 4 | opencode2 → main (SSE) | `OpenShellBackend.runEventLoop()` → `client.event.subscribe()` |
-| 5 | main ↔ disk | `fs.watch` on the session dir, `fs` read/write, `settings.json` (userData) |
+| 5 | main ↔ disk | `fs.watch` on the session dir, `fs` read/write |
 
 ## Boot
 
@@ -85,9 +85,9 @@ activation accepted while `state()` is pending supersedes restoration.
 1. The Welcome screen calls `selectFolder()` (native dialog) or
    `openSession(dir)`; both land on `OpenShellBackend.openSession`
    in `OpenShellBackend`.
-2. The last-used model and agent are read from
-   `userData/settings.json` and passed to
-   `client.session.create({ location: { directory }, model?, agent? })`.
+2. `client.session.create({ location: { directory } })` creates the
+   session without extra options; opencode's configured defaults pick the
+   model and agent.
 3. Main assigns a generation when the request is accepted. `activateSession()`
    commits only if it remains latest, assigns a fresh immutable workspace UUID,
    binds watcher maps to root/session/generation, starts `fs.watch`, and emits
@@ -203,9 +203,9 @@ auto-replies `once` to every request without showing a card decision.
 Both pickers follow the same pattern: `loadModels`/`loadAgents` fetch
 catalogs (location = session directory) and the current pick via
 `modelDefault()`, seeded live by `session.model.selected`. Switching calls
-`session.switchModel` / `session.switchAgent` **and** persists the choice
-to `settings.json`, so the next session opens with the same model (plus
-response-strength `variant`, when the model exposes one) and agent.
+`session.switchModel` / `session.switchAgent` for the active session only;
+choices are session-scoped, so a new session starts on opencode's configured
+defaults rather than a saved OpenShell preference.
 Reopening a session restores the *session's* picks via
 `sessionSelection()` → `session.get`.
 

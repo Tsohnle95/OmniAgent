@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
-import { app, shell } from "electron";
+import { shell } from "electron";
 import { OpenCode } from "@opencode-ai/client";
 import { Service, type Endpoint } from "@opencode-ai/client/service";
 import type {
@@ -451,7 +451,6 @@ export class OpenShellBackend {
   private readonly mutations = new WorkspaceOperationCoordinator();
   private lastEnsureAt = 0;
   private readonly ensureCooldownMs = 30_000;
-  private readonly settingsPath = path.join(app.getPath("userData"), "settings.json");
 
   constructor(private readonly mutationPhase: MutationPhaseHandler = () => {}) {}
 
@@ -1002,49 +1001,6 @@ export class OpenShellBackend {
 
   // ---------- session + API ----------
 
-  private async savedModel(): Promise<{ id: string; providerID: string; variant?: string } | null> {
-    try {
-      const raw = await fsp.readFile(this.settingsPath, "utf8");
-      const parsed = JSON.parse(raw) as { model?: { id?: string; providerID?: string; variant?: string } };
-      if (parsed.model?.id && parsed.model.providerID) {
-        return {
-          id: parsed.model.id,
-          providerID: parsed.model.providerID,
-          ...(parsed.model.variant ? { variant: parsed.model.variant } : {})
-        };
-      }
-    } catch {
-      /* no settings yet */
-    }
-    return null;
-  }
-
-  private async savedAgent(): Promise<string | null> {
-    try {
-      const raw = await fsp.readFile(this.settingsPath, "utf8");
-      const parsed = JSON.parse(raw) as { agent?: { id?: string } };
-      if (parsed.agent?.id) return parsed.agent.id;
-    } catch {
-      /* no settings yet */
-    }
-    return null;
-  }
-
-  private async persistSettings(
-    patch: { model?: { id: string; providerID: string; variant?: string }; agent?: string }
-  ): Promise<void> {
-    try {
-      await fsp.mkdir(path.dirname(this.settingsPath), { recursive: true });
-      const existing = (await this.savedModel()) ?? null;
-      const prev = existing ? { model: existing } : {};
-      const agent = await this.savedAgent();
-      const base = { ...prev, ...(agent ? { agent: { id: agent } } : {}) };
-      await fsp.writeFile(this.settingsPath, JSON.stringify({ ...base, ...patch }, null, 2), "utf8");
-    } catch (err) {
-      console.error("[openshell] failed to persist settings:", err);
-    }
-  }
-
   private async activateSession(
     generation: number,
     info: Omit<SessionInfo, "workspace">
@@ -1077,11 +1033,8 @@ export class OpenShellBackend {
   async openSession(directory: string, acceptedGeneration?: number): Promise<SessionInfo> {
     const generation = acceptedGeneration ?? this.activations.accept();
     if (!this.client) throw new Error("not connected to opencode service");
-    const [saved, agent] = await Promise.all([this.savedModel(), this.savedAgent()]);
     const res = await this.client.session.create({
-      location: { directory },
-      ...(saved ? { model: saved } : {}),
-      ...(agent ? { agent } : {})
+      location: { directory }
     });
     const info = res as {
       id?: string;
@@ -1362,7 +1315,6 @@ export class OpenShellBackend {
       model: { id, providerID, ...(variant ? { variant } : {}) }
     });
     this.assertTarget(target);
-    void this.persistSettings({ model: { id, providerID, ...(variant ? { variant } : {}) } });
   }
 
   async listAgents(): Promise<AgentOption[]> {
@@ -1388,7 +1340,6 @@ export class OpenShellBackend {
     const target = this.activeTarget(workspace);
     await this.client.session.switchAgent({ sessionID: target.sessionID, agent: id });
     this.assertTarget(target);
-    void this.persistSettings({ agent: id });
   }
 
   async modelDefault(): Promise<ModelOption | null> {
