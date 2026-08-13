@@ -11,7 +11,7 @@ export function AgentTray({
   label: string;
   onExpand: () => void;
   onResizeLeft: (e: React.MouseEvent) => void;
-  onResizeRight: (e: React.MouseEvent) => void;
+  onResizeRight?: (e: React.MouseEvent) => void;
 }): ReactNode {
   return (
     <div className="agent-tray">
@@ -25,7 +25,7 @@ export function AgentTray({
       >
         <span className="codicon codicon-symbol-event" />
       </button>
-      <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />
+      {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
     </div>
   );
 }
