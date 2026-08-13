@@ -157,6 +157,30 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()[0]).toBeCloseTo(900 - 250 - 2, 0);
   });
 
+  it("closing the file explorer never inflates the anchored agent", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+    await act(async () => {
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 52 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()[0]).toBeCloseTo(1228, 0);
+    expect(agentLefts()[0]).toBeCloseTo(1, 0);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()[0]).toBeCloseTo(1228, 0);
+    expect(agentLefts()[0]).toBeCloseTo(207, 0);
+  });
+
   it("lays out multiple session panels stacked against the right side", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));

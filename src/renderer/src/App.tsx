@@ -401,11 +401,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       if (panelOpen) agentCapRef.current = agentLimit;
       if (sideOpen) sideCapRef.current = sideLimit;
       const total = sideShown + agentShownNow;
-      if (total <= avail) {
-        if (agentAnchored && panelOpen) setSlotWidth(panel0.workspace.id, agentLimit);
-        if (sideAnchored) setSideW(sideLimit);
-        return;
-      }
+      if (total <= avail) return;
       if (!sideOpen || !panelOpen) {
         if (panelOpen) setSlotWidth(panel0.workspace.id, agentLimit);
         else setSideW(sideLimit);
