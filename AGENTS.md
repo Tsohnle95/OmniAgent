@@ -33,9 +33,9 @@ npm start          # run the production build
 | Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
 | Packaging | `scripts/install-app.mjs` | electron-builder pack (`electron-builder.yml`) and `/Applications` install behind the Welcome Install app button |
 | Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
-| Renderer store | `src/renderer/src/store.tsx` | All UI state; subscribes to backend events |
+| Renderer store | `src/renderer/src/store.tsx` | All UI state (concurrent sessions: panels + per-workspace slices); subscribes to backend events |
 | Dispatch skill | `.opencode/skills/dispatch/` | Portable pipeline: repo-agnostic SKILL.md + checker copy |
-| Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panel, welcome, terminal tray |
+| Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panels, welcome, sessions rail, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
 

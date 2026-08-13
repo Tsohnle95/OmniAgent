@@ -1,7 +1,8 @@
 import { promises as fsp } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { FileBaseline, WorkspaceIdentity } from "@shared/types";
-import { OpenShellBackend } from "./opencode";
+import { LatestGeneration } from "@shared/generation";
+import { OpenShellBackend, type SessionContext } from "./opencode";
 
 vi.mock("@opencode-ai/client", () => ({ OpenCode: { make: vi.fn() } }));
 vi.mock("@opencode-ai/client/service", () => ({ Service: {} }));
@@ -17,11 +18,12 @@ interface WatchContext {
   snapshots: Map<string, FileBaseline>;
   lastKnown: Map<string, string>;
   hasGit: boolean | null;
+  timers: Map<string, ReturnType<typeof setTimeout>>;
 }
 
 type BackendHarness = {
-  workspace: WorkspaceIdentity | null;
-  watchContext: WatchContext | null;
+  contexts: Map<string, SessionContext>;
+  primary: string | null;
   onFsChanged(context: WatchContext, abs: string, event: string): Promise<void>;
   handleServerEvent(type: string, data: unknown, location?: { directory?: string }): Promise<void>;
   gitShow(context: WatchContext, rel: string): Promise<string | null>;
@@ -33,34 +35,54 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function harness(): { backend: OpenShellBackend; internals: BackendHarness; context: WatchContext; next: WorkspaceIdentity } {
-  const backend = new OpenShellBackend();
-  const internals = backend as unknown as BackendHarness;
-  const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
-  const next = { id: "22222222-2222-4222-8222-222222222222", generation: 2 };
-  const context = {
-    root: "/workspace-one",
+function sessionContext(workspace: WorkspaceIdentity, root: string): { context: WatchContext; entry: SessionContext } {
+  const context: WatchContext = {
+    root,
     sessionID: "session-one",
     workspace,
     snapshots: new Map<string, FileBaseline>(),
     lastKnown: new Map<string, string>(),
-    hasGit: true
+    hasGit: true,
+    timers: new Map()
   };
-  internals.workspace = workspace;
-  internals.watchContext = context;
-  return { backend, internals, context, next };
+  const entry: SessionContext = {
+    workspace,
+    sessionID: context.sessionID,
+    directory: root,
+    sessionInfo: { id: context.sessionID, directory: root, workspace },
+    watchContext: context,
+    watcher: null,
+    activations: new LatestGeneration()
+  };
+  return { context, entry };
+}
+
+function harness(): { backend: OpenShellBackend; internals: BackendHarness; context: WatchContext; supersede: () => void } {
+  const backend = new OpenShellBackend();
+  const internals = backend as unknown as BackendHarness;
+  const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+  const { context, entry } = sessionContext(workspace, "/workspace-one");
+  internals.contexts = new Map([[workspace.id, entry]]);
+  internals.primary = workspace.id;
+  const supersede = (): void => {
+    const next = { ...workspace, generation: workspace.generation + 1 };
+    const { entry: replaced } = sessionContext(next, "/workspace-one");
+    internals.contexts.set(workspace.id, replaced);
+    internals.primary = workspace.id;
+  };
+  return { backend, internals, context, supersede };
 }
 
 describe("backend watcher generation phases", () => {
-  it("drops routed filesystem work when generation changes during stat", async () => {
-    const { backend, internals, context, next } = harness();
+  it("drops routed filesystem work when the context is replaced during stat", async () => {
+    const { backend, internals, context, supersede } = harness();
     const stat = deferred<Awaited<ReturnType<typeof fsp.stat>>>();
     vi.spyOn(fsp, "stat").mockReturnValueOnce(stat.promise);
     const messages: unknown[] = [];
     backend.onMessage((message) => messages.push(message));
 
     const pending = internals.handleServerEvent("filesystem.changed", { file: "file.txt", event: "change" }, { directory: context.root });
-    internals.workspace = next;
+    supersede();
     stat.resolve({ isFile: () => true } as Awaited<ReturnType<typeof fsp.stat>>);
     await pending;
 
@@ -68,8 +90,8 @@ describe("backend watcher generation phases", () => {
     expect(context.lastKnown.size).toBe(0);
   });
 
-  it("drops work when generation changes during read", async () => {
-    const { backend, internals, context, next } = harness();
+  it("drops work when the context is replaced during read", async () => {
+    const { backend, internals, context, supersede } = harness();
     vi.spyOn(fsp, "stat").mockResolvedValueOnce({ isFile: () => true } as Awaited<ReturnType<typeof fsp.stat>>);
     const read = deferred<string>();
     vi.spyOn(fsp, "readFile").mockReturnValueOnce(read.promise);
@@ -78,7 +100,7 @@ describe("backend watcher generation phases", () => {
 
     const pending = internals.onFsChanged(context, `${context.root}/file.txt`, "change");
     await Promise.resolve();
-    internals.workspace = next;
+    supersede();
     read.resolve("new content");
     await pending;
 
@@ -86,8 +108,8 @@ describe("backend watcher generation phases", () => {
     expect(context.lastKnown.size).toBe(0);
   });
 
-  it("drops mutation and emission when generation changes during Git baseline lookup", async () => {
-    const { backend, internals, context, next } = harness();
+  it("drops mutation and emission when the context is replaced during Git baseline lookup", async () => {
+    const { backend, internals, context, supersede } = harness();
     vi.spyOn(fsp, "stat").mockResolvedValueOnce({ isFile: () => true } as Awaited<ReturnType<typeof fsp.stat>>);
     vi.spyOn(fsp, "readFile").mockResolvedValueOnce("new content");
     const git = deferred<string | null>();
@@ -98,7 +120,7 @@ describe("backend watcher generation phases", () => {
     const pending = internals.onFsChanged(context, `${context.root}/file.txt`, "change");
     await Promise.resolve();
     await Promise.resolve();
-    internals.workspace = next;
+    supersede();
     git.resolve("old content");
     await pending;
 
@@ -106,8 +128,8 @@ describe("backend watcher generation phases", () => {
     expect(context.snapshots.size).toBe(0);
   });
 
-  it("drops deletion handling when generation changes during Git lookup", async () => {
-    const { backend, internals, context, next } = harness();
+  it("drops deletion handling when the context is replaced during Git lookup", async () => {
+    const { backend, internals, context, supersede } = harness();
     vi.spyOn(fsp, "stat").mockRejectedValueOnce(new Error("missing"));
     const git = deferred<string | null>();
     vi.spyOn(internals, "gitShow").mockReturnValueOnce(git.promise);
@@ -116,7 +138,7 @@ describe("backend watcher generation phases", () => {
 
     const pending = internals.onFsChanged(context, `${context.root}/deleted.txt`, "unlink");
     await Promise.resolve();
-    internals.workspace = next;
+    supersede();
     git.resolve("old content");
     await pending;
 

@@ -2,7 +2,6 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackendMessage, SessionInfo } from "@shared/types";
-import { StoreProvider } from "./store";
 import App from "./App";
 
 vi.mock("./components/EditorPane", () => ({
@@ -22,7 +21,11 @@ vi.mock("@xterm/xterm", () => ({
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
-let messageHandler: ((message: BackendMessage) => void) | null;
+let messageHandlers: ((message: BackendMessage) => void)[] = [];
+
+function dispatch(message: BackendMessage): void {
+  for (const handler of messageHandlers) handler(message);
+}
 
 function info(directory: string, generation: number): SessionInfo {
   return {
@@ -36,11 +39,12 @@ function api(): typeof window.openshell {
   return {
     platform: "darwin",
     onMessage: (handler: (msg: BackendMessage) => void) => {
-      messageHandler = handler;
-      return () => { messageHandler = null; };
+      messageHandlers.push(handler);
+      return () => { messageHandlers = messageHandlers.filter((h) => h !== handler); };
     },
     health: async () => true,
     state: async () => info("/repo", 1),
+    activeSessions: async () => [info("/repo", 1)],
     projects: async () => [],
     models: async () => [],
     modelDefault: async () => null,
@@ -66,7 +70,7 @@ describe("Layout panel sizing", () => {
 
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    messageHandler = null;
+    messageHandlers = [];
     window.localStorage.clear();
     Object.defineProperty(window, "innerWidth", { value: 1480, configurable: true });
     window.openshell = api();
@@ -84,7 +88,7 @@ describe("Layout panel sizing", () => {
 
   it("settles with both panels fitting when the window is narrower than their combined width", async () => {
     setWidth(500);
-    await act(async () => root.render(<StoreProvider><App /></StoreProvider>));
+    await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     expect(container.querySelector(".app")).not.toBeNull();
@@ -100,7 +104,7 @@ describe("Layout panel sizing", () => {
   });
 
   it("converges without a crash when the window shrinks below the combined panel width", async () => {
-    await act(async () => root.render(<StoreProvider><App /></StoreProvider>));
+    await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     await act(async () => {
@@ -117,7 +121,7 @@ describe("Layout panel sizing", () => {
   });
 
   it("keeps an anchored agent panel tracking its cap as the window shrinks", async () => {
-    await act(async () => root.render(<StoreProvider><App /></StoreProvider>));
+    await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     await act(async () => {
@@ -141,5 +145,55 @@ describe("Layout panel sizing", () => {
       .style.getPropertyValue("--pane-columns") ?? "").split(" ");
     expect(Number.parseFloat(cols[0] ?? "0")).toBeCloseTo(250, 0);
     expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(900 - 250 - 2, 0);
+  });
+
+  it("lays out multiple session panels side by side with independent widths", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+    const addCol = container.querySelector<HTMLElement>(".panel-add-col");
+    expect(addCol).not.toBeNull();
+
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+    const grid = container.querySelector<HTMLElement>(".main-row")!;
+    const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
+    expect(cols).toHaveLength(8);
+    expect(cols[2]).toBe("minmax(0,1fr)");
+    const first = Number.parseFloat(cols[4] ?? "0");
+    const second = Number.parseFloat(cols[6] ?? "0");
+    expect(first).toBeGreaterThanOrEqual(44);
+    expect(second).toBeGreaterThanOrEqual(44);
+    expect(cols[7]).toBe("30px");
+
+    const dividerNodes = container.querySelectorAll<HTMLElement>(".main-row > .divider");
+    expect(dividerNodes).toHaveLength(3);
+  });
+
+  it("keeps both panels visible when the window is narrower than their combined width", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    await act(async () => {
+      setWidth(700);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+    const grid = container.querySelector<HTMLElement>(".main-row")!;
+    const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
+    const first = Number.parseFloat(cols[4] ?? "0");
+    const second = Number.parseFloat(cols[6] ?? "0");
+    expect(first + second + 250).toBeLessThanOrEqual(698);
+    expect(first).toBeGreaterThanOrEqual(44);
+    expect(second).toBeGreaterThanOrEqual(44);
   });
 });

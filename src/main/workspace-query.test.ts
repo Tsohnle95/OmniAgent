@@ -12,8 +12,9 @@ vi.mock("electron", () => ({
 vi.mock("@opencode-ai/client", () => ({ OpenCode: { make: vi.fn() } }));
 vi.mock("@opencode-ai/client/service", () => ({ Service: {} }));
 
-import { OpenShellBackend } from "./opencode";
+import { OpenShellBackend, type SessionContext } from "./opencode";
 import type { WorkspaceIdentity } from "@shared/types";
+import { LatestGeneration } from "@shared/generation";
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve!: (value: T) => void;
@@ -29,14 +30,29 @@ function install(
 ): void {
   const state = backend as unknown as {
     client: unknown;
-    workspace: WorkspaceIdentity;
-    directory: string;
-    sessionID: string;
+    contexts: Map<string, SessionContext>;
+    primary: string | null;
   };
   if (client) state.client = client;
-  state.workspace = workspace;
-  state.directory = directory;
-  state.sessionID = `session-${workspace.generation}`;
+  const watchContext = {
+    root: directory,
+    sessionID: `session-${workspace.generation}`,
+    workspace,
+    snapshots: new Map(),
+    lastKnown: new Map(),
+    hasGit: null as boolean | null,
+    timers: new Map()
+  };
+  state.contexts = new Map([[workspace.id, {
+    workspace,
+    sessionID: `session-${workspace.generation}`,
+    directory,
+    sessionInfo: { id: `session-${workspace.generation}`, directory, workspace },
+    watchContext,
+    watcher: null,
+    activations: new LatestGeneration()
+  }]]);
+  state.primary = workspace.id;
 }
 
 describe("workspace-scoped backend queries", () => {
@@ -50,7 +66,7 @@ describe("workspace-scoped backend queries", () => {
     const backend = new OpenShellBackend();
     const first = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
     install(backend, first, "/workspace-one", client);
-    const pending = backend.listCommands();
+    const pending = backend.listCommands(first);
     install(backend, { id: "22222222-2222-4222-8222-222222222222", generation: 2 }, "/workspace-two");
     commands.resolve([{ name: "old-command" }]);
     skills.resolve([{ name: "old-skill" }]);
@@ -66,7 +82,7 @@ describe("workspace-scoped backend queries", () => {
     const backend = new OpenShellBackend();
     const first = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
     install(backend, first, "/workspace-one", client);
-    const pending = backend.searchFiles("old");
+    const pending = backend.searchFiles(first, "old");
     install(backend, { id: "22222222-2222-4222-8222-222222222222", generation: 2 }, "/workspace-two");
     files.resolve([{ path: "src/old.ts" }]);
 
@@ -86,7 +102,7 @@ describe("workspace-scoped backend queries", () => {
     const backend = new OpenShellBackend();
     install(backend, { id: "11111111-1111-4111-8111-111111111111", generation: 1 }, "/workspace", client);
 
-    expect(await backend.searchFiles("visible")).toEqual([{
+    expect(await backend.searchFiles({ id: "11111111-1111-4111-8111-111111111111", generation: 1 }, "visible")).toEqual([{
       name: "visible.ts",
       path: "/workspace/src/visible.ts",
       rel: "src/visible.ts"
@@ -103,7 +119,7 @@ describe("built-in commands and prompt files", () => {
     const backend = new OpenShellBackend();
     install(backend, { id: "11111111-1111-4111-8111-111111111111", generation: 1 }, "/workspace", client);
 
-    expect(await backend.listCommands()).toEqual([
+    expect(await backend.listCommands({ id: "11111111-1111-4111-8111-111111111111", generation: 1 })).toEqual([
       { name: "compact", description: "Summarize the session to free up context", kind: "command" },
       { name: "project-cmd", description: "Runs a thing", kind: "command" },
       { name: "project-skill", kind: "skill" }

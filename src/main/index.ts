@@ -21,12 +21,12 @@ import type {
   WorkspaceIdentity
 } from "@shared/types";
 import {
-  assertWorkspace,
   confinedAbsolutePath,
   fileContent,
   terminalDimensions,
   terminalId,
-  terminalInput
+  terminalInput,
+  workspaceId
 } from "./workspace-security";
 import {
   activationGeneration,
@@ -562,6 +562,8 @@ function registerIpc(): void {
 
   handleTrusted("shell:sessions", async () => backend.listSessions());
 
+  handleTrusted("shell:active-sessions", async () => backend.activeSessions());
+
   handleTrusted("shell:open-session-id", async (_e, sessionID: string, requestGeneration: number) =>
     backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)))
   );
@@ -571,15 +573,21 @@ function registerIpc(): void {
     return backend.prompt(payload.workspace, payload.text, payload.files);
   });
 
-  handleTrusted("shell:commands", async () => backend.listCommands());
+  handleTrusted("shell:commands", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listCommands(workspace);
+  });
 
   handleTrusted("shell:run-command", async (_e, workspace: WorkspaceIdentity, name: string, args: string = "") => {
-    assertWorkspace(workspace, (await backend.getState())?.workspace ?? null);
+    await backend.workspaceDirectory(workspace);
     const command = commandPayload(name, args);
     return backend.runCommand(workspace, command.name, command.args);
   });
 
-  handleTrusted("shell:find-files", async (_e, query: string) => backend.searchFiles(queryText(query)));
+  handleTrusted("shell:find-files", async (_e, workspace: WorkspaceIdentity, query: string) => {
+    workspaceId(workspace);
+    return backend.searchFiles(workspace, queryText(query));
+  });
 
   handleTrusted("shell:select-files", async (e) => {
     const parent = BrowserWindow.fromWebContents(e.sender);
@@ -657,9 +665,15 @@ function registerIpc(): void {
 
   handleTrusted("shell:projects", async () => backend.listProjects());
 
-  handleTrusted("shell:models", async () => backend.listModels());
+  handleTrusted("shell:models", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listModels(workspace);
+  });
 
-  handleTrusted("shell:model-default", async () => backend.modelDefault());
+  handleTrusted("shell:model-default", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.modelDefault(workspace);
+  });
 
   handleTrusted("shell:switch-model", async (_e, workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string) =>
     backend.switchModel(
@@ -681,46 +695,48 @@ function registerIpc(): void {
     return backend.replyPermission(workspace, permission.requestID, permission.reply, permission.sessionID);
   });
 
-  handleTrusted("shell:agents", async () => backend.listAgents());
+  handleTrusted("shell:agents", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listAgents(workspace);
+  });
 
   handleTrusted("shell:switch-agent", async (_e, workspace: WorkspaceIdentity, id: string) =>
     backend.switchAgent(workspace, selectionId(id, "agent id")));
 
   handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity, requestedId: string) => {
-    const state = await backend.getState();
-    const active = assertWorkspace(workspace, state?.workspace ?? null);
+    const directory = await backend.workspaceDirectory(workspace);
     const id = terminalId(requestedId);
-    await terminals.start(id, state!.directory, active);
+    await terminals.start(id, directory, workspace);
     try {
-      assertWorkspace(workspace, (await backend.getState())?.workspace ?? null);
+      await backend.workspaceDirectory(workspace);
     } catch (error) {
-      terminals.stop(id, active);
+      terminals.stop(id, workspace);
       throw error;
     }
   });
 
   handleTrusted("shell:terminal-input", async (_e, workspace: WorkspaceIdentity, id: string, data: string) => {
-    const state = await backend.getState();
-    const active = assertWorkspace(workspace, state?.workspace ?? null);
-    terminals.write(terminalId(id), terminalInput(data), active);
+    await backend.workspaceDirectory(workspace);
+    terminals.write(terminalId(id), terminalInput(data), workspace);
   });
 
   handleTrusted("shell:terminal-resize", async (_e, workspace: WorkspaceIdentity, id: string, cols: number, rows: number) => {
-    const state = await backend.getState();
-    const active = assertWorkspace(workspace, state?.workspace ?? null);
+    await backend.workspaceDirectory(workspace);
     const dimensions = terminalDimensions(cols, rows);
-    terminals.resize(terminalId(id), dimensions.cols, dimensions.rows, active);
+    terminals.resize(terminalId(id), dimensions.cols, dimensions.rows, workspace);
   });
 
   handleTrusted("shell:terminal-stop", async (_e, workspace: WorkspaceIdentity, id: string) => {
-    const state = await backend.getState();
-    const active = assertWorkspace(workspace, state?.workspace ?? null);
-    terminals.stop(terminalId(id), active);
+    await backend.workspaceDirectory(workspace);
+    terminals.stop(terminalId(id), workspace);
   });
 
   handleTrusted("shell:state", async () => backend.getState());
 
-  handleTrusted("shell:session-selection", async () => backend.sessionSelection());
+  handleTrusted("shell:session-selection", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.sessionSelection(workspace);
+  });
 
   handleTrusted("shell:provider-usage", async () => backend.providerUsage());
 
@@ -761,7 +777,6 @@ if (!app.requestSingleInstanceLock()) {
     const trustSmoke = process.env["OPENSHELL_TRUST_SMOKE"] === "1";
     if (!trustSmoke) backend.start();
     const fwd = (msg: unknown): void => {
-      if ((msg as { kind?: string }).kind === "session") terminals.stopAll();
       if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
       win.webContents.send("shell:message", msg);
     };

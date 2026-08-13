@@ -35,6 +35,7 @@ function api(): typeof window.openshell {
     },
     health: async () => true,
     state: async () => null,
+    activeSessions: async () => [],
     models: async () => modelList,
     modelDefault: async () => null,
     sessionSelection: async () => null,

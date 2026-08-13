@@ -6,8 +6,9 @@ as `{ kind: "event", type, data }` (`BackendMessage`). The renderer
 dispatch lives in `src/renderer/src/store.tsx` (the `onMessage` effect).
 
 Session events are routed by `data.sessionID` into a per-session transcript
-and busy-state store. The active session is selected only for rendering, so
-child/subagent streams remain intact while their parent is open.
+and busy-state store, so every open panel streams independently: child and
+subagent streams keep flowing while the user works in another panel, and
+model/agent selections land on the panel that owns the session.
 
 Incoming events use the same scheduling strategy as OpenCode: they queue for
 a 16ms frame, adjacent deltas for the same part are concatenated, and adjacent
@@ -61,14 +62,14 @@ is backgrounded.
 | `message.part.updated` | Authoritatively reconciles an ordered legacy text, reasoning, or tool part |
 | `message.part.delta` | Appends a legacy text/reasoning field delta |
 | `message.part.removed` | Removes the projected part |
-| `session.model.selected` | Retains internal model-switch metadata and updates `currentModel` for the active session; it does not create a chat row |
-| `session.agent.selected` | Retains internal agent-switch metadata and updates `currentAgent` for the active session; it does not create a chat row |
-| `agent.updated` | Refetches the agent catalog for the active session so the composer agent picker recovers from a lazy or empty first load |
-| `catalog.updated` | Refetches the model catalog so the composer model picker stays current |
+| `session.model.selected` | Retains internal model-switch metadata and updates `currentModel` for the addressed session's panel; it does not create a chat row |
+| `session.agent.selected` | Retains internal agent-switch metadata and updates `currentAgent` for the addressed session's panel; it does not create a chat row |
+| `agent.updated` | Refetches the agent catalog for the addressed session so the composer agent picker recovers from a lazy or empty first load |
+| `catalog.updated` | Refetches the model catalog for the addressed session so the composer model picker stays current |
 | `models-dev.refreshed` | Legacy model-catalog change event; handled identically to `catalog.updated` |
 | `session.usage.updated` | Records cumulative session token usage (`tokens`) and cost (`cost`) for the addressed session; drives the token-usage popup in the agent header (context-window utilization is computed renderer-side from `tokens.input` vs the active model's `limit.context` delivered by `shell:models`) |
 | `session.usage.recorded` | Same usage snapshot as `session.usage.updated` on the durable legacy stream; handled identically |
-| `todo.updated` | Replaces the active session todo list rendered in the dock above the composer; `todowrite` tool-part input/metadata is also consumed as a beta-protocol fallback |
+| `todo.updated` | Replaces the addressed session's todo list rendered in the dock above its composer; `todowrite` tool-part input/metadata is also consumed as a beta-protocol fallback |
 | `permission.asked` | Appends a permission card (`action`, `resources`, pending=true) |
 | `permission.replied` | Marks `data.requestID` resolved, recording `resolvedWith` from `data.reply` |
 
@@ -96,12 +97,14 @@ OpenCode client, the latest upstream protocol, and older opencode2 services.
 `handleServerEvent` in `src/main/opencode.ts` additionally intercepts
 two types after forwarding:
 
-- `session.tool.called` → `snapshotInputs(input)` snapshots structured file
-  paths before execution when possible. Shell command strings are not parsed
+- `session.tool.called` → `snapshotInputs(context, input)` snapshots structured
+  file paths for the session context addressed by the event's `sessionID`
+  before execution when possible. Shell command strings are not parsed
   as paths.
-- `filesystem.changed` → `onFsChanged(file)` only when the event's top-level
-  `location.directory` matches the captured active watch context. Global events
-  from old or different workspaces are ignored.
+- `filesystem.changed` → `onFsChanged(file)` for every open session context
+  whose directory matches the event's top-level `location.directory`; a shared
+  directory fans the event out to each of its contexts. Global events from
+  directories without an open session are ignored.
 
 ## Tool-card data flow (trace)
 

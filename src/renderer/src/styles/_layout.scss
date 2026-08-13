@@ -67,3 +67,55 @@
   width: 13px;
   cursor: col-resize;
 }
+
+.panel-add-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.panel-add-btn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.agent-sliver {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  cursor: col-resize;
+}
+
+.agent-sliver .activity-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.agent-sliver .activity-btn:hover {
+  background: var(--accent-dim);
+  color: var(--text);
+}

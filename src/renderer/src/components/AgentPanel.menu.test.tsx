@@ -26,6 +26,17 @@ vi.mock("../store", () => ({
     runCommand: vi.fn(),
     stop: vi.fn(),
     busy: false
+  }),
+  usePanel: () => ({
+    session: currentSession,
+    busy: false,
+    transcript: [],
+    todos: [],
+    sessionUsage: null,
+    models: [],
+    currentModel: null,
+    agents: currentAgents,
+    currentAgent: null
   })
 }));
 

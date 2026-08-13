@@ -40,7 +40,7 @@ There are exactly five connection points to keep in your head:
 | 2 | main → renderer (events) | `backend.onMessage(fwd)` + `terminals.onMessage(fwd)` in `app.whenReady()` → `webContents.send("shell:message")` → preload `onMessage` → store |
 | 3 | main → opencode2 (REST) | `OpenCode.make(...)` client inside `OpenShellBackend.connect()` |
 | 4 | opencode2 → main (SSE) | `OpenShellBackend.runEventLoop()` → `client.event.subscribe()` |
-| 5 | main ↔ disk | `fs.watch` on the session dir, `fs` read/write |
+| 5 | main ↔ disk | one `fs.watch` per open session context, `fs` read/write |
 
 ## Boot
 
@@ -68,17 +68,17 @@ There are exactly five connection points to keep in your head:
    produces the typed client.
 
 `runEventLoop` then streams forever: each SSE event is forwarded verbatim
-as `{ kind: "event", type, data }` and passed to `handleServerEvent`
-through `handleServerEvent()`, which intercepts `session.tool.called`
-(baseline snapshotting) and `filesystem.changed` before the renderer sees
-them. On any failure the client is dropped and the loop retries after
+as `{ kind: "event", type, data }` and passed to `handleServerEvent`,
+which routes `session.tool.called` (baseline snapshotting) to the event's
+session context and fans `filesystem.changed` out to every context whose
+directory matches. On any failure the client is dropped and the loop retries after
 1.5s; `connect()` itself retries every 2s until a client exists.
 
 Meanwhile the renderer boots: the mount effect in `StoreProvider`
-probes `health()` and calls `state()` — if the backend still holds a
-session (macOS window closed and reopened), it restores it, reloads
-models/agents, and re-reads the session's model/agent selection. A user
-activation accepted while `state()` is pending supersedes restoration.
+probes `health()` and calls `activeSessions()` — the open backend sessions
+are reopened silently as panels (transcript/todos/usage replayed, editor
+state re-keyed by the reused workspace identity), and the most recently
+activated one is focused unless the user already acted.
 
 ## Opening a repository
 
@@ -88,14 +88,16 @@ activation accepted while `state()` is pending supersedes restoration.
 2. `client.session.create({ location: { directory } })` creates the
    session without extra options; opencode's configured defaults pick the
    model and agent.
-3. Main assigns a generation when the request is accepted. `activateSession()`
-   commits only if it remains latest, assigns a fresh immutable workspace UUID,
-   binds watcher maps to root/session/generation, starts `fs.watch`, and emits
+3. Main accepts the renderer generation before the await. `activateSession()`
+   assigns a fresh immutable workspace identity, binds a new context with its
+   own watcher maps, starts that context's `fs.watch`, and emits
    `{ kind: "session" }`.
-4. The opening action resets workspace state and the store reacts to the
-   emitted session message with `setSession`, `loadModels()`, `loadAgents()`,
-   and `loadSessions()`. The
-   `Root` component switches from `Welcome` to the three-pane `Layout`.
+4. The store adds the session as a new panel and focuses it (the emitted
+   session message upserts idempotently), loads its models/agents/usage, and
+   `Root` switches from `Welcome` to the multi-panel `Layout`. Opening another
+   workspace (titlebar button, the panel `+` column, or the Sessions rail)
+   spawns a sibling panel; clicking a panel swaps the shared editor/tree/
+   terminal to that session while every panel keeps streaming.
 
 Recent sessions (`shell:sessions` → `session.list`) populate the Welcome
 screen; clicking one goes down `openSessionById` (see below).
@@ -122,15 +124,15 @@ screen; clicking one goes down `openSessionById` (see below).
    `session.status` mirrors `busy`/`idle`/`retry` (retry detail attaches to
    the latest assistant).
 4. `session.model.selected` / `session.agent.selected` remain internal control
-   entries and update the pickers when they belong to the active session,
+   entries and update the pickers of the panel that owns the session,
    mirroring the local `switchModel`/`switchAgent` calls without creating chat.
 5. Stop: `stop()` → `shell:interrupt` → `client.session.interrupt`.
 
 ## The diff pipeline
 
-Changes shows workspace file changes observed during the active session, not
-authoritative agent-attributed changes. Sources feed the per-file baseline map (`snapshots` in
-`OpenShellBackend`):
+Changes shows workspace file changes observed during the focused session, not
+authoritative agent-attributed changes. Sources feed each context's per-file
+baseline map (`snapshots` in `OpenShellBackend`):
 
 1. **Tool snapshot** — when `session.tool.called` arrives, `snapshotInputs`
    walks the tool input for `filePath`/`file_path`/`path` keys
@@ -188,8 +190,9 @@ destination and rewrites tab/`agentFiles` paths to match. Dragging a row
 onto a folder or the empty tree area triggers the move; self and
 descendant drops and file-onto-file drops are ignored.
 
-All filesystem calls include the activation's workspace identity. Main rejects
-stale identities, malformed/bounded relative paths, traversal, absolute paths,
+All filesystem calls include the addressed panel's workspace identity. Main
+resolves each identity against its open context map and rejects unknown or
+replaced identities, malformed/bounded relative paths, traversal, absolute paths,
 and every existing symlink component, including intermediate parents of new
 targets. DevTools app-source navigation uses a separate absolute read confined
 to the canonical application root.
@@ -217,8 +220,10 @@ Reopening a session restores the *session's* picks via
 
 ## Terminal tray
 
-`TerminalTray` registers a renderer-generated terminal UUID, then mounts/restarts a PTY (`terminalStart(workspace, id)`): main verifies
-the activation identity and supplies the canonical active workspace cwd.
+`TerminalTray` registers a renderer-generated terminal UUID, then mounts/restarts a PTY (`terminalStart(workspace, id)`): main resolves
+the workspace identity and supplies that context's canonical directory as cwd.
+The tray belongs to the focused panel — swapping focus stops the previous
+panel's PTYs and boots a fresh terminal for the new workspace.
 `TerminalManager` selects the user's normal interactive shell from `SHELL` on
 macOS/Linux or `COMSPEC` on Windows, with platform defaults, then spawns it via
 `node-pty` with cwd = session directory (or home),
@@ -235,12 +240,15 @@ tray visible.
 ## Session history and reopen
 
 `shell:sessions` → `session.list({ limit: 30, order: "desc" })` →
-summaries with parent ids for the Welcome screen and task/subagent links.
+summaries with parent ids for the Welcome screen, the Sessions rail, and
+task/subagent links.
 Reopening goes
 `OpenShellBackend.openSessionById()`: `session.get` recovers the
-directory, `activateSession` restarts the watcher, then `message.list` is
+directory, `activateSession` reuses the context when the session is already
+open (no re-emit, stable workspace identity), then `message.list` is
 replayed through `replayTranscript`/`replayToolCard` into the same semantic
-`TranscriptItem` shape the live stream produces. Task cards navigate to the
+`TranscriptItem` shape the live stream produces. Clicking a running session
+in the Sessions rail just focuses its panel. Task cards navigate to the
 resolved child session; a child header navigates back to its parent. Subagent
 launches surface as task cards (`task`/`subagent` tool parts resolve their
 child from tool metadata `sessionID` or the newest matching `parentID` +
@@ -269,8 +277,9 @@ links back to the parent session.
   Elements panel selects the node. Clicking a rule's source link in the
   Styles panel (`styles.css:12`) sends an `open-source` `ui-command` so
   the file opens in the editor at that exact line.
-- ⌥O toggles the terminal tray; drag dividers resize the sidebar, agent
-  panel, and tray (dragging the tray to the bottom closes it on release).
+- ⌥O toggles the terminal tray; drag dividers resize the sidebar, each
+  session panel, and the tray (dragging the tray to the bottom closes it on
+  release).
 
 ## One rule behind it all
 

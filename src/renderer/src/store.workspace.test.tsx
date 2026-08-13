@@ -38,6 +38,7 @@ function api(overrides: Partial<OpenShellApi> = {}): OpenShellApi {
     },
     health: async () => true,
     state: async () => null,
+    activeSessions: async () => [],
     models: async () => [],
     modelDefault: async () => null,
     sessionSelection: async () => null,
@@ -212,16 +213,78 @@ describe("store workspace continuations", () => {
     expect(store.tabs.map((tab) => tab.path)).toEqual(["same.txt"]);
   });
 
-  it("does not let startup restoration reopen over a user activation", async () => {
-    const startup = deferred<SessionInfo | null>();
-    const openSessionById = vi.fn();
-    window.openshell = api({ state: () => startup.promise, openSessionById });
+  it("does not let startup restoration steal focus from a user activation", async () => {
+    const startup = deferred<SessionInfo[]>();
+    const openSessionById = vi.fn(async () => ({
+      session: info("/restored", 2),
+      transcript: [],
+      todos: [],
+      usage: null
+    }));
+    window.openshell = api({ activeSessions: () => startup.promise, openSessionById });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/chosen"));
-    await act(async () => startup.resolve(info("/restored", 1)));
+    await act(async () => startup.resolve([info("/restored", 2)]));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(openSessionById).toHaveBeenCalledWith("session-2", expect.any(Number));
+    expect(store.panels.map((panel) => panel.directory).sort()).toEqual(["/chosen", "/restored"]);
+    expect(store.session?.directory).toBe("/chosen");
+  });
+
+  it("opens parallel sessions and restores each session's own tabs when focus swaps", async () => {
+    window.openshell = api({
+      openSession: async (directory: string, generation: number) => info(directory, generation),
+      readFile: async (_workspace: unknown, path: string) => `content of ${path}`
+    });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.openFile("one.txt"));
+    await act(async () => store.openSession("/two"));
+    await act(async () => store.openFile("two.txt"));
+
+    expect(store.panels).toHaveLength(2);
+    expect(store.session?.directory).toBe("/two");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["two.txt"]);
+
+    await act(async () => store.focusSession(store.panels[0].id));
+    expect(store.session?.directory).toBe("/one");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["one.txt"]);
+
+    await act(async () => store.focusSession(store.panels[1].id));
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["two.txt"]);
+  });
+
+  it("reopens an already-open session by focusing its panel without a backend call", async () => {
+    const openSessionById = vi.fn();
+    window.openshell = api({ openSessionById });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.openSession("/two"));
+    expect(store.panels).toHaveLength(2);
+    const first = store.panels[0];
+
+    await act(async () => store.reopenSession(first.id));
 
     expect(openSessionById).not.toHaveBeenCalled();
-    expect(store.session?.directory).toBe("/chosen");
+    expect(store.panels).toHaveLength(2);
+    expect(store.session?.id).toBe(first.id);
+  });
+
+  it("closes a panel and keeps the neighbor focused", async () => {
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.openSession("/two"));
+    expect(store.session?.id).toBe(store.panels[1].id);
+
+    await act(async () => store.closePanel(store.panels[1].id));
+    expect(store.panels.map((panel) => panel.id)).toEqual([store.panels[0].id]);
+    expect(store.session?.id).toBe(store.panels[0].id);
+
+    await act(async () => store.closePanel(store.panels[0].id));
+    expect(store.panels).toHaveLength(0);
+    expect(store.session).toBeNull();
   });
 
   it("does not apply an older reopen completion after a newer reopen", async () => {

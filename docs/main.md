@@ -12,14 +12,28 @@ Provider usage is a separate main-process integration with provider APIs in
 State:
 
 - `client` — `OpenCode.make()` result, null until connected
-- `sessionID`, canonical `directory`, `workspace`, `sessionInfo` — the active session and immutable activation identity plus optional parent/title/agent metadata
-- `watchContext` — immutable activation root/session/workspace plus workspace-scoped `snapshots`, `lastKnown`, and `hasGit`
-- `watcher` — recursive `fs.watch` on the session directory
+- `contexts` — a `Map<workspaceID, SessionContext>` of concurrently open
+  sessions. Each `SessionContext` holds the immutable `WorkspaceIdentity`
+  (`{id, generation}`), the session id, the canonical `directory`, the
+  emitted `sessionInfo`, a workspace-scoped `watchContext` (`snapshots`,
+  `lastKnown`, `hasGit`, debounce `timers`), the context's own `FSWatcher`,
+  and a context-local `activations` generation guard for in-flight
+  watcher/recovery work
+- `primary` — the workspace id of the most recently activated context
 - `stopped` and `eventLoop` — `start()` is single-flight, while stop aborts and
   invalidates the generation-owned SSE lifecycle before a later restart subscribes
-- `activations` — monotonic latest-request-wins generation assigned before the
-  first activation await
+- `activations` — monotonic token mint used for `WorkspaceIdentity.generation`
+  and invalidated by `stop()`; each context additionally guards its own
+  in-flight work
 - `mutations` — serializes write/create/delete/rename operations per workspace
+
+Every renderer-supplied `WorkspaceIdentity` is resolved through `contextFor`,
+which looks the id up in `contexts` and rejects stale or unknown identities;
+routing is per context instead of against a single active session. A context
+is created per activation, and re-activating the same session id on the same
+directory reuses the existing context (idempotent), keeping the workspace
+identity stable so renderer editor state and file-update routing survive a
+reopen.
 
 Public methods (all used by IPC):
 
@@ -27,19 +41,21 @@ Public methods (all used by IPC):
 |---|---|
 | `connect()` | `Service.discover()` → `Service.ensure({command:["opencode2","serve","--service"]})` → `OpenCode.make` |
 | `start()` | Start the SSE event loop if one is not already running |
-| `stop()` | Abort and invalidate the active SSE loop lifecycle, then stop the fs watcher |
+| `stop()` | Abort and invalidate the active SSE loop lifecycle, then stop every context's fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
-| `beginActivation(requestGeneration)` | Accept a renderer user action before native dialog/backend awaits and return the backend generation |
-| `openSession(directory)` | Accepts a generation, calls `session.create`, and commits only if still latest; starts the generation-bound watcher and emits `{kind:"session"}` |
+| `beginActivation(requestGeneration)` | Accept a renderer user action before native dialog/backend awaits and return a fresh backend generation token |
+| `openSession(directory)` | Accepts a generation, calls `session.create`, and activates a new context (a new concurrent panel); starts the context watcher and emits `{kind:"session"}` |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
-| `openSessionById(sessionID)` | Accepts a generation, loads `session.get` plus replay, then commits only if still latest |
-| `prompt(workspace, text, files?)` | Captures and verifies the workspace/session around attachment awaits, then calls `session.prompt` |
-| `listCommands()` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
-| `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the workspace/session around skill lookup and command mutation |
-| `searchFiles(query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
-| `interrupt(workspace)` | Interrupts the captured active session and rejects stale completion |
-| `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured active workspace session |
-| `listDir(workspace, rel)` | Validates active identity and confinement, then `file.list`; strips trailing slashes |
+| `activeSessions()` | The open contexts' `SessionInfo` in activation order, primary last (startup restore) |
+| `openSessionById(sessionID)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one |
+| `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
+| `prompt(workspace, text, files?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt` |
+| `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
+| `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
+| `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
+| `interrupt(workspace)` | Interrupts the captured session and rejects stale completion |
+| `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured context session |
+| `listDir(workspace, rel)` | Validates the context and confinement, then `file.list`; strips trailing slashes |
 | `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
 | `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; holds and validates the expected disk version, installs by no-replace link, preserves recovery files on concurrent recreation, and emits an identified `file-update` |
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
@@ -47,17 +63,17 @@ Public methods (all used by IPC):
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
 | `renamePath(workspace, rel, newName)` | Confined same-folder no-replace file rename; rejects occupied destinations and directory renames where portable no-replace semantics are unavailable |
 | `movePath(workspace, rel, newParent)` | Confined cross-folder move for files and directories via one atomic `fs.rename` (no recovery hold — see architecture); rejects self/descendant, missing, occupied, and cross-filesystem destinations; emits a tracked deletion at the source and, for files, an addition at the target |
-| `listRecovery(workspace)` | Lists validated durable recovery artifacts under the active workspace's `.openshell-recovery` directory |
+| `listRecovery(workspace)` | Lists validated durable recovery artifacts under the addressed workspace's `.openshell-recovery` directory |
 | `openRecovery(workspace, id)` | Opens the validated artifact selected by opaque recovery record id; never accepts a renderer path |
 | `acknowledgeRecovery(workspace, id)` | Persists acknowledgment in the transaction manifest without deleting artifact bytes |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
-| `listModels()` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants, limit?}` (`limit.context` = the model's context-window size) |
-| `modelDefault()` | `model.default`, maps the same |
-| `switchModel(workspace, id, providerID, variant?)` | Switches only the captured active session, then persists the selection |
-| `listAgents()` | `agent.list` (location = session dir), maps to `{id, name}` |
-| `switchAgent(workspace, id)` | Switches only the captured active session, then persists the choice |
-| `getState()` | `{id, directory}` or null |
-| `sessionSelection()` | `session.get` → `{model?, agent?}` so the UI can restore the session's current picks |
+| `listModels(workspace)` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants, limit?}` (`limit.context` = the model's context-window size) |
+| `modelDefault(workspace)` | `model.default`, maps the same |
+| `switchModel(workspace, id, providerID, variant?)` | Switches only the captured context session, then persists the selection |
+| `listAgents(workspace)` | `agent.list` (location = session dir), maps to `{id, name}` |
+| `switchAgent(workspace, id)` | Switches only the captured context session, then persists the choice |
+| `getState()` | The primary (most recently activated) session `{id, directory, workspace}` or null |
+| `sessionSelection(workspace)` | `session.get` → `{model?, agent?}` so the UI can restore the addressed session's current picks |
 | `providerUsage()` | Delegates to `src/main/provider-usage.ts` → `ProviderUsageResult[]` for every OAuth provider opencode has stored credentials for |
 
 Provider usage (`providerUsage()`): the opencode service exposes no
@@ -73,13 +89,16 @@ so a future server endpoint can replace the fetchers without UI changes.
 
 Internals:
 
-- `runEventLoop()` — reconnecting SSE loop; forwards every event as
+- `runEventLoop()` — one global reconnecting SSE loop; forwards every event as
   `{kind:"event", type, data}` then runs `handleServerEvent` (see
   `docs/events.md`). Stop/restart serializes subscription lifetimes, and
   filesystem side handling requires a matching top-level event location.
-- `activateSession(generation, info)` — canonicalizes, checks latest-request-wins,
-  creates `{id, generation}` identity and workspace-scoped watcher maps, then
-  commits and emits `{kind:"session"}`.
+- `activateSession(info)` — canonicalizes, mints a fresh
+  `{id, generation}` workspace identity, and creates a per-session context
+  with its own watcher maps and activation guard; re-activating the same
+  session id on the same directory returns the existing context unchanged.
+  Commits, starts the context watcher, and emits `{kind:"session"}` plus the
+  context's recovery records.
 - `replayTranscript(messages)` — converts `message.list` output to
   `TranscriptItem[]`: user, internal selection, synthetic/system/skill/shell,
   assistant, and compaction messages in persisted order. Internal selection
@@ -87,15 +106,16 @@ Internals:
   from the visible chat. Tool status comes
   from streaming/running/completed/error; parsed input, text/file content,
   metadata, provider state, duration, retry, error, and completion are restored.
-- `snapshotInputs(input)` — recursively walks the tool-call input for
+- `snapshotInputs(context, input)` — recursively walks the tool-call input for
   `filePath`/`file_path`/`path` keys and snapshots those files
-  (skips http URLs, dedupes).
+  (skips http URLs, dedupes) into the addressed context.
 - `gitShow(rel)` — `git show HEAD:<rel>` with a 10s timeout, 16 MiB
   buffer; null on any failure.
 - `startWatcher(context)` / `scheduleWatch(context, abs)` /
-  `onFsChanged(context, ...)` — 200ms debounced pipeline. Every callback
-  captures root/session/generation/maps and checks it after awaits and before
-  map mutation or emission.
+  `onFsChanged(context, ...)` — one recursive `fs.watch` and 200ms debounced
+  pipeline per open context. Every callback captures its
+  root/session/generation/maps and checks `currentWatch` after awaits and
+  before map mutation or emission.
 - `emitFileUpdate(context, ...)` — emits identity-bound `{kind:"file-update"}`.
 - `relKey(abs)` — absolute → `/`-separated path relative to the session
   dir; `abs(rel)` the inverse. `shouldSkip` filters `SKIP_DIRS` roots.
@@ -120,11 +140,12 @@ Internals:
 | `shell:select-folder` | `(generation) → SessionInfo \| null` (generation accepted before native dialog) |
 | `shell:open-session` | `(dir, generation) → SessionInfo` |
 | `shell:sessions` | `() → SessionSummary[]` |
+| `shell:active-sessions` | `() → SessionInfo[]` — open backend sessions, most recently activated last |
 | `shell:open-session-id` | `(sessionID, generation) → ReopenedSession` |
 | `shell:prompt` | `(workspace, text, files?) → void` |
-| `shell:commands` | `() → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
+| `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
-| `shell:find-files` | `(query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |
+| `shell:find-files` | `(workspace, query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |
 | `shell:select-files` | `() → string[]` (native multi-file dialog) |
 | `shell:interrupt` | `(workspace) → void` |
 | `shell:fs-list` | `(workspace, rel) → TreeEntry[]` |
@@ -140,18 +161,18 @@ Internals:
 | `shell:recovery-open` | `(workspace, recoveryID) → void` |
 | `shell:recovery-acknowledge` | `(workspace, recoveryID) → void`; metadata only, never deletes bytes |
 | `shell:projects` | `() → ProjectInfo[]` |
-| `shell:models` | `() → ModelOption[]` |
-| `shell:model-default` | `() → ModelOption \| null` |
+| `shell:models` | `(workspace) → ModelOption[]` |
+| `shell:model-default` | `(workspace) → ModelOption \| null` |
 | `shell:switch-model` | `(workspace, id, providerID, variant?) → void` |
-| `shell:agents` | `() → AgentOption[]` |
+| `shell:agents` | `(workspace) → AgentOption[]` |
 | `shell:switch-agent` | `(workspace, id) → void` |
-| `shell:terminal-start` | `(workspace, id) → void`; renderer allocates a validated UUID id before invoking, main supplies the canonical active workspace cwd |
+| `shell:terminal-start` | `(workspace, id) → void`; renderer allocates a validated UUID id before invoking, main supplies the addressed workspace's canonical cwd |
 | `shell:terminal-input` | `(workspace, id, data) → void` |
 | `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |
 | `shell:terminal-stop` | `(workspace, id) → void` |
 | `shell:permission-reply` | `(workspace, requestID, reply, sessionID) → void` |
 | `shell:state` | `() → SessionInfo \| null` |
-| `shell:session-selection` | `() → SessionSelection \| null` |
+| `shell:session-selection` | `(workspace) → SessionSelection \| null` |
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |
 | `shell:health` | `() → boolean` |
 | `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/OpenShell.app` |
@@ -199,7 +220,10 @@ renderer gates the button on `window.openshell.isPackaged`: main passes
 PTY messages come from a second emitter, `TerminalManager`
 (`src/main/terminal.ts`): it forwards `{kind:"terminal-data",
 terminal:{id,data}}` and `{kind:"terminal-exit", terminal:{id,exitCode}}`
-over the same `shell:message` channel. `before-input-event` intercepts
+over the same `shell:message` channel. Every PTY is owned by the workspace
+identity that created it, and each session panel's terminal tray boots and
+stops its own terminals as the user switches focus — `stopAll()` only runs
+at quit. `before-input-event` intercepts
 ⌘W / Ctrl+W (so it never closes the window) and forwards
 `{kind:"ui-command", command:"toggle-word-wrap"}` to the renderer instead
 (the user's muscle memory maps ⌘W to word wrap, and the window must never
@@ -261,4 +285,6 @@ stopped in `before-quit`; the window is created hidden and shown on
 main stdout, and a renderer crash logs and reloads (once per 10s) instead
 of leaving a dead black window. On macOS activate: re-creates only the
 window if it was destroyed; the backend's single-flight event loop remains
-active while the window lives.
+active while the window lives. Opening a new session no longer resets the
+terminal tray: terminals belong to their workspace identity and each
+session's tray manages its own PTYs.

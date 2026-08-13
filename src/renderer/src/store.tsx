@@ -31,8 +31,8 @@ import type {
 import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
-import { LatestGeneration, sameWorkspace } from "@shared/generation";
-import { retainMatchingSessionRecords, retainSessionRecord } from "@shared/retention";
+import { sameWorkspace } from "@shared/generation";
+import { retainSessionRecord } from "@shared/retention";
 
 export interface Toast {
   id: number;
@@ -49,6 +49,18 @@ export interface CtxMenuState {
 export interface PendingCreate {
   parent: string;
   kind: "file" | "dir";
+}
+
+export interface PanelView {
+  session: SessionInfo | null;
+  busy: boolean;
+  transcript: TranscriptItem[];
+  todos: TodoItem[];
+  sessionUsage: SessionUsage | null;
+  models: ModelOption[];
+  currentModel: ModelOption | null;
+  agents: AgentOption[];
+  currentAgent: AgentOption | null;
 }
 
 function ancestorDirs(path: string): string[] {
@@ -81,21 +93,26 @@ interface Store {
   approvalMode: ApprovalMode;
   wordWrap: boolean;
   sessions: SessionSummary[];
+  panels: SessionInfo[];
+  panelViews: Record<string, PanelView>;
+  activeSessionID: string | null;
+  focusSession: (sessionID: string) => void;
+  closePanel: (sessionID: string) => void;
   openSession: (dir: string) => Promise<void>;
   selectFolder: () => Promise<void>;
-  reopenSession: (sessionID: string) => Promise<void>;
+  reopenSession: (sessionID: string, silent?: boolean) => Promise<void>;
   loadSessions: () => Promise<void>;
-  sendPrompt: (text: string, files?: PromptFile[]) => Promise<void>;
-  runCommand: (name: string, args?: string) => Promise<void>;
-  stop: () => Promise<void>;
+  sendPrompt: (text: string, files?: PromptFile[], workspace?: WorkspaceIdentity) => Promise<void>;
+  runCommand: (name: string, args?: string, workspace?: WorkspaceIdentity) => Promise<void>;
+  stop: (workspace?: WorkspaceIdentity) => Promise<void>;
   refreshProviderUsage: () => Promise<void>;
-  loadModels: () => Promise<void>;
-  switchModel: (id: string, providerID: string, variant?: string) => Promise<void>;
-  loadAgents: () => Promise<void>;
-  switchAgent: (id: string) => Promise<void>;
+  loadModels: (workspace?: WorkspaceIdentity) => Promise<void>;
+  switchModel: (id: string, providerID: string, variant?: string, workspace?: WorkspaceIdentity) => Promise<void>;
+  loadAgents: (workspace?: WorkspaceIdentity) => Promise<void>;
+  switchAgent: (id: string, workspace?: WorkspaceIdentity) => Promise<void>;
   toggleApprovalMode: () => void;
   toggleWordWrap: () => void;
-  openFile: (path: string, opts?: { mode?: "edit" | "diff" }) => Promise<void>;
+  openFile: (path: string, opts?: { mode?: "edit" | "diff"; source?: boolean }, workspace?: WorkspaceIdentity) => Promise<void>;
   closeTab: (path: string) => void;
   setActive: (path: string) => void;
   setTabMode: (path: string, mode: "edit" | "diff") => void;
@@ -105,7 +122,7 @@ interface Store {
   overwriteTab: (path: string) => Promise<void>;
   mergeTab: (path: string) => void;
   toggleDir: (path: string) => Promise<void>;
-  replyPermission: (requestID: string, reply: PermissionReply) => Promise<void>;
+  replyPermission: (requestID: string, reply: PermissionReply, sessionID?: string) => Promise<void>;
   ctxMenu: CtxMenuState | null;
   pendingCreate: PendingCreate | null;
   pendingRename: { path: string } | null;
@@ -274,23 +291,29 @@ function normalizeStreamEvent(msg: BackendMessage): ChatStreamEvent | null {
 
 let toastId = 0;
 
+const EMPTY_TABS: Tab[] = [];
+const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
+const EMPTY_TREE: Record<string, TreeEntry[]> = {};
+const EMPTY_EXPANDED: Set<string> = new Set();
+
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
-  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [panels, setPanels] = useState<SessionInfo[]>([]);
+  const [activeSessionID, setActiveSessionID] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [busyBySession, setBusyBySession] = useState<Record<string, boolean>>({});
-  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [todosByWorkspace, setTodosByWorkspace] = useState<Record<string, TodoItem[]>>({});
   const [transcriptsBySession, setTranscriptsBySession] = useState<Record<string, TranscriptItem[]>>({});
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activePath, setActivePath] = useState<string | null>(null);
-  const [agentFiles, setAgentFiles] = useState<Map<string, AgentFileState>>(new Map());
-  const [tree, setTree] = useState<Record<string, TreeEntry[]>>({});
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
+  const [activePathByWorkspace, setActivePathByWorkspace] = useState<Record<string, string | null>>({});
+  const [agentFilesByWorkspace, setAgentFilesByWorkspace] = useState<Record<string, Map<string, AgentFileState>>>({});
+  const [treeByWorkspace, setTreeByWorkspace] = useState<Record<string, Record<string, TreeEntry[]>>>({});
+  const [expandedByWorkspace, setExpandedByWorkspace] = useState<Record<string, Set<string>>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [recoveryRecords, setRecoveryRecords] = useState<RecoveryRecord[]>([]);
-  const [models, setModels] = useState<ModelOption[]>([]);
-  const [currentModel, setCurrentModel] = useState<ModelOption | null>(null);
-  const [agents, setAgents] = useState<AgentOption[]>([]);
-  const [currentAgent, setCurrentAgent] = useState<AgentOption | null>(null);
+  const [recoveryByWorkspace, setRecoveryByWorkspace] = useState<Record<string, RecoveryRecord[]>>({});
+  const [modelsByWorkspace, setModelsByWorkspace] = useState<Record<string, ModelOption[]>>({});
+  const [currentModelByWorkspace, setCurrentModelByWorkspace] = useState<Record<string, ModelOption | null>>({});
+  const [agentsByWorkspace, setAgentsByWorkspace] = useState<Record<string, AgentOption[]>>({});
+  const [currentAgentByWorkspace, setCurrentAgentByWorkspace] = useState<Record<string, AgentOption | null>>({});
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>(
     () => (window.localStorage.getItem("approvalMode") === "approve" ? "approve" : "ask")
   );
@@ -304,24 +327,48 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
+
+  const activeWorkspaceID = activeSessionID
+    ? (panels.find((panel) => panel.id === activeSessionID)?.workspace.id ?? null)
+    : null;
+  const session = activeWorkspaceID
+    ? (panels.find((panel) => panel.workspace.id === activeWorkspaceID) ?? null)
+    : null;
   const busy = session ? Boolean(busyBySession[session.id]) : false;
+  const todos = session ? (todosByWorkspace[session.workspace.id] ?? []) : [];
   const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
   const sessionUsage = session ? usageBySession[session.id] ?? null : null;
+  const tabs = session ? tabsByWorkspace[session.workspace.id] ?? EMPTY_TABS : EMPTY_TABS;
+  const activePath = session ? activePathByWorkspace[session.workspace.id] ?? null : null;
+  const agentFiles = session ? agentFilesByWorkspace[session.workspace.id] ?? EMPTY_AGENT_FILES : EMPTY_AGENT_FILES;
+  const tree = session ? treeByWorkspace[session.workspace.id] ?? EMPTY_TREE : EMPTY_TREE;
+  const expanded = session ? expandedByWorkspace[session.workspace.id] ?? EMPTY_EXPANDED : EMPTY_EXPANDED;
+  const recoveryRecords = session ? recoveryByWorkspace[session.workspace.id] ?? [] : [];
+  const models = session ? modelsByWorkspace[session.workspace.id] ?? [] : [];
+  const currentModel = session ? currentModelByWorkspace[session.workspace.id] ?? null : null;
+  const agents = session ? agentsByWorkspace[session.workspace.id] ?? [] : [];
+  const currentAgent = session ? currentAgentByWorkspace[session.workspace.id] ?? null : null;
 
   useEffect(() => {
-    setBusyBySession((current) => retainMatchingSessionRecords(current, transcriptsBySession, session?.id));
-  }, [session?.id, transcriptsBySession]);
+    const open = new Set(panels.map((panel) => panel.id));
+    setBusyBySession((current) => {
+      const entries = Object.entries(current).filter(([id]) => open.has(id) || id in transcriptsBySession);
+      return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries);
+    });
+  }, [panels, transcriptsBySession]);
 
-  const agentFilesRef = useRef(agentFiles);
-  agentFilesRef.current = agentFiles;
-  const expandedRef = useRef(expanded);
-  expandedRef.current = expanded;
+  const panelsRef = useRef(panels);
+  panelsRef.current = panels;
+  const agentFilesByWorkspaceRef = useRef(agentFilesByWorkspace);
+  agentFilesByWorkspaceRef.current = agentFilesByWorkspace;
+  const expandedByWorkspaceRef = useRef(expandedByWorkspace);
+  expandedByWorkspaceRef.current = expandedByWorkspace;
   const pendingCreateRef = useRef(pendingCreate);
   pendingCreateRef.current = pendingCreate;
   const pendingRenameRef = useRef(pendingRename);
   pendingRenameRef.current = pendingRename;
-  const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
+  const tabsByWorkspaceRef = useRef(tabsByWorkspace);
+  tabsByWorkspaceRef.current = tabsByWorkspace;
   const persistenceRef = useRef<EditorPersistence | null>(null);
   if (!persistenceRef.current) {
     persistenceRef.current = new EditorPersistence((snapshot, write) =>
@@ -329,19 +376,75 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     );
   }
   const persistence = persistenceRef.current;
-  const modelsRef = useRef<ModelOption[]>([]);
-  modelsRef.current = models;
-  const agentsRef = useRef<AgentOption[]>([]);
-  agentsRef.current = agents;
-  const todoToolRef = useRef("");
+  const modelsByWorkspaceRef = useRef(modelsByWorkspace);
+  modelsByWorkspaceRef.current = modelsByWorkspace;
+  const agentsByWorkspaceRef = useRef(agentsByWorkspace);
+  agentsByWorkspaceRef.current = agentsByWorkspace;
+  const todoKeysRef = useRef<Record<string, string>>({});
   const approvalModeRef = useRef<ApprovalMode>(approvalMode);
   approvalModeRef.current = approvalMode;
   const sessionRef = useRef<SessionInfo | null>(session);
   sessionRef.current = session;
-  const activationsRef = useRef<LatestGeneration | null>(null);
-  if (!activationsRef.current) activationsRef.current = new LatestGeneration();
-  const activations = activationsRef.current;
-  const pendingActivationRef = useRef<number | null>(null);
+  const requestSeqRef = useRef(0);
+  const userActivatedRef = useRef(false);
+  const focusSeqRef = useRef(0);
+
+  const panelFor = useCallback(
+    (workspace: WorkspaceIdentity): SessionInfo | null =>
+      panelsRef.current.find((panel) => sameWorkspace(panel.workspace, workspace)) ?? null,
+    []
+  );
+
+  const panelForSession = useCallback(
+    (sessionID: string): SessionInfo | null =>
+      panelsRef.current.find((panel) => panel.id === sessionID) ?? null,
+    []
+  );
+
+  const workspaceOfSession = useCallback(
+    (sessionID: string): WorkspaceIdentity | null =>
+      panelsRef.current.find((panel) => panel.id === sessionID)?.workspace ?? null,
+    []
+  );
+
+  const setTabsFor = useCallback((workspaceID: string, update: (prev: Tab[]) => Tab[]) => {
+    setTabsByWorkspace((current) => {
+      const next = update(current[workspaceID] ?? []);
+      return next === (current[workspaceID] ?? []) ? current : { ...current, [workspaceID]: next };
+    });
+  }, []);
+
+  const setActivePathFor = useCallback((workspaceID: string, path: string | null) => {
+    setActivePathByWorkspace((current) =>
+      current[workspaceID] === path ? current : { ...current, [workspaceID]: path });
+  }, []);
+
+  const setAgentFilesFor = useCallback((workspaceID: string, next: Map<string, AgentFileState>) => {
+    setAgentFilesByWorkspace((current) =>
+      current[workspaceID] === next ? current : { ...current, [workspaceID]: next });
+  }, []);
+
+  const setTreeFor = useCallback((workspaceID: string, update: (prev: Record<string, TreeEntry[]>) => Record<string, TreeEntry[]>) => {
+    setTreeByWorkspace((current) => {
+      const next = update(current[workspaceID] ?? {});
+      return next === (current[workspaceID] ?? {}) ? current : { ...current, [workspaceID]: next };
+    });
+  }, []);
+
+  const setExpandedFor = useCallback((workspaceID: string, next: Set<string>) => {
+    setExpandedByWorkspace((current) =>
+      current[workspaceID] === next ? current : { ...current, [workspaceID]: next });
+  }, []);
+
+  const setRecoveryFor = useCallback((workspaceID: string, records: RecoveryRecord[]) => {
+    setRecoveryByWorkspace((current) =>
+      current[workspaceID] === records ? current : { ...current, [workspaceID]: records });
+  }, []);
+
+  const setTodosFor = useCallback((workspaceID: string, items: TodoItem[]) => {
+    setTodosByWorkspace((current) =>
+      current[workspaceID] === items ? current : { ...current, [workspaceID]: items });
+  }, []);
 
   const updateSessionTranscript = useCallback(
     (sessionID: string, update: (items: TranscriptItem[]) => TranscriptItem[]) => {
@@ -356,14 +459,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     []
   );
 
-  const updateActiveTranscript = useCallback(
-    (update: (items: TranscriptItem[]) => TranscriptItem[]) => {
-      const sessionID = sessionRef.current?.id;
-      if (sessionID) updateSessionTranscript(sessionID, update);
-    },
-    [updateSessionTranscript]
-  );
-
   const setSessionBusy = useCallback((sessionID: string, value: boolean) => {
     setBusyBySession((current) => current[sessionID] === value
       ? current
@@ -376,125 +471,141 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
 
-  const resetAll = useCallback((preserveSessionStreams = false) => {
-    persistence.cancelAll();
-    if (!preserveSessionStreams) setBusyBySession({});
-    setTodos([]);
-    if (!preserveSessionStreams) setTranscriptsBySession({});
-    setTabs([]);
-    setActivePath(null);
-    setAgentFiles(new Map());
-    setRecoveryRecords([]);
-    setTree({});
-    setExpanded(new Set());
+  const attachPanel = useCallback((info: SessionInfo): void => {
+    panelsRef.current = panelsRef.current.some((panel) => panel.workspace.id === info.workspace.id)
+      ? panelsRef.current.map((panel) => (panel.workspace.id === info.workspace.id ? info : panel))
+      : [...panelsRef.current, info];
+    setPanels(panelsRef.current);
+  }, []);
+
+  const focusSession = useCallback((sessionID: string): void => {
+    const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
+    if (!panel) return;
+    userActivatedRef.current = true;
+    focusSeqRef.current += 1;
+    sessionRef.current = panel;
+    setActiveSessionID(sessionID);
     setCtxMenu(null);
     setPendingCreate(null);
     setPendingRename(null);
-    setCurrentAgent(null);
-    setCurrentModel(null);
-    agentFilesRef.current = new Map();
-    tabsRef.current = [];
-    todoToolRef.current = "";
-  }, [persistence]);
+  }, []);
+
+  const closePanel = useCallback((sessionID: string): void => {
+    panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
+    setPanels(panelsRef.current);
+    if (sessionRef.current?.id === sessionID) {
+      const neighbor = panelsRef.current[panelsRef.current.length - 1] ?? null;
+      sessionRef.current = neighbor;
+      setActiveSessionID(neighbor?.id ?? null);
+    }
+  }, []);
 
   const loadRecovery = useCallback(async (workspace: WorkspaceIdentity) => {
     try {
       const records = await window.openshell.recoveryRecords(workspace);
-      if (sameWorkspace(workspace, sessionRef.current?.workspace)) setRecoveryRecords(records);
+      if (panelFor(workspace)) setRecoveryFor(workspace.id, records);
     } catch (error) {
-      if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+      if (panelFor(workspace)) {
         toast(error instanceof Error ? error.message : String(error), "error");
       }
     }
-  }, [toast]);
+  }, [toast, panelFor, setRecoveryFor]);
 
-  const loadModels = useCallback(async () => {
-    const workspace = sessionRef.current?.workspace;
+  const loadModels = useCallback(async (workspace?: WorkspaceIdentity) => {
+    const target = workspace ?? sessionRef.current?.workspace;
+    if (!target) return;
     try {
       const [list, def, selection] = await Promise.all([
-        window.openshell.models(),
-        window.openshell.modelDefault(),
-        window.openshell.sessionSelection()
+        window.openshell.models(target),
+        window.openshell.modelDefault(target),
+        window.openshell.sessionSelection(target)
       ]);
-      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-      setModels((prev) => {
+      if (!panelFor(target)) return;
+      setModelsByWorkspace((prev) => {
+        const current = prev[target.id] ?? [];
         if (
-          prev.length === list.length &&
-          prev.every(
+          current.length === list.length &&
+          current.every(
             (m, i) => m.id === list[i].id && m.providerID === list[i].providerID && m.name === list[i].name
           )
         ) {
           return prev;
         }
-        return list;
+        return { ...prev, [target.id]: list };
       });
-      setCurrentModel((cur) => {
-        const target = selection?.model ?? cur ?? def;
-        if (!target) return null;
-        const match = list.find((m) => m.id === target.id && m.providerID === target.providerID);
-        return match ? { ...match, ...(target.variant ? { variant: target.variant } : {}) } : target;
+      setCurrentModelByWorkspace((prev) => {
+        const current = prev[target.id] ?? null;
+        const pick = selection?.model ?? current ?? def;
+        if (!pick) return prev;
+        const match = list.find((m) => m.id === pick.id && m.providerID === pick.providerID);
+        const next = match ? { ...match, ...(pick.variant ? { variant: pick.variant } : {}) } : pick;
+        return prev[target.id] === next ? prev : { ...prev, [target.id]: next };
       });
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err), "error");
+      if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [toast]);
+  }, [toast, panelFor]);
 
   const switchModel = useCallback(
-    async (id: string, providerID: string, variant?: string) => {
-      const workspace = sessionRef.current?.workspace;
+    async (id: string, providerID: string, variant?: string, workspace?: WorkspaceIdentity) => {
+      const target = workspace ?? sessionRef.current?.workspace;
+      if (!target) return;
       try {
-        if (!workspace) return;
-        await window.openshell.switchModel(workspace, id, providerID, variant);
-        if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-        const base = modelsRef.current.find((m) => m.id === id && m.providerID === providerID);
-        if (base) setCurrentModel({ ...base, ...(variant ? { variant } : {}) });
+        await window.openshell.switchModel(target, id, providerID, variant);
+        if (!panelFor(target)) return;
+        const base = modelsByWorkspaceRef.current[target.id]?.find((m) => m.id === id && m.providerID === providerID);
+        if (base) setCurrentModelByWorkspace((prev) => ({ ...prev, [target.id]: { ...base, ...(variant ? { variant } : {}) } }));
       } catch (err) {
-        if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+        if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast]
+    [toast, panelFor]
   );
 
-  const loadAgents = useCallback(async () => {
-    const workspace = sessionRef.current?.workspace;
+  const loadAgents = useCallback(async (workspace?: WorkspaceIdentity) => {
+    const target = workspace ?? sessionRef.current?.workspace;
+    if (!target) return;
     try {
       const [list, selection] = await Promise.all([
-        window.openshell.agents(),
-        window.openshell.sessionSelection()
+        window.openshell.agents(target),
+        window.openshell.sessionSelection(target)
       ]);
-      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-      setAgents((prev) => {
+      if (!panelFor(target)) return;
+      setAgentsByWorkspace((prev) => {
+        const current = prev[target.id] ?? [];
         if (
-          prev.length === list.length &&
-          prev.every((a, i) => a.id === list[i].id && a.name === list[i].name && a.color === list[i].color)
+          current.length === list.length &&
+          current.every((a, i) => a.id === list[i].id && a.name === list[i].name && a.color === list[i].color)
         ) {
           return prev;
         }
-        return list;
+        return { ...prev, [target.id]: list };
       });
-      setCurrentAgent(() => {
-        const id = selection?.agent?.id ?? sessionRef.current?.agent ?? "build";
-        return list.find((agent) => agent.id === id) ?? selection?.agent ?? { id, name: id };
+      setCurrentAgentByWorkspace((prev) => {
+        const panel = panelFor(target);
+        const id = selection?.agent?.id ?? panel?.agent ?? "build";
+        const next = list.find((agent) => agent.id === id) ?? selection?.agent ?? { id, name: id };
+        return prev[target.id] === next ? prev : { ...prev, [target.id]: next };
       });
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err), "error");
+      if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [toast]);
+  }, [toast, panelFor]);
 
   const switchAgent = useCallback(
-    async (id: string) => {
-      const workspace = sessionRef.current?.workspace;
+    async (id: string, workspace?: WorkspaceIdentity) => {
+      const target = workspace ?? sessionRef.current?.workspace;
+      if (!target) return;
       try {
-        if (!workspace) return;
-        await window.openshell.switchAgent(workspace, id);
-        if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-        const base = agentsRef.current.find((agent) => agent.id === id);
-        if (base) setCurrentAgent(base);
+        await window.openshell.switchAgent(target, id);
+        if (!panelFor(target)) return;
+        const base = agentsByWorkspaceRef.current[target.id]?.find((agent) => agent.id === id);
+        if (base) setCurrentAgentByWorkspace((prev) => ({ ...prev, [target.id]: base }));
       } catch (err) {
-        if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+        if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast]
+    [toast, panelFor]
   );
 
   const toggleWordWrap = useCallback(() => {
@@ -505,53 +616,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     });
   }, []);
 
-  const openSession = useCallback(
-    async (dir: string) => {
-      const request = activations.accept();
-      pendingActivationRef.current = request;
-      try {
-        persistence.cancelAll();
-        const info = await window.openshell.openSession(dir, request);
-        if (!activations.current(request)) return;
-        pendingActivationRef.current = null;
-        resetAll();
-        sessionRef.current = info;
-        setSession(info);
-        void loadRecovery(info.workspace);
-        toast(`Opened ${info.directory}`);
-        void loadModels();
-        void loadAgents();
-      } catch (err) {
-        if (pendingActivationRef.current === request) pendingActivationRef.current = null;
-        if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
-      }
-    },
-    [resetAll, toast, loadModels, loadAgents, loadRecovery, persistence, activations]
-  );
-
-  const selectFolder = useCallback(async () => {
-    const request = activations.accept();
-    pendingActivationRef.current = request;
-    try {
-      persistence.cancelAll();
-      const info = await window.openshell.selectFolder(request);
-      if (!activations.current(request)) return;
-      pendingActivationRef.current = null;
-        if (info) {
-          resetAll();
-          sessionRef.current = info;
-          setSession(info);
-          void loadRecovery(info.workspace);
-        toast(`Opened ${info.directory}`);
-        void loadModels();
-        void loadAgents();
-      }
-    } catch (err) {
-      if (pendingActivationRef.current === request) pendingActivationRef.current = null;
-      if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
-    }
-  }, [resetAll, toast, loadModels, loadAgents, loadRecovery, persistence, activations]);
-
   const loadSessions = useCallback(async () => {
     try {
       setSessions(await window.openshell.sessions());
@@ -560,18 +624,76 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }
   }, [toast]);
 
+  const openSession = useCallback(
+    async (dir: string) => {
+      const request = ++requestSeqRef.current;
+      const focusSeq = focusSeqRef.current;
+      try {
+        const info = await window.openshell.openSession(dir, request);
+        userActivatedRef.current = true;
+        attachPanel(info);
+        if (focusSeqRef.current === focusSeq) {
+          focusSeqRef.current += 1;
+          sessionRef.current = info;
+          setActiveSessionID(info.id);
+        }
+        void loadRecovery(info.workspace);
+        toast(`Opened ${info.directory}`);
+        void loadModels(info.workspace);
+        void loadAgents(info.workspace);
+        void loadSessions();
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]
+  );
+
+  const selectFolder = useCallback(async () => {
+    const request = ++requestSeqRef.current;
+    const focusSeq = focusSeqRef.current;
+    try {
+      const info = await window.openshell.selectFolder(request);
+      if (info) {
+        userActivatedRef.current = true;
+        attachPanel(info);
+        if (focusSeqRef.current === focusSeq) {
+          focusSeqRef.current += 1;
+          sessionRef.current = info;
+          setActiveSessionID(info.id);
+        }
+        void loadRecovery(info.workspace);
+        toast(`Opened ${info.directory}`);
+        void loadModels(info.workspace);
+        void loadAgents(info.workspace);
+        void loadSessions();
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]);
+
   const reopenSession = useCallback(
     async (sessionID: string, silent = false) => {
-      const request = activations.accept();
-      pendingActivationRef.current = request;
+      const existing = panelForSession(sessionID);
+      if (existing) {
+        if (!silent) {
+          focusSession(sessionID);
+          void loadSessions();
+        }
+        return;
+      }
+      const request = ++requestSeqRef.current;
+      const focusSeq = focusSeqRef.current;
       try {
-        persistence.cancelAll();
         const reopened = await window.openshell.openSessionById(sessionID, request);
-        if (!activations.current(request)) return;
-        pendingActivationRef.current = null;
-        resetAll(true);
-        sessionRef.current = reopened.session;
-        setSession(reopened.session);
+        attachPanel(reopened.session);
+        if (!silent && focusSeqRef.current === focusSeq) {
+          userActivatedRef.current = true;
+          focusSeqRef.current += 1;
+          sessionRef.current = reopened.session;
+          setActiveSessionID(reopened.session.id);
+        }
         void loadRecovery(reopened.session.workspace);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
@@ -589,7 +711,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               ...current,
               [reopened.session.id]: Boolean(running?.kind === "assistant" && !running.completed)
             });
-        setTodos(reopened.todos);
+        setTodosFor(reopened.session.workspace.id, reopened.todos);
         if (reopened.usage) {
           setUsageBySession((current) => retainSessionRecord(
             current,
@@ -599,21 +721,23 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           ));
         }
         if (!silent) toast(`Reopened session in ${reopened.session.directory}`);
-        void loadModels();
-        void loadAgents();
+        void loadModels(reopened.session.workspace);
+        void loadAgents(reopened.session.workspace);
         void loadSessions();
       } catch (err) {
-        if (pendingActivationRef.current === request) pendingActivationRef.current = null;
-        if (activations.current(request)) toast(err instanceof Error ? err.message : String(err), "error");
+        toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [resetAll, toast, loadModels, loadAgents, loadSessions, loadRecovery, persistence, activations]
+    [attachPanel, focusSession, panelForSession, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery]
   );
 
   const sendPrompt = useCallback(
-    async (text: string, files: PromptFile[] = []) => {
+    async (text: string, files: PromptFile[] = [], workspace?: WorkspaceIdentity) => {
+      const target = workspace ?? sessionRef.current?.workspace;
+      const panel = target ? panelFor(target) : null;
+      if (!panel || !target) return;
       const t = text.trim();
-      if ((!t && files.length === 0) || !session) return;
+      if (!t && files.length === 0) return;
       const promptText = t || "Review the attached files.";
       const attachments: UserAttachment[] = files.map((file) => ({
         name: file.path.split(/[\\/]/).pop() ?? file.path
@@ -624,33 +748,34 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         text: promptText,
         ...(attachments.length > 0 ? { attachments } : {})
       };
-      updateActiveTranscript((prev) => [...prev, userItem]);
-      setTodos([]);
-      const workspace = session.workspace;
+      updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
+      setTodosFor(panel.workspace.id, []);
       try {
-        await window.openshell.prompt(workspace, promptText, files);
+        await window.openshell.prompt(target, promptText, files);
       } catch (err) {
-        if (sameWorkspace(workspace, sessionRef.current?.workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+        if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [session, toast, updateActiveTranscript]
+    [toast, panelFor, setTodosFor, updateSessionTranscript]
   );
 
-  const runCommand = useCallback(async (name: string, args = "") => {
-    const workspace = sessionRef.current?.workspace;
-    if (!workspace) return;
+  const runCommand = useCallback(async (name: string, args = "", workspace?: WorkspaceIdentity) => {
+    const target = workspace ?? sessionRef.current?.workspace;
+    if (!target) return;
     try {
-      await window.openshell.runCommand(workspace, name, args);
+      await window.openshell.runCommand(target, name, args);
     } catch (error) {
-      if (sameWorkspace(workspace, sessionRef.current?.workspace)) throw error;
+      if (panelFor(target)) throw error;
     }
-  }, []);
+  }, [panelFor]);
 
-  const stop = useCallback(async () => {
-    const current = sessionRef.current;
-    if (current) setSessionBusy(current.id, false);
-    if (current) await window.openshell.interrupt(current.workspace).catch(() => {});
-  }, [setSessionBusy]);
+  const stop = useCallback(async (workspace?: WorkspaceIdentity) => {
+    const target = workspace ?? sessionRef.current?.workspace;
+    const panel = target ? panelFor(target) : null;
+    if (!panel || !target) return;
+    setSessionBusy(panel.id, false);
+    await window.openshell.interrupt(target).catch(() => {});
+  }, [setSessionBusy, panelFor]);
 
   const refreshProviderUsage = useCallback(async () => {
     setProviderUsageLoading(true);
@@ -664,24 +789,27 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [toast]);
 
   useEffect(() => {
-    if (!busy) return;
-    const snapshot = todoSnapshotFromTranscript(transcript);
-    if (!snapshot || snapshot.key === todoToolRef.current) return;
-    todoToolRef.current = snapshot.key;
-    setTodos(snapshot.todos);
-  }, [busy, transcript]);
+    for (const panel of panels) {
+      if (!busyBySession[panel.id]) continue;
+      const snapshot = todoSnapshotFromTranscript(transcriptsBySession[panel.id] ?? []);
+      if (!snapshot || snapshot.key === todoKeysRef.current[panel.workspace.id]) continue;
+      todoKeysRef.current[panel.workspace.id] = snapshot.key;
+      setTodosFor(panel.workspace.id, snapshot.todos);
+    }
+  }, [panels, busyBySession, transcriptsBySession, setTodosFor]);
 
   const replyPermission = useCallback(
-    async (requestID: string, reply: PermissionReply) => {
+    async (requestID: string, reply: PermissionReply, sessionID?: string) => {
+      const sid = sessionID ?? sessionRef.current?.id;
+      const panel = sid ? panelForSession(sid) : null;
+      if (!panel) return;
       try {
-        const current = sessionRef.current;
-        if (!current) return;
-        await window.openshell.permissionReply(current.workspace, requestID, reply, current.id);
+        await window.openshell.permissionReply(panel.workspace, requestID, reply, panel.id);
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
         return;
       }
-      updateActiveTranscript((prev) =>
+      updateSessionTranscript(panel.id, (prev) =>
         prev.map((item) =>
           item.kind === "permission" && item.requestID === requestID
             ? { ...item, pending: false, resolvedWith: reply }
@@ -689,7 +817,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         )
       );
     },
-    [toast, updateActiveTranscript]
+    [toast, panelForSession, updateSessionTranscript]
   );
 
   const toggleApprovalMode = useCallback(() => {
@@ -703,46 +831,48 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const toggleDir = useCallback(
     async (path: string) => {
-      const isOpen = expanded.has(path);
-      setExpanded((prev) => {
-        const next = new Set(prev);
+      const target = sessionRef.current?.workspace;
+      if (!target) return;
+      const current = expandedByWorkspaceRef.current[target.id] ?? new Set<string>();
+      const isOpen = current.has(path);
+      setExpandedFor(target.id, (() => {
+        const next = new Set(current);
         if (isOpen) next.delete(path);
         else next.add(path);
         return next;
-      });
+      })());
       if (isOpen) return;
-      if (!tree[path]) {
-        const workspace = sessionRef.current?.workspace;
-        if (!workspace) return;
+      if (!treeByWorkspace[target.id]?.[path]) {
         try {
-          const entries = await window.openshell.listDir(workspace, path);
-          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-          setTree((prev) => ({ ...prev, [path]: sortEntries(filterEntries(entries)) }));
+          const entries = await window.openshell.listDir(target, path);
+          if (!panelFor(target)) return;
+          setTreeFor(target.id, (prev) => ({ ...prev, [path]: sortEntries(filterEntries(entries)) }));
         } catch (err) {
           toast(err instanceof Error ? err.message : String(err), "error");
         }
       }
     },
-    [expanded, tree, toast]
+    [treeByWorkspace, toast, panelFor, setExpandedFor, setTreeFor]
   );
 
   const refreshTree = useCallback(async (dirs: string[]): Promise<void> => {
     const unique = [...new Set(dirs)];
-    if (expandedRef.current.has("") && !unique.includes("")) unique.push("");
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    const current = expandedByWorkspaceRef.current[target.id] ?? new Set<string>();
+    if (current.has("") && !unique.includes("")) unique.push("");
     await Promise.all(
       unique.map(async (dir) => {
-        const workspace = sessionRef.current?.workspace;
-        if (!workspace) return;
         try {
-          const entries = await window.openshell.listDir(workspace, dir);
-          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-          setTree((prev) => ({ ...prev, [dir]: sortEntries(filterEntries(entries)) }));
+          const entries = await window.openshell.listDir(target, dir);
+          if (!panelFor(target)) return;
+          setTreeFor(target.id, (prev) => ({ ...prev, [dir]: sortEntries(filterEntries(entries)) }));
         } catch {
           /* keep previous listing */
         }
       })
     );
-  }, []);
+  }, [panelFor, setTreeFor]);
 
   const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
     setCtxMenu({ x, y, target });
@@ -754,13 +884,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setCtxMenu(null);
     setPendingRename(null);
     setPendingCreate({ parent, kind });
-    setExpanded((prev) => {
-      if (prev.has(parent)) return prev;
-      const next = new Set(prev);
-      next.add(parent);
-      return next;
-    });
-  }, []);
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    const current = expandedByWorkspaceRef.current[target.id] ?? new Set<string>();
+    if (current.has(parent)) return;
+    const next = new Set(current);
+    next.add(parent);
+    setExpandedFor(target.id, next);
+  }, [setExpandedFor]);
 
   const startRename = useCallback((path: string) => {
     setCtxMenu(null);
@@ -776,58 +907,60 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const deleteEntry = useCallback(
     async (path: string) => {
       setCtxMenu(null);
-      const workspace = sessionRef.current?.workspace;
-      if (!workspace) return;
-      persistence.cancelPrefix(workspace, path);
+      const target = sessionRef.current?.workspace;
+      if (!target) return;
+      persistence.cancelPrefix(target, path);
       try {
-        await window.openshell.deletePath(workspace, path);
+        await window.openshell.deletePath(target, path);
       } catch (err) {
-        if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+        if (panelFor(target)) {
           toast(err instanceof Error ? err.message : String(err), "error");
         }
         return;
       }
-      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
+      if (!panelFor(target)) return;
       const prefix = `${path}/`;
-      setTabs((prev) => {
+      setTabsFor(target.id, (prev) => {
         const next = prev.filter((t) => t.path !== path && !t.path.startsWith(prefix));
         if (next.length !== prev.length) {
-          setActivePath((active) => {
+          setActivePathFor(target.id, (() => {
+            const active = activePathByWorkspace[target.id] ?? null;
             if (!active || (active !== path && !active.startsWith(prefix))) return active;
             const idx = prev.findIndex((t) => t.path === active);
             const neighbor = next[idx] ?? next[next.length - 1];
             return neighbor ? neighbor.path : null;
-          });
+          })());
         }
         return next;
       });
       const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
       void refreshTree(ancestorDirs(parent));
     },
-    [toast, refreshTree, persistence]
+    [toast, refreshTree, persistence, panelFor, setTabsFor, setActivePathFor, activePathByWorkspace]
   );
 
   const openFile = useCallback(
-    async (path: string, opts?: { mode?: "edit" | "diff"; source?: boolean }) => {
-      const existing = tabs.find((t) => t.path === path);
+    async (path: string, opts?: { mode?: "edit" | "diff"; source?: boolean }, workspace?: WorkspaceIdentity) => {
+      const target = workspace ?? sessionRef.current?.workspace;
+      if (!target && !opts?.source) return;
+      const currentTabs = target ? (tabsByWorkspaceRef.current[target.id] ?? []) : [];
+      const existing = currentTabs.find((t) => t.path === path);
       if (existing) {
-        setActivePath(path);
+        if (!target) return;
+        setActivePathFor(target.id, path);
         if (opts?.mode && existing.mode !== opts.mode) {
-          setTabs((prev) => prev.map((t) => (t.path === path ? { ...t, mode: opts.mode! } : t)));
+          setTabsFor(target.id, (prev) => prev.map((t) => (t.path === path ? { ...t, mode: opts.mode! } : t)));
         }
         return;
       }
-      const activation = activations.snapshot();
       try {
-        const workspace = sessionRef.current?.workspace;
-        const agentFile = agentFilesRef.current.get(path);
+        const agentFile = target ? (agentFilesByWorkspaceRef.current[target.id] ?? new Map()).get(path) : undefined;
         let content = opts?.source
           ? await window.openshell.readSourceFile(path)
-          : workspace
-            ? await window.openshell.readFile(workspace, path)
+          : target
+            ? await window.openshell.readFile(target, path)
             : null;
-        if (!activations.current(activation)) return;
-        if (!opts?.source && !sameWorkspace(workspace, sessionRef.current?.workspace)) return;
+        if (!opts?.source && !panelFor(target!)) return;
         if (content === null && agentFile?.deleted) content = "";
         if (content === null) {
           toast(`Could not read ${path}`, "error");
@@ -841,6 +974,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           toast(`${path} is a binary file`, "error");
           return;
         }
+        if (!target) return;
         const name = path.split("/").pop() ?? path;
         const tab: Tab = {
           path,
@@ -856,13 +990,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           mode: opts?.mode ?? "edit",
           binary: false
         };
-        setTabs((prev) => [...prev, tab]);
-        setActivePath(path);
+        setTabsFor(target.id, (prev) => [...prev, tab]);
+        setActivePathFor(target.id, path);
       } catch (err) {
-        if (activations.current(activation)) toast(err instanceof Error ? err.message : String(err), "error");
+        if (target && panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [tabs, toast, activations]
+    [toast, panelFor, setTabsFor, setActivePathFor]
   );
   const openFileRef = useRef(openFile);
   openFileRef.current = openFile;
@@ -881,26 +1015,26 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast("Invalid name", "error");
         return;
       }
-      const workspace = sessionRef.current?.workspace;
-      if (!workspace) return;
+      const target = sessionRef.current?.workspace;
+      if (!target) return;
       try {
         if (create) {
-          const target = create.parent ? `${create.parent}/${trimmed}` : trimmed;
+          const targetPath = create.parent ? `${create.parent}/${trimmed}` : trimmed;
           await (create.kind === "file"
-            ? window.openshell.createFile(workspace, target)
-            : window.openshell.createDir(workspace, target));
-          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
+            ? window.openshell.createFile(target, targetPath)
+            : window.openshell.createDir(target, targetPath));
+          if (!panelFor(target)) return;
           void refreshTree(ancestorDirs(create.parent));
-          if (create.kind === "file") void openFile(target);
+          if (create.kind === "file") void openFile(targetPath, undefined, target);
         } else if (rename) {
           const parent = rename.path.includes("/")
             ? rename.path.slice(0, rename.path.lastIndexOf("/"))
             : "";
           const newPath = parent ? `${parent}/${trimmed}` : trimmed;
-          persistence.cancelPrefix(workspace, rename.path);
-          await window.openshell.renamePath(workspace, rename.path, trimmed);
-          if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-          setTabs((prev) =>
+          persistence.cancelPrefix(target, rename.path);
+          await window.openshell.renamePath(target, rename.path, trimmed);
+          if (!panelFor(target)) return;
+          setTabsFor(target.id, (prev) =>
             prev.map((t) =>
               t.path === rename.path || t.path.startsWith(`${rename.path}/`)
                 ? {
@@ -911,110 +1045,120 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
                 : t
             )
           );
-          setActivePath((active) =>
-            active && (active === rename.path || active.startsWith(`${rename.path}/`))
+          setActivePathFor(target.id, (() => {
+            const active = activePathByWorkspace[target.id] ?? null;
+            return active && (active === rename.path || active.startsWith(`${rename.path}/`))
               ? active.replace(rename.path, newPath)
-              : active
-          );
-          setAgentFiles((prev) => {
+              : active;
+          })());
+          setAgentFilesFor(target.id, (() => {
+            const current = agentFilesByWorkspaceRef.current[target.id] ?? new Map<string, AgentFileState>();
             const next = new Map<string, AgentFileState>();
-            for (const [p, state] of prev) {
+            for (const [p, state] of current) {
               if (p === rename.path || p.startsWith(`${rename.path}/`)) {
                 next.set(`${newPath}${p.slice(rename.path.length)}`, state);
               } else {
                 next.set(p, state);
               }
             }
-            agentFilesRef.current = next;
             return next;
-          });
+          })());
           void refreshTree(ancestorDirs(parent));
         }
         cancelPending();
       } catch (err) {
-        if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+        if (panelFor(target)) {
           toast(err instanceof Error ? err.message : String(err), "error");
         }
       }
     },
-    [toast, openFile, refreshTree, cancelPending, persistence]
+    [toast, openFile, refreshTree, cancelPending, persistence, panelFor, setTabsFor, setActivePathFor, setAgentFilesFor, activePathByWorkspace]
   );
 
   const moveEntry = useCallback(
     async (path: string, destDir: string) => {
-      const workspace = sessionRef.current?.workspace;
-      if (!workspace) return;
+      const target = sessionRef.current?.workspace;
+      if (!target) return;
       const name = path.split("/").pop() ?? path;
       const newPath = destDir ? `${destDir}/${name}` : name;
-      persistence.cancelPrefix(workspace, path);
+      persistence.cancelPrefix(target, path);
       try {
-        await window.openshell.movePath(workspace, path, destDir);
+        await window.openshell.movePath(target, path, destDir);
       } catch (err) {
-        if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+        if (panelFor(target)) {
           toast(err instanceof Error ? err.message : String(err), "error");
         }
         return;
       }
-      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
-      setTabs((prev) =>
+      if (!panelFor(target)) return;
+      setTabsFor(target.id, (prev) =>
         prev.map((t) =>
           t.path === path || t.path.startsWith(`${path}/`)
             ? { ...t, path: `${newPath}${t.path.slice(path.length)}`, name: t.path === path ? name : t.name }
             : t
         )
       );
-      setActivePath((active) =>
-        active && (active === path || active.startsWith(`${path}/`))
+      setActivePathFor(target.id, (() => {
+        const active = activePathByWorkspace[target.id] ?? null;
+        return active && (active === path || active.startsWith(`${path}/`))
           ? `${newPath}${active.slice(path.length)}`
-          : active
-      );
-      setAgentFiles((prev) => {
+          : active;
+      })());
+      setAgentFilesFor(target.id, (() => {
+        const current = agentFilesByWorkspaceRef.current[target.id] ?? new Map<string, AgentFileState>();
         const next = new Map<string, AgentFileState>();
-        for (const [p, state] of prev) {
+        for (const [p, state] of current) {
           if (p === path || p.startsWith(`${path}/`)) {
             if (!state.deleted) next.set(`${newPath}${p.slice(path.length)}`, state);
           } else {
             next.set(p, state);
           }
         }
-        agentFilesRef.current = next;
         return next;
-      });
+      })());
       const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
       void refreshTree([...ancestorDirs(parent), ...ancestorDirs(destDir)]);
     },
-    [toast, refreshTree, persistence]
+    [toast, refreshTree, persistence, panelFor, setTabsFor, setActivePathFor, setAgentFilesFor, activePathByWorkspace]
   );
 
   const closeTab = useCallback((path: string) => {
-    const workspace = sessionRef.current?.workspace;
-    if (workspace) persistence.cancelPath(workspace, path);
-    setTabs((prev) => {
+    const target = sessionRef.current?.workspace;
+    if (target) persistence.cancelPath(target, path);
+    if (!target) return;
+    setTabsFor(target.id, (prev) => {
       const next = prev.filter((t) => t.path !== path);
-      setActivePath((active) => {
+      setActivePathFor(target.id, (() => {
+        const active = activePathByWorkspace[target.id] ?? null;
         if (active !== path) return active;
         const idx = prev.findIndex((t) => t.path === path);
         const neighbor = next[idx] ?? next[next.length - 1];
         return neighbor ? neighbor.path : null;
-      });
+      })());
       return next;
     });
-  }, [persistence]);
+  }, [persistence, setTabsFor, setActivePathFor, activePathByWorkspace]);
 
-  const setActive = useCallback((path: string) => setActivePath(path), []);
+  const setActive = useCallback((path: string) => {
+    const target = sessionRef.current?.workspace;
+    if (target) setActivePathFor(target.id, path);
+  }, [setActivePathFor]);
 
   const setTabMode = useCallback((path: string, mode: "edit" | "diff") => {
-    setTabs((prev) => prev.map((t) => (t.path === path ? { ...t, mode } : t)));
-  }, []);
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    setTabsFor(target.id, (prev) => prev.map((t) => (t.path === path ? { ...t, mode } : t)));
+  }, [setTabsFor]);
 
   const doSave = useCallback(
     async (snapshot: SaveSnapshot, allowConflict = false) => {
-      const current = tabsRef.current.find((tab) => tab.path === snapshot.path);
+      const workspaceID = snapshot.workspace.id;
+      const current = (tabsByWorkspaceRef.current[workspaceID] ?? []).find((tab) => tab.path === snapshot.path);
       if (!current || (!allowConflict && current.conflict)) return;
       try {
         const result = await persistence.save(snapshot);
         if (result !== "saved") return;
-        setTabs((prev) =>
+        setTabsFor(workspaceID, (prev) =>
           prev.map((t) =>
             t.path === snapshot.path && t.revision === snapshot.revision
               ? {
@@ -1033,17 +1177,19 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(`Failed to save ${snapshot.path}: ${err instanceof Error ? err.message : String(err)}`, "error");
       }
     },
-    [persistence, toast]
+    [persistence, toast, setTabsFor]
   );
 
   const saveTab = useCallback(
     async (path: string) => {
-      const workspace = sessionRef.current?.workspace;
-      const tab = tabsRef.current.find((candidate) => candidate.path === path);
-      if (!workspace || !tab || tab.conflict) return;
-      persistence.cancelTimer(workspace, path);
+      const target = sessionRef.current?.workspace;
+      const tab = target
+        ? (tabsByWorkspaceRef.current[target.id] ?? []).find((candidate) => candidate.path === path)
+        : undefined;
+      if (!target || !tab || tab.conflict) return;
+      persistence.cancelTimer(target, path);
       await doSave({
-        workspace,
+        workspace: target,
         path,
         content: tab.content,
         expectedContent: tab.saved,
@@ -1055,29 +1201,31 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const editContent = useCallback(
     (path: string, content: string) => {
-      const workspace = sessionRef.current?.workspace;
-      const tab = tabsRef.current.find((candidate) => candidate.path === path);
-      if (!workspace || !tab || tab.content === content) return;
+      const target = sessionRef.current?.workspace;
+      const tab = target
+        ? (tabsByWorkspaceRef.current[target.id] ?? []).find((candidate) => candidate.path === path)
+        : undefined;
+      if (!target || !tab || tab.content === content) return;
       const snapshot = {
-        workspace,
+        workspace: target,
         path,
         content,
         expectedContent: tab.saved,
         revision: tab.revision + 1
       };
-      setTabs((prev) => prev.map((candidate) => candidate.path === path
+      setTabsFor(target.id, (prev) => prev.map((candidate) => candidate.path === path
         ? { ...candidate, content, revision: snapshot.revision, dirty: true }
         : candidate));
       if (!tab.conflict) persistence.schedule(snapshot, (next) => void doSave(next));
     },
-    [doSave, persistence]
+    [doSave, persistence, setTabsFor]
   );
 
   const reloadTab = useCallback((path: string) => {
-    const workspace = sessionRef.current?.workspace;
-    if (!workspace) return;
-    persistence.cancelPath(workspace, path);
-    setTabs((prev) => prev.map((tab) => {
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    persistence.cancelPath(target, path);
+    setTabsFor(target.id, (prev) => prev.map((tab) => {
       if (tab.path !== path || !tab.conflict) return tab;
       const content = tab.conflict.content ?? "";
       return {
@@ -1091,15 +1239,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         conflict: null
       };
     }));
-  }, [persistence]);
+  }, [persistence, setTabsFor]);
 
   const overwriteTab = useCallback(async (path: string) => {
-    const workspace = sessionRef.current?.workspace;
-    const tab = tabsRef.current.find((candidate) => candidate.path === path);
-    if (!workspace || !tab?.conflict) return;
-    persistence.cancelTimer(workspace, path);
+    const target = sessionRef.current?.workspace;
+    const tab = target
+      ? (tabsByWorkspaceRef.current[target.id] ?? []).find((candidate) => candidate.path === path)
+      : undefined;
+    if (!target || !tab?.conflict) return;
+    persistence.cancelTimer(target, path);
     await doSave({
-      workspace,
+      workspace: target,
       path,
       content: tab.content,
       expectedContent: tab.saved,
@@ -1109,26 +1259,28 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [doSave, persistence]);
 
   const mergeTab = useCallback((path: string) => {
-    setTabs((prev) => prev.map((tab) => tab.path === path && tab.conflict
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    setTabsFor(target.id, (prev) => prev.map((tab) => tab.path === path && tab.conflict
       ? { ...tab, conflict: { ...tab.conflict, resolution: "merge" } }
       : tab));
-  }, []);
+  }, [setTabsFor]);
 
   const openRecovery = useCallback(async (id: string) => {
-    const workspace = sessionRef.current?.workspace;
-    if (!workspace) return;
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
     try {
-      await window.openshell.openRecovery(workspace, id);
+      await window.openshell.openRecovery(target, id);
     } catch (error) {
       toast(error instanceof Error ? error.message : String(error), "error");
     }
   }, [toast]);
 
   const acknowledgeRecovery = useCallback(async (id: string) => {
-    const workspace = sessionRef.current?.workspace;
-    if (!workspace) return;
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
     try {
-      await window.openshell.acknowledgeRecovery(workspace, id);
+      await window.openshell.acknowledgeRecovery(target, id);
     } catch (error) {
       toast(error instanceof Error ? error.message : String(error), "error");
     }
@@ -1137,24 +1289,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
-        if (pendingActivationRef.current !== null) return;
-        if (
-          msg.session &&
-          sessionRef.current &&
-          msg.session.workspace.generation < sessionRef.current.workspace.generation
-        ) return;
-        const previousWorkspace = sessionRef.current?.workspace;
-        if (previousWorkspace && previousWorkspace.id !== msg.session?.workspace.id) {
-          persistence.cancelWorkspace(previousWorkspace);
-        }
-        sessionRef.current = msg.session ?? null;
-        setSession(sessionRef.current);
-        if (msg.session) {
-          void loadRecovery(msg.session.workspace);
-          void loadModels();
-          void loadAgents();
-          void loadSessions();
-        }
+        if (msg.session) attachPanel(msg.session);
         return;
       }
       if (msg.kind === "ui-command") {
@@ -1168,28 +1303,28 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         return;
       }
       if (msg.kind === "recovery") {
-        if (msg.recovery && sameWorkspace(msg.recovery.workspace, sessionRef.current?.workspace)) {
-          setRecoveryRecords(msg.recovery.records);
+        if (msg.recovery && panelFor(msg.recovery.workspace)) {
+          setRecoveryFor(msg.recovery.workspace.id, msg.recovery.records);
         }
         return;
       }
       if (msg.kind === "file-update") {
         const f = msg.file!;
-        const workspace = sessionRef.current?.workspace;
-        if (!workspace || f.sessionID !== sessionRef.current?.id || !sameWorkspace(f.workspace, workspace)) return;
-        const origin = persistence.classify(workspace, f);
-        setAgentFiles((prev) => {
-          const next = new Map(prev);
+        const panel = panelFor(f.workspace);
+        if (!panel || f.sessionID !== panel.id) return;
+        const origin = persistence.classify(f.workspace, f);
+        setAgentFilesFor(f.workspace.id, (() => {
+          const current = agentFilesByWorkspaceRef.current[f.workspace.id] ?? new Map<string, AgentFileState>();
+          const next = new Map(current);
           next.set(f.path, { baseline: f.baseline, content: f.content, deleted: f.deleted });
-          agentFilesRef.current = next;
           return next;
-        });
-        setTabs((prev) =>
+        })());
+        setTabsFor(f.workspace.id, (prev) =>
           prev.map((tab) => {
             if (tab.path !== f.path) return tab;
             if (origin === "echo") return tab;
             if (tab.dirty) {
-              persistence.cancelTimer(workspace, f.path);
+              persistence.cancelTimer(f.workspace, f.path);
               return {
                 ...tab,
                 baseline: f.baseline,
@@ -1211,13 +1346,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           })
         );
         const parent = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
-        if (parent !== f.path && expandedRef.current.has(parent)) {
-          const expected = workspace;
+        const workspaceExpanded = expandedByWorkspaceRef.current[f.workspace.id] ?? new Set<string>();
+        if (parent !== f.path && workspaceExpanded.has(parent)) {
+          const expected = f.workspace;
           void window.openshell
             .listDir(expected, parent)
             .then((entries) =>
-              sameWorkspace(expected, sessionRef.current?.workspace) &&
-                setTree((prev) => ({ ...prev, [parent]: sortEntries(filterEntries(entries)) }))
+              panelFor(expected) &&
+                setTreeFor(expected.id, (prev) => ({ ...prev, [parent]: sortEntries(filterEntries(entries)) }))
             )
             .catch(() => {});
         }
@@ -1230,6 +1366,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const targetSessionID = typeof data.sessionID === "string"
         ? data.sessionID
         : sessionRef.current?.id;
+      const targetWorkspace = targetSessionID ? workspaceOfSession(targetSessionID) : null;
       const active = Boolean(targetSessionID && targetSessionID === sessionRef.current?.id);
       if (targetSessionID && CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
@@ -1290,7 +1427,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.execution.failed":
         case "session.execution.interrupted": {
           if (targetSessionID) setSessionBusy(targetSessionID, false);
-          if (active) setTodos([]);
+          if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           const ok = type === "session.execution.succeeded";
           if (!ok && targetSessionID) {
             updateSessionTranscript(targetSessionID, (prev) => [
@@ -1307,44 +1444,52 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
         case "session.idle": {
           if (targetSessionID) setSessionBusy(targetSessionID, false);
-          if (active) setTodos([]);
+          if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           break;
         }
         case "todo.updated": {
-          if (active) setTodos(normalizeTodos(data.todos));
+          if (targetWorkspace) setTodosFor(targetWorkspace.id, normalizeTodos(data.todos));
           break;
         }
         case "session.model.selected": {
-          if (!active) break;
+          if (!targetWorkspace) break;
           const model = data.model as { id?: string; providerID?: string; variant?: string } | undefined;
           if (model?.id && model.providerID) {
-            const match = modelsRef.current.find(
-              (m) => m.id === model.id && m.providerID === model.providerID
+            const modelID = model.id;
+            const providerID = model.providerID;
+            const match = modelsByWorkspaceRef.current[targetWorkspace.id]?.find(
+              (m) => m.id === modelID && m.providerID === providerID
             );
-            setCurrentModel({
-              ...(match ?? { id: model.id, providerID: model.providerID, name: model.id }),
-              ...(model.variant ? { variant: model.variant } : {})
-            });
+            setCurrentModelByWorkspace((prev) => ({
+              ...prev,
+              [targetWorkspace.id]: {
+                ...(match ?? { id: modelID, providerID, name: modelID }),
+                ...(model.variant ? { variant: model.variant } : {})
+              }
+            }));
           }
           break;
         }
         case "session.agent.selected": {
-          if (!active) break;
+          if (!targetWorkspace) break;
           const agent = data.agent as string | undefined;
           if (agent) {
-            setCurrentAgent(
-              agentsRef.current.find((a) => a.id === agent) ?? { id: agent, name: agent }
-            );
+            setCurrentAgentByWorkspace((prev) => ({
+              ...prev,
+              [targetWorkspace.id]: agentsByWorkspaceRef.current[targetWorkspace.id]?.find((a) => a.id === agent) ?? { id: agent, name: agent }
+            }));
           }
           break;
         }
         case "agent.updated": {
-          void loadAgents();
+          if (targetWorkspace) void loadAgents(targetWorkspace);
+          else void loadAgents();
           break;
         }
         case "catalog.updated":
         case "models-dev.refreshed": {
-          void loadModels();
+          if (targetWorkspace) void loadModels(targetWorkspace);
+          else void loadModels();
           break;
         }
         case "session.status": {
@@ -1392,9 +1537,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               }
             ];
           });
-          const current = sessionRef.current;
-          if (automatic && current && targetSessionID === current.id) {
-            void window.openshell.permissionReply(current.workspace, requestID, "once", targetSessionID);
+          const panel = targetSessionID ? panelForSession(targetSessionID) : null;
+          if (automatic && panel) {
+            void window.openshell.permissionReply(panel.workspace, requestID, "once", panel.id);
           }
           break;
         }
@@ -1451,11 +1596,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       healthTimer = setTimeout(() => void tryConnect(), 2000);
     };
     void tryConnect();
-    const startup = activations.accept();
-    void window.openshell.state().then((s) => {
-      if (s && activations.current(startup) && (!sessionRef.current || s.workspace.generation >= sessionRef.current.workspace.generation)) {
-        void reopenSession(s.id, true);
-      }
+    void window.openshell.activeSessions().then((list) => {
+      void Promise.all(list.map((session) => reopenSession(session.id, true))).then(() => {
+        if (!userActivatedRef.current && list.length > 0) {
+          const primary = list[list.length - 1];
+          focusSession(primary.id);
+        }
+      });
     });
     return () => {
       cancelled = true;
@@ -1465,16 +1612,24 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       persistence.cancelAll();
     };
   }, [
+    attachPanel,
+    focusSession,
     loadModels,
     toggleWordWrap,
     loadAgents,
-    loadSessions,
     loadRecovery,
     reopenSession,
     setSessionBusy,
     updateSessionTranscript,
-    persistence,
-    activations
+    panelFor,
+    panelForSession,
+    workspaceOfSession,
+    setTodosFor,
+    setRecoveryFor,
+    setAgentFilesFor,
+    setTabsFor,
+    setTreeFor,
+    persistence
   ]);
 
   useEffect(() => {
@@ -1482,6 +1637,34 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     void loadModels();
     void loadAgents();
   }, [connected, loadModels, loadAgents]);
+
+  const panelViews = useMemo<Record<string, PanelView>>(() => {
+    const views: Record<string, PanelView> = {};
+    for (const panel of panels) {
+      views[panel.workspace.id] = {
+        session: panel,
+        busy: Boolean(busyBySession[panel.id]),
+        transcript: transcriptsBySession[panel.id] ?? [],
+        todos: todosByWorkspace[panel.workspace.id] ?? [],
+        sessionUsage: usageBySession[panel.id] ?? null,
+        models: modelsByWorkspace[panel.workspace.id] ?? [],
+        currentModel: currentModelByWorkspace[panel.workspace.id] ?? null,
+        agents: agentsByWorkspace[panel.workspace.id] ?? [],
+        currentAgent: currentAgentByWorkspace[panel.workspace.id] ?? null
+      };
+    }
+    return views;
+  }, [
+    panels,
+    busyBySession,
+    transcriptsBySession,
+    todosByWorkspace,
+    usageBySession,
+    modelsByWorkspace,
+    currentModelByWorkspace,
+    agentsByWorkspace,
+    currentAgentByWorkspace
+  ]);
 
   const value = useMemo<Store>(
     () => ({
@@ -1507,6 +1690,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       approvalMode,
       wordWrap,
       sessions,
+      panels,
+      panelViews,
+      activeSessionID,
+      focusSession,
+      closePanel,
       openSession,
       selectFolder,
       reopenSession,
@@ -1548,9 +1736,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }),
     [
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts, recoveryRecords,
-      models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions,
-      ctxMenu, pendingCreate, pendingRename,
-      openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
+      models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions, panels, panelViews, activeSessionID,
+      focusSession, closePanel, openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, replyPermission,
@@ -1565,4 +1752,23 @@ export function useStore(): Store {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useStore must be used within StoreProvider");
   return ctx;
+}
+
+const EMPTY_VIEW: PanelView = {
+  session: null,
+  busy: false,
+  transcript: [],
+  todos: [],
+  sessionUsage: null,
+  models: [],
+  currentModel: null,
+  agents: [],
+  currentAgent: null
+};
+
+export function usePanel(workspace: WorkspaceIdentity | null | undefined): PanelView {
+  const store = useContext(Ctx);
+  if (!store) throw new Error("usePanel must be used within StoreProvider");
+  if (!workspace) return EMPTY_VIEW;
+  return store.panelViews[workspace.id] ?? EMPTY_VIEW;
 }

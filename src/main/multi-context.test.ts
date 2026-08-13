@@ -1,0 +1,197 @@
+// @vitest-environment node
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("electron", () => ({
+  app: { getPath: () => tmpdir() },
+  shell: { trashItem: vi.fn(), openPath: async () => "" }
+}));
+vi.mock("@opencode-ai/client", () => ({ OpenCode: { make: vi.fn() } }));
+vi.mock("@opencode-ai/client/service", () => ({ Service: {} }));
+
+import { OpenShellBackend } from "./opencode";
+import type { BackendMessage, WorkspaceIdentity } from "@shared/types";
+
+const roots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function fixture(): Promise<{ backend: OpenShellBackend; messages: BackendMessage[] }> {
+  const backend = new OpenShellBackend();
+  const messages: BackendMessage[] = [];
+  backend.onMessage((message) => messages.push(message as BackendMessage));
+  return { backend, messages };
+}
+
+function clientWith(sessions: Record<string, string>): unknown {
+  const directoryCreates = new Map<string, number>();
+  return {
+    session: {
+      create: vi.fn(async ({ location }: { location: { directory: string } }) => {
+        const candidates = Object.entries(sessions).filter(([, directory]) => directory === location.directory);
+        const index = directoryCreates.get(location.directory) ?? 0;
+        directoryCreates.set(location.directory, index + 1);
+        return { id: candidates[index]?.[0] ?? `new-${location.directory.split("/").pop()}-${index}` };
+      }),
+      get: vi.fn(async ({ sessionID }: { sessionID: string }) => ({
+        id: sessionID,
+        location: { directory: sessions[sessionID] }
+      }))
+    },
+    message: { list: vi.fn(async () => []) },
+    file: { read: vi.fn(async () => "content") }
+  };
+}
+
+describe("concurrent session contexts", () => {
+  it("opens two sessions on different directories and routes events to the matching context", async () => {
+    const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-one-")));
+    const two = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-two-")));
+    roots.push(one, two);
+    await writeFile(path.join(one, "one.txt"), "one before");
+    await writeFile(path.join(two, "two.txt"), "two before");
+    const sessions = { "session-one": one, "session-two": two };
+    const { backend, messages } = await fixture();
+    const client = clientWith(sessions);
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(one, 1);
+    const second = await backend.openSession(two, 2);
+
+    expect(first.id).toBe("session-one");
+    expect(second.id).toBe("session-two");
+    expect(await backend.activeSessions()).toHaveLength(2);
+
+    const handle = (backend as unknown as {
+      handleServerEvent: (
+        type: string,
+        data: unknown,
+        location?: { directory?: string }
+      ) => Promise<void>;
+    }).handleServerEvent.bind(backend);
+    messages.length = 0;
+    await handle("filesystem.changed", { file: "two.txt", event: "change" }, { directory: two });
+    await handle("filesystem.changed", { file: "one.txt", event: "change" }, { directory: one });
+
+    const paths = messages
+      .filter((message) => message.kind === "file-update")
+      .map((message) => (message.kind === "file-update" ? message.file : null));
+    expect(paths.map((file) => file?.path).sort()).toEqual(["one.txt", "two.txt"]);
+    const byPath = new Map(paths.map((file) => [file?.path, file]));
+    expect(byPath.get("one.txt")?.sessionID).toBe(first.id);
+    expect(byPath.get("two.txt")?.sessionID).toBe(second.id);
+    expect(byPath.get("one.txt")?.workspace.id).toBe(first.workspace.id);
+    expect(byPath.get("two.txt")?.workspace.id).toBe(second.workspace.id);
+  });
+
+  it("reuses the context for an already-open session and keeps its workspace identity", async () => {
+    const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-idem-")));
+    roots.push(one);
+    const { backend, messages } = await fixture();
+    const client = clientWith({ "session-one": one });
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(one, 1);
+    messages.length = 0;
+    const reopened = await backend.openSessionById(first.id, 2);
+
+    expect(reopened.session.workspace).toEqual(first.workspace);
+    expect(reopened.session.id).toBe(first.id);
+    expect(messages).toEqual([]);
+    expect(await backend.activeSessions()).toHaveLength(1);
+  });
+
+  it("keeps independent snapshot state for two sessions sharing one directory", async () => {
+    const shared = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-shared-")));
+    roots.push(shared);
+    await writeFile(path.join(shared, "shared.txt"), "before");
+    const { backend, messages } = await fixture();
+    const sessions = { "session-one": shared, "session-two": shared };
+    const client = clientWith(sessions);
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(shared, 1);
+    const second = await backend.openSession(shared, 2);
+    expect(first.workspace.id).not.toBe(second.workspace.id);
+
+    const handle = (backend as unknown as {
+      handleServerEvent: (
+        type: string,
+        data: unknown,
+        location?: { directory?: string }
+      ) => Promise<void>;
+    }).handleServerEvent.bind(backend);
+    messages.length = 0;
+    await handle("filesystem.changed", { file: "shared.txt", event: "change" }, { directory: shared });
+
+    const updates = messages.filter((message) => message.kind === "file-update");
+    expect(updates).toHaveLength(2);
+    const sessionIDs = updates.map((message) => (message.kind === "file-update" ? message.file?.sessionID : null)).sort();
+    expect(sessionIDs).toEqual([first.id, second.id].sort());
+  });
+
+  it("replaces the context when the same session re-activates on a different directory", async () => {
+    const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-move-")));
+    roots.push(one);
+    await mkdir(path.join(one, "a"));
+    await mkdir(path.join(one, "b"));
+    const { backend, messages } = await fixture();
+    const client = clientWith({ "session-one": path.join(one, "a") });
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(path.join(one, "a"), 1);
+    messages.length = 0;
+    (client as { session: { get: (opts: { sessionID: string }) => Promise<unknown> } }).session.get = vi.fn(async () => ({
+      id: "session-one",
+      location: { directory: path.join(one, "b") }
+    }));
+    const moved = await backend.openSessionById(first.id, 2);
+
+    expect(moved.session.directory).toBe(path.join(one, "b"));
+    expect(moved.session.workspace.id).not.toBe(first.workspace.id);
+    expect(await backend.activeSessions()).toHaveLength(1);
+    expect(messages.map((message) => message.kind)).toEqual(["session", "recovery"]);
+    await backend.stop();
+  });
+
+  it("routes tool snapshots to the session that called the tool", async () => {
+    const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-tool-one-")));
+    const two = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-tool-two-")));
+    roots.push(one, two);
+    await writeFile(path.join(one, "one.txt"), "one");
+    await writeFile(path.join(two, "two.txt"), "two");
+    const { backend } = await fixture();
+    const sessions = { "session-one": one, "session-two": two };
+    const client = clientWith(sessions);
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+
+    const first = await backend.openSession(one, 1);
+    await backend.openSession(two, 2);
+    const contextMap = backend as unknown as {
+      contexts: Map<string, { sessionID: string; watchContext: { snapshots: Map<string, unknown> } }>;
+    };
+    const firstContext = [...contextMap.contexts.values()].find((context) => context.sessionID === first.id)!;
+    expect(firstContext.watchContext.snapshots.size).toBe(0);
+
+    const handle = (backend as unknown as {
+      handleServerEvent: (
+        type: string,
+        data: unknown,
+        location?: { directory?: string }
+      ) => Promise<void>;
+    }).handleServerEvent.bind(backend);
+    await handle("session.tool.called", { sessionID: first.id, input: { filePath: "one.txt" } });
+
+    expect([...firstContext.watchContext.snapshots.keys()].some((key) => key.endsWith("one.txt"))).toBe(true);
+    await backend.stop();
+  });
+});

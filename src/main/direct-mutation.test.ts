@@ -20,8 +20,9 @@ vi.mock("@opencode-ai/client/service", () => ({
   Service: {}
 }));
 
-import { OpenShellBackend } from "./opencode";
+import { OpenShellBackend, type SessionContext } from "./opencode";
 import type { BackendMessage, FileBaseline, WorkspaceIdentity } from "@shared/types";
+import { LatestGeneration } from "@shared/generation";
 
 const roots: string[] = [];
 const workspace: WorkspaceIdentity = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
@@ -46,18 +47,23 @@ async function backendFixture(
     workspace,
     snapshots: new Map<string, FileBaseline>(),
     lastKnown: new Map<string, string>(),
-    hasGit: false
+    hasGit: false,
+    timers: new Map()
   };
   const state = backend as unknown as {
-    directory: string;
-    sessionID: string;
-    workspace: WorkspaceIdentity;
-    watchContext: typeof context;
+    contexts: Map<string, SessionContext>;
+    primary: string | null;
   };
-  state.directory = root;
-  state.sessionID = "session";
-  state.workspace = workspace;
-  state.watchContext = context;
+  state.contexts = new Map([[workspace.id, {
+    workspace,
+    sessionID: "session",
+    directory: root,
+    sessionInfo: { id: "session", directory: root, workspace },
+    watchContext: context,
+    watcher: null,
+    activations: new LatestGeneration()
+  }]]);
+  state.primary = workspace.id;
   const messages: BackendMessage[] = [];
   backend.onMessage((message) => messages.push(message as BackendMessage));
   return { backend, root, messages };

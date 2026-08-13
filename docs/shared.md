@@ -8,8 +8,8 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 
 | Type | Shape | Used for |
 |---|---|---|
-| `WorkspaceIdentity` | `{ id, generation }` | Opaque immutable UUID plus monotonic request generation assigned to one workspace activation; capability calls must echo both |
-| `SessionInfo` | `{ id, directory, workspace, parentID?, title?, agent? }` | The active opencode2 session, immutable workspace identity, and parent/child navigation metadata |
+| `WorkspaceIdentity` | `{ id, generation }` | Opaque immutable UUID plus monotonic generation minted for one session context; capability calls must echo both; reused while a session stays open so file-updates and editor state keep routing to the same workspace |
+| `SessionInfo` | `{ id, directory, workspace, parentID?, title?, agent? }` | An open opencode2 session (one per panel), immutable workspace identity, and parent/child navigation metadata |
 | `SessionSummary` | `{ id, title, directory, updatedAt, parentID?, agent? }` | Recent-session graph used by Welcome and task/subagent links |
 | `TreeEntry` | `{ path, type: "file" \| "directory" }` | Explorer tree nodes; `path` is `/`-relative, no trailing slash |
 | `RecoveryRecord` | `{ id, artifact, originalPath, recoveryPath, createdAt, acknowledged, reason }` | Actionable durable save/rename artifact; acknowledgment does not remove bytes |
@@ -21,7 +21,7 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `CommandOption` | `{ name, description?, kind? }` | Slash commands and skills offered by `/` completion and run via `runCommand` (`kind: "command" \| "skill"`) |
 | `ReferenceOption` | `{ name, path, rel, description? }` | `file.find` search results for `@` mentions; `path` is absolute, `rel` is relative to the session directory |
 | `PromptFile` | `{ path, mention?: { start, end, text } }` | Files attached to a prompt; `mention` marks the `@rel` token span in the prompt text |
-| `SessionSelection` | `{ model?: ModelOption, agent?: AgentOption }` | Restores the active session's model/agent picks after a renderer reload |
+| `SessionSelection` | `{ model?: ModelOption, agent?: AgentOption }` | Restores the addressed session's model/agent picks |
 | `ApprovalMode` | `"ask" \| "approve"` | Composer permission behavior; approve mode replies `once` automatically |
 | `UserAttachment` | `{ name }` | Attachment chip rendered on a submitted user prompt |
 | `TerminalData` | `{ id, data }` | PTY output chunk (`terminal-data` message) |
@@ -86,7 +86,7 @@ blocks, and provider metadata is retained instead of flattened away.
   `toggle-word-wrap` when ⌘W is pressed, or `open-source` with
   `{ path, line }` when a DevTools CSS source link is clicked).
   Recovery messages carry `{ workspace, records }` so renderer state rejects
-  records emitted for a stale activation.
+  records emitted for a closed or replaced workspace.
 - `{ kind: "terminal-data", terminal: TerminalData }`
 - `{ kind: "terminal-exit", terminal: TerminalExit }`
 
@@ -96,9 +96,10 @@ This is the wire format for `shell:message` from main → renderer.
 
 - Keep IPC-shaped types here so main and renderer compile against one
   contract. Change a type here and both sides of the bridge update.
-- Treat `WorkspaceIdentity` as an opaque activation capability. It changes on
-  every new/reopened activation, even when the directory and session id match.
-- Activation generations are assigned when main accepts the request. Higher
-  generations supersede lower generations; stale completions are discarded.
+- Treat `WorkspaceIdentity` as an opaque activation capability. A new
+  activation mints a fresh identity; re-activating an already-open session
+  reuses its identity so renderer state survives the reopen.
+- Generations are minted when main accepts the request. A replaced context
+  invalidates its in-flight work; stale completions are discarded.
 - Never import renderer or main code from this file — it must stay
   dependency-free (types only).

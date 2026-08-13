@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { StoreProvider, useStore } from "./store";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { StoreProvider, usePanel, useStore } from "./store";
+import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar } from "./components/FileSidebar";
 import { EditorPane } from "./components/EditorPane";
@@ -7,8 +8,10 @@ import { AgentPanel } from "./components/AgentPanel";
 import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 import { RecoveryNotice } from "./components/RecoveryNotice";
+import { SessionsTab } from "./components/SessionsTab";
 
 const COLLAPSED_PANEL_W = 44;
+const PANEL_ADD_W = 30;
 const SIDE_MIN_W = 170;
 const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
@@ -145,13 +148,98 @@ function useTrayHeight(): {
   return { height, open, snapped, dragging, toggle, close, expand, onDrag };
 }
 
+interface PanelSlot {
+  open: boolean;
+  width: number;
+}
+
+function PanelSliver({
+  busy,
+  label,
+  onExpand,
+  onDrag
+}: {
+  busy: boolean;
+  label: string;
+  onExpand: () => void;
+  onDrag: (e: React.MouseEvent) => void;
+}): ReactNode {
+  return (
+    <div className="agent-sliver" onMouseDown={onDrag} title={`Show panel — ${label}`}>
+      <span className={`agent-dot ${busy ? "busy" : ""}`} />
+      <button
+        className="activity-btn"
+        aria-label={`Show panel — ${label}`}
+        onClick={onExpand}
+      >
+        <span className="codicon codicon-symbol-event" />
+      </button>
+    </div>
+  );
+}
+
+function PanelColumn({
+  session,
+  slot,
+  maxW,
+  isLast,
+  onSlot,
+  onFocus
+}: {
+  session: SessionInfo;
+  slot: PanelSlot;
+  maxW: number;
+  isLast: boolean;
+  onSlot: (slot: PanelSlot) => void;
+  onFocus: () => void;
+}): ReactNode {
+  const view = usePanel(session.workspace);
+  const label = view.currentModel?.name ?? "Model";
+  const expand = useCallback(() => {
+    onFocus();
+    onSlot({ open: true, width: Math.max(AGENT_DEFAULT_W, slot.width) });
+  }, [onFocus, onSlot, slot.width]);
+  const collapse = useCallback(() => onSlot({ ...slot, open: false }), [onSlot, slot]);
+  const open = useCallback(() => onSlot({ ...slot, open: true }), [onSlot, slot]);
+  const drag = useDragResize(
+    slot.width,
+    (width) => onSlot({ ...slot, width: typeof width === "function" ? width(slot.width) : width }),
+    AGENT_MIN_W,
+    maxW,
+    true,
+    slot.open,
+    open,
+    collapse
+  );
+
+  if (slot.open) {
+    return (
+      <>
+        <div className="divider" onMouseDown={drag} />
+        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} />
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="divider collapsed" onMouseDown={drag} />
+      {isLast ? (
+        <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} />
+      ) : (
+        <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} />
+      )}
+    </>
+  );
+}
+
 function Layout({ children }: { children?: ReactNode }): ReactNode {
+  const { panels, focusSession, activeSessionID, selectFolder } = useStore();
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
-  const [agentOpen, setAgentOpen] = useState(true);
-  const [agentW, setAgentW] = useState(AGENT_DEFAULT_W);
+  const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
 
   useEffect(() => {
     const onResize = (): void => setWinW(window.innerWidth);
@@ -159,50 +247,90 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  useEffect(() => {
+    setSlots((current) => {
+      const next: Record<string, PanelSlot> = {};
+      let changed = false;
+      for (const panel of panels) {
+        const id = panel.workspace.id;
+        next[id] = current[id] ?? { open: true, width: AGENT_DEFAULT_W };
+        if (!current[id]) changed = true;
+      }
+      if (Object.keys(current).length !== Object.keys(next).length) changed = true;
+      return changed ? next : current;
+    });
+  }, [panels]);
+
+  const panelShown = (id: string): number => {
+    const slot = slots[id];
+    return slot && slot.open ? slot.width : COLLAPSED_PANEL_W;
+  };
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
-  const agentShown = agentOpen ? agentW : COLLAPSED_PANEL_W;
-  const agentMax = Math.max(AGENT_MIN_W, winW - sideShown - 2);
+
+  const singlePanel = panels.length <= 1;
+  const agentShown = singlePanel && panels.length === 1
+    ? panelShown(panels[0].workspace.id)
+    : 0;
   const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - 2));
 
   const sideCapRef = useRef<number | null>(null);
   const agentCapRef = useRef<number | null>(null);
+  const agentOpen = singlePanel && panels.length === 1 && (slots[panels[0].workspace.id]?.open ?? true);
 
   useLayoutEffect(() => {
-    if (!sideOpen && !agentOpen) return;
-    const avail = Math.max(0, winW - 2);
-    const agentLimit = Math.max(0, avail - sideShown);
-    const sideLimit = Math.max(0, Math.min(SIDE_MAX_W, avail - agentShown));
-    const agentAnchored = agentOpen && agentCapRef.current !== null && agentW >= agentCapRef.current - 1;
-    const sideAnchored = sideOpen && sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
-    if (agentOpen) agentCapRef.current = agentLimit;
-    if (sideOpen) sideCapRef.current = sideLimit;
-    const total = sideShown + agentShown;
-    if (total <= avail) {
-      if (agentAnchored) setAgentW(agentLimit);
-      if (sideAnchored) setSideW(sideLimit);
+    if (singlePanel) {
+      if (!sideOpen && !agentOpen) return;
+      const avail = Math.max(0, winW - 2);
+      const agentLimit = Math.max(0, avail - sideShown);
+      const sideLimit = Math.max(0, Math.min(SIDE_MAX_W, avail - agentShown));
+      const agentAnchored = agentOpen && agentCapRef.current !== null && agentShown >= agentCapRef.current - 1;
+      const sideAnchored = sideOpen && sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
+      if (agentOpen) agentCapRef.current = agentLimit;
+      if (sideOpen) sideCapRef.current = sideLimit;
+      const total = sideShown + agentShown;
+      if (total <= avail) {
+        if (agentAnchored && agentOpen && panels.length === 1) {
+          setSlotWidth(panels[0].workspace.id, agentLimit);
+        }
+        if (sideAnchored) setSideW(sideLimit);
+        return;
+      }
+      if (!sideOpen || !agentOpen) {
+        if (agentOpen && panels.length === 1) {
+          setSlotWidth(panels[0].workspace.id, agentLimit);
+        } else setSideW(sideLimit);
+        return;
+      }
+      if (agentAnchored !== sideAnchored) {
+        if (agentAnchored && panels.length === 1) {
+          setSlotWidth(panels[0].workspace.id, agentLimit);
+        } else setSideW(sideLimit);
+        return;
+      }
+      if (agentAnchored && panels.length === 1) {
+        const nextAgent = Math.max(COLLAPSED_PANEL_W, agentLimit);
+        setSlotWidth(panels[0].workspace.id, nextAgent);
+        setSideW(Math.max(COLLAPSED_PANEL_W, Math.min(sideShown, avail - nextAgent)));
+        return;
+      }
+      const nextSide = Math.max(COLLAPSED_PANEL_W, Math.round((sideShown * avail) / total));
+      const nextAgent = Math.max(COLLAPSED_PANEL_W, avail - nextSide);
+      setSideW(nextSide);
+      if (panels.length === 1) {
+        setSlotWidth(panels[0].workspace.id, nextAgent);
+      }
       return;
     }
-    if (!sideOpen || !agentOpen) {
-      if (agentOpen) setAgentW(agentLimit);
-      else setSideW(sideLimit);
-      return;
-    }
-    if (agentAnchored !== sideAnchored) {
-      if (agentAnchored) setAgentW(agentLimit);
-      else setSideW(sideLimit);
-      return;
-    }
-    if (agentAnchored) {
-      const nextAgent = Math.max(COLLAPSED_PANEL_W, agentLimit);
-      setAgentW(nextAgent);
-      setSideW(Math.max(COLLAPSED_PANEL_W, Math.min(sideShown, avail - nextAgent)));
-      return;
-    }
-    const nextSide = Math.max(COLLAPSED_PANEL_W, Math.round((sideShown * avail) / total));
-    const nextAgent = Math.max(COLLAPSED_PANEL_W, avail - nextSide);
-    setSideW(nextSide);
-    setAgentW(nextAgent);
-  }, [winW, sideOpen, agentOpen, sideW, agentW]);
+    const avail = Math.max(0, winW - 2 - sideShown);
+    const openIDs = panels
+      .filter((panel) => slots[panel.workspace.id]?.open)
+      .map((panel) => panel.workspace.id);
+    if (openIDs.length === 0) return;
+    const totalShown = panels.reduce((sum, panel) => sum + panelShown(panel.workspace.id), 0);
+    if (totalShown <= avail) return;
+    const base = Math.max(COLLAPSED_PANEL_W, Math.floor(avail / openIDs.length));
+    for (const id of openIDs) setSlotWidth(id, Math.min(slots[id]?.width ?? base, base));
+  }, [winW, sideOpen, sideW, panels, slots, singlePanel, sideShown, agentShown, agentOpen]);
 
   const sideDrag = useDragResize(
     sideW,
@@ -214,23 +342,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     () => setSideOpen(true),
     () => setSideOpen(false)
   );
-  const agentDrag = useDragResize(
-    agentW,
-    setAgentW,
-    AGENT_MIN_W,
-    agentMax,
-    true,
-    agentOpen,
-    () => setAgentOpen(true),
-    () => setAgentOpen(false)
-  );
 
   const cols = [
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
     "1px",
     "minmax(0,1fr)",
-    "1px",
-    agentOpen ? `${agentW}px` : `${COLLAPSED_PANEL_W}px`
+    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`]),
+    `${PANEL_ADD_W}px`
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
@@ -239,9 +357,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   useEffect(() => {
     if (prevSidebarRef.current === null) return;
-    const stillInMode = !sideOpen && agentOpen && Math.abs(agentW - agentCap) < 2;
+    const stillInMode = !sideOpen && agentOpen && panels.length === 1 && Math.abs(panelShown(panels[0].workspace.id) - agentCap) < 2;
     if (!stillInMode) prevSidebarRef.current = null;
-  }, [sideOpen, agentOpen, agentW, agentCap]);
+  }, [sideOpen, agentOpen, slots, agentCap, panels]);
 
   const setSidebarOpen = (open: boolean): void => {
     if (open) setSideW(SIDE_DEFAULT_W);
@@ -249,19 +367,42 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
 
   const toggleAgentMode = (): void => {
+    const lastPanel = panels[panels.length - 1];
+    if (!lastPanel) return;
     if (prevSidebarRef.current === null) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
       setSideOpen(false);
-      setAgentOpen(true);
-      setAgentW(Math.max(0, winW - COLLAPSED_PANEL_W - 2));
+      setSlots((current) => ({
+        ...current,
+        [lastPanel.workspace.id]: { open: true, width: Math.max(0, winW - COLLAPSED_PANEL_W - 2) }
+      }));
     } else {
       const prev = prevSidebarRef.current;
       prevSidebarRef.current = null;
       setSideOpen(prev.open);
       setSideW(prev.width);
-      setAgentOpen(true);
-      setAgentW(AGENT_MIN_W);
+      setSlots((current) => ({
+        ...current,
+        [lastPanel.workspace.id]: { open: true, width: AGENT_MIN_W }
+      }));
     }
+  };
+
+  const panelMax = (id: string): number => {
+    const others = panels
+      .filter((panel) => panel.workspace.id !== id)
+      .reduce((sum, panel) => sum + panelShown(panel.workspace.id), 0);
+    return Math.max(AGENT_MIN_W, winW - sideShown - others - 2);
+  };
+
+  const slotFor = (panel: SessionInfo): PanelSlot => slots[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W };
+
+  const setSlotWidth = (id: string, width: number): void => {
+    setSlots((current) => {
+      const slot = current[id] ?? { open: true, width: AGENT_DEFAULT_W };
+      if (slot.width === width) return current;
+      return { ...current, [id]: { ...slot, width } };
+    });
   };
 
   return (
@@ -269,6 +410,20 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       <div className="titlebar">
         <span className="titlebar-title">OpenShell</span>
         <span className="titlebar-actions">
+          <button
+            className={`icon-btn ${sessionsOpen ? "on" : ""}`}
+            title="Sessions — running sessions, recents, and saved workspaces"
+            onClick={() => setSessionsOpen((open) => !open)}
+          >
+            <span className="codicon codicon-history" />
+          </button>
+          <button
+            className="icon-btn"
+            title="Open another workspace"
+            onClick={() => void selectFolder()}
+          >
+            <span className="codicon codicon-folder-opened" />
+          </button>
           <button
             className={`icon-btn ${inAgentMode ? "on" : ""}`}
             title={inAgentMode
@@ -294,23 +449,26 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         <FileSidebar collapsed={!sideOpen} onCollapse={setSidebarOpen} onDrag={sideDrag} />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         <EditorPane />
-        {agentOpen ? (
-          <>
-            <div className="divider" onMouseDown={agentDrag} />
-            <AgentPanel onCollapse={() => setAgentOpen(false)} />
-          </>
-        ) : (
-          <>
-            <div className="divider collapsed" onMouseDown={agentDrag} />
-            <AgentTray
-              onExpand={() => {
-                setAgentW(AGENT_DEFAULT_W);
-                setAgentOpen(true);
-              }}
-              onDrag={agentDrag}
-            />
-          </>
-        )}
+        {panels.map((panel, index) => (
+          <PanelColumn
+            key={panel.workspace.id}
+            session={panel}
+            slot={slotFor(panel)}
+            maxW={panelMax(panel.workspace.id)}
+            isLast={index === panels.length - 1}
+            onSlot={(slot) => setSlots((current) => ({ ...current, [panel.workspace.id]: slot }))}
+            onFocus={() => focusSession(panel.id)}
+          />
+        ))}
+        <div className={`panel-add-col ${activeSessionID ? "" : "dim"}`}>
+          <button
+            className="panel-add-btn"
+            title="Open another workspace as a new session panel"
+            onClick={() => void selectFolder()}
+          >
+            <span className="codicon codicon-add" />
+          </button>
+        </div>
       </div>
 
       <div
@@ -323,6 +481,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </div>
       </div>
 
+      <SessionsTab open={sessionsOpen} onClose={() => setSessionsOpen(false)} />
       <Toasts />
       <RecoveryNotice />
     </div>

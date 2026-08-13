@@ -53,7 +53,7 @@ All backend→renderer message kinds are defined in
 - `{ kind: "file-update", file: { workspace, sessionID, path, baseline, content, deleted } }` —
   emitted by the generation-bound fs watcher (below).
 - `{ kind: "session", session: { id, directory, workspace } }` — emitted when a
-  session is opened.
+  session context activates (a new concurrent panel).
 - `{ kind: "recovery", recovery: { workspace, records } }` — durable artifact
   inventory emitted on activation and transaction/acknowledgment changes.
 - `{ kind: "terminal-data" | "terminal-exit", terminal }` — PTY output /
@@ -87,21 +87,26 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    later user action wins even if an earlier dialog resolves later.
 2. `openSession(directory)` creates the session via
    `client.session.create({ location: { directory } })` — opencode's own
-   defaults pick the model and agent; stores `sessionID`/`directory`, clears
-   baseline state, canonicalizes the workspace root, assigns a fresh
-   immutable workspace UUID plus request generation, and starts the fs
-   watcher. Activations are latest-request-wins and stale completions never
-   commit.
-3. Emits `{ kind: "session" }`; renderer resets all UI state.
+   defaults pick the model and agent; canonicalizes the workspace root,
+   assigns a fresh immutable workspace identity, and starts the context's
+   fs watcher.
+3. Emits `{ kind: "session" }`; the renderer adds the session as a new panel
+   and focuses it. Reopening an already-open session reuses its context
+   (stable workspace identity, no re-emit) and the renderer just focuses
+   the panel.
 4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
-5. The backend owns one active session at a time. Creating or reopening a
-   session replaces that active workspace, while OpenCode retains session
-   history and child sessions.
+5. The backend owns any number of concurrent session contexts at once, each
+   with its own watcher, snapshots, and recovery state. Every `shell:*`
+   invoke addresses one workspace identity, resolved against the context map.
+   One global SSE loop feeds all sessions; events route by session id and
+   `filesystem.changed` fans out to every context on that directory.
 6. Closing the window on macOS keeps the backend alive (it is only torn
    down in `before-quit`); re-activating re-creates the window while the
    single-flight event loop remains active. Shutdown aborts the active SDK SSE
-   subscription and invalidates its generation before any later restart.
+   subscription and stops every context watcher. On renderer reload,
+   `activeSessions()` restores every open panel silently and focuses the most
+   recently activated one unless the user already acted.
 
 ## Diffs and baselines (how the diff view works)
 
@@ -119,12 +124,13 @@ user, or another process. Main preserves the first baseline per path:
   baseline because the watcher only has post-change bytes.
 - **OpenShell mutations**: saves and creates establish a known baseline only
   when none exists. Delete and rename preserve the established baseline.
-- **Live watching**: `fs.watch(directory, { recursive: true })` captures the
-  activation root/session/generation and workspace-scoped maps, then feeds every
-  change through a 200ms debounce into `onFsChanged`, which compares
-  against `lastKnown`, assigns a baseline if missing, and emits
-  identity-bound `file-update` with `{baseline, content}`. Await boundaries and
-  emissions re-check that the captured activation is still current.
+- **Live watching**: one recursive `fs.watch(directory, { recursive: true })`
+  per open context captures the activation root/session/identity and
+  workspace-scoped maps, then feeds every change through a 200ms debounce into
+  `onFsChanged`, which compares against `lastKnown`, assigns a baseline if
+  missing, and emits identity-bound `file-update` with `{baseline, content}`.
+  Await boundaries and emissions re-check that the context is still
+  registered.
 
 The renderer merges updates into tabs. A known baseline enables Monaco Diff;
 an unknown baseline stays in Changes as `observed` with Diff unavailable.
@@ -211,10 +217,11 @@ generation guarded before filesystem mutation.
 
 ## Models, agents, and composer controls
 
-The header of the agent panel has two pickers. Models come from
+Each session panel's header has two pickers. Models come from
 `client.model.list()` (filtered to `{ id, providerID, name, variants }`) and
 are grouped by provider in the composer menu. The current model is seeded
-from `client.model.default()` and updated live by `session.model.selected`.
+from `client.model.default()` per panel and updated live by
+`session.model.selected` for the addressed session.
 Switching calls `client.session.switchModel({ sessionID, model })`, including
 `model.variant` when a model exposes response-strength variants.
 Agents come from `client.agent.list()`; the selection is updated live by
@@ -232,8 +239,11 @@ provides it.
 ## Terminal tray
 
 The bottom tray (`src/main/terminal.ts` + `TerminalTray.tsx`) runs a real
-PTY via `node-pty`. Main verifies the workspace identity and supplies the
-canonical active workspace as cwd rather than accepting one from the renderer.
+PTY via `node-pty`. Main resolves the workspace identity and supplies the
+addressed workspace's canonical directory as cwd rather than accepting one
+from the renderer. The tray belongs to the focused panel: switching focus
+boots a fresh terminal for that workspace and stops the previous panel's
+PTYs; `stopAll()` runs only at quit.
 It spawns the selected shell in that directory and forwards PTY
 output to the renderer as `terminal-data` messages; keystrokes go back
 via `shell:terminal-input`. Resizes are handled with the xterm `fit`

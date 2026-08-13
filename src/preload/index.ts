@@ -29,15 +29,16 @@ const api = {
   selectFolder: (generation: number): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder", generation),
   openSession: (dir: string, generation: number): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir, generation),
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
+  activeSessions: (): Promise<SessionInfo[]> => ipcRenderer.invoke("shell:active-sessions"),
   openSessionById: (sessionID: string, generation: number): Promise<ReopenedSession> =>
     ipcRenderer.invoke("shell:open-session-id", sessionID, generation),
   prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<void> =>
     ipcRenderer.invoke("shell:prompt", workspace, text, files),
-  commands: (): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands"),
+  commands: (workspace: WorkspaceIdentity): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands", workspace),
   runCommand: (workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> =>
     ipcRenderer.invoke("shell:run-command", workspace, name, args),
-  references: (query: string): Promise<ReferenceOption[]> =>
-    ipcRenderer.invoke("shell:find-files", query),
+  references: (workspace: WorkspaceIdentity, query: string): Promise<ReferenceOption[]> =>
+    ipcRenderer.invoke("shell:find-files", workspace, query),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
   interrupt: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:interrupt", workspace),
   listDir: (workspace: WorkspaceIdentity, rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
@@ -69,11 +70,11 @@ const api = {
   acknowledgeRecovery: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
     ipcRenderer.invoke("shell:recovery-acknowledge", workspace, id),
   projects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke("shell:projects"),
-  models: (): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models"),
-  modelDefault: (): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default"),
+  models: (workspace: WorkspaceIdentity): Promise<ModelOption[]> => ipcRenderer.invoke("shell:models", workspace),
+  modelDefault: (workspace: WorkspaceIdentity): Promise<ModelOption | null> => ipcRenderer.invoke("shell:model-default", workspace),
   switchModel: (workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string): Promise<void> =>
     ipcRenderer.invoke("shell:switch-model", workspace, id, providerID, variant),
-  agents: (): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents"),
+  agents: (workspace: WorkspaceIdentity): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents", workspace),
   switchAgent: (workspace: WorkspaceIdentity, id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", workspace, id),
   terminalStart: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
     ipcRenderer.invoke("shell:terminal-start", workspace, id),
@@ -86,8 +87,8 @@ const api = {
   permissionReply: (workspace: WorkspaceIdentity, requestID: string, reply: PermissionReply, sessionID: string): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", workspace, requestID, reply, sessionID),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),
-  sessionSelection: (): Promise<SessionSelection | null> =>
-    ipcRenderer.invoke("shell:session-selection"),
+  sessionSelection: (workspace: WorkspaceIdentity): Promise<SessionSelection | null> =>
+    ipcRenderer.invoke("shell:session-selection", workspace),
   providerUsage: (): Promise<ProviderUsageResult[]> => ipcRenderer.invoke("shell:provider-usage"),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),
   installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app")

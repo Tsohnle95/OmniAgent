@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useStore } from "../store";
+import { usePanel, useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
-import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, WorkspaceIdentity } from "@shared/types";
+import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, WorkspaceIdentity } from "@shared/types";
 import { sameWorkspace } from "@shared/generation";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
@@ -233,24 +233,23 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
   );
 }
 
-export function Composer(): ReactNode {
+export function Composer({ session }: { session?: SessionInfo | null }): ReactNode {
+  const store = useStore();
   const {
-    session,
     approvalMode,
     toggleApprovalMode,
-    models,
-    currentModel,
     switchModel,
-    agents,
-    currentAgent,
     switchAgent,
     loadAgents,
     loadModels,
     sendPrompt,
     runCommand,
-    stop,
-    busy
-  } = useStore();
+    stop
+  } = store;
+  const activeSession = session === undefined ? store.session : session;
+  const workspace = activeSession?.workspace ?? null;
+  const view = usePanel(workspace);
+  const { models, currentModel, agents, currentAgent, busy } = view;
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
   const [menu, setMenu] = useState<MenuKind>(null);
@@ -265,8 +264,8 @@ export function Composer(): ReactNode {
   const candidatesRef = useRef<{ kind: "command" | "mention"; items: CompletionItem[] } | null>(null);
   const fetchSeqRef = useRef(0);
   const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const workspaceRef = useRef<WorkspaceIdentity | null>(session?.workspace ?? null);
-  workspaceRef.current = session?.workspace ?? null;
+  const workspaceRef = useRef<WorkspaceIdentity | null>(workspace);
+  workspaceRef.current = workspace;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<VoiceRecognition | null>(null);
@@ -326,14 +325,14 @@ export function Composer(): ReactNode {
     setFiles([]);
     setMentions([]);
     if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
-  }, [session?.workspace.id, session?.workspace.generation]);
+  }, [activeSession?.workspace.id, activeSession?.workspace.generation]);
 
   const send = (): void => {
     if (!canSend) return;
     const text = input.trim();
     const command = /^\/(\S+)(?:\s+([\s\S]*))?$/.exec(text);
     if (command) {
-      void runCommand(command[1], command[2] ?? "").catch((err) =>
+      void runCommand(command[1], command[2] ?? "", workspace ?? undefined).catch((err) =>
         setNotice(err instanceof Error ? err.message : String(err))
       );
       setInput("");
@@ -351,7 +350,7 @@ export function Composer(): ReactNode {
       ...buildPromptFiles(text, mentions),
       ...files.map((file) => ({ path: file.path }))
     ];
-    void sendPrompt(text, promptFiles);
+    void sendPrompt(text, promptFiles, workspace ?? undefined);
     setInput("");
     setFiles([]);
     setMentions([]);
@@ -435,20 +434,20 @@ export function Composer(): ReactNode {
   };
 
   const chooseModel = (model: ModelOption): void => {
-    void switchModel(model.id, model.providerID, currentModel?.id === model.id ? currentModel.variant : undefined);
+    void switchModel(model.id, model.providerID, currentModel?.id === model.id ? currentModel.variant : undefined, workspace ?? undefined);
     setMenu(null);
   };
 
   const chooseVariant = (variant?: string): void => {
     if (!currentModel) return;
-    void switchModel(currentModel.id, currentModel.providerID, variant);
+    void switchModel(currentModel.id, currentModel.providerID, variant, workspace ?? undefined);
     setMenu(null);
   };
 
   const cycleAgent = (): void => {
     if (agents.length === 0) return;
     const index = agents.findIndex((agent) => agent.id === currentAgent?.id);
-    void switchAgent(agents[(index + 1) % agents.length].id);
+    void switchAgent(agents[(index + 1) % agents.length].id, workspace ?? undefined);
   };
 
   const cycleFavorite = (): void => {
@@ -464,7 +463,7 @@ export function Composer(): ReactNode {
     if (!currentModel || !variants || variants.length === 0) return;
     const options: (string | undefined)[] = [undefined, ...variants];
     const index = options.findIndex((option) => option === currentModel.variant);
-    void switchModel(currentModel.id, currentModel.providerID, options[(index + 1) % options.length]);
+    void switchModel(currentModel.id, currentModel.providerID, options[(index + 1) % options.length], workspace ?? undefined);
   };
 
   const openCandidates = async (kind: "command" | "mention", query: string, start: number): Promise<void> => {
@@ -473,7 +472,7 @@ export function Composer(): ReactNode {
     if (!workspace) return;
     if (kind === "command") {
       try {
-        const raw = await window.openshell.commands();
+        const raw = await window.openshell.commands(workspace);
         if (fetchSeqRef.current !== seq || !sameWorkspace(workspace, workspaceRef.current)) return;
         const items: CompletionItem[] = raw.map((c) => ({
           label: c.name,
@@ -493,7 +492,7 @@ export function Composer(): ReactNode {
     mentionTimerRef.current = setTimeout(() => {
       void (async () => {
         try {
-          const raw = await window.openshell.references(query);
+          const raw = await window.openshell.references(workspace, query);
           if (fetchSeqRef.current !== seq || !sameWorkspace(workspace, workspaceRef.current)) return;
           const items: CompletionItem[] = raw.map((r) => ({
             label: r.rel,
@@ -519,7 +518,7 @@ export function Composer(): ReactNode {
     if (c.kind === "command") {
       setInput("");
       setCompletion(null);
-      void runCommand(item.insert, rest.trim()).catch((err) =>
+      void runCommand(item.insert, rest.trim(), workspace ?? undefined).catch((err) =>
         setNotice(err instanceof Error ? err.message : String(err))
       );
       return;
@@ -689,7 +688,7 @@ export function Composer(): ReactNode {
                 return;
               }
               setMenu("agent");
-              if (agents.length === 0) void loadAgents();
+              if (agents.length === 0) void loadAgents(workspace ?? undefined);
             }}
           >
             <span className="codicon codicon-git-branch" />
@@ -702,7 +701,7 @@ export function Composer(): ReactNode {
             onClick={() => {
               setMenu(menu === "model" ? null : "model");
               if (menu !== "model") setModelView("list");
-              if (menu !== "model" && models.length === 0) void loadModels();
+              if (menu !== "model" && models.length === 0) void loadModels(workspace ?? undefined);
             }}
           >
             <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
@@ -737,7 +736,7 @@ export function Composer(): ReactNode {
             className={`composer-send ${busy ? "stop" : ""}`}
             title={busy ? "Stop the agent" : canSend ? "Send (Enter)" : "Type a prompt first"}
             disabled={!busy && !canSend}
-            onClick={busy ? () => void stop() : send}
+            onClick={busy ? () => void stop(workspace ?? undefined) : send}
           >
             <span className={`codicon ${busy ? "codicon-stop" : "codicon-arrow-up"}`} />
           </button>
@@ -777,7 +776,7 @@ export function Composer(): ReactNode {
                   key={agent.id}
                   className={`composer-menu-item ${currentAgent?.id === agent.id ? "selected" : ""}`}
                   onClick={() => {
-                    void switchAgent(agent.id);
+                    void switchAgent(agent.id, workspace ?? undefined);
                     setMenu(null);
                   }}
                 >
@@ -932,26 +931,32 @@ export function Composer(): ReactNode {
   );
 }
 
-export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNode {
+export function AgentPanel({
+  session,
+  onCollapse,
+  onFocus
+}: {
+  session?: SessionInfo | null;
+  onCollapse: () => void;
+  onFocus?: () => void;
+}): ReactNode {
   const {
-    busy,
-    todos,
-    transcript,
-    session,
+    session: storeSession,
     sessions,
     reopenSession,
-    sessionUsage,
-    currentModel,
     providerUsage,
     providerUsageLoading,
     refreshProviderUsage
   } = useStore();
+  const activeSession = session === undefined ? storeSession : session;
+  const view = usePanel(activeSession?.workspace);
+  const { busy, todos, transcript, sessionUsage, currentModel } = view;
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [usageOpen, setUsageOpen] = useState(false);
-  const parent = session?.parentID ? sessions.find((item) => item.id === session.parentID) : undefined;
+  const parent = activeSession?.parentID ? sessions.find((item) => item.id === activeSession.parentID) : undefined;
 
   useEffect(() => {
     if (usageOpen) void refreshProviderUsage();
@@ -1032,29 +1037,29 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
   };
 
   return (
-    <div className="agent-panel">
+    <div className="agent-panel" onMouseDownCapture={onFocus}>
       <div className="agent-header" ref={headerRef}>
-        {session?.parentID && (
+        {activeSession?.parentID && (
           <button
             className="icon-btn agent-session-back"
             title={`Back to ${parent?.title ?? "parent session"}`}
             aria-label={`Back to ${parent?.title ?? "parent session"}`}
-            onClick={() => void reopenSession(session.parentID!)}
+            onClick={() => void reopenSession(activeSession.parentID!)}
           >
             <span className="codicon codicon-arrow-left" />
           </button>
         )}
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
         <span className="agent-title">
-          {session?.parentID
-            ? session.title ?? sessions.find((item) => item.id === session.id)?.title ?? session.agent ?? (parent ? `${parent.title} subagent` : "Subagent session")
+          {activeSession?.parentID
+            ? activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? (parent ? `${parent.title} subagent` : "Subagent session")
             : "Agent"}
-          {session?.parentID && session.agent && session.agent !== session.title && (
-            <span className="agent-subagent">@{session.agent}</span>
+          {activeSession?.parentID && activeSession.agent && activeSession.agent !== activeSession.title && (
+            <span className="agent-subagent">@{activeSession.agent}</span>
           )}
-          {!session?.parentID && session?.directory && (
-            <span className="agent-workspace" title={session.directory}>
-              {session.directory.split("/").filter(Boolean).pop()}
+          {!activeSession?.parentID && activeSession?.directory && (
+            <span className="agent-workspace" title={activeSession.directory}>
+              {activeSession.directory.split("/").filter(Boolean).pop()}
             </span>
           )}
         </span>
@@ -1210,12 +1215,12 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
             </p>
           </div>
         )}
-        <OpenCodeTimeline transcript={transcript} busy={busy} lastAssistantId={lastAssistantId} />
+        <OpenCodeTimeline transcript={transcript} busy={busy} lastAssistantId={lastAssistantId} session={activeSession} />
       </div>
 
       <div data-component="session-prompt-dock">
         <OpenCodeTodoDock todos={busy ? todos : []} />
-        <Composer />
+        <Composer session={activeSession} />
       </div>
     </div>
   );

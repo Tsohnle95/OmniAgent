@@ -1,15 +1,16 @@
 import { type ReactNode } from "react";
-import { useStore } from "../store";
 
 export function AgentTray({
+  busy,
+  label,
   onExpand,
   onDrag
 }: {
+  busy: boolean;
+  label: string;
   onExpand: () => void;
   onDrag: (e: React.MouseEvent) => void;
 }): ReactNode {
-  const { busy, currentModel } = useStore();
-  const label = currentModel?.name ?? "Model";
   return (
     <div className="agent-tray" onMouseDown={onDrag}>
       <span className={`agent-dot ${busy ? "busy" : ""}`} />

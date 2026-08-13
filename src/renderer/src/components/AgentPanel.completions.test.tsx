@@ -24,6 +24,17 @@ vi.mock("../store", () => ({
     runCommand,
     stop: vi.fn(),
     busy: false
+  }),
+  usePanel: () => ({
+    session: currentSession,
+    busy: false,
+    transcript: [],
+    todos: [],
+    sessionUsage: null,
+    models: [],
+    currentModel: null,
+    agents: [],
+    currentAgent: null
   })
 }));
 
@@ -97,7 +108,7 @@ describe("composer slash and mention completions", () => {
     ]);
 
     await pressEnter(input);
-    expect(runCommand).toHaveBeenCalledWith("compact", "");
+    expect(runCommand).toHaveBeenCalledWith("compact", "", currentSession.workspace);
     expect(sendPrompt).not.toHaveBeenCalled();
   });
 
@@ -122,7 +133,7 @@ describe("composer slash and mention completions", () => {
     expect(labels.map((item) => item.textContent)).toEqual(["compact"]);
 
     await pressEnter(input);
-    expect(runCommand).toHaveBeenCalledWith("compact", "");
+    expect(runCommand).toHaveBeenCalledWith("compact", "", currentSession.workspace);
   });
 
   it("runs a leading-slash command typed without picking from the menu", async () => {
@@ -138,7 +149,7 @@ describe("composer slash and mention completions", () => {
     });
 
     await pressEnter(input);
-    expect(runCommand).toHaveBeenCalledWith("compact", "please");
+    expect(runCommand).toHaveBeenCalledWith("compact", "please", currentSession.workspace);
   });
 
   it("assembles a PromptFile with a mention span for a chosen file mention", async () => {
@@ -169,6 +180,6 @@ describe("composer slash and mention completions", () => {
     expect(runCommand).not.toHaveBeenCalled();
     expect(sendPrompt).toHaveBeenCalledWith("explain @src/foo.ts", [
       { path: "/workspace-1/src/foo.ts", mention: { start: 8, end: 19, text: "@src/foo.ts" } }
-    ]);
+    ], currentSession.workspace);
   });
 });

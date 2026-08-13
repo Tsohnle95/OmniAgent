@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
-import type { ToolCallView, TranscriptItem, SessionSummary } from "@shared/types";
+import type { ToolCallView, TranscriptItem, SessionSummary, SessionInfo } from "@shared/types";
 import { ExternalLink } from "./ExternalLink";
 
 const OUTPUT_LIMIT = 6000;
@@ -432,8 +432,8 @@ function SubagentIcon(): ReactNode {
   );
 }
 
-function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
-  const { agents, sessions, session, reopenSession } = useStore();
+function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {
+  const { agents, sessions, reopenSession } = useStore();
   const input = parseInput(tool.input);
   const requested = typeof input.agent === "string"
     ? input.agent
@@ -497,8 +497,8 @@ function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
   );
 }
 
-function SubagentLink({ item }: { item: Extract<TranscriptItem, { kind: "synthetic" }> }): ReactNode {
-  const { agents, sessions, session, reopenSession } = useStore();
+function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind: "synthetic" }>; session: SessionInfo | null }): ReactNode {
+  const { agents, sessions, reopenSession } = useStore();
   const ref = parseSubagentTag(item.text) ?? parseLegacyTaskText(item.text);
   const childID = ref ? subagentChildID(ref, sessions, session?.id) : "";
   const resolved = sessions.find((candidate) => candidate.id === childID);
@@ -551,8 +551,8 @@ function SubagentLink({ item }: { item: Extract<TranscriptItem, { kind: "synthet
   );
 }
 
-function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
-  const { openFile } = useStore();
+function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {
+  const { openFile, focusSession } = useStore();
   const [open, setOpen] = useState(tool.status === "failed");
   const presentation = toolPresentation(tool);
   const output = tool.output ?? "";
@@ -560,11 +560,13 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
   const expandable = tool.status !== "running" && (output.length > 0 || files.length > 0);
   const truncated = output.length > OUTPUT_LIMIT;
   const activateSubtitle = (): void => {
-    if (presentation.path) void openFile(presentation.path);
+    if (!presentation.path) return;
+    if (session) focusSession?.(session.id);
+    void openFile(presentation.path);
   };
 
   if (toolKey(tool.title) === "todowrite") return null;
-  if (toolKey(tool.title) === "task" || toolKey(tool.title) === "subagent") return <TaskTool tool={tool} />;
+  if (toolKey(tool.title) === "task" || toolKey(tool.title) === "subagent") return <TaskTool tool={tool} session={session} />;
 
   return (
     <div data-component="tool-part-wrapper" data-timeline-part-id={tool.id}>
@@ -742,7 +744,7 @@ function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }>
 
 type TurnPart = { item: AssistantItem; part: AssistantPart };
 
-function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming: boolean }): ReactNode {
+function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; streaming: boolean; session: SessionInfo | null }): ReactNode {
   const rows: ReactNode[] = [];
   const parts: TurnPart[] = items.flatMap((item) => item.parts
     .filter((part) => part.kind === "tool" || Boolean(part.text.trim()))
@@ -776,7 +778,7 @@ function AssistantTurn({ items, streaming }: { items: AssistantItem[]; streaming
     if (part.kind === "tool") {
       rows.push(
         <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
-          <div data-slot="session-turn-assistant-content"><ToolPart tool={part.tool} /></div>
+          <div data-slot="session-turn-assistant-content"><ToolPart tool={part.tool} session={session} /></div>
         </TimelineRow>
       );
       previous = true;
@@ -876,11 +878,13 @@ function contiguousBodyRuns(body: TimelineTurn["body"]): Array<AssistantItem[] |
 }
 
 function TimelineEvent({
-  item
+  item,
+  session
 }: {
   item: Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>;
+  session: SessionInfo | null;
 }): ReactNode {
-  const { sessions, session } = useStore();
+  const { sessions } = useStore();
   if (item.kind === "status") {
     return (
       <TimelineRow tag="Error">
@@ -903,7 +907,7 @@ function TimelineEvent({
     return (
       <TimelineRow tag="ShellMessage">
         <div data-slot="session-turn-assistant-content">
-          <ToolPart tool={{
+          <ToolPart session={session} tool={{
             id: item.shellID,
             title: "shell",
             detail: item.command ? `$ ${item.command}` : "",
@@ -945,7 +949,7 @@ function TimelineEvent({
     if (ref && subagentChildID(ref, sessions, session?.id)) {
       return (
         <TimelineRow tag="SubagentLink">
-          <SubagentLink item={item} />
+          <SubagentLink item={item} session={session} />
         </TimelineRow>
       );
     }
@@ -969,7 +973,7 @@ function TimelineEvent({
   );
 }
 
-function PermissionPrompt({ item }: { item: Extract<TranscriptItem, { kind: "permission" }> }): ReactNode {
+function PermissionPrompt({ item, session }: { item: Extract<TranscriptItem, { kind: "permission" }>; session: SessionInfo | null }): ReactNode {
   const { replyPermission } = useStore();
   if (!item.pending) return null;
   return (
@@ -978,9 +982,9 @@ function PermissionPrompt({ item }: { item: Extract<TranscriptItem, { kind: "per
       <div data-slot="permission-action">{item.action}</div>
       {item.resources.map((resource) => <code key={resource}>{resource}</code>)}
       <div data-slot="permission-actions">
-        <button className="btn btn-primary" onClick={() => void replyPermission(item.requestID, "once")}>Allow once</button>
-        <button className="btn" onClick={() => void replyPermission(item.requestID, "always")}>Always</button>
-        <button className="btn btn-danger" onClick={() => void replyPermission(item.requestID, "reject")}>Deny</button>
+        <button className="btn btn-primary" onClick={() => void replyPermission(item.requestID, "once", session?.id)}>Allow once</button>
+        <button className="btn" onClick={() => void replyPermission(item.requestID, "always", session?.id)}>Always</button>
+        <button className="btn btn-danger" onClick={() => void replyPermission(item.requestID, "reject", session?.id)}>Deny</button>
       </div>
     </div>
   );
@@ -989,12 +993,15 @@ function PermissionPrompt({ item }: { item: Extract<TranscriptItem, { kind: "per
 export function OpenCodeTimeline({
   transcript,
   busy,
-  lastAssistantId
+  lastAssistantId,
+  session
 }: {
   transcript: TranscriptItem[];
   busy: boolean;
   lastAssistantId: string | null;
+  session?: SessionInfo | null;
 }): ReactNode {
+  const activeSession = session === undefined ? useStore().session : session;
   const timeline = useMemo(
     () => transcript.filter((item): item is VisibleTimelineItem => {
       if (item.kind === "permission" || item.kind === "pending-input" || item.kind === "selection" || item.kind === "system") {
@@ -1021,14 +1028,15 @@ export function OpenCodeTimeline({
                 ? <AssistantTurn
                     items={run}
                     streaming={busy && run.some((item) => item.id === lastAssistantId)}
+                    session={activeSession}
                     key={`assistant:${run[0].id}`}
                   />
-                : <TimelineEvent item={run} key={run.id} />)}
+                : <TimelineEvent item={run} session={activeSession} key={run.id} />)}
             </div>
           );
         })}
       </div>
-      {pendingPermission && <PermissionPrompt item={pendingPermission} />}
+      {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
     </>
   );
 }

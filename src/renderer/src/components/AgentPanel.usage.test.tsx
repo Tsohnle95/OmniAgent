@@ -32,6 +32,17 @@ vi.mock("../store", () => ({
     providerUsage: [],
     providerUsageLoading: false,
     refreshProviderUsage: vi.fn()
+  }),
+  usePanel: () => ({
+    session: currentSession,
+    busy: false,
+    transcript: [],
+    todos: [],
+    sessionUsage: currentUsage,
+    models: [],
+    currentModel,
+    agents: [],
+    currentAgent: null
   })
 }));
 

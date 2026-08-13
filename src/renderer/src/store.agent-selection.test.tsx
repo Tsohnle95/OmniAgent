@@ -41,6 +41,7 @@ function api(overrides: Record<string, unknown> = {}): typeof window.openshell {
     onMessage: () => () => {},
     health: async () => true,
     state: async () => null,
+    activeSessions: async () => [],
     models: async () => MODELS,
     modelDefault: async () => ({ id: "m2", providerID: "p1", name: "Two" }),
     sessionSelection: async () => selection,

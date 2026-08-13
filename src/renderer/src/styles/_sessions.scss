@@ -1,0 +1,145 @@
+.sessions-rail {
+  position: fixed;
+  top: 34px;
+  right: 10px;
+  width: 320px;
+  max-height: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+  z-index: 90;
+}
+
+.sessions-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sessions-rail-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sessions-spawn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sessions-spawn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.sessions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sessions-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  padding: 4px 6px;
+}
+
+.sessions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sessions-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sessions-row.focused {
+  background: var(--accent-dim);
+  outline: 1px solid var(--accent);
+}
+
+.sessions-row .agent-dot {
+  flex: none;
+}
+
+.sessions-row-icon {
+  flex: none;
+  color: var(--text-dim);
+}
+
+.sessions-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.sessions-row-title {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-row-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-row-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.sessions-row-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.sessions-row-badge {
+  flex: none;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.sessions-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 8px;
+}
