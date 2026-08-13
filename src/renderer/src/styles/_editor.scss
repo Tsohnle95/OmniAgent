@@ -1,6 +1,7 @@
 .editor-pane {
   background: var(--bg-elev);
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;

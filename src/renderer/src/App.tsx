@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, usePanel, useStore } from "./store";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
@@ -235,18 +235,22 @@ function PanelColumn({
     return (
       <>
         <div className="divider panel-divider" onMouseDown={drag} />
-        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} onPanelDrag={onPanelDrag} />
+        <div className="agent-col" style={{ width: `${slot.width}px` }}>
+          <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} onPanelDrag={onPanelDrag} />
+        </div>
       </>
     );
   }
   return (
     <>
       <div className="divider collapsed panel-divider" onMouseDown={drag} />
-      {isLast ? (
-        <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} onResizeLeft={drag} onResizeRight={rightDrag} />
-      ) : (
-        <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} onLeftDrag={drag} onRightDrag={rightDrag} />
-      )}
+      <div className="agent-col" style={{ width: `${COLLAPSED_PANEL_W}px` }}>
+        {isLast ? (
+          <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} onResizeLeft={drag} onResizeRight={rightDrag} />
+        ) : (
+          <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} onLeftDrag={drag} onRightDrag={rightDrag} />
+        )}
+      </div>
     </>
   );
 }
@@ -282,8 +286,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   }, [panels]);
 
   const panelShown = (id: string): number => {
-    const slot = slots[id];
-    return slot && slot.open ? slot.width : COLLAPSED_PANEL_W;
+    const slot = slots[id] ?? { open: true, width: AGENT_DEFAULT_W };
+    return slot.open ? slot.width : COLLAPSED_PANEL_W;
   };
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
   const fixedPanelChrome = 1 + panels.length;
@@ -369,8 +373,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const cols = [
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
     "1px",
-    "minmax(0,1fr)",
-    ...panels.flatMap((panel, index) => ["1px", `${panelShown(panel.workspace.id)}px`, ...(index < panels.length - 1 ? [`${gapAfter(index)}px`] : [])])
+    "minmax(0,1fr)"
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
@@ -414,7 +417,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     const others = panels
       .filter((panel) => panel.workspace.id !== id)
       .reduce((sum, panel) => sum + panelShown(panel.workspace.id), 0);
-    return Math.max(AGENT_MIN_W, winW - sideShown - others - fixedPanelChrome);
+    return Math.max(AGENT_MIN_W, winW - sideShown - others - fixedPanelChrome - totalGaps);
   };
 
   const slotFor = (panel: SessionInfo): PanelSlot => slots[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W };
@@ -477,29 +480,32 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
         <FileSidebar collapsed={!sideOpen} onCollapse={setSidebarOpen} onDrag={sideDrag} />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
-        <EditorPane />
-        {panels.map((panel, index) => (
-          <PanelColumn
-            key={panel.workspace.id}
-            session={panel}
-            slot={slotFor(panel)}
-            maxW={panelMax(panel.workspace.id)}
-            isLast={index === panels.length - 1}
-            onSlot={(slot) => setSlots((current) => ({ ...current, [panel.workspace.id]: slot }))}
-            onFocus={() => focusSession(panel.id)}
-            onClose={() => closePanel(panel.id)}
-            onPanelDrag={(delta) => {
-              if (index >= panels.length - 1) return;
-              setPanelGaps((current) => ({
-                ...current,
-                [panel.workspace.id]: Math.max(0, Math.min(winW, (current[panel.workspace.id] ?? 0) + delta))
-              }));
-            }}
-          />
-        ))}
-        {panels.slice(0, -1).map((panel, index) => (
-          <div key={`${panel.workspace.id}-gap`} className="panel-gap" style={{ gridColumn: `${6 + index * 3}` }} />
-        ))}
+        <div className="workspace-area">
+          <EditorPane />
+          {panels.map((panel, index) => (
+            <Fragment key={panel.workspace.id}>
+              <PanelColumn
+                session={panel}
+                slot={slotFor(panel)}
+                maxW={panelMax(panel.workspace.id)}
+                isLast={index === panels.length - 1}
+                onSlot={(slot) => setSlots((current) => ({ ...current, [panel.workspace.id]: slot }))}
+                onFocus={() => focusSession(panel.id)}
+                onClose={() => closePanel(panel.id)}
+                onPanelDrag={(delta) => {
+                  if (index >= panels.length - 1) return;
+                  setPanelGaps((current) => ({
+                    ...current,
+                    [panel.workspace.id]: Math.max(0, Math.min(600, (current[panel.workspace.id] ?? 0) - delta))
+                  }));
+                }}
+              />
+              {index < panels.length - 1 && (
+                <div className="panel-gap" style={{ width: `${gapAfter(index)}px` }} />
+              )}
+            </Fragment>
+          ))}
+        </div>
       </div>
 
       <div

@@ -86,18 +86,24 @@ describe("Layout panel sizing", () => {
     vi.restoreAllMocks();
   });
 
+  function agentWidths(): number[] {
+    return [...container.querySelectorAll<HTMLElement>(".agent-col")]
+      .map((col) => Number.parseFloat(col.style.width ?? "0"));
+  }
+
+  function gridCols(): string[] {
+    const grid = container.querySelector<HTMLElement>(".main-row")!;
+    return (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
+  }
+
   it("settles with both panels fitting when the window is narrower than their combined width", async () => {
     setWidth(500);
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     expect(container.querySelector(".app")).not.toBeNull();
-    const dividerNodes = container.querySelectorAll(".main-row > .divider");
-    const grid = container.querySelector<HTMLElement>(".main-row");
-    expect(grid).not.toBeNull();
-    const cols = (grid!.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    const side = Number.parseFloat(cols[0] ?? "0");
-    const agent = Number.parseFloat(cols[4] ?? "0");
+    const side = Number.parseFloat(gridCols()[0] ?? "0");
+    const agent = agentWidths()[0] ?? 0;
     expect(side + agent).toBeLessThanOrEqual(498);
     expect(side).toBeGreaterThanOrEqual(44);
     expect(agent).toBeGreaterThanOrEqual(44);
@@ -113,10 +119,8 @@ describe("Layout panel sizing", () => {
     });
 
     expect(container.querySelector(".app")).not.toBeNull();
-    const grid = container.querySelector<HTMLElement>(".main-row");
-    const cols = (grid!.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    const side = Number.parseFloat(cols[0] ?? "0");
-    const agent = Number.parseFloat(cols[4] ?? "0");
+    const side = Number.parseFloat(gridCols()[0] ?? "0");
+    const agent = agentWidths()[0] ?? 0;
     expect(side + agent).toBeLessThanOrEqual(478);
   });
 
@@ -125,26 +129,22 @@ describe("Layout panel sizing", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     await act(async () => {
-      const agentDivider = container.querySelectorAll<HTMLElement>(".main-row > .divider")[1];
+      const agentDivider = container.querySelectorAll<HTMLElement>(".workspace-area > .divider")[0];
       agentDivider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
       window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1000 - (1228 - 280) }));
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    let cols = (container.querySelector<HTMLElement>(".main-row")!
-      .style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(1228, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1228, 0);
 
     await act(async () => {
       setWidth(900);
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    cols = (container.querySelector<HTMLElement>(".main-row")!
-      .style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(Number.parseFloat(cols[0] ?? "0")).toBeCloseTo(250, 0);
-    expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(900 - 250 - 2, 0);
+    expect(Number.parseFloat(gridCols()[0] ?? "0")).toBeCloseTo(250, 0);
+    expect(agentWidths()[0]).toBeCloseTo(900 - 250 - 2, 0);
   });
 
   it("lays out multiple session panels side by side with independent widths", async () => {
@@ -152,7 +152,6 @@ describe("Layout panel sizing", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
-    expect(container.querySelector<HTMLElement>(".panel-add-col")).toBeNull();
 
     await act(async () => {
       dispatch({ kind: "session", session: info("/two", 2) });
@@ -160,17 +159,16 @@ describe("Layout panel sizing", () => {
     });
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
-    const grid = container.querySelector<HTMLElement>(".main-row")!;
-    const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(cols).toHaveLength(8);
+    const cols = gridCols();
+    expect(cols).toHaveLength(3);
     expect(cols[2]).toBe("minmax(0,1fr)");
-    const first = Number.parseFloat(cols[4] ?? "0");
-    const second = Number.parseFloat(cols[7] ?? "0");
+    const [first, second] = agentWidths();
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
 
-    const dividerNodes = container.querySelectorAll<HTMLElement>(".main-row > .divider");
-    expect(dividerNodes).toHaveLength(3);
+    const dividerNodes = container.querySelectorAll<HTMLElement>(".workspace-area > .divider");
+    expect(dividerNodes).toHaveLength(2);
+    expect(container.querySelectorAll(".workspace-area > .panel-gap")).toHaveLength(1);
   });
 
   it("keeps both panels visible when the window is narrower than their combined width", async () => {
@@ -186,12 +184,50 @@ describe("Layout panel sizing", () => {
     });
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
-    const grid = container.querySelector<HTMLElement>(".main-row")!;
-    const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    const first = Number.parseFloat(cols[4] ?? "0");
-    const second = Number.parseFloat(cols[7] ?? "0");
+    const [first, second] = agentWidths();
     expect(first + second + 250).toBeLessThanOrEqual(698);
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
+  });
+
+  it("adds a third model panel without disturbing the layout", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      dispatch({ kind: "session", session: info("/three", 3) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(3);
+    const cols = gridCols();
+    expect(cols).toHaveLength(3);
+    for (const width of agentWidths()) {
+      expect(width).toBeGreaterThanOrEqual(44);
+    }
+    expect(container.querySelectorAll(".workspace-area > .divider")).toHaveLength(3);
+    expect(container.querySelectorAll(".workspace-area > .panel-gap")).toHaveLength(2);
+  });
+
+  it("drags a model header away from its neighbor", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const headers = container.querySelectorAll<HTMLElement>(".agent-header");
+    expect(headers).toHaveLength(2);
+
+    await act(async () => {
+      headers[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 500 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 440 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const gap = container.querySelector<HTMLElement>(".workspace-area > .panel-gap")!;
+    expect(Number.parseFloat(gap.style.width)).toBeCloseTo(60, 0);
   });
 });
