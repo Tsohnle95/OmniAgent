@@ -235,7 +235,14 @@ Reopening goes
 directory, `activateSession` restarts the watcher, then `message.list` is
 replayed through `replayTranscript`/`replayToolCard` into the same semantic
 `TranscriptItem` shape the live stream produces. Task cards navigate to the
-resolved child session; a child header navigates back to its parent.
+resolved child session; a child header navigates back to its parent. Subagent
+launches surface as task cards (`task`/`subagent` tool parts resolve their
+child from tool metadata `sessionID` or the newest matching `parentID` +
+description + agent), and background completion notices arrive as synthetic
+`<subagent id state description>` messages that the timeline turns into the
+same clickable card by parsing the child id out of the text, so every
+dispatch — tool call or synthetic input — is navigable and the child header
+links back to the parent session.
 
 ## Window lifecycle and shortcuts
 

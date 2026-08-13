@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
-import type { ToolCallView, TranscriptItem } from "@shared/types";
+import type { ToolCallView, TranscriptItem, SessionSummary } from "@shared/types";
 import { ExternalLink } from "./ExternalLink";
 
 const OUTPUT_LIMIT = 6000;
@@ -304,6 +304,59 @@ function toolKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
 
+interface SubagentRef {
+  id: string;
+  agent: string;
+  description: string;
+  state: string;
+}
+
+function parseSubagentTag(text: string): SubagentRef | null {
+  const match = /<subagent\b([^>]*?)\/?>[\s\S]*?(?:<\/subagent>|$)/i.exec(text);
+  if (!match) return null;
+  const attrs = match[1] ?? "";
+  const attr = (name: string): string => new RegExp(`${name}="([^"]*)"`, "i").exec(attrs)?.[1] ?? "";
+  const id = attr("id");
+  if (!id) return null;
+  return { id, agent: attr("agent"), description: attr("description"), state: attr("state") };
+}
+
+function parseLegacyTaskText(text: string): SubagentRef | null {
+  const agent = /(?:^|\n)\s*agent\s*=\s*([^\s]+)/i.exec(text)?.[1] ?? "";
+  if (!agent) return null;
+  const prompt = /(?:^|\n)\s*prompt\s*=\s*(.+)$/im.exec(text)?.[1]?.trim() ?? "";
+  return { id: "", agent, description: prompt, state: "" };
+}
+
+function matchChildSession(
+  sessions: SessionSummary[],
+  parentID: string | undefined,
+  criteria: { description?: string; agent?: string }
+): string {
+  if (!parentID) return "";
+  let candidates = sessions.filter((candidate) => candidate.parentID === parentID);
+  if (criteria.description) {
+    const described = candidates.filter((candidate) => candidate.title.startsWith(criteria.description!));
+    if (described.length > 0) candidates = described;
+  }
+  if (criteria.agent) {
+    const key = criteria.agent.toLowerCase();
+    const byAgent = candidates.filter((candidate) =>
+      candidate.agent?.toLowerCase() === key || candidate.title.includes(`@${criteria.agent}`)
+    );
+    if (byAgent.length > 0) candidates = byAgent;
+  }
+  return candidates.sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? "";
+}
+
+function subagentChildID(ref: SubagentRef, sessions: SessionSummary[], parentID: string | undefined): string {
+  if (ref.id) return ref.id;
+  return matchChildSession(sessions, parentID, {
+    ...(ref.agent ? { agent: ref.agent } : {}),
+    ...(ref.description ? { description: ref.description.slice(0, 60) } : {})
+  });
+}
+
 function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; args: string[]; path?: string } {
   const name = toolKey(tool.title);
   const input = parseInput(tool.input);
@@ -382,30 +435,40 @@ function SubagentIcon(): ReactNode {
 function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
   const { agents, sessions, session, reopenSession } = useStore();
   const input = parseInput(tool.input);
-  const requested = typeof input.subagent_type === "string" ? input.subagent_type : "";
+  const requested = typeof input.agent === "string"
+    ? input.agent
+    : typeof input.subagent_type === "string"
+      ? input.subagent_type
+      : "";
   const configured = agents.find((agent) =>
     agent.id.toLowerCase() === requested.toLowerCase() || agent.name.toLowerCase() === requested.toLowerCase()
   );
-  const title = configured?.name ?? titleCase(requested || "Task");
+  const description = typeof input.description === "string" && input.description
+    ? input.description
+    : typeof input.prompt === "string"
+      ? input.prompt.trim()
+      : "";
   const metadataSession = typeof tool.metadata?.sessionId === "string"
     ? tool.metadata.sessionId
     : typeof tool.metadata?.sessionID === "string"
       ? tool.metadata.sessionID
       : "";
-  const fallbackSession = sessions
-    .filter((candidate) => candidate.parentID === session?.id)
-    .filter((candidate) => typeof input.description === "string"
-      ? candidate.title.startsWith(input.description)
-      : true)
-    .filter((candidate) => requested
-      ? candidate.agent?.toLowerCase() === requested.toLowerCase() || candidate.title.includes(`@${requested}`)
-      : true)
-    .sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id;
+  const fallbackSession = matchChildSession(sessions, session?.id, {
+    ...(description ? { description } : {}),
+    ...(requested ? { agent: requested } : {})
+  });
   const childSession = metadataSession || fallbackSession || "";
-  const detail = typeof input.description === "string" && input.description ? input.description : childSession;
+  const resolved = sessions.find((candidate) => candidate.id === childSession);
+  const agentName = resolved?.agent ?? configured?.name ?? requested;
+  const title = resolved?.title.trim()
+    ? resolved.title
+    : agentName
+      ? titleCase(agentName)
+      : "Subagent";
+  const detail = description || childSession;
   const subtitle = tool.metadata?.background === true && detail ? `${detail} (background)` : detail;
   const running = tool.status === "running";
-  const style = { "--task-agent-color": agentTone(requested, configured?.color) } as CSSProperties;
+  const style = { "--task-agent-color": agentTone(agentName || requested, configured?.color) } as CSSProperties;
   return (
     <div data-component="task-tool-card" style={style} data-timeline-part-id={tool.id}>
       <button
@@ -422,10 +485,67 @@ function TaskTool({ tool }: { tool: ToolCallView }): ReactNode {
               <span data-component="task-tool-icon"><SubagentIcon /></span>
             )}
             <span data-component="task-tool-title">{title}</span>
+            {agentName && titleCase(agentName) !== title && (
+              <span data-component="task-tool-agent">@{agentName}</span>
+            )}
             {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
           </div>
         </div>
         {childSession && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
+      </button>
+    </div>
+  );
+}
+
+function SubagentLink({ item }: { item: Extract<TranscriptItem, { kind: "synthetic" }> }): ReactNode {
+  const { agents, sessions, session, reopenSession } = useStore();
+  const ref = parseSubagentTag(item.text) ?? parseLegacyTaskText(item.text);
+  const childID = ref ? subagentChildID(ref, sessions, session?.id) : "";
+  const resolved = sessions.find((candidate) => candidate.id === childID);
+  const configured = ref?.agent
+    ? agents.find((agent) =>
+        agent.id.toLowerCase() === ref.agent.toLowerCase() || agent.name.toLowerCase() === ref.agent.toLowerCase()
+      )
+    : undefined;
+  const agentName = resolved?.agent ?? configured?.name ?? ref?.agent ?? "";
+  const state = ref?.state ?? "";
+  const failed = state === "error" || state === "cancelled";
+  const running = !state || state === "running";
+  const statusLabel = state ? titleCase(state) : "Running";
+  const title = resolved?.title.trim()
+    ? resolved.title
+    : ref?.id
+      ? ref.description || "Subagent"
+      : agentName
+        ? titleCase(agentName)
+        : "Subagent";
+  const detail = !ref?.id && ref?.description
+    ? (ref.description.length > 100 ? `${ref.description.slice(0, 100)}…` : ref.description)
+    : [agentName ? `@${agentName}` : "", statusLabel].filter(Boolean).join(" · ");
+  const style = { "--task-agent-color": agentTone(agentName, configured?.color) } as CSSProperties;
+  return (
+    <div data-component="subagent-link-card" data-state={state || "running"} style={style} data-timeline-part-id={item.id}>
+      <button
+        data-component="subagent-link-surface"
+        disabled={!childID}
+        title={childID ? `Open ${title} session` : undefined}
+        onClick={() => childID && void reopenSession(childID)}
+      >
+        <div data-slot="basic-tool-tool-info-structured">
+          <div data-slot="basic-tool-tool-info-main">
+            {running ? (
+              <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
+            ) : failed ? (
+              <span data-component="subagent-link-state"><span className="codicon codicon-error" /></span>
+            ) : (
+              <span data-component="task-tool-icon"><SubagentIcon /></span>
+            )}
+            <span data-component="task-tool-title">{title}</span>
+            {agentName && !resolved && <span data-component="task-tool-agent">@{agentName}</span>}
+            {detail && <span data-slot="basic-tool-tool-subtitle">{detail}</span>}
+          </div>
+        </div>
+        {childID && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
       </button>
     </div>
   );
@@ -444,7 +564,7 @@ function ToolPart({ tool }: { tool: ToolCallView }): ReactNode {
   };
 
   if (toolKey(tool.title) === "todowrite") return null;
-  if (toolKey(tool.title) === "task") return <TaskTool tool={tool} />;
+  if (toolKey(tool.title) === "task" || toolKey(tool.title) === "subagent") return <TaskTool tool={tool} />;
 
   return (
     <div data-component="tool-part-wrapper" data-timeline-part-id={tool.id}>
@@ -760,6 +880,7 @@ function TimelineEvent({
 }: {
   item: Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>;
 }): ReactNode {
+  const { sessions, session } = useStore();
   if (item.kind === "status") {
     return (
       <TimelineRow tag="Error">
@@ -818,6 +939,16 @@ function TimelineEvent({
         </div>
       </TimelineRow>
     );
+  }
+  if (item.kind === "synthetic") {
+    const ref = parseSubagentTag(item.text) ?? parseLegacyTaskText(item.text);
+    if (ref && subagentChildID(ref, sessions, session?.id)) {
+      return (
+        <TimelineRow tag="SubagentLink">
+          <SubagentLink item={item} />
+        </TimelineRow>
+      );
+    }
   }
   const label = item.kind === "skill"
     ? `Skill activated · ${item.name}`

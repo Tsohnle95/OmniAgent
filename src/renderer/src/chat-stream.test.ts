@@ -82,4 +82,44 @@ describe("chat stream replay", () => {
       "shell", "a1", "skill", "a2", "compact"
     ]);
   });
+
+  it("infers subagent tool calls from agent/prompt input", () => {
+    const transcript = reduceChatStream([], event("called", "session.tool.called", {
+      assistantMessageID: "assistant-1",
+      callID: "call-1",
+      input: { agent: "build", description: "Run the tests", prompt: "run them", background: false }
+    }));
+
+    expect(transcript[0]).toMatchObject({
+      kind: "assistant",
+      parts: [{ kind: "tool", tool: { title: "subagent" } }]
+    });
+  });
+
+  it("keeps subagent synthetic completion entries with their description", () => {
+    const transcript = reduceChatStream([], event("synthetic", "session.synthetic", {
+      sessionID: "session-parent",
+      text: '<subagent id="session-child" state="completed" description="Run the tests">\n</subagent>',
+      description: "Run the tests"
+    }));
+
+    expect(transcript[0]).toEqual({
+      kind: "synthetic",
+      id: "synthetic",
+      text: '<subagent id="session-child" state="completed" description="Run the tests">\n</subagent>',
+      description: "Run the tests"
+    });
+  });
+
+  it("preserves a subagent synthetic entry when history is merged over the live stream", () => {
+    const history: TranscriptItem[] = [{
+      kind: "synthetic",
+      id: "synthetic-1",
+      text: '<subagent id="session-child" state="completed" description="Run the tests">\n</subagent>',
+      description: "Run the tests"
+    }];
+    const live: TranscriptItem[] = [];
+
+    expect(mergeChatHistory(history, live)).toEqual(history);
+  });
 });

@@ -116,6 +116,7 @@ function inferTool(input: unknown): string {
   if ("filePath" in value || "file_path" in value) return "file";
   if ("query" in value) return "search";
   if ("url" in value) return "web";
+  if ("agent" in value && ("prompt" in value || "description" in value)) return "subagent";
   if ("prompt" in value) return "prompt";
   return "tool";
 }

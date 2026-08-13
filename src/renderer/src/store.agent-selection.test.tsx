@@ -157,4 +157,26 @@ describe("agent and model picker state across sessions", () => {
     const buildLabel = container.querySelector('button[title="Change agent"]')?.textContent ?? "";
     expect(buildLabel).toContain("Build");
   });
+
+  it("reopens a child session with its parentID so the header can navigate back", async () => {
+    window.openshell = api({
+      openSessionById: async (sessionID: string) => ({
+        session: { ...info("/root", 1), id: sessionID, parentID: "session-parent", title: "Run the tests", agent: "build" },
+        transcript: [],
+        todos: [],
+        usage: null
+      })
+    });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/root"));
+    expect(store.session?.parentID).toBeUndefined();
+
+    await act(async () => store.reopenSession("session-child"));
+    expect(store.session?.id).toBe("session-child");
+    expect(store.session?.parentID).toBe("session-parent");
+    expect(store.session?.title).toBe("Run the tests");
+
+    await act(async () => store.reopenSession("session-parent"));
+    expect(store.session?.id).toBe("session-parent");
+  });
 });

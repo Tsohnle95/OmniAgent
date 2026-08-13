@@ -1031,7 +1031,12 @@ export function AgentPanel({ onCollapse }: { onCollapse: () => void }): ReactNod
         )}
         <span className={`agent-dot ${busy ? "busy" : ""}`} />
         <span className="agent-title">
-          {session?.parentID ? session.title ?? session.agent ?? "Subagent" : "Agent"}
+          {session?.parentID
+            ? session.title ?? sessions.find((item) => item.id === session.id)?.title ?? session.agent ?? (parent ? `${parent.title} subagent` : "Subagent session")
+            : "Agent"}
+          {session?.parentID && session.agent && session.agent !== session.title && (
+            <span className="agent-subagent">@{session.agent}</span>
+          )}
           {!session?.parentID && session?.directory && (
             <span className="agent-workspace" title={session.directory}>
               {session.directory.split("/").filter(Boolean).pop()}

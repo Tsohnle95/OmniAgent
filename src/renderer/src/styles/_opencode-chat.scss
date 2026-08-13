@@ -600,6 +600,90 @@
 
 [data-component="task-tool-card"] [data-component="session-progress-indicator-v2"] { color: var(--task-agent-color, var(--v2-text-text-base)); }
 
+[data-component="task-tool-agent"] {
+  flex: none;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--task-agent-color, var(--v2-text-text-base)) 16%, transparent);
+  color: var(--task-agent-color, var(--v2-text-text-base));
+  font: 440 12px/20px var(--font-family-sans);
+}
+
+[data-component="subagent-link-card"] {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-component="subagent-link-surface"] {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--v2-background-bg-layer-01);
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+[data-component="subagent-link-surface"]:not(:disabled) { cursor: pointer; }
+[data-component="subagent-link-surface"]:not(:disabled):hover { background: var(--v2-background-bg-layer-02); }
+[data-component="subagent-link-surface"]:disabled { cursor: default; }
+
+[data-component="subagent-link-surface"] [data-slot="task-tool-open"] {
+  flex: 0 0 auto;
+  color: var(--v2-icon-icon-muted);
+  font-size: 14px;
+}
+
+[data-component="subagent-link-card"] [data-slot="basic-tool-tool-info-structured"],
+[data-component="subagent-link-card"] [data-slot="basic-tool-tool-info-main"] {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+[data-component="subagent-link-card"] [data-slot="basic-tool-tool-info-main"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+[data-component="subagent-link-card"] [data-component="task-tool-title"],
+[data-component="subagent-link-card"] [data-slot="basic-tool-tool-subtitle"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-component="subagent-link-state"] {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--v2-state-fg-danger);
+  font-size: 14px;
+}
+
+.agent-title .agent-subagent {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
 @keyframes session-progress-indicator-v2-dot-0 { 0%{opacity:.2}12.5%{opacity:.2}25%{opacity:.2}37.5%{opacity:1}50%{opacity:.5}62.5%{opacity:.2}75%{opacity:.2}87.5%{opacity:.2}100%{opacity:.2} }
 [data-component="session-progress-indicator-v2"] [data-dot="0"] { animation-name: session-progress-indicator-v2-dot-0; }
 @keyframes session-progress-indicator-v2-dot-5 { 0%{opacity:.2}12.5%{opacity:.2}25%{opacity:.2}37.5%{opacity:.75}50%{opacity:.2}62.5%{opacity:.2}75%{opacity:.2}87.5%{opacity:.2}100%{opacity:.2} }
