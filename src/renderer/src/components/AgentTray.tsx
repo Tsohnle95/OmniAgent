@@ -4,14 +4,12 @@ export function AgentTray({
   busy,
   label,
   onExpand,
-  onDrag,
   onResizeLeft,
   onResizeRight
 }: {
   busy: boolean;
   label: string;
   onExpand: () => void;
-  onDrag: (e: React.MouseEvent) => void;
   onResizeLeft: (e: React.MouseEvent) => void;
   onResizeRight: (e: React.MouseEvent) => void;
 }): ReactNode {

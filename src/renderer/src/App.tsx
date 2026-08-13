@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, usePanel, useStore } from "./store";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
@@ -57,6 +57,34 @@ function useDragResize(
           onOpen();
         }
       }
+    };
+    const up = (): void => {
+      if (startRef.current) startRef.current = null;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
+  return onMouseDown;
+}
+
+function useDragMove(
+  value: number,
+  setValue: (value: number) => void,
+  min: number,
+  max: number
+): (e: React.MouseEvent) => void {
+  const startRef = useRef<{ x: number; value: number } | null>(null);
+
+  const onMouseDown = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, value };
+    const move = (ev: MouseEvent): void => {
+      if (!startRef.current) return;
+      const next = startRef.current.value + (ev.clientX - startRef.current.x);
+      setValue(Math.min(max, Math.max(min, next)));
     };
     const up = (): void => {
       if (startRef.current) startRef.current = null;
@@ -150,20 +178,19 @@ function useTrayHeight(): {
 interface PanelSlot {
   open: boolean;
   width: number;
+  left: number;
 }
 
 function PanelSliver({
   busy,
   label,
   onExpand,
-  onDrag,
   onLeftDrag,
   onRightDrag
 }: {
   busy: boolean;
   label: string;
   onExpand: () => void;
-  onDrag: (e: React.MouseEvent) => void;
   onLeftDrag: (e: React.MouseEvent) => void;
   onRightDrag: (e: React.MouseEvent) => void;
 }): ReactNode {
@@ -186,45 +213,46 @@ function PanelSliver({
 function PanelColumn({
   session,
   slot,
-  maxW,
+  leftMin,
+  leftMax,
+  rightMax,
   isLast,
   onSlot,
   onFocus,
-  onClose,
-  onPanelDrag
+  onClose
 }: {
   session: SessionInfo;
   slot: PanelSlot;
-  maxW: number;
+  leftMin: number;
+  leftMax: number;
+  rightMax: number;
   isLast: boolean;
   onSlot: (slot: PanelSlot) => void;
   onFocus: () => void;
   onClose: () => void;
-  onPanelDrag: (delta: number) => void;
 }): ReactNode {
   const view = usePanel(session.workspace);
   const label = view.currentModel?.name ?? "Model";
   const expand = useCallback(() => {
     onFocus();
-    onSlot({ open: true, width: Math.max(AGENT_DEFAULT_W, slot.width) });
-  }, [onFocus, onSlot, slot.width]);
+    onSlot({ open: true, width: Math.max(AGENT_DEFAULT_W, slot.width), left: slot.left });
+  }, [onFocus, onSlot, slot.width, slot.left]);
   const collapse = useCallback(() => onSlot({ ...slot, open: false }), [onSlot, slot]);
   const open = useCallback(() => onSlot({ ...slot, open: true }), [onSlot, slot]);
-  const drag = useDragResize(
-    slot.width,
-    (width) => onSlot({ ...slot, width: typeof width === "function" ? width(slot.width) : width }),
-    AGENT_MIN_W,
-    maxW,
-    true,
-    slot.open,
-    open,
-    collapse
+  const slide = useDragMove(
+    slot.left,
+    (left) => onSlot({ ...slot, left }),
+    leftMin,
+    leftMax
   );
-  const rightDrag = useDragResize(
+  const slideBy = (delta: number): void => {
+    onSlot({ ...slot, left: Math.min(leftMax, Math.max(leftMin, slot.left + delta)) });
+  };
+  const resizeRight = useDragResize(
     slot.width,
     (width) => onSlot({ ...slot, width: typeof width === "function" ? width(slot.width) : width }),
     AGENT_MIN_W,
-    maxW,
+    rightMax,
     false,
     slot.open,
     open,
@@ -233,25 +261,19 @@ function PanelColumn({
 
   if (slot.open) {
     return (
-      <>
-        <div className="divider panel-divider" onMouseDown={drag} />
-        <div className="agent-col" style={{ width: `${slot.width}px` }}>
-          <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} onPanelDrag={onPanelDrag} />
-        </div>
-      </>
+      <div className="agent-col" style={{ left: `${slot.left}px`, width: `${slot.width}px` }}>
+        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={slide} onResizeRight={resizeRight} onPanelDrag={slideBy} />
+      </div>
     );
   }
   return (
-    <>
-      <div className="divider collapsed panel-divider" onMouseDown={drag} />
-      <div className="agent-col" style={{ width: `${COLLAPSED_PANEL_W}px` }}>
-        {isLast ? (
-          <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} onResizeLeft={drag} onResizeRight={rightDrag} />
-        ) : (
-          <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} onLeftDrag={drag} onRightDrag={rightDrag} />
-        )}
-      </div>
-    </>
+    <div className="agent-col" style={{ left: `${slot.left}px`, width: `${COLLAPSED_PANEL_W}px` }}>
+      {isLast ? (
+        <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={slide} onResizeRight={resizeRight} />
+      ) : (
+        <PanelSliver busy={view.busy} label={label} onExpand={expand} onLeftDrag={slide} onRightDrag={resizeRight} />
+      )}
+    </div>
   );
 }
 
@@ -260,7 +282,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
-  const [panelGaps, setPanelGaps] = useState<Record<string, number>>({});
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -274,29 +295,46 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   useEffect(() => {
     setSlots((current) => {
       const next: Record<string, PanelSlot> = {};
+      let cursor = 0;
       let changed = false;
       for (const panel of panels) {
         const id = panel.workspace.id;
-        next[id] = current[id] ?? { open: true, width: AGENT_DEFAULT_W };
-        if (!current[id]) changed = true;
+        const existing = current[id];
+        if (existing) {
+          next[id] = existing;
+          cursor = Math.max(cursor, existing.left + (existing.open ? existing.width : COLLAPSED_PANEL_W));
+        } else {
+          next[id] = { open: true, width: AGENT_DEFAULT_W, left: cursor };
+          cursor += AGENT_DEFAULT_W;
+          changed = true;
+        }
       }
       if (Object.keys(current).length !== Object.keys(next).length) changed = true;
       return changed ? next : current;
     });
   }, [panels]);
 
-  const panelShown = (id: string): number => {
-    const slot = slots[id] ?? { open: true, width: AGENT_DEFAULT_W };
-    return slot.open ? slot.width : COLLAPSED_PANEL_W;
-  };
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
   const fixedPanelChrome = 1 + panels.length;
-  const gapAfter = (index: number): number => index < panels.length - 1 ? panelGaps[panels[index].workspace.id] ?? 0 : 0;
-  const totalGaps = panels.reduce((sum, _panel, index) => sum + gapAfter(index), 0);
+  const areaW = Math.max(0, winW - sideShown - 1);
+  const slotShown = (panel: SessionInfo): number => {
+    const slot = slots[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
+    return slot.open ? slot.width : COLLAPSED_PANEL_W;
+  };
+  const slotFor = (panel: SessionInfo): PanelSlot => {
+    const existing = slots[panel.workspace.id];
+    if (existing) return existing;
+    let left = 0;
+    for (const other of panels) {
+      if (other.workspace.id === panel.workspace.id) break;
+      left += slotShown(other);
+    }
+    return { open: true, width: AGENT_DEFAULT_W, left };
+  };
 
   const singlePanel = panels.length <= 1;
   const agentShown = singlePanel && panels.length === 1
-    ? panelShown(panels[0].workspace.id)
+    ? slotShown(panels[0])
     : 0;
   const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - fixedPanelChrome));
 
@@ -304,60 +342,73 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const agentCapRef = useRef<number | null>(null);
   const agentOpen = singlePanel && panels.length === 1 && (slots[panels[0].workspace.id]?.open ?? true);
 
+  const slotsRef = useRef(slots);
+  slotsRef.current = slots;
+
   useLayoutEffect(() => {
-    if (singlePanel) {
-      if (!sideOpen && !agentOpen) return;
-       const avail = Math.max(0, winW - fixedPanelChrome);
+    const current = slotsRef.current;
+    const shown = (panel: SessionInfo): number => {
+      const slot = current[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
+      return slot.open ? slot.width : COLLAPSED_PANEL_W;
+    };
+    if (panels.length <= 1) {
+      if (panels.length === 0) return;
+      const panel0 = panels[0];
+      const panelOpen = current[panel0.workspace.id]?.open ?? true;
+      if (!sideOpen && !panelOpen) return;
+      const avail = Math.max(0, winW - fixedPanelChrome);
+      const agentShownNow = panelOpen ? shown(panel0) : 0;
       const agentLimit = Math.max(0, avail - sideShown);
-      const sideLimit = Math.max(0, Math.min(SIDE_MAX_W, avail - agentShown));
-      const agentAnchored = agentOpen && agentCapRef.current !== null && agentShown >= agentCapRef.current - 1;
+      const sideLimit = Math.max(0, Math.min(SIDE_MAX_W, avail - agentShownNow));
+      const agentAnchored = panelOpen && agentCapRef.current !== null && agentShownNow >= agentCapRef.current - 1;
       const sideAnchored = sideOpen && sideCapRef.current !== null && sideW >= sideCapRef.current - 1;
-      if (agentOpen) agentCapRef.current = agentLimit;
+      if (panelOpen) agentCapRef.current = agentLimit;
       if (sideOpen) sideCapRef.current = sideLimit;
-      const total = sideShown + agentShown;
+      const total = sideShown + agentShownNow;
       if (total <= avail) {
-        if (agentAnchored && agentOpen && panels.length === 1) {
-          setSlotWidth(panels[0].workspace.id, agentLimit);
-        }
+        if (agentAnchored && panelOpen) setSlotWidth(panel0.workspace.id, agentLimit);
         if (sideAnchored) setSideW(sideLimit);
         return;
       }
-      if (!sideOpen || !agentOpen) {
-        if (agentOpen && panels.length === 1) {
-          setSlotWidth(panels[0].workspace.id, agentLimit);
-        } else setSideW(sideLimit);
+      if (!sideOpen || !panelOpen) {
+        if (panelOpen) setSlotWidth(panel0.workspace.id, agentLimit);
+        else setSideW(sideLimit);
         return;
       }
       if (agentAnchored !== sideAnchored) {
-        if (agentAnchored && panels.length === 1) {
-          setSlotWidth(panels[0].workspace.id, agentLimit);
-        } else setSideW(sideLimit);
+        if (agentAnchored) setSlotWidth(panel0.workspace.id, agentLimit);
+        else setSideW(sideLimit);
         return;
       }
-      if (agentAnchored && panels.length === 1) {
+      if (agentAnchored) {
         const nextAgent = Math.max(COLLAPSED_PANEL_W, agentLimit);
-        setSlotWidth(panels[0].workspace.id, nextAgent);
+        setSlotWidth(panel0.workspace.id, nextAgent);
         setSideW(Math.max(COLLAPSED_PANEL_W, Math.min(sideShown, avail - nextAgent)));
         return;
       }
       const nextSide = Math.max(COLLAPSED_PANEL_W, Math.round((sideShown * avail) / total));
       const nextAgent = Math.max(COLLAPSED_PANEL_W, avail - nextSide);
       setSideW(nextSide);
-      if (panels.length === 1) {
-        setSlotWidth(panels[0].workspace.id, nextAgent);
-      }
+      setSlotWidth(panel0.workspace.id, nextAgent);
       return;
     }
-     const avail = Math.max(0, winW - fixedPanelChrome - sideShown - totalGaps);
+    const avail = Math.max(0, winW - fixedPanelChrome - sideShown);
     const openIDs = panels
-      .filter((panel) => slots[panel.workspace.id]?.open)
+      .filter((panel) => current[panel.workspace.id]?.open)
       .map((panel) => panel.workspace.id);
     if (openIDs.length === 0) return;
-    const totalShown = panels.reduce((sum, panel) => sum + panelShown(panel.workspace.id), 0);
-    if (totalShown <= avail) return;
-    const base = Math.max(COLLAPSED_PANEL_W, Math.floor(avail / openIDs.length));
-    for (const id of openIDs) setSlotWidth(id, Math.min(slots[id]?.width ?? base, base));
-  }, [winW, sideOpen, sideW, panels, slots, singlePanel, sideShown, agentShown, agentOpen, totalGaps]);
+    const totalShown = panels.reduce((sum, panel) => sum + shown(panel), 0);
+    if (totalShown > avail) {
+      const base = Math.max(COLLAPSED_PANEL_W, Math.floor(avail / openIDs.length));
+      for (const id of openIDs) setSlotWidth(id, Math.min(current[id]?.width ?? base, base));
+    }
+    for (const panel of panels) {
+      const slot = current[panel.workspace.id];
+      if (!slot) continue;
+      const capped = Math.max(0, Math.min(slot.left, areaW - shown(panel)));
+      if (capped !== slot.left) setSlotLeft(panel.workspace.id, capped);
+    }
+  }, [winW, sideOpen, sideW, panels]);
 
   const sideDrag = useDragResize(
     sideW,
@@ -382,7 +433,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   useEffect(() => {
     if (prevSidebarRef.current === null) return;
-    const stillInMode = !sideOpen && agentOpen && panels.length === 1 && Math.abs(panelShown(panels[0].workspace.id) - agentCap) < 2;
+    const stillInMode = !sideOpen && agentOpen && panels.length === 1 && Math.abs(slotShown(panels[0]) - agentCap) < 2;
     if (!stillInMode) prevSidebarRef.current = null;
   }, [sideOpen, agentOpen, slots, agentCap, panels]);
 
@@ -399,7 +450,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       setSideOpen(false);
       setSlots((current) => ({
         ...current,
-        [lastPanel.workspace.id]: { open: true, width: Math.max(0, winW - COLLAPSED_PANEL_W - 2) }
+        [lastPanel.workspace.id]: { open: true, width: Math.max(0, winW - COLLAPSED_PANEL_W - 2), left: 0 }
       }));
     } else {
       const prev = prevSidebarRef.current;
@@ -408,25 +459,24 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       setSideW(prev.width);
       setSlots((current) => ({
         ...current,
-        [lastPanel.workspace.id]: { open: true, width: AGENT_MIN_W }
+        [lastPanel.workspace.id]: { open: true, width: AGENT_MIN_W, left: 0 }
       }));
     }
   };
 
-  const panelMax = (id: string): number => {
-    const others = panels
-      .filter((panel) => panel.workspace.id !== id)
-      .reduce((sum, panel) => sum + panelShown(panel.workspace.id), 0);
-    return Math.max(AGENT_MIN_W, winW - sideShown - others - fixedPanelChrome - totalGaps);
-  };
-
-  const slotFor = (panel: SessionInfo): PanelSlot => slots[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W };
-
   const setSlotWidth = (id: string, width: number): void => {
     setSlots((current) => {
-      const slot = current[id] ?? { open: true, width: AGENT_DEFAULT_W };
+      const slot = current[id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
       if (slot.width === width) return current;
       return { ...current, [id]: { ...slot, width } };
+    });
+  };
+
+  const setSlotLeft = (id: string, left: number): void => {
+    setSlots((current) => {
+      const slot = current[id] ?? { open: true, width: AGENT_DEFAULT_W, left };
+      if (slot.left === left) return current;
+      return { ...current, [id]: { ...slot, left } };
     });
   };
 
@@ -482,29 +532,30 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         <div className="workspace-area">
           <EditorPane />
-          {panels.map((panel, index) => (
-            <Fragment key={panel.workspace.id}>
+          {panels.map((panel, index) => {
+            const s = slotFor(panel);
+            const prev = index > 0 ? panels[index - 1] : null;
+            const next = index < panels.length - 1 ? panels[index + 1] : null;
+            const prevRight = prev ? slotFor(prev).left + slotShown(prev) : 0;
+            const nextLeft = next ? slotFor(next).left : areaW;
+            const leftMin = Math.max(0, prevRight);
+            const leftMax = nextLeft - slotShown(panel);
+            const rightMax = Math.max(AGENT_MIN_W, nextLeft - s.left);
+            return (
               <PanelColumn
+                key={panel.workspace.id}
                 session={panel}
-                slot={slotFor(panel)}
-                maxW={panelMax(panel.workspace.id)}
+                slot={s}
+                leftMin={leftMin}
+                leftMax={leftMax}
+                rightMax={rightMax}
                 isLast={index === panels.length - 1}
                 onSlot={(slot) => setSlots((current) => ({ ...current, [panel.workspace.id]: slot }))}
                 onFocus={() => focusSession(panel.id)}
                 onClose={() => closePanel(panel.id)}
-                onPanelDrag={(delta) => {
-                  if (index >= panels.length - 1) return;
-                  setPanelGaps((current) => ({
-                    ...current,
-                    [panel.workspace.id]: Math.max(0, Math.min(600, (current[panel.workspace.id] ?? 0) - delta))
-                  }));
-                }}
               />
-              {index < panels.length - 1 && (
-                <div className="panel-gap" style={{ width: `${gapAfter(index)}px` }} />
-              )}
-            </Fragment>
-          ))}
+            );
+          })}
         </div>
       </div>
 

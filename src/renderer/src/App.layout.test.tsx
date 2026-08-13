@@ -86,9 +86,16 @@ describe("Layout panel sizing", () => {
     vi.restoreAllMocks();
   });
 
+  function agentCols(): HTMLElement[] {
+    return [...container.querySelectorAll<HTMLElement>(".agent-col")];
+  }
+
   function agentWidths(): number[] {
-    return [...container.querySelectorAll<HTMLElement>(".agent-col")]
-      .map((col) => Number.parseFloat(col.style.width ?? "0"));
+    return agentCols().map((col) => Number.parseFloat(col.style.width ?? "0"));
+  }
+
+  function agentLefts(): number[] {
+    return agentCols().map((col) => Number.parseFloat(col.style.left ?? "0"));
   }
 
   function gridCols(): string[] {
@@ -129,9 +136,9 @@ describe("Layout panel sizing", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     await act(async () => {
-      const agentDivider = container.querySelectorAll<HTMLElement>(".workspace-area > .divider")[0];
-      agentDivider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1000 - (1228 - 280) }));
+      const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-right")!;
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1948 }));
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
@@ -165,10 +172,7 @@ describe("Layout panel sizing", () => {
     const [first, second] = agentWidths();
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
-
-    const dividerNodes = container.querySelectorAll<HTMLElement>(".workspace-area > .divider");
-    expect(dividerNodes).toHaveLength(2);
-    expect(container.querySelectorAll(".workspace-area > .panel-gap")).toHaveLength(1);
+    expect(agentLefts()).toEqual([0, 280]);
   });
 
   it("keeps both panels visible when the window is narrower than their combined width", async () => {
@@ -202,14 +206,31 @@ describe("Layout panel sizing", () => {
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(3);
     const cols = gridCols();
     expect(cols).toHaveLength(3);
-    for (const width of agentWidths()) {
-      expect(width).toBeGreaterThanOrEqual(44);
-    }
-    expect(container.querySelectorAll(".workspace-area > .divider")).toHaveLength(3);
-    expect(container.querySelectorAll(".workspace-area > .panel-gap")).toHaveLength(2);
+    expect(agentWidths()).toEqual([280, 280, 280]);
+    expect(agentLefts()).toEqual([0, 280, 560]);
   });
 
-  it("drags a model header away from its neighbor", async () => {
+  it("resizes one model without moving its neighbors", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const handles = container.querySelectorAll<HTMLElement>(".agent-col .panel-resize-right");
+    await act(async () => {
+      handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 950 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([230, 280]);
+    expect(agentLefts()).toEqual([0, 280]);
+  });
+
+  it("slides a model header away from its neighbor", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -221,13 +242,33 @@ describe("Layout panel sizing", () => {
     expect(headers).toHaveLength(2);
 
     await act(async () => {
-      headers[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 500 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 440 }));
+      headers[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 500 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 560 }));
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    const gap = container.querySelector<HTMLElement>(".workspace-area > .panel-gap")!;
-    expect(Number.parseFloat(gap.style.width)).toBeCloseTo(60, 0);
+    expect(agentLefts()).toEqual([0, 340]);
+    expect(agentWidths()).toEqual([280, 280]);
+  });
+
+  it("slides a model by its left edge and keeps its width", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const handles = container.querySelectorAll<HTMLElement>(".agent-col .panel-resize-left");
+    await act(async () => {
+      handles[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 400 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 460 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentLefts()).toEqual([0, 340]);
+    expect(agentWidths()).toEqual([280, 280]);
   });
 });
