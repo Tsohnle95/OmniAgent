@@ -17,6 +17,12 @@ const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 300;
 
+interface EdgePush {
+  facing: number;
+  far: number;
+  onPush: (boundary: number) => void;
+}
+
 function useDragResize(
   width: number,
   setWidth: React.Dispatch<React.SetStateAction<number>>,
@@ -27,7 +33,8 @@ function useDragResize(
   onOpen: () => void,
   onCollapse?: () => void,
   left?: number,
-  setLeft?: (value: number) => void
+  setLeft?: (value: number) => void,
+  push?: EdgePush
 ): (e: React.MouseEvent) => void {
   const startRef = useRef<{ x: number; width: number; open: boolean; left: number } | null>(null);
 
@@ -54,13 +61,23 @@ function useDragResize(
 
       if (rawW > COLLAPSED_PANEL_W || !onCollapse) {
         const nextW = onCollapse ? rawW : Math.max(min, rawW);
-        const capped = Math.min(max, nextW);
+        const start = startRef.current;
+        const limit = push
+          ? flip
+            ? start.left + start.width - push.far - COLLAPSED_PANEL_W
+            : push.far - COLLAPSED_PANEL_W - start.left
+          : max;
+        const capped = Math.min(limit, nextW);
         setWidth(capped);
         if (flip && setLeft) {
-          setLeft(startRef.current.left + startRef.current.width - capped);
+          setLeft(start.left + start.width - capped);
         }
-        if (!startRef.current.open) {
-          startRef.current.open = true;
+        if (push) {
+          const boundary = flip ? start.left + start.width - capped : start.left + capped;
+          push.onPush(flip ? Math.min(push.facing, boundary) : Math.max(push.facing, boundary));
+        }
+        if (!start.open) {
+          start.open = true;
           onOpen();
         }
       }
@@ -197,6 +214,8 @@ function PanelColumn({
   leftMax,
   rightMax,
   isLast,
+  pushLeft,
+  pushRight,
   onSlot,
   onFocus,
   onClose
@@ -208,6 +227,8 @@ function PanelColumn({
   leftMax: number;
   rightMax: number;
   isLast: boolean;
+  pushLeft?: EdgePush;
+  pushRight?: EdgePush;
   onSlot: React.Dispatch<React.SetStateAction<PanelSlot>>;
   onFocus: () => void;
   onClose: () => void;
@@ -228,7 +249,10 @@ function PanelColumn({
     false,
     slot.open,
     open,
-    collapse
+    collapse,
+    slot.left,
+    undefined,
+    pushRight
   );
   const resizeLeft = useDragResize(
     slot.width,
@@ -240,7 +264,8 @@ function PanelColumn({
     open,
     collapse,
     slot.left,
-    (left) => onSlot((current) => ({ ...current, left }))
+    (left) => onSlot((current) => ({ ...current, left })),
+    pushLeft
   );
   const slideBy = (delta: number): void => {
     onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
@@ -567,6 +592,36 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             const rightMax = isAnchor
               ? Math.max(AGENT_MIN_W, areaW - (leftN ? slotFor(leftN).left + slotShown(leftN) : 0))
               : Math.max(AGENT_MIN_W, (rightN ? slotFor(rightN).left : areaW) - s.left);
+            const pushLeft = leftN
+              ? (() => {
+                  const far = slotFor(leftN).left;
+                  const facing = far + slotShown(leftN);
+                  return {
+                    facing,
+                    far,
+                    onPush: (boundary: number) =>
+                      setSlots((current) => {
+                        const base = current[leftN.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
+                        return { ...current, [leftN.workspace.id]: { ...base, width: Math.max(COLLAPSED_PANEL_W, boundary - far) } };
+                      })
+                  };
+                })()
+              : undefined;
+            const pushRight = rightN
+              ? (() => {
+                  const far = slotFor(rightN).left + slotShown(rightN);
+                  const facing = far - slotShown(rightN);
+                  return {
+                    facing,
+                    far,
+                    onPush: (boundary: number) =>
+                      setSlots((current) => {
+                        const base = current[rightN.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
+                        return { ...current, [rightN.workspace.id]: { ...base, left: boundary, width: Math.max(COLLAPSED_PANEL_W, far - boundary) } };
+                      })
+                  };
+                })()
+              : undefined;
             return (
               <PanelColumn
                 key={panel.workspace.id}
@@ -577,6 +632,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
                 leftMax={leftMax}
                 rightMax={rightMax}
                 isLast={index === ordered.length - 1}
+                pushLeft={pushLeft}
+                pushRight={pushRight}
                 onSlot={(update) =>
                   setSlots((current) => {
                     const base = current[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
