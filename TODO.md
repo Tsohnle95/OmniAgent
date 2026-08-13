@@ -28,7 +28,7 @@ multi-session/window support
 
 - [x] Agent commands in the chat input when I type / are missing. Where is opencodes compact command? Look into this. Also confirm that the @file feature works to give the model access to that file context in the chat, or however it's supposed to work.
 
-- [ ] - My session usage tracker does not track the total context of this conversation that's been taken up. It just shows me input, output, cache, total tokens, etcetera but it doesn't show me what I've actually used that the model itself can handle for total context. So please fix that. Turn the icon into a little circle that uh changes color based on the amount of context being taken up. A little spinner type of thing. Doesn't have to move, but a circle type of spinner looking thing. 
+- [x] - My session usage tracker does not track the total context of this conversation that's been taken up. It just shows me input, output, cache, total tokens, etcetera but it doesn't show me what I've actually used that the model itself can handle for total context. So please fix that. Turn the icon into a little circle that uh changes color based on the amount of context being taken up. A little spinner type of thing. Doesn't have to move, but a circle type of spinner looking thing. 
 
 - [x]  it seems when something dispatches a sub-agent, it doesn't indicate that to me. I want to copy openchamber's functionality where they provide a link to the subagent task, so you can click it and see what it's doing. Again, currently all I can see is: Subagent
 * Subagent
