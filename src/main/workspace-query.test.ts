@@ -1,5 +1,8 @@
 // @vitest-environment node
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
@@ -88,5 +91,81 @@ describe("workspace-scoped backend queries", () => {
       path: "/workspace/src/visible.ts",
       rel: "src/visible.ts"
     }]);
+  });
+});
+
+describe("built-in commands and prompt files", () => {
+  it("lists the built-in compact command alongside project commands and skills", async () => {
+    const client = {
+      command: { list: vi.fn(async () => [{ name: "project-cmd", description: "Runs a thing" }]) },
+      skill: { list: vi.fn(async () => [{ name: "project-skill" }]) }
+    };
+    const backend = new OpenShellBackend();
+    install(backend, { id: "11111111-1111-4111-8111-111111111111", generation: 1 }, "/workspace", client);
+
+    expect(await backend.listCommands()).toEqual([
+      { name: "compact", description: "Summarize the session to free up context", kind: "command" },
+      { name: "project-cmd", description: "Runs a thing", kind: "command" },
+      { name: "project-skill", kind: "skill" }
+    ]);
+  });
+
+  it("routes the compact built-in to session.compact without a command or skill call", async () => {
+    const client = {
+      session: {
+        compact: vi.fn(async () => ({ data: {} })),
+        command: vi.fn(),
+        skill: vi.fn()
+      },
+      skill: { list: vi.fn(async () => []) }
+    };
+    const backend = new OpenShellBackend();
+    const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+    install(backend, workspace, "/workspace", client);
+
+    await backend.runCommand(workspace, "compact");
+
+    expect(client.session.compact).toHaveBeenCalledWith({ sessionID: "session-1" });
+    expect(client.session.command).not.toHaveBeenCalled();
+    expect(client.session.skill).not.toHaveBeenCalled();
+  });
+
+  it("rejects a built-in compaction after workspace activation", async () => {
+    const compact = deferred<unknown>();
+    const client = { session: { compact: vi.fn(() => compact.promise) } };
+    const backend = new OpenShellBackend();
+    const first = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+    install(backend, first, "/workspace-one", client);
+    const pending = backend.runCommand(first, "compact");
+    install(backend, { id: "22222222-2222-4222-8222-222222222222", generation: 2 }, "/workspace-two");
+    compact.resolve({ data: {} });
+
+    await expect(pending).rejects.toThrow("stale workspace");
+    expect(client.session.compact).toHaveBeenCalledWith({ sessionID: "session-1" });
+  });
+
+  it("forwards prompt files with uri and mention span to the session prompt call", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "openshell-prompt-"));
+    const file = path.join(directory, "src", "foo.ts");
+    await mkdir(path.join(directory, "src"), { recursive: true });
+    await writeFile(file, "export const foo = 1;\n");
+    const client = { session: { prompt: vi.fn(async () => ({ data: {} })) } };
+    const backend = new OpenShellBackend();
+    const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+    install(backend, workspace, directory, client);
+
+    await backend.prompt(workspace, "explain @src/foo.ts", [
+      { path: file, mention: { start: 8, end: 19, text: "@src/foo.ts" } }
+    ]);
+
+    expect(client.session.prompt).toHaveBeenCalledWith({
+      sessionID: "session-1",
+      text: "explain @src/foo.ts",
+      files: [{
+        uri: pathToFileURL(file).toString(),
+        name: "foo.ts",
+        mention: { start: 8, end: 19, text: "@src/foo.ts" }
+      }]
+    });
   });
 });

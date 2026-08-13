@@ -1,0 +1,174 @@
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SessionInfo } from "@shared/types";
+
+let currentSession: SessionInfo;
+const runCommand = vi.fn(async () => {});
+const sendPrompt = vi.fn(async () => {});
+
+vi.mock("../store", () => ({
+  useStore: () => ({
+    session: currentSession,
+    approvalMode: "ask",
+    toggleApprovalMode: vi.fn(),
+    models: [],
+    currentModel: null,
+    switchModel: vi.fn(),
+    agents: [],
+    currentAgent: null,
+    switchAgent: vi.fn(),
+    loadAgents: vi.fn(),
+    loadModels: vi.fn(),
+    sendPrompt,
+    runCommand,
+    stop: vi.fn(),
+    busy: false
+  })
+}));
+
+import { Composer } from "./AgentPanel";
+
+function session(id: string, generation: number): SessionInfo {
+  return {
+    id,
+    directory: `/workspace-${generation}`,
+    workspace: { id: `${generation}1111111-1111-4111-8111-111111111111`, generation }
+  };
+}
+
+function type(input: HTMLTextAreaElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")!.set!;
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+async function flush(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+}
+
+function pressEnter(input: HTMLTextAreaElement): Promise<void> {
+  return act(async () => {
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
+}
+
+describe("composer slash and mention completions", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    currentSession = session("one", 1);
+    runCommand.mockClear();
+    sendPrompt.mockClear();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("lists slash commands including built-ins and runs the selected one", async () => {
+    window.openshell = {
+      commands: vi.fn(async () => [
+        { name: "compact", description: "Summarize the session to free up context", kind: "command" },
+        { name: "project-cmd", description: "Project command" }
+      ])
+    } as unknown as Window["openshell"];
+    await act(async () => root.render(<Composer />));
+    const input = container.querySelector("textarea")!;
+    await act(async () => {
+      type(input, "/");
+    });
+    await flush();
+
+    const items = [...container.querySelectorAll(".composer-completions .composer-menu-item")];
+    expect(items.map((item) => item.textContent)).toEqual([
+      "compactSummarize the session to free up context",
+      "project-cmdProject command"
+    ]);
+
+    await pressEnter(input);
+    expect(runCommand).toHaveBeenCalledWith("compact", "");
+    expect(sendPrompt).not.toHaveBeenCalled();
+  });
+
+  it("filters slash completions as the query grows", async () => {
+    window.openshell = {
+      commands: vi.fn(async () => [
+        { name: "compact", description: "Summarize the session to free up context", kind: "command" },
+        { name: "project-cmd" }
+      ])
+    } as unknown as Window["openshell"];
+    await act(async () => root.render(<Composer />));
+    const input = container.querySelector("textarea")!;
+    await act(async () => {
+      type(input, "/");
+    });
+    await act(async () => {
+      type(input, "/com");
+    });
+    await flush();
+
+    const labels = [...container.querySelectorAll(".composer-completions .composer-completion-label")];
+    expect(labels.map((item) => item.textContent)).toEqual(["compact"]);
+
+    await pressEnter(input);
+    expect(runCommand).toHaveBeenCalledWith("compact", "");
+  });
+
+  it("runs a leading-slash command typed without picking from the menu", async () => {
+    window.openshell = {
+      commands: vi.fn(async () => [
+        { name: "compact", description: "Summarize the session to free up context", kind: "command" }
+      ])
+    } as unknown as Window["openshell"];
+    await act(async () => root.render(<Composer />));
+    const input = container.querySelector("textarea")!;
+    await act(async () => {
+      type(input, "/compact please");
+    });
+
+    await pressEnter(input);
+    expect(runCommand).toHaveBeenCalledWith("compact", "please");
+  });
+
+  it("assembles a PromptFile with a mention span for a chosen file mention", async () => {
+    window.openshell = {
+      references: vi.fn(async () => [
+        { name: "foo.ts", path: "/workspace-1/src/foo.ts", rel: "src/foo.ts" }
+      ])
+    } as unknown as Window["openshell"];
+    await act(async () => root.render(<Composer />));
+    const input = container.querySelector("textarea")!;
+    await act(async () => {
+      type(input, "explain ");
+    });
+    await act(async () => {
+      type(input, "explain @");
+    });
+    await flush();
+
+    const item = container.querySelector(".composer-completions .composer-menu-item")!;
+    expect(item.textContent).toContain("src/foo.ts");
+    await act(async () => {
+      item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+
+    expect(input.value).toBe("explain @src/foo.ts");
+
+    await pressEnter(input);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(sendPrompt).toHaveBeenCalledWith("explain @src/foo.ts", [
+      { path: "/workspace-1/src/foo.ts", mention: { start: 8, end: 19, text: "@src/foo.ts" } }
+    ]);
+  });
+});

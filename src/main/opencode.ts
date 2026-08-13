@@ -74,6 +74,18 @@ const RECOVERY_DIR = ".openshell-recovery";
 const RECOVERY_SETTLED_RETENTION_MS = 24 * 60 * 60 * 1000;
 const RECOVERY_INTERRUPTED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
+const BUILTIN_COMMANDS: {
+  name: string;
+  description: string;
+  run: (client: Client, sessionID: string) => Promise<unknown>;
+}[] = [
+  {
+    name: "compact",
+    description: "Summarize the session to free up context",
+    run: (client, sessionID) => client.session.compact({ sessionID })
+  }
+];
+
 interface RecoveryTransaction {
   version: 1;
   id: string;
@@ -1244,12 +1256,23 @@ export class OpenShellBackend {
         kind: "skill" as const
       }))
       .filter((s) => s.name.length > 0);
-    return [...commandItems, ...skillItems];
+    const builtinItems = BUILTIN_COMMANDS.map((command) => ({
+      name: command.name,
+      description: command.description,
+      kind: "command" as const
+    }));
+    return [...builtinItems, ...commandItems, ...skillItems];
   }
 
   async runCommand(workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> {
     if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    const builtin = BUILTIN_COMMANDS.find((command) => command.name === name);
+    if (builtin) {
+      await builtin.run(this.client, target.sessionID);
+      this.assertTarget(target);
+      return;
+    }
     const skills = await this.client.skill
       .list({ location: { directory: target.directory } })
       .catch(() => []);

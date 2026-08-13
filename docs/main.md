@@ -34,8 +34,8 @@ Public methods (all used by IPC):
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
 | `openSessionById(sessionID)` | Accepts a generation, loads `session.get` plus replay, then commits only if still latest |
 | `prompt(workspace, text, files?)` | Captures and verifies the workspace/session around attachment awaits, then calls `session.prompt` |
-| `listCommands()` | `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
-| `runCommand(workspace, name, args?)` | Captures and verifies the workspace/session around skill lookup and command mutation |
+| `listCommands()` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
+| `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the workspace/session around skill lookup and command mutation |
 | `searchFiles(query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
 | `interrupt(workspace)` | Interrupts the captured active session and rejects stale completion |
 | `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured active workspace session |
@@ -121,7 +121,7 @@ Internals:
 | `shell:sessions` | `() → SessionSummary[]` |
 | `shell:open-session-id` | `(sessionID, generation) → ReopenedSession` |
 | `shell:prompt` | `(workspace, text, files?) → void` |
-| `shell:commands` | `() → CommandOption[]` (opencode slash commands + skills for the session directory) |
+| `shell:commands` | `() → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |
 | `shell:select-files` | `() → string[]` (native multi-file dialog) |
