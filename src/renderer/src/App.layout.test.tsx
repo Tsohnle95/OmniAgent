@@ -476,4 +476,30 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()).toEqual([280]);
     expect(agentLefts()).toEqual([949]);
   });
+
+  it("opening the file tray during agent mode never moves the agent panel", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentLefts()).toEqual([2, 718]);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".sidebar.collapsed .activity-btn")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(gridCols()[0]).toBe("280px");
+    expect(agentLefts()).toEqual([2, 718]);
+    expect(agentWidths()).toEqual([598, 481]);
+  });
 });

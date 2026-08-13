@@ -367,11 +367,26 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   useLayoutEffect(() => {
     const current = slotsRef.current;
-    if (prevSidebarRef.current !== null) return;
     const shown = (panel: SessionInfo): number => {
       const slot = current[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
       return slot.open ? slot.width : COLLAPSED_PANEL_W;
     };
+    if (prevSidebarRef.current !== null) {
+      const avail = Math.max(0, winW - fixedPanelChrome - sideShown);
+      const openIDs = panels
+        .filter((panel) => current[panel.workspace.id]?.open ?? true)
+        .map((panel) => panel.workspace.id);
+      if (openIDs.length === 0) return;
+      const totalShown = panels.reduce((sum, panel) => sum + shown(panel), 0);
+      if (totalShown > avail) {
+        const base = Math.max(COLLAPSED_PANEL_W, Math.floor(avail / openIDs.length));
+        for (const id of openIDs) {
+          const slot = current[id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
+          setSlotWidth(id, Math.min(slot.width, base, Math.max(COLLAPSED_PANEL_W, areaW - slot.left)));
+        }
+      }
+      return;
+    }
     if (panels.length <= 1) {
       if (panels.length === 0) return;
       const panel0 = panels[0];
@@ -457,17 +472,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     "1px",
     "minmax(0,1fr)"
   ].join(" ");
-
-  useEffect(() => {
-    if (prevSidebarRef.current === null) return;
-    const anyPanelOpen = panels.some((panel) => slots[panel.workspace.id]?.open ?? true);
-    if (!(!sideOpen && anyPanelOpen)) {
-      prevSidebarRef.current = null;
-      if (sideOpen && panels.length === 1 && anyPanelOpen) {
-        setSlotWidth(panels[0].workspace.id, AGENT_DEFAULT_W);
-      }
-    }
-  }, [sideOpen, slots, panels]);
 
   const setSidebarOpen = (open: boolean): void => {
     if (open) setSideW(SIDE_DEFAULT_W);
