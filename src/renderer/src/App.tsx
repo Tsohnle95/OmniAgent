@@ -193,6 +193,7 @@ function PanelColumn({
   session,
   slot,
   isAnchor,
+  freeMove,
   leftMin,
   leftMax,
   rightMax,
@@ -204,6 +205,7 @@ function PanelColumn({
   session: SessionInfo;
   slot: PanelSlot;
   isAnchor: boolean;
+  freeMove: boolean;
   leftMin: number;
   leftMax: number;
   rightMax: number;
@@ -251,16 +253,16 @@ function PanelColumn({
   if (slot.open) {
     return (
       <div className="agent-col" style={{ left: `${slot.left}px`, width: `${slot.width}px` }}>
-        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={resizeLeft} onResizeRight={isAnchor ? undefined : resizeRight} onPanelDrag={isAnchor ? undefined : slideBy} />
+        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={resizeLeft} onResizeRight={isAnchor && !freeMove ? undefined : resizeRight} onPanelDrag={isAnchor && !freeMove ? undefined : slideBy} />
       </div>
     );
   }
   return (
     <div className="agent-col" style={{ left: `${slot.left}px`, width: `${COLLAPSED_PANEL_W}px` }}>
       {isLast ? (
-        <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={resizeLeft} onResizeRight={isAnchor ? undefined : resizeRight} />
+        <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={resizeLeft} onResizeRight={isAnchor && !freeMove ? undefined : resizeRight} />
       ) : (
-        <PanelSliver busy={view.busy} label={label} onExpand={expand} onLeftDrag={resizeLeft} onRightDrag={isAnchor ? undefined : resizeRight} />
+        <PanelSliver busy={view.busy} label={label} onExpand={expand} onLeftDrag={resizeLeft} onRightDrag={isAnchor && !freeMove ? undefined : resizeRight} />
       )}
     </div>
   );
@@ -274,6 +276,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
+  const inAgentMode = prevSidebarRef.current !== null;
 
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
   const fixedPanelChrome = 1 + panels.length;
@@ -330,6 +334,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (panel.workspace.id === anchorId) {
       const open = stored?.open ?? true;
       const width = stored ? (open ? stored.width : COLLAPSED_PANEL_W) : AGENT_DEFAULT_W;
+      if (inAgentMode && stored) return { open, width, left: stored.left };
       return { open, width, left: Math.max(0, areaW - width) };
     }
     if (stored) return stored;
@@ -362,6 +367,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
 
   useLayoutEffect(() => {
     const current = slotsRef.current;
+    if (prevSidebarRef.current !== null) return;
     const shown = (panel: SessionInfo): number => {
       const slot = current[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0 };
       return slot.open ? slot.width : COLLAPSED_PANEL_W;
@@ -452,9 +458,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     "minmax(0,1fr)"
   ].join(" ");
 
-  const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
-  const inAgentMode = prevSidebarRef.current !== null;
-
   useEffect(() => {
     if (prevSidebarRef.current === null) return;
     const anyPanelOpen = panels.some((panel) => slots[panel.workspace.id]?.open ?? true);
@@ -494,7 +497,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         next[id] = { open: true, width, left: Math.max(0, boundary) };
       }
       if (anchorId) {
-        next[anchorId] = { open: true, width: anchorW, left: 0 };
+        next[anchorId] = { open: true, width: anchorW, left: Math.max(0, area - anchorW) };
       }
       return { ...current, ...next };
     });
@@ -599,6 +602,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
                 session={panel}
                 slot={s}
                 isAnchor={isAnchor}
+                freeMove={inAgentMode}
                 leftMin={leftMin}
                 leftMax={leftMax}
                 rightMax={rightMax}

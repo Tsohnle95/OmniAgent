@@ -428,4 +428,52 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()).toEqual([280]);
     expect(agentLefts()).toEqual([949]);
   });
+
+  it("agent mode frees the anchored panel to drag anywhere and re-anchors only on exit", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const modeButton = (): HTMLButtonElement =>
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!;
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([1434]);
+    expect(agentLefts()).toEqual([1]);
+
+    const handles = container.querySelectorAll<HTMLElement>(".agent-col .panel-resize-right");
+    expect(handles).toHaveLength(1);
+    await act(async () => {
+      handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 800 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([1234]);
+    expect(agentLefts()).toEqual([1]);
+
+    const headers = container.querySelectorAll<HTMLElement>(".agent-header");
+    await act(async () => {
+      headers[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 500 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 600 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([1234]);
+    expect(agentLefts()).toEqual([101]);
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(gridCols()[0]).toBe("250px");
+    expect(agentWidths()).toEqual([280]);
+    expect(agentLefts()).toEqual([949]);
+  });
 });
