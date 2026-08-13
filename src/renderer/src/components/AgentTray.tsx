@@ -4,15 +4,20 @@ export function AgentTray({
   busy,
   label,
   onExpand,
-  onDrag
+  onDrag,
+  onResizeLeft,
+  onResizeRight
 }: {
   busy: boolean;
   label: string;
   onExpand: () => void;
   onDrag: (e: React.MouseEvent) => void;
+  onResizeLeft: (e: React.MouseEvent) => void;
+  onResizeRight: (e: React.MouseEvent) => void;
 }): ReactNode {
   return (
-    <div className="agent-tray" onMouseDown={onDrag}>
+    <div className="agent-tray">
+      <div className="panel-resize-handle panel-resize-left" onMouseDown={onResizeLeft} />
       <span className={`agent-dot ${busy ? "busy" : ""}`} />
       <button
         className="activity-btn agent-tray-model"
@@ -22,6 +27,7 @@ export function AgentTray({
       >
         <span className="codicon codicon-symbol-event" />
       </button>
+      <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />
     </div>
   );
 }

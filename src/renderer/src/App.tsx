@@ -156,15 +156,20 @@ function PanelSliver({
   busy,
   label,
   onExpand,
-  onDrag
+  onDrag,
+  onLeftDrag,
+  onRightDrag
 }: {
   busy: boolean;
   label: string;
   onExpand: () => void;
   onDrag: (e: React.MouseEvent) => void;
+  onLeftDrag: (e: React.MouseEvent) => void;
+  onRightDrag: (e: React.MouseEvent) => void;
 }): ReactNode {
   return (
-    <div className="agent-sliver" onMouseDown={onDrag} title={`Show panel — ${label}`}>
+    <div className="agent-sliver" title={`Show panel — ${label}`}>
+      <div className="panel-resize-handle panel-resize-left" onMouseDown={onLeftDrag} />
       <span className={`agent-dot ${busy ? "busy" : ""}`} />
       <button
         className="activity-btn"
@@ -173,6 +178,7 @@ function PanelSliver({
       >
         <span className="codicon codicon-symbol-event" />
       </button>
+      <div className="panel-resize-handle panel-resize-right" onMouseDown={onRightDrag} />
     </div>
   );
 }
@@ -226,21 +232,19 @@ function PanelColumn({
   if (slot.open) {
     return (
       <>
-        <div className="divider panel-divider-left" onMouseDown={drag} />
-        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} />
-        <div className="divider panel-divider-right" onMouseDown={rightDrag} />
+        <div className="divider" onMouseDown={drag} />
+        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} />
       </>
     );
   }
   return (
     <>
-      <div className="divider collapsed panel-divider-left" onMouseDown={drag} />
+      <div className="divider collapsed" onMouseDown={drag} />
       {isLast ? (
-        <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} />
+        <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} onResizeLeft={drag} onResizeRight={rightDrag} />
       ) : (
-        <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} />
+        <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} onLeftDrag={drag} onRightDrag={rightDrag} />
       )}
-      <div className="divider collapsed panel-divider-right" onMouseDown={rightDrag} />
     </>
   );
 }
@@ -279,7 +283,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     return slot && slot.open ? slot.width : COLLAPSED_PANEL_W;
   };
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
-  const fixedPanelChrome = 1 + panels.length * 2;
+  const fixedPanelChrome = 1 + panels.length;
 
   const singlePanel = panels.length <= 1;
   const agentShown = singlePanel && panels.length === 1
@@ -361,7 +365,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
     "1px",
     "minmax(0,1fr)",
-    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`, "1px"])
+    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`])
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);

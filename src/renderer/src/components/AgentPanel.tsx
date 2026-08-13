@@ -935,12 +935,16 @@ export function AgentPanel({
   session,
   onCollapse,
   onFocus,
-  onClose
+  onClose,
+  onResizeLeft,
+  onResizeRight
 }: {
   session?: SessionInfo | null;
   onCollapse: () => void;
   onFocus?: () => void;
   onClose?: () => void;
+  onResizeLeft?: (e: React.MouseEvent) => void;
+  onResizeRight?: (e: React.MouseEvent) => void;
 }): ReactNode {
   const {
     session: storeSession,
@@ -1040,6 +1044,8 @@ export function AgentPanel({
 
   return (
     <div className="agent-panel" onMouseDownCapture={onFocus}>
+      {onResizeLeft && <div className="panel-resize-handle panel-resize-left" onMouseDown={onResizeLeft} />}
+      {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
       <div className="agent-header" ref={headerRef}>
         {activeSession?.parentID && (
           <button

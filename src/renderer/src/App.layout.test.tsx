@@ -134,7 +134,7 @@ describe("Layout panel sizing", () => {
 
     let cols = (container.querySelector<HTMLElement>(".main-row")!
       .style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(1227, 0);
+    expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(1228, 0);
 
     await act(async () => {
       setWidth(900);
@@ -144,7 +144,7 @@ describe("Layout panel sizing", () => {
     cols = (container.querySelector<HTMLElement>(".main-row")!
       .style.getPropertyValue("--pane-columns") ?? "").split(" ");
     expect(Number.parseFloat(cols[0] ?? "0")).toBeCloseTo(250, 0);
-    expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(900 - 250 - 3, 0);
+    expect(Number.parseFloat(cols[4] ?? "0")).toBeCloseTo(900 - 250 - 2, 0);
   });
 
   it("lays out multiple session panels side by side with independent widths", async () => {
@@ -162,15 +162,15 @@ describe("Layout panel sizing", () => {
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     const grid = container.querySelector<HTMLElement>(".main-row")!;
     const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(cols).toHaveLength(9);
+    expect(cols).toHaveLength(7);
     expect(cols[2]).toBe("minmax(0,1fr)");
     const first = Number.parseFloat(cols[4] ?? "0");
-    const second = Number.parseFloat(cols[7] ?? "0");
+    const second = Number.parseFloat(cols[6] ?? "0");
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
 
     const dividerNodes = container.querySelectorAll<HTMLElement>(".main-row > .divider");
-    expect(dividerNodes).toHaveLength(5);
+    expect(dividerNodes).toHaveLength(3);
   });
 
   it("keeps both panels visible when the window is narrower than their combined width", async () => {
@@ -189,7 +189,7 @@ describe("Layout panel sizing", () => {
     const grid = container.querySelector<HTMLElement>(".main-row")!;
     const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
     const first = Number.parseFloat(cols[4] ?? "0");
-    const second = Number.parseFloat(cols[7] ?? "0");
+    const second = Number.parseFloat(cols[6] ?? "0");
     expect(first + second + 250).toBeLessThanOrEqual(698);
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
