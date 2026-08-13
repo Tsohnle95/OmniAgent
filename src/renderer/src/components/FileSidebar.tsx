@@ -4,6 +4,22 @@ import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIc
 import { ShellMark } from "./ShellMark";
 import type { TreeEntry } from "@shared/types";
 
+function canDrop(source: string, target: string): boolean {
+  if (!source || source === target) return false;
+  const parent = source.includes("/") ? source.slice(0, source.lastIndexOf("/")) : "";
+  if (parent === target) return false;
+  return !target.startsWith(`${source}/`);
+}
+
+interface DragHandlers {
+  dragPath: string | null;
+  dropDir: string | null;
+  onDragStart: (e: React.DragEvent, path: string) => void;
+  onDragEnd: () => void;
+  onDirDragOver: (e: React.DragEvent, dir: string) => void;
+  onDirDrop: (e: React.DragEvent, dir: string) => void;
+}
+
 function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
   const { startCreate, openCtxMenu } = useStore();
   const parent =
@@ -45,7 +61,15 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
   );
 }
 
-function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
+function DirNode({
+  entry,
+  depth,
+  drag
+}: {
+  entry: TreeEntry;
+  depth: number;
+  drag: DragHandlers;
+}): ReactNode {
   const {
     expanded,
     tree,
@@ -77,12 +101,17 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
   return (
     <div>
       <div
-        className={`tree-row dir ${isOpen ? "open" : ""}`}
+        className={`tree-row dir ${isOpen ? "open" : ""} ${drag.dropDir === entry.path ? "drop-target" : ""}`}
+        draggable
         onClick={() => void toggleDir(entry.path)}
         onContextMenu={(e) => {
           e.preventDefault();
           openCtxMenu(e.clientX, e.clientY, entry);
         }}
+        onDragStart={(e) => drag.onDragStart(e, entry.path)}
+        onDragEnd={drag.onDragEnd}
+        onDragOver={(e) => drag.onDirDragOver(e, entry.path)}
+        onDrop={(e) => drag.onDirDrop(e, entry.path)}
       >
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
         <span className="tree-name">{entry.path.split("/").pop()}</span>
@@ -93,9 +122,9 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
         <div className="tree-children">
           {(tree[entry.path] ?? []).map((child) =>
             child.type === "directory" ? (
-              <DirNode key={child.path} entry={child} depth={depth + 1} />
+              <DirNode key={child.path} entry={child} depth={depth + 1} drag={drag} />
             ) : (
-              <FileNode key={child.path} entry={child} depth={depth + 1} />
+              <FileNode key={child.path} entry={child} depth={depth + 1} drag={drag} />
             )
           )}
           {pendingCreate?.parent === entry.path && (
@@ -112,7 +141,15 @@ function DirNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNo
   );
 }
 
-function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactNode {
+function FileNode({
+  entry,
+  depth,
+  drag
+}: {
+  entry: TreeEntry;
+  depth: number;
+  drag: DragHandlers;
+}): ReactNode {
   const { openFile, activePath, agentFiles, openCtxMenu, pendingRename, commitName, cancelPending } =
     useStore();
   const name = entry.path.split("/").pop() ?? entry.path;
@@ -133,11 +170,14 @@ function FileNode({ entry, depth }: { entry: TreeEntry; depth: number }): ReactN
   return (
     <div
       className={`tree-row file ${active ? "active" : ""}`}
+      draggable
       onClick={() => void openFile(entry.path)}
       onContextMenu={(e) => {
         e.preventDefault();
         openCtxMenu(e.clientX, e.clientY, entry);
       }}
+      onDragStart={(e) => drag.onDragStart(e, entry.path)}
+      onDragEnd={drag.onDragEnd}
       title={entry.path}
     >
       <FileIcon name={name} isDir={false} />
@@ -291,11 +331,14 @@ export function FileSidebar({
     openCtxMenu,
     pendingCreate,
     commitName,
-    cancelPending
+    cancelPending,
+    moveEntry
   } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [changesH, changesDrag] = useChangesDrag(200);
+  const [dragPath, setDragPath] = useState<string | null>(null);
+  const [dropDir, setDropDir] = useState<string | null>(null);
   const root = tree[""] ?? [];
   const loadedSessionKey = useRef<string | null>(null);
 
@@ -306,6 +349,43 @@ export function FileSidebar({
       void toggleDir("");
     }
   }, [session, toggleDir]);
+
+  const drag: DragHandlers = {
+    dragPath,
+    dropDir,
+    onDragStart: (e, path) => {
+      if ((e.target as HTMLElement).closest("button")) {
+        e.preventDefault();
+        return;
+      }
+      e.dataTransfer.setData("text/plain", path);
+      e.dataTransfer.effectAllowed = "move";
+      setDragPath(path);
+    },
+    onDragEnd: () => {
+      setDragPath(null);
+      setDropDir(null);
+    },
+    onDirDragOver: (e, dir) => {
+      if (!dragPath) return;
+      e.stopPropagation();
+      if (!canDrop(dragPath, dir)) {
+        setDropDir(null);
+        return;
+      }
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDropDir(dir);
+    },
+    onDirDrop: (e, dir) => {
+      e.preventDefault();
+      const source = dragPath;
+      setDragPath(null);
+      setDropDir(null);
+      if (!source || !canDrop(source, dir)) return;
+      void moveEntry(source, dir);
+    }
+  };
 
   const changes = [...agentFiles.entries()];
 
@@ -408,7 +488,30 @@ export function FileSidebar({
       {explorerOpen && (
         <div className="sidebar-section explorer">
           <div
-            className="tree"
+            className={`tree ${dropDir === "" ? "drop-root" : ""}`}
+            onDragOver={(e) => {
+              if (!dragPath) return;
+              if ((e.target as HTMLElement).closest(".tree-row")) {
+                setDropDir(null);
+                return;
+              }
+              if (!canDrop(dragPath, "")) {
+                setDropDir(null);
+                return;
+              }
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDropDir("");
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if ((e.target as HTMLElement).closest(".tree-row")) return;
+              const source = dragPath;
+              setDragPath(null);
+              setDropDir(null);
+              if (!source || !canDrop(source, "")) return;
+              void moveEntry(source, "");
+            }}
             onContextMenu={(e) => {
               if ((e.target as HTMLElement).closest(".tree-row")) return;
               e.preventDefault();
@@ -418,9 +521,9 @@ export function FileSidebar({
             {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
             {root.map((child) =>
               child.type === "directory" ? (
-                <DirNode key={child.path} entry={child} depth={0} />
+                <DirNode key={child.path} entry={child} depth={0} drag={drag} />
               ) : (
-                <FileNode key={child.path} entry={child} depth={0} />
+                <FileNode key={child.path} entry={child} depth={0} drag={drag} />
               )
             )}
             {pendingCreate?.parent === "" && (

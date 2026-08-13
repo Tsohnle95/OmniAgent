@@ -175,12 +175,18 @@ writes also verify the disk still matches `saved`. External changes preserve
 local edits and require explicit Reload, Overwrite, or Keep editing to merge
 then Save merged content. ⌘S saves the current revision immediately.
 
-Create/rename/delete (`shell:fs-create-*`, `shell:fs-rename`,
-`shell:fs-delete`) are plain `fs` operations in the backend; delete moves
-to Trash and re-emits a deleted `file-update` for tracked paths; a Trash
-failure is returned unchanged and shown by the renderer, with no permanent
-deletion fallback. Rename moves the baseline snapshot along. The renderer
-refreshes the tree and rewrites tab/`agentFiles` paths to match.
+Create/rename/delete/move (`shell:fs-create-*`, `shell:fs-rename`,
+`shell:fs-delete`, `shell:fs-move`) are plain `fs` operations in the
+backend; delete moves to Trash and re-emits a deleted `file-update` for
+tracked paths; a Trash failure is returned unchanged and shown by the
+renderer, with no permanent deletion fallback. Rename moves the baseline
+snapshot along. Move is a cross-folder atomic rename (files and
+directories) that rejects missing/occupied/self-descendant destinations
+and emits a deletion at the source plus, for files, an addition at the
+target. The renderer refreshes the tree at both the old parent and the
+destination and rewrites tab/`agentFiles` paths to match. Dragging a row
+onto a folder or the empty tree area triggers the move; self and
+descendant drops and file-onto-file drops are ignored.
 
 All filesystem calls include the activation's workspace identity. Main rejects
 stale identities, malformed/bounded relative paths, traversal, absolute paths,

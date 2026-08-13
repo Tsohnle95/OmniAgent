@@ -33,6 +33,7 @@ import {
   commandPayload,
   directoryPath,
   fileWriteIdentity,
+  movePayload,
   optionalSelectionId,
   permissionPayload,
   promptPayload,
@@ -636,6 +637,11 @@ function registerIpc(): void {
   handleTrusted("shell:fs-rename", async (_e, workspace: WorkspaceIdentity, rel: string, newName: string) =>
     backend.renamePath(workspace, rel, newName)
   );
+
+  handleTrusted("shell:fs-move", async (_e, workspace: WorkspaceIdentity, rel: string, newParent: string) => {
+    const target = movePayload(workspace, rel, newParent);
+    return backend.movePath(target.workspace, target.rel, target.newParent);
+  });
 
   handleTrusted("shell:recovery-list", async (_e, workspace: WorkspaceIdentity) =>
     backend.listRecovery(workspace)

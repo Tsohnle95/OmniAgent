@@ -180,6 +180,20 @@ unlinks the hold, preserving ambiguity when another process recreates the
 source. These operations run through the same watcher so baselines and the tree
 stay consistent.
 
+Drag-and-drop moves (`shell:fs-move`) deliberately deviate from the
+hold/link recovery dance: a directory cannot be moved as a held single
+inode the way a file can, and recursive copy-into-recovery would invite
+concurrent-mutation races. `movePath` instead performs one atomic
+`fs.rename` after re-checking the destination (never replacing an
+existing path), so a failed move leaves both the source and destination
+untouched and no recovery transaction is recorded. Cross-filesystem
+`EXDEV` failures are rejected as errors rather than falling back to a
+copy. The backend emits a tracked deletion at the source and, for files,
+an addition carrying the captured baseline at the target; files inside a
+moved directory surface through the fs watcher, and the renderer
+re-lists both the old parent and the destination. The source/target
+confinement rules are identical to the other mutations.
+
 Every workspace filesystem call carries the expected workspace UUID and main
 rejects stale generations. Paths are bounded strict relative paths and no
 existing symlink component may be traversed, including an intermediate parent

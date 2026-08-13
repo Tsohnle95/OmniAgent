@@ -6,6 +6,7 @@ import {
   commandPayload,
   directoryPath,
   fileWriteIdentity,
+  movePayload,
   permissionPayload,
   promptPayload,
   queryText,
@@ -52,5 +53,21 @@ describe("runtime IPC schemas", () => {
     };
     expect(fileWriteIdentity(write, workspace)).toEqual(write);
     expect(() => fileWriteIdentity({ ...write, workspaceID: "other" }, workspace)).toThrow("invalid file write identity");
+  });
+
+  it("validates move payloads with nested and root destinations", () => {
+    expect(movePayload(workspace, "docs/note.txt", "archive")).toEqual({
+      workspace,
+      rel: "docs/note.txt",
+      newParent: "archive"
+    });
+    expect(movePayload(workspace, "note.txt", "")).toEqual({
+      workspace,
+      rel: "note.txt",
+      newParent: ""
+    });
+    expect(() => movePayload(workspace, "docs/../note.txt", "")).toThrow("invalid workspace path");
+    expect(() => movePayload(workspace, "note.txt", "/absolute")).toThrow("invalid workspace path");
+    expect(() => movePayload(workspace, "note.txt", "a//b")).toThrow("invalid workspace path");
   });
 });

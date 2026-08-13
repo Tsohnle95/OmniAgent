@@ -121,6 +121,97 @@ describe("store workspace continuations", () => {
     expect(store.tabs.map((tab) => tab.path)).toEqual(["same.txt"]);
   });
 
+  it("remaps tabs, active path, and tracked changes on moveEntry and refreshes both parents", async () => {
+    const movePath = vi.fn(async () => {});
+    const listDir = vi.fn(async () => []);
+    window.openshell = api({ movePath, listDir });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.openFile("src/a.txt"));
+    await act(async () => {
+      messageHandler!({
+        kind: "file-update",
+        file: {
+          workspace: store.session!.workspace,
+          sessionID: store.session!.id,
+          path: "src/a.txt",
+          baseline: { kind: "known", content: "old" },
+          content: "new",
+          deleted: false
+        }
+      });
+    });
+    await act(async () => { await store.moveEntry("src", "lib"); });
+
+    expect(movePath).toHaveBeenCalledWith(store.session!.workspace, "src", "lib");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["lib/src/a.txt"]);
+    expect(store.activePath).toBe("lib/src/a.txt");
+    expect(store.agentFiles.get("lib/src/a.txt")).toEqual({
+      baseline: { kind: "known", content: "old" },
+      content: "new",
+      deleted: false
+    });
+    expect(store.agentFiles.has("src/a.txt")).toBe(false);
+    expect(listDir).toHaveBeenCalledWith(store.session!.workspace, "");
+    expect(listDir).toHaveBeenCalledWith(store.session!.workspace, "lib");
+  });
+
+  it("drops deleted change entries instead of remapping them to the destination", async () => {
+    window.openshell = api({ movePath: vi.fn(async () => {}) });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => {
+      messageHandler!({
+        kind: "file-update",
+        file: {
+          workspace: store.session!.workspace,
+          sessionID: store.session!.id,
+          path: "folder",
+          baseline: { kind: "unknown" },
+          content: null,
+          deleted: true
+        }
+      });
+      messageHandler!({
+        kind: "file-update",
+        file: {
+          workspace: store.session!.workspace,
+          sessionID: store.session!.id,
+          path: "folder/child.txt",
+          baseline: { kind: "known", content: "old" },
+          content: "new",
+          deleted: false
+        }
+      });
+    });
+    await act(async () => { await store.moveEntry("folder", "dest"); });
+
+    expect(store.agentFiles.has("folder")).toBe(false);
+    expect(store.agentFiles.has("folder/child.txt")).toBe(false);
+    expect(store.agentFiles.get("dest/folder/child.txt")).toEqual({
+      baseline: { kind: "known", content: "old" },
+      content: "new",
+      deleted: false
+    });
+  });
+
+  it("does not remap tabs for a move that completes in a newer workspace", async () => {
+    const move = deferred();
+    window.openshell = api({ movePath: vi.fn(() => move.promise) });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.openFile("same.txt"));
+    let pending!: Promise<void>;
+    await act(async () => { pending = store.moveEntry("same.txt", "sub"); });
+    await act(async () => store.openSession("/two"));
+    await act(async () => store.openFile("same.txt"));
+    await act(async () => move.resolve());
+    await act(async () => pending);
+
+    expect(store.session?.directory).toBe("/two");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["same.txt"]);
+  });
+
   it("does not let startup restoration reopen over a user activation", async () => {
     const startup = deferred<SessionInfo | null>();
     const openSessionById = vi.fn();

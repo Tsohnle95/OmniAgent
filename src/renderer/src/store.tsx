@@ -116,6 +116,7 @@ interface Store {
   cancelPending: () => void;
   commitName: (name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
+  moveEntry: (path: string, destDir: string) => Promise<void>;
   openRecovery: (id: string) => Promise<void>;
   acknowledgeRecovery: (id: string) => Promise<void>;
 }
@@ -939,6 +940,52 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [toast, openFile, refreshTree, cancelPending, persistence]
   );
 
+  const moveEntry = useCallback(
+    async (path: string, destDir: string) => {
+      const workspace = sessionRef.current?.workspace;
+      if (!workspace) return;
+      const name = path.split("/").pop() ?? path;
+      const newPath = destDir ? `${destDir}/${name}` : name;
+      persistence.cancelPrefix(workspace, path);
+      try {
+        await window.openshell.movePath(workspace, path, destDir);
+      } catch (err) {
+        if (sameWorkspace(workspace, sessionRef.current?.workspace)) {
+          toast(err instanceof Error ? err.message : String(err), "error");
+        }
+        return;
+      }
+      if (!sameWorkspace(workspace, sessionRef.current?.workspace)) return;
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.path === path || t.path.startsWith(`${path}/`)
+            ? { ...t, path: `${newPath}${t.path.slice(path.length)}`, name: t.path === path ? name : t.name }
+            : t
+        )
+      );
+      setActivePath((active) =>
+        active && (active === path || active.startsWith(`${path}/`))
+          ? `${newPath}${active.slice(path.length)}`
+          : active
+      );
+      setAgentFiles((prev) => {
+        const next = new Map<string, AgentFileState>();
+        for (const [p, state] of prev) {
+          if (p === path || p.startsWith(`${path}/`)) {
+            if (!state.deleted) next.set(`${newPath}${p.slice(path.length)}`, state);
+          } else {
+            next.set(p, state);
+          }
+        }
+        agentFilesRef.current = next;
+        return next;
+      });
+      const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+      void refreshTree([...ancestorDirs(parent), ...ancestorDirs(destDir)]);
+    },
+    [toast, refreshTree, persistence]
+  );
+
   const closeTab = useCallback((path: string) => {
     const workspace = sessionRef.current?.workspace;
     if (workspace) persistence.cancelPath(workspace, path);
@@ -1495,6 +1542,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       cancelPending,
       commitName,
       deleteEntry,
+      moveEntry,
       openRecovery,
       acknowledgeRecovery
     }),
@@ -1506,7 +1554,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, replyPermission,
-      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, openRecovery, acknowledgeRecovery
+      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, moveEntry, openRecovery, acknowledgeRecovery
     ]
   );
 

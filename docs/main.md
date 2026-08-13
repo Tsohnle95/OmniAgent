@@ -46,6 +46,7 @@ Public methods (all used by IPC):
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
 | `renamePath(workspace, rel, newName)` | Confined same-folder no-replace file rename; rejects occupied destinations and directory renames where portable no-replace semantics are unavailable |
+| `movePath(workspace, rel, newParent)` | Confined cross-folder move for files and directories via one atomic `fs.rename` (no recovery hold — see architecture); rejects self/descendant, missing, occupied, and cross-filesystem destinations; emits a tracked deletion at the source and, for files, an addition at the target |
 | `listRecovery(workspace)` | Lists validated durable recovery artifacts under the active workspace's `.openshell-recovery` directory |
 | `openRecovery(workspace, id)` | Opens the validated artifact selected by opaque recovery record id; never accepts a renderer path |
 | `acknowledgeRecovery(workspace, id)` | Persists acknowledgment in the transaction manifest without deleting artifact bytes |
@@ -134,6 +135,7 @@ Internals:
 | `shell:fs-create-dir` | `(workspace, rel) → void` |
 | `shell:fs-delete` | `(workspace, rel) → void` |
 | `shell:fs-rename` | `(workspace, rel, newName) → void` |
+| `shell:fs-move` | `(workspace, rel, newParent) → void`; `newParent` empty means the workspace root |
 | `shell:recovery-list` | `(workspace) → RecoveryRecord[]` |
 | `shell:recovery-open` | `(workspace, recoveryID) → void` |
 | `shell:recovery-acknowledge` | `(workspace, recoveryID) → void`; metadata only, never deletes bytes |

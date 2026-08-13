@@ -1684,6 +1684,47 @@ export class OpenShellBackend {
     });
   }
 
+  async movePath(workspace: WorkspaceIdentity, rel: string, newParent: string): Promise<void> {
+    await this.mutations.run(workspace, async () => {
+      const root = this.workspaceRoot(workspace);
+      const context = this.watchContext;
+      if (!context || !this.currentWatch(context)) throw new Error("stale workspace");
+      const abs = await confinedPath(root, relativePath(rel));
+      const parentRel = relativePath(newParent, true);
+      if (parentRel === rel || parentRel.startsWith(`${rel}/`)) {
+        throw new Error("cannot move a folder into itself");
+      }
+      const parentDir = await confinedPath(root, parentRel, true);
+      const parentStat = await fsp.lstat(parentDir).catch(() => null);
+      if (!parentStat?.isDirectory()) throw new Error("destination folder does not exist");
+      const name = path.basename(abs);
+      const target = await confinedPath(root, parentRel ? `${parentRel}/${name}` : name);
+      if (target === abs) throw new Error("entry is already in that folder");
+      const occupied = await fsp.lstat(target).catch(() => null);
+      if (occupied) throw new Error(`destination already exists: ${name}`);
+      const captured = await this.captureDirectMutation(context, abs);
+      assertWorkspace(workspace, this.workspace);
+      try {
+        await fsp.rename(abs, target);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "EXDEV") throw new Error("cannot move across filesystems");
+        if (code?.includes("EEXIST")) throw new Error(`destination already exists: ${name}`);
+        throw error;
+      }
+      assertWorkspace(workspace, this.workspace);
+      context.snapshots.set(abs, captured.baseline);
+      context.lastKnown.delete(abs);
+      this.emitFileUpdate(context, abs, null, captured.baseline);
+      if (!this.currentWatch(context)) return;
+      if (captured.content !== null) {
+        context.snapshots.set(target, captured.baseline);
+        context.lastKnown.set(target, captured.content);
+        this.emitFileUpdate(context, target, captured.content, captured.baseline);
+      }
+    });
+  }
+
   async listProjects(): Promise<ProjectInfo[]> {
     if (!this.client) return [];
     const res = await this.client.project.list();

@@ -60,6 +60,8 @@ const api = {
     ipcRenderer.invoke("shell:fs-delete", workspace, rel),
   renamePath: (workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-rename", workspace, rel, newName),
+  movePath: (workspace: WorkspaceIdentity, rel: string, newParent: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-move", workspace, rel, newParent),
   recoveryRecords: (workspace: WorkspaceIdentity): Promise<RecoveryRecord[]> =>
     ipcRenderer.invoke("shell:recovery-list", workspace),
   openRecovery: (workspace: WorkspaceIdentity, id: string): Promise<void> =>

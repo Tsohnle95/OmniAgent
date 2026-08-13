@@ -115,3 +115,16 @@ export function workspacePath(workspace: unknown, rel: unknown, allowRoot = fals
   workspaceId(workspace);
   return { workspace: workspace as WorkspaceIdentity, rel: relativePath(rel, allowRoot) };
 }
+
+export function movePayload(workspace: unknown, rel: unknown, newParent: unknown): {
+  workspace: WorkspaceIdentity;
+  rel: string;
+  newParent: string;
+} {
+  workspaceId(workspace);
+  return {
+    workspace: workspace as WorkspaceIdentity,
+    rel: relativePath(rel),
+    newParent: relativePath(newParent, true)
+  };
+}

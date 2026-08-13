@@ -510,6 +510,90 @@ describe("direct mutation observed changes", () => {
     expect(messages.map((message) => message.kind)).toEqual(["recovery"]);
   });
 
+  it("moves a file across folders and emits delete and add file-updates", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await mkdir(path.join(root, "source"));
+    await mkdir(path.join(root, "target"));
+    await writeFile(path.join(root, "source", "note.txt"), "before move");
+
+    await backend.movePath(workspace, "source/note.txt", "target");
+
+    expect(await readFile(path.join(root, "target", "note.txt"), "utf8")).toBe("before move");
+    await expect(readFile(path.join(root, "source", "note.txt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(messages.map((message) => (message.kind === "file-update" ? message.file : null))).toEqual([
+      {
+        workspace,
+        sessionID: "session",
+        path: "source/note.txt",
+        baseline: { kind: "known", content: "before move" },
+        content: null,
+        deleted: true
+      },
+      {
+        workspace,
+        sessionID: "session",
+        path: "target/note.txt",
+        baseline: { kind: "known", content: "before move" },
+        content: "before move",
+        deleted: false
+      }
+    ]);
+  });
+
+  it("moves a directory tree into another folder and emits only the source deletion", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await mkdir(path.join(root, "source", "nested"), { recursive: true });
+    await mkdir(path.join(root, "target"));
+    await writeFile(path.join(root, "source", "nested", "value.txt"), "payload");
+
+    await backend.movePath(workspace, "source", "target");
+
+    expect(await readFile(path.join(root, "target", "source", "nested", "value.txt"), "utf8")).toBe("payload");
+    await expect(readFile(path.join(root, "source", "nested", "value.txt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(messages.map((message) => (message.kind === "file-update" ? message.file : null))).toEqual([
+      {
+        workspace,
+        sessionID: "session",
+        path: "source",
+        baseline: { kind: "unknown" },
+        content: null,
+        deleted: true
+      }
+    ]);
+  });
+
+  it("moves an entry to the workspace root", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await mkdir(path.join(root, "docs"));
+    await writeFile(path.join(root, "docs", "guide.txt"), "root");
+
+    await backend.movePath(workspace, "docs/guide.txt", "");
+
+    expect(await readFile(path.join(root, "guide.txt"), "utf8")).toBe("root");
+    expect(messages.map((message) => (message.kind === "file-update" ? message.file?.path : null)))
+      .toEqual(["docs/guide.txt", "guide.txt"]);
+  });
+
+  it("rejects missing, occupied, traversal, and self-descendant move destinations", async () => {
+    const { backend, root, messages } = await backendFixture();
+    await mkdir(path.join(root, "docs"));
+    await mkdir(path.join(root, "target"));
+    await mkdir(path.join(root, "docs", "nested"));
+    await writeFile(path.join(root, "docs", "note.txt"), "x");
+    await writeFile(path.join(root, "target", "note.txt"), "occupied");
+
+    await expect(backend.movePath(workspace, "docs/note.txt", "missing")).rejects.toThrow("destination folder does not exist");
+    await expect(backend.movePath(workspace, "docs/note.txt", "target")).rejects.toThrow("destination already exists: note.txt");
+    await expect(backend.movePath(workspace, "docs", "docs/nested")).rejects.toThrow("cannot move a folder into itself");
+    await expect(backend.movePath(workspace, "docs/note.txt", "docs")).rejects.toThrow("entry is already in that folder");
+    await expect(backend.movePath(workspace, "docs", "")).rejects.toThrow("entry is already in that folder");
+    await expect(backend.movePath(workspace, "docs/note.txt", "../outside")).rejects.toThrow("invalid workspace path");
+    await expect(backend.movePath(workspace, "docs/note.txt", "/absolute")).rejects.toThrow("invalid workspace path");
+
+    expect(await readFile(path.join(root, "docs", "note.txt"), "utf8")).toBe("x");
+    expect(messages).toEqual([]);
+  });
+
   it("routes global filesystem events only to their matching active workspace", async () => {
     const { backend, root, messages } = await backendFixture();
     const other = await mkdtemp(path.join(tmpdir(), "openshell-other-"));
