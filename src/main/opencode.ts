@@ -71,6 +71,9 @@ const SKIP_DIRS = new Set([
 
 const RECOVERY_DIR = ".openshell-recovery";
 
+const RECOVERY_SETTLED_RETENTION_MS = 24 * 60 * 60 * 1000;
+const RECOVERY_INTERRUPTED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
 interface RecoveryTransaction {
   version: 1;
   id: string;
@@ -796,6 +799,21 @@ export class OpenShellBackend {
     this.emit({ kind: "recovery", recovery: { workspace, records } });
   }
 
+  private async purgeExpiredRecovery(root: string, current: () => boolean): Promise<void> {
+    const transactions = await this.readRecoveryTransactions(root).catch(() => []);
+    const now = Date.now();
+    for (const { directory, transaction } of transactions) {
+      if (!current()) return;
+      const settled = transaction.phase === "complete" || transaction.phase === "failed" || transaction.acknowledged.length > 0;
+      const interrupted = transaction.phase === "source-held" || transaction.phase === "held-validated";
+      if (!settled && !interrupted) continue;
+      const retention = settled ? RECOVERY_SETTLED_RETENTION_MS : RECOVERY_INTERRUPTED_RETENTION_MS;
+      if (now - transaction.createdAt < retention) continue;
+      await fsp.rm(directory, { recursive: true, force: true }).catch(() => {});
+    }
+    await this.syncDirectory(path.join(root, RECOVERY_DIR)).catch(() => {});
+  }
+
   async listRecovery(workspace: WorkspaceIdentity): Promise<RecoveryRecord[]> {
     return this.recoveryRecords(this.workspaceRoot(workspace));
   }
@@ -1009,6 +1027,7 @@ export class OpenShellBackend {
     if (!this.activations.current(generation)) throw new Error("activation superseded");
     await this.reconcileRecovery(directory, () => this.activations.current(generation));
     if (!this.activations.current(generation)) throw new Error("activation superseded");
+    void this.purgeExpiredRecovery(directory, () => this.activations.current(generation));
     const workspace = Object.freeze({ id: randomUUID(), generation });
     const activated = { ...info, directory, workspace };
     const context: WatchContext = {

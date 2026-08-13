@@ -104,9 +104,13 @@ Internals:
   `held-validated` interrupted transactions, where OpenShell is known to have
   removed the canonical pathname, and hard-links the held original only when
   that pathname remains missing. Completed, failed, and acknowledged history
-  never replays. The recovery root, transaction paths, canonical parents, and
-  artifacts reject symlinks and malformed ids/manifests; artifact Open actions
-  resolve validated ids rather than renderer paths.
+  never replays. After reconciliation, a best-effort retention purge removes
+  settled transactions (`complete`, `failed`, acknowledged) older than 24h and
+  interrupted ones (`source-held`, `held-validated`) older than 7 days; fresh
+  transactions are never purged. The recovery root, transaction paths,
+  canonical parents, and artifacts reject symlinks and malformed
+  ids/manifests; artifact Open actions resolve validated ids rather than
+  renderer paths.
 
 ## IPC surface (`src/main/index.ts`)
 

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdir, mkdtemp, open, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -82,6 +82,32 @@ async function recoveryContents(root: string): Promise<string[]> {
     }
   }
   return contents;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+async function ageTransaction(recoveryRoot: string, transaction: string, update: {
+  ageMs: number;
+  phase?: string;
+  acknowledged?: string[];
+}): Promise<void> {
+  const manifestPath = path.join(recoveryRoot, transaction, "manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+    createdAt: number;
+    phase: string;
+    acknowledged: string[];
+  };
+  manifest.createdAt = Date.now() - update.ageMs;
+  if (update.phase !== undefined) manifest.phase = update.phase;
+  if (update.acknowledged !== undefined) manifest.acknowledged = update.acknowledged;
+  await writeFile(manifestPath, JSON.stringify(manifest));
+}
+
+function purgeExpired(backend: OpenShellBackend, root: string): Promise<void> {
+  return (backend as unknown as {
+    purgeExpiredRecovery(root: string, current: () => boolean): Promise<void>;
+  }).purgeExpiredRecovery(root, () => true);
 }
 
 describe("direct mutation observed changes", () => {
@@ -186,6 +212,122 @@ describe("direct mutation observed changes", () => {
     expect(recovery?.workspace).toEqual(activated.workspace);
     expect(recovery?.records.some((record) => record.originalPath === "save.txt")).toBe(true);
     await backend.stop();
+  });
+
+  it("purges settled recovery transactions older than 24 hours on activation", async () => {
+    const { backend, root } = await backendFixture();
+    await writeFile(path.join(root, "save.txt"), "original");
+    await backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"));
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    await ageTransaction(recoveryRoot, (await readdir(recoveryRoot))[0], { ageMs: 25 * HOUR_MS });
+    const state = backend as unknown as { client: unknown };
+    state.client = { session: { create: vi.fn(async () => ({ id: "reactivated" })) } };
+
+    await backend.openSession(root);
+
+    await vi.waitFor(async () => {
+      expect(await readdir(recoveryRoot).catch(() => [])).toEqual([]);
+    });
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("proposed");
+    await backend.stop();
+  });
+
+  it("purges failed recovery transactions older than 24 hours", async () => {
+    const { backend, root } = await backendFixture(async (phase) => {
+      if (phase === "save:source-held") throw new Error("simulated crash");
+    });
+    await writeFile(path.join(root, "save.txt"), "original");
+    await expect(backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"))).rejects.toThrow();
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    await ageTransaction(recoveryRoot, (await readdir(recoveryRoot))[0], { ageMs: 25 * HOUR_MS });
+
+    await purgeExpired(backend, root);
+
+    expect(await readdir(recoveryRoot).catch(() => [])).toEqual([]);
+    expect(await readFile(path.join(root, "save.txt"), "utf8")).toBe("original");
+  });
+
+  it("purges acknowledged interrupted transactions after 24 hours", async () => {
+    const { backend, root } = await backendFixture(async (phase) => {
+      if (phase === "save:source-held") throw new Error("simulated crash");
+    });
+    await writeFile(path.join(root, "save.txt"), "original");
+    await expect(backend.writeFile(workspace, "save.txt", "proposed", writeIdentity("original"))).rejects.toThrow();
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    await ageTransaction(recoveryRoot, (await readdir(recoveryRoot))[0], {
+      ageMs: 25 * HOUR_MS,
+      phase: "source-held",
+      acknowledged: ["original"]
+    });
+
+    await purgeExpired(backend, root);
+
+    expect(await readdir(recoveryRoot).catch(() => [])).toEqual([]);
+  });
+
+  it("retains fresh transactions and interrupted transactions younger than 7 days", async () => {
+    const { backend, root } = await backendFixture();
+    const paths = ["complete.txt", "failed.txt", "source-held.txt", "held-validated.txt"];
+    for (const rel of paths) {
+      await writeFile(path.join(root, rel), "original");
+      await backend.writeFile(workspace, rel, "proposed", writeIdentity("original"));
+    }
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    const transactions = await readdir(recoveryRoot);
+    await ageTransaction(recoveryRoot, transactions[0], { ageMs: HOUR_MS });
+    await ageTransaction(recoveryRoot, transactions[1], { ageMs: HOUR_MS, phase: "failed", acknowledged: [] });
+    await ageTransaction(recoveryRoot, transactions[2], { ageMs: 6 * DAY_MS, phase: "source-held", acknowledged: [] });
+    await ageTransaction(recoveryRoot, transactions[3], { ageMs: 6 * DAY_MS, phase: "held-validated", acknowledged: [] });
+
+    await purgeExpired(backend, root);
+
+    expect(await readdir(recoveryRoot)).toHaveLength(4);
+    expect(await readFile(path.join(root, "complete.txt"), "utf8")).toBe("proposed");
+    expect(await recoveryContents(root)).toContain("original");
+  });
+
+  it("purges interrupted recovery transactions older than 7 days", async () => {
+    const { backend, root } = await backendFixture();
+    for (const rel of ["source-held.txt", "held-validated.txt", "fresh.txt"]) {
+      await writeFile(path.join(root, rel), "original");
+      await backend.writeFile(workspace, rel, "proposed", writeIdentity("original"));
+    }
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    const transactions = await readdir(recoveryRoot);
+    await ageTransaction(recoveryRoot, transactions[0], { ageMs: 8 * DAY_MS, phase: "source-held", acknowledged: [] });
+    await ageTransaction(recoveryRoot, transactions[1], { ageMs: 8 * DAY_MS, phase: "held-validated", acknowledged: [] });
+    await ageTransaction(recoveryRoot, transactions[2], { ageMs: HOUR_MS });
+
+    await purgeExpired(backend, root);
+
+    expect(await readdir(recoveryRoot)).toHaveLength(1);
+    expect(await readFile(path.join(root, "source-held.txt"), "utf8")).toBe("proposed");
+  });
+
+  it("keeps activation working when a retention deletion fails", async () => {
+    const { backend, root } = await backendFixture();
+    for (const rel of ["blocked.txt", "purged.txt"]) {
+      await writeFile(path.join(root, rel), "original");
+      await backend.writeFile(workspace, rel, "proposed", writeIdentity("original"));
+    }
+    const recoveryRoot = path.join(root, ".openshell-recovery");
+    const transactions = await readdir(recoveryRoot);
+    const blocked = path.join(recoveryRoot, transactions[0]);
+    await ageTransaction(recoveryRoot, transactions[0], { ageMs: 25 * HOUR_MS });
+    await ageTransaction(recoveryRoot, transactions[1], { ageMs: 25 * HOUR_MS });
+    await chmod(blocked, 0o500);
+    const state = backend as unknown as { client: unknown };
+    state.client = { session: { create: vi.fn(async () => ({ id: "reactivated" })) } };
+
+    try {
+      await backend.openSession(root);
+      await vi.waitFor(async () => {
+        expect(await readdir(recoveryRoot)).toEqual([transactions[0]]);
+      });
+    } finally {
+      await chmod(blocked, 0o700).catch(() => {});
+      await backend.stop();
+    }
   });
 
   it.each([

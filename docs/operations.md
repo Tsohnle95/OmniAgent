@@ -119,8 +119,11 @@ median or jsdom timing as a cross-machine browser benchmark.
 OpenShell stores save and file-rename transactions in
 `<workspace>/.openshell-recovery/`. Explorer and file watching intentionally
 hide this directory. Each transaction contains `manifest.json` plus one or more
-artifacts named `original`, `temporary`, `proposed`, or `source`. Existing
-artifacts are never removed automatically.
+artifacts named `original`, `temporary`, `proposed`, or `source`. On
+activation, OpenShell purges settled transactions (`complete`, `failed`,
+acknowledged) older than 24 hours and interrupted ones (`source-held`,
+`held-validated`) older than 7 days. Younger artifacts are never removed
+automatically, and Acknowledge never deletes bytes on its own.
 
 1. Use the recovery notice's Open action to inspect each artifact.
 2. Compare `originalPath`, the current canonical file, and the artifact before
@@ -129,7 +132,8 @@ artifacts are never removed automatically.
    hides the notice; it does not delete the artifact or directory.
 4. If the UI cannot open the workspace, inspect the transaction directories
    directly. Do not remove them until applications that may retain old file
-   descriptors have exited and the bytes have been reviewed.
+   descriptors have exited and the bytes have been reviewed. Once past the
+   retention windows they are removed automatically on the next activation.
 
 Activation may hard-link a held original back to a missing canonical path only
 for an interrupted `source-held` or `held-validated` transaction, where
@@ -137,7 +141,8 @@ OpenShell is known to have removed that path. It never overwrites an existing
 path and never replays completed, failed, or acknowledged history. If both
 canonical and recovery versions exist, manual comparison is required. Normal
 successful transactions retain their bytes but are acknowledged automatically,
-so they do not create persistent recovery notices.
+so they do not create persistent recovery notices; their transaction
+directories are purged once past the 24-hour retention window.
 
 ## Driving the renderer headlessly (CDP)
 

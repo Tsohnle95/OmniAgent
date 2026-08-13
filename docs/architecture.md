@@ -161,8 +161,11 @@ restores the held original only for interrupted `source-held` or
 never over an existing path. Completed, failed, and acknowledged history never
 replays. Successful transactions are acknowledged automatically while their
 bytes remain retained; abnormal transactions remain visible until acknowledged.
-OpenShell never silently deletes recovery artifacts, and Acknowledge persists
-metadata only. This protocol requires recovery and target names to share a
+Acknowledge persists metadata only and never deletes bytes. Activation runs a
+best-effort retention purge that removes settled transactions (`complete`,
+`failed`, acknowledged) older than 24 hours and interrupted ones
+(`source-held`, `held-validated`) older than 7 days; fresh transactions are
+never purged. This protocol requires recovery and target names to share a
 filesystem. Writes go through Node `fs` in the main process
 (`shell:fs-write`); the opencode2 API has no write
 endpoint — the server sees the change via its own file watching. The
