@@ -937,8 +937,7 @@ export function AgentPanel({
   onFocus,
   onClose,
   onResizeLeft,
-  onResizeRight,
-  onPanelDrag
+  onResizeRight
 }: {
   session?: SessionInfo | null;
   onCollapse: () => void;
@@ -946,7 +945,6 @@ export function AgentPanel({
   onClose?: () => void;
   onResizeLeft?: (e: React.MouseEvent) => void;
   onResizeRight?: (e: React.MouseEvent) => void;
-  onPanelDrag?: (delta: number) => void;
 }): ReactNode {
   const {
     session: storeSession,
@@ -963,26 +961,7 @@ export function AgentPanel({
   const stickRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const panelDragRef = useRef<number | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
-  const startPanelDrag = (event: React.MouseEvent<HTMLDivElement>): void => {
-    if (!onPanelDrag || (event.target as HTMLElement).closest("button")) return;
-    event.preventDefault();
-    panelDragRef.current = event.clientX;
-    const move = (moveEvent: MouseEvent): void => {
-      if (panelDragRef.current === null) return;
-      const delta = moveEvent.clientX - panelDragRef.current;
-      panelDragRef.current = moveEvent.clientX;
-      onPanelDrag(delta);
-    };
-    const stop = (): void => {
-      panelDragRef.current = null;
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", stop);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", stop);
-  };
   const parent = activeSession?.parentID ? sessions.find((item) => item.id === activeSession.parentID) : undefined;
 
   useEffect(() => {
@@ -1067,7 +1046,7 @@ export function AgentPanel({
     <div className="agent-panel" onMouseDownCapture={onFocus}>
       {onResizeLeft && <div className="panel-resize-handle panel-resize-left" onMouseDown={onResizeLeft} />}
       {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
-      <div className="agent-header" ref={headerRef} onMouseDown={startPanelDrag}>
+      <div className="agent-header" ref={headerRef}>
         {activeSession?.parentID && (
           <button
             className="icon-btn agent-session-back"

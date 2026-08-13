@@ -162,10 +162,10 @@ describe("Layout panel sizing", () => {
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     const grid = container.querySelector<HTMLElement>(".main-row")!;
     const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(cols).toHaveLength(8);
+    expect(cols).toHaveLength(7);
     expect(cols[2]).toBe("minmax(0,1fr)");
     const first = Number.parseFloat(cols[4] ?? "0");
-    const second = Number.parseFloat(cols[7] ?? "0");
+    const second = Number.parseFloat(cols[6] ?? "0");
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
 
@@ -189,7 +189,7 @@ describe("Layout panel sizing", () => {
     const grid = container.querySelector<HTMLElement>(".main-row")!;
     const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
     const first = Number.parseFloat(cols[4] ?? "0");
-    const second = Number.parseFloat(cols[7] ?? "0");
+    const second = Number.parseFloat(cols[6] ?? "0");
     expect(first + second + 250).toBeLessThanOrEqual(698);
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);

@@ -190,8 +190,7 @@ function PanelColumn({
   isLast,
   onSlot,
   onFocus,
-  onClose,
-  onPanelDrag
+  onClose
 }: {
   session: SessionInfo;
   slot: PanelSlot;
@@ -200,7 +199,6 @@ function PanelColumn({
   onSlot: (slot: PanelSlot) => void;
   onFocus: () => void;
   onClose: () => void;
-  onPanelDrag: (delta: number) => void;
 }): ReactNode {
   const view = usePanel(session.workspace);
   const label = view.currentModel?.name ?? "Model";
@@ -235,7 +233,7 @@ function PanelColumn({
     return (
       <>
         <div className="divider panel-divider" onMouseDown={drag} />
-        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} onPanelDrag={onPanelDrag} />
+        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} />
       </>
     );
   }
@@ -256,7 +254,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
-  const [panelGaps, setPanelGaps] = useState<Record<string, number>>({});
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -287,8 +284,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
   const fixedPanelChrome = 1 + panels.length;
-  const gapAfter = (index: number): number => index < panels.length - 1 ? panelGaps[panels[index].workspace.id] ?? 0 : 0;
-  const totalGaps = panels.reduce((sum, _panel, index) => sum + gapAfter(index), 0);
 
   const singlePanel = panels.length <= 1;
   const agentShown = singlePanel && panels.length === 1
@@ -344,7 +339,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       }
       return;
     }
-     const avail = Math.max(0, winW - fixedPanelChrome - sideShown - totalGaps);
+     const avail = Math.max(0, winW - fixedPanelChrome - sideShown);
     const openIDs = panels
       .filter((panel) => slots[panel.workspace.id]?.open)
       .map((panel) => panel.workspace.id);
@@ -353,7 +348,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (totalShown <= avail) return;
     const base = Math.max(COLLAPSED_PANEL_W, Math.floor(avail / openIDs.length));
     for (const id of openIDs) setSlotWidth(id, Math.min(slots[id]?.width ?? base, base));
-  }, [winW, sideOpen, sideW, panels, slots, singlePanel, sideShown, agentShown, agentOpen, totalGaps]);
+  }, [winW, sideOpen, sideW, panels, slots, singlePanel, sideShown, agentShown, agentOpen]);
 
   const sideDrag = useDragResize(
     sideW,
@@ -370,7 +365,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
     "1px",
     "minmax(0,1fr)",
-    ...panels.flatMap((panel, index) => ["1px", `${panelShown(panel.workspace.id)}px`, ...(index < panels.length - 1 ? [`${gapAfter(index)}px`] : [])])
+    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`])
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
@@ -488,13 +483,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             onSlot={(slot) => setSlots((current) => ({ ...current, [panel.workspace.id]: slot }))}
             onFocus={() => focusSession(panel.id)}
             onClose={() => closePanel(panel.id)}
-            onPanelDrag={(delta) => {
-              if (index >= panels.length - 1) return;
-              setPanelGaps((current) => ({
-                ...current,
-                [panel.workspace.id]: Math.max(0, Math.min(winW, (current[panel.workspace.id] ?? 0) - delta))
-              }));
-            }}
           />
         ))}
       </div>
