@@ -39,7 +39,7 @@ multi-session/window support
 *   }
 * } - this is a very poor user experience. Please fix this so I can click the subagent link and view it, as well as have a return link to the main session.
 
-- [ ] When I go to create a folder or anything in the explorer area, I'm not able to drag folders out of their current hierarchy and into different places, so I need to be able to do that.
+- [x] When I go to create a folder or anything in the explorer area, I'm not able to drag folders out of their current hierarchy and into different places, so I need to be able to do that.
 
 - [x] - add w3c or equivalent html and css validation functionality like in vs code
 
