@@ -232,14 +232,14 @@ function PanelColumn({
   if (slot.open) {
     return (
       <>
-        <div className="divider" onMouseDown={drag} />
+        <div className="divider panel-divider" onMouseDown={drag} />
         <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={drag} onResizeRight={rightDrag} />
       </>
     );
   }
   return (
     <>
-      <div className="divider collapsed" onMouseDown={drag} />
+      <div className="divider collapsed panel-divider" onMouseDown={drag} />
       {isLast ? (
         <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} onResizeLeft={drag} onResizeRight={rightDrag} />
       ) : (

@@ -58,6 +58,10 @@
   z-index: 2;
 }
 
+.panel-divider {
+  pointer-events: none;
+}
+
 .divider::before {
   content: "";
   position: absolute;
