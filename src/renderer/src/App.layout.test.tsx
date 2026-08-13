@@ -152,8 +152,7 @@ describe("Layout panel sizing", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
-    const addCol = container.querySelector<HTMLElement>(".panel-add-col");
-    expect(addCol).not.toBeNull();
+    expect(container.querySelector<HTMLElement>(".panel-add-col")).toBeNull();
 
     await act(async () => {
       dispatch({ kind: "session", session: info("/two", 2) });
@@ -163,13 +162,12 @@ describe("Layout panel sizing", () => {
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     const grid = container.querySelector<HTMLElement>(".main-row")!;
     const cols = (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
-    expect(cols).toHaveLength(8);
+    expect(cols).toHaveLength(7);
     expect(cols[2]).toBe("minmax(0,1fr)");
     const first = Number.parseFloat(cols[4] ?? "0");
     const second = Number.parseFloat(cols[6] ?? "0");
     expect(first).toBeGreaterThanOrEqual(44);
     expect(second).toBeGreaterThanOrEqual(44);
-    expect(cols[7]).toBe("30px");
 
     const dividerNodes = container.querySelectorAll<HTMLElement>(".main-row > .divider");
     expect(dividerNodes).toHaveLength(3);

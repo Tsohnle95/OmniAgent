@@ -23,7 +23,6 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
     closePanel,
     reopenSession,
     openSession,
-    selectFolder,
     sessions,
     loadSessions
   } = useStore();
@@ -59,11 +58,6 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
           <span className="codicon codicon-close" />
         </button>
       </div>
-
-      <button className="sessions-spawn" onClick={() => { onClose(); void selectFolder(); }}>
-        <span className="codicon codicon-folder-opened" />
-        Open another workspace
-      </button>
 
       {panels.length > 0 && (
         <section className="sessions-section">

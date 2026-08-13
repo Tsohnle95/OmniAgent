@@ -11,7 +11,6 @@ import { RecoveryNotice } from "./components/RecoveryNotice";
 import { SessionsTab } from "./components/SessionsTab";
 
 const COLLAPSED_PANEL_W = 44;
-const PANEL_ADD_W = 30;
 const SIDE_MIN_W = 170;
 const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
@@ -347,8 +346,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
     "1px",
     "minmax(0,1fr)",
-    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`]),
-    `${PANEL_ADD_W}px`
+    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`])
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
@@ -425,6 +423,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             <span className="codicon codicon-folder-opened" />
           </button>
           <button
+            className="icon-btn"
+            title="Open another workspace as a new session panel"
+            onClick={() => void selectFolder()}
+          >
+            <span className="codicon codicon-add" />
+          </button>
+          <button
             className={`icon-btn ${inAgentMode ? "on" : ""}`}
             title={inAgentMode
               ? "Exit agent mode — restore the file panel and shrink the agent to its minimum width"
@@ -460,15 +465,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             onFocus={() => focusSession(panel.id)}
           />
         ))}
-        <div className={`panel-add-col ${activeSessionID ? "" : "dim"}`}>
-          <button
-            className="panel-add-btn"
-            title="Open another workspace as a new session panel"
-            onClick={() => void selectFolder()}
-          >
-            <span className="codicon codicon-add" />
-          </button>
-        </div>
       </div>
 
       <div

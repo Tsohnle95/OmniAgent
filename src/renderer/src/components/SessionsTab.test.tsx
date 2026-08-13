@@ -135,14 +135,6 @@ describe("SessionsTab rail", () => {
     expect(state.openSession).toHaveBeenCalledWith("/saved/a");
   });
 
-  it("spawns a new workspace through the affordance", async () => {
-    await act(async () => root.render(<SessionsTab open onClose={() => {}} />));
-    const spawn = container.querySelector(".sessions-spawn") as HTMLButtonElement;
-    expect(spawn.textContent).toContain("Open another workspace");
-    await act(async () => spawn.click());
-    expect(state.selectFolder).toHaveBeenCalled();
-  });
-
   it("marks recent rows that are already running", async () => {
     state.panels = [session("one", "/repo/one", "One")];
     state.panelViews = { [state.panels[0].workspace.id]: { busy: false } };
