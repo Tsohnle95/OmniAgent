@@ -68,6 +68,16 @@
   cursor: col-resize;
 }
 
+.panel-divider-left::before {
+  left: -10px;
+  width: 10px;
+}
+
+.panel-divider-right::before {
+  left: 0;
+  width: 10px;
+}
+
 .panel-add-col {
   display: flex;
   align-items: center;

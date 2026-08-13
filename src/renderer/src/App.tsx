@@ -212,23 +212,35 @@ function PanelColumn({
     open,
     collapse
   );
+  const rightDrag = useDragResize(
+    slot.width,
+    (width) => onSlot({ ...slot, width: typeof width === "function" ? width(slot.width) : width }),
+    AGENT_MIN_W,
+    maxW,
+    false,
+    slot.open,
+    open,
+    collapse
+  );
 
   if (slot.open) {
     return (
       <>
-        <div className="divider" onMouseDown={drag} />
-         <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} />
+        <div className="divider panel-divider-left" onMouseDown={drag} />
+        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} />
+        <div className="divider panel-divider-right" onMouseDown={rightDrag} />
       </>
     );
   }
   return (
     <>
-      <div className="divider collapsed" onMouseDown={drag} />
+      <div className="divider collapsed panel-divider-left" onMouseDown={drag} />
       {isLast ? (
         <AgentTray busy={view.busy} label={label} onExpand={expand} onDrag={drag} />
       ) : (
         <PanelSliver busy={view.busy} label={label} onExpand={expand} onDrag={drag} />
       )}
+      <div className="divider collapsed panel-divider-right" onMouseDown={rightDrag} />
     </>
   );
 }
@@ -267,12 +279,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     return slot && slot.open ? slot.width : COLLAPSED_PANEL_W;
   };
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
+  const fixedPanelChrome = 1 + panels.length * 2;
 
   const singlePanel = panels.length <= 1;
   const agentShown = singlePanel && panels.length === 1
     ? panelShown(panels[0].workspace.id)
     : 0;
-  const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - 2));
+  const sideMax = Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, winW - agentShown - fixedPanelChrome));
 
   const sideCapRef = useRef<number | null>(null);
   const agentCapRef = useRef<number | null>(null);
@@ -281,7 +294,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   useLayoutEffect(() => {
     if (singlePanel) {
       if (!sideOpen && !agentOpen) return;
-      const avail = Math.max(0, winW - 2);
+       const avail = Math.max(0, winW - fixedPanelChrome);
       const agentLimit = Math.max(0, avail - sideShown);
       const sideLimit = Math.max(0, Math.min(SIDE_MAX_W, avail - agentShown));
       const agentAnchored = agentOpen && agentCapRef.current !== null && agentShown >= agentCapRef.current - 1;
@@ -322,7 +335,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       }
       return;
     }
-    const avail = Math.max(0, winW - 2 - sideShown);
+     const avail = Math.max(0, winW - fixedPanelChrome - sideShown);
     const openIDs = panels
       .filter((panel) => slots[panel.workspace.id]?.open)
       .map((panel) => panel.workspace.id);
@@ -348,7 +361,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     sideOpen ? `${sideW}px` : `${COLLAPSED_PANEL_W}px`,
     "1px",
     "minmax(0,1fr)",
-    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`])
+    ...panels.flatMap((panel) => ["1px", `${panelShown(panel.workspace.id)}px`, "1px"])
   ].join(" ");
 
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
@@ -392,7 +405,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     const others = panels
       .filter((panel) => panel.workspace.id !== id)
       .reduce((sum, panel) => sum + panelShown(panel.workspace.id), 0);
-    return Math.max(AGENT_MIN_W, winW - sideShown - others - 2);
+    return Math.max(AGENT_MIN_W, winW - sideShown - others - fixedPanelChrome);
   };
 
   const slotFor = (panel: SessionInfo): PanelSlot => slots[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W };
