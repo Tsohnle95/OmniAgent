@@ -181,6 +181,36 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()[0]).toBeCloseTo(207, 0);
   });
 
+  it("insets the editor area to the free space left of the agent panels", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const editorRight = (): number =>
+      Number.parseFloat(
+        container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right") || "0"
+      );
+
+    expect(editorRight()).toBeCloseTo(280, 0);
+
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(editorRight()).toBeCloseTo(560, 0);
+
+    const model = container.querySelectorAll<HTMLElement>(".agent-col")[0]!;
+    await act(async () => {
+      const handle = model.querySelector<HTMLElement>(".panel-resize-left")!;
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 671 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 500 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(editorRight()).toBeCloseTo(731, 0);
+  });
+
   it("lays out multiple session panels stacked against the right side", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));

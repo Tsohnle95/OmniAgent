@@ -5,6 +5,7 @@
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  margin-right: var(--editor-right, 0px);
 }
 
 .tabbar {

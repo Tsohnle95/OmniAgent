@@ -585,7 +585,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
         <FileSidebar collapsed={!sideOpen} onCollapse={setSidebarOpen} onDrag={sideDrag} />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
-        <div className="workspace-area">
+        <div
+          className="workspace-area"
+          style={
+            {
+              "--editor-right": `${Math.max(0, areaW - (ordered.length > 0 ? slotFor(ordered[0]).left : areaW))}px`
+            } as CSSProperties
+          }
+        >
           <EditorPane />
           {ordered.map((panel, index) => {
             const s = slotFor(panel);
