@@ -32,6 +32,7 @@ npm start          # run the production build
 | Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
 | Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
 | Renderer store | `src/renderer/src/store.tsx` | All UI state; subscribes to backend events |
+| Dispatch skill | `.opencode/skills/dispatch/` | Portable pipeline: repo-agnostic SKILL.md + checker copy |
 | Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panel, welcome, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
@@ -40,6 +41,7 @@ See `docs/` for full docs: `architecture.md` (system overview),
 `walkthrough.md` (guided tour of the connections), `events.md` (opencode2
 event protocol), `operations.md` (run/verify/debug playbook),
 `dispatch.md` (orchestrating multi-unit agent work),
+`dispatch-pipeline.md` (the chain: gates, wiring, failure modes),
 `main.md`, `preload.md`, `renderer.md`, `shared.md`. Open product
 requests live in the README's roadmap section; the actionable working
 queue is `TODO.md` — start a session by reading both.

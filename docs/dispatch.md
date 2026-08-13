@@ -28,7 +28,8 @@ itself — no human in the loop.
    be in earlier waves). Then run the gates:
    - `npm run dispatch:check` — mechanical: every open item covered, paths
      exist, no shared files inside a wave, dependency order, no empty file
-     lists.
+     lists. For items creating brand-new files, create empty placeholders at
+     those paths first so the checker can verify them.
    - one plan-review agent — judgment: scoping quality, missed files,
      wrong wave decisions. It flags; the orchestrator revises.
    **No dispatch before both gates pass.**
@@ -42,7 +43,7 @@ itself — no human in the loop.
    never the final authority.
 7. **Accept each unit** — a unit is done only when its commit landed and the
    gate is green. A failing gate or dirty tree after a unit blocks the next
-   wave.
+   wave. The orchestrator marks the accepted item done (`- [x]`) in TODO.md.
 8. **Review once** — one fresh, unbiased reviewer agent over the entire
    combined diff. Never chain reviewers: two reviewers duplicate most
    findings; the orchestrator reviewing its own orchestration is the biased
