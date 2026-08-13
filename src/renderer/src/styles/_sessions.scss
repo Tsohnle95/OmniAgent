@@ -82,6 +82,30 @@
   flex: none;
 }
 
+.sessions-row .agent-dot.live {
+  background: var(--green);
+}
+
+.sessions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sessions-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 6px 8px 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-section .section-trigger {
+  padding: 0;
+}
+
 .sessions-row-icon {
   flex: none;
   color: var(--text-dim);

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import type { ProjectInfo } from "@shared/types";
+import type { ProjectInfo, SessionSummary } from "@shared/types";
+import { ChevronIcon } from "./FileIcons";
 
 function formatWhen(ts: number): string {
   if (!ts) return "";
@@ -12,6 +13,20 @@ function formatWhen(ts: number): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(ts).toLocaleDateString();
+}
+
+function dirName(directory: string): string {
+  return directory.split(/[\\/]/).filter(Boolean).pop() ?? directory;
+}
+
+function groupByWorkspace(sessions: SessionSummary[]): [string, SessionSummary[]][] {
+  const groups = new Map<string, SessionSummary[]>();
+  for (const s of sessions) {
+    const group = groups.get(s.directory);
+    if (group) group.push(s);
+    else groups.set(s.directory, [s]);
+  }
+  return [...groups.entries()];
 }
 
 export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => void }): ReactNode {
@@ -27,6 +42,8 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
     loadSessions
   } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [recentOpen, setRecentOpen] = useState(true);
+  const [savedOpen, setSavedOpen] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -75,7 +92,7 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
                   onClose();
                 }}
               >
-                <span className={`agent-dot ${view?.busy ? "busy" : ""}`} />
+                <span className={`agent-dot live ${view?.busy ? "busy" : ""}`} />
                 <span className="sessions-row-main">
                   <span className="sessions-row-title">{title}</span>
                   <span className="sessions-row-meta" title={panel.directory}>{panel.directory}</span>
@@ -97,48 +114,87 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
       )}
 
       <section className="sessions-section">
-        <div className="sessions-section-title">Recent sessions</div>
-        {sessions.length === 0 && <div className="sessions-empty">No recent sessions yet.</div>}
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            className={`sessions-row ${runningSessions.has(s.id) ? "running" : ""}`}
-            onClick={() => {
-              void reopenSession(s.id);
-              onClose();
-            }}
-            title={s.directory}
+        <div className="section-trigger">
+          <button
+            className={`section-toggle ${recentOpen ? "open" : ""}`}
+            aria-expanded={recentOpen}
+            onClick={() => setRecentOpen((o) => !o)}
           >
-            <span className="sessions-row-icon codicon codicon-history" aria-hidden />
-            <span className="sessions-row-main">
-              <span className="sessions-row-title">{s.title}</span>
-              <span className="sessions-row-meta">{formatWhen(s.updatedAt)} · {s.directory}</span>
+            <span>Recent sessions</span>
+            <span className="sidebar-count push">{sessions.length}</span>
+            <span className="section-chevron">
+              <ChevronIcon open={recentOpen} />
             </span>
-            {runningSessions.has(s.id) && <span className="sessions-row-badge">open</span>}
-          </div>
-        ))}
+          </button>
+        </div>
+        {recentOpen && (
+          sessions.length === 0 ? (
+            <div className="sessions-empty">No recent sessions yet.</div>
+          ) : (
+            groupByWorkspace(sessions).map(([directory, group]) => (
+              <div key={directory} className="sessions-group">
+                <div className="sessions-group-title" title={directory}>{dirName(directory)}</div>
+                {group.map((s) => (
+                  <div
+                    key={s.id}
+                    className={`sessions-row ${runningSessions.has(s.id) ? "running" : ""}`}
+                    onClick={() => {
+                      void reopenSession(s.id);
+                      onClose();
+                    }}
+                    title={s.directory}
+                  >
+                    <span className="sessions-row-icon codicon codicon-history" aria-hidden />
+                    <span className="sessions-row-main">
+                      <span className="sessions-row-title">{s.title}</span>
+                      <span className="sessions-row-meta">{formatWhen(s.updatedAt)} · {s.directory}</span>
+                    </span>
+                    {runningSessions.has(s.id) && <span className="sessions-row-badge">open</span>}
+                  </div>
+                ))}
+              </div>
+            ))
+          )
+        )}
       </section>
 
       <section className="sessions-section">
-        <div className="sessions-section-title">Saved workspaces</div>
-        {projects.length === 0 && <div className="sessions-empty">No saved workspaces found.</div>}
-        {projects.map((p) => (
-          <div
-            key={p.directory}
-            className="sessions-row"
-            onClick={() => {
-              void openSession(p.directory);
-              onClose();
-            }}
-            title={p.directory}
+        <div className="section-trigger">
+          <button
+            className={`section-toggle ${savedOpen ? "open" : ""}`}
+            aria-expanded={savedOpen}
+            onClick={() => setSavedOpen((o) => !o)}
           >
-            <span className="sessions-row-icon codicon codicon-folder" aria-hidden />
-            <span className="sessions-row-main">
-              <span className="sessions-row-title">{p.name}</span>
-              <span className="sessions-row-meta">{p.directory}</span>
+            <span>Saved workspaces</span>
+            <span className="sidebar-count push">{projects.length}</span>
+            <span className="section-chevron">
+              <ChevronIcon open={savedOpen} />
             </span>
-          </div>
-        ))}
+          </button>
+        </div>
+        {savedOpen && (
+          projects.length === 0 ? (
+            <div className="sessions-empty">No saved workspaces found.</div>
+          ) : (
+            projects.map((p) => (
+              <div
+                key={p.directory}
+                className="sessions-row"
+                onClick={() => {
+                  void openSession(p.directory);
+                  onClose();
+                }}
+                title={p.directory}
+              >
+                <span className="sessions-row-icon codicon codicon-folder" aria-hidden />
+                <span className="sessions-row-main">
+                  <span className="sessions-row-title">{p.name}</span>
+                  <span className="sessions-row-meta">{p.directory}</span>
+                </span>
+              </div>
+            ))
+          )
+        )}
       </section>
     </aside>
   );

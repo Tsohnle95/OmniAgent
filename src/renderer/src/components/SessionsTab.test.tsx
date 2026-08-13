@@ -91,6 +91,8 @@ describe("SessionsTab rail", () => {
     expect(rows).toHaveLength(2);
     expect(rows[1].classList.contains("focused")).toBe(true);
     expect(rows[0].querySelector(".agent-dot")?.classList.contains("busy")).toBe(true);
+    expect(rows[1].querySelector(".agent-dot")?.classList.contains("live")).toBe(true);
+    expect(rows[0].querySelector(".agent-dot")?.classList.contains("live")).toBe(true);
 
     await act(async () => (rows[0] as HTMLButtonElement).click());
     expect(state.focusSession).toHaveBeenCalledWith("one");
@@ -146,5 +148,44 @@ describe("SessionsTab rail", () => {
     const recents = sections[1];
     expect(recents.querySelector(".sessions-row")?.classList.contains("running")).toBe(true);
     expect(recents.querySelector(".sessions-row-badge")?.textContent).toBe("open");
+  });
+
+  it("groups recent sessions by workspace", async () => {
+    state.sessions = [
+      { id: "recent-1", title: "Recent One", directory: "/repo/r1", updatedAt: Date.now() - 60000 },
+      { id: "recent-2", title: "Recent Two", directory: "/repo/r1", updatedAt: Date.now() - 3600000 },
+      { id: "recent-3", title: "Recent Three", directory: "/repo/r2", updatedAt: Date.now() - 7200000 }
+    ];
+    await act(async () => root.render(<SessionsTab open onClose={() => {}} />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+
+    const sections = container.querySelectorAll(".sessions-section");
+    const recents = [...sections].find((section) => section.textContent?.includes("Recent sessions"))!;
+    const groups = recents.querySelectorAll(".sessions-group");
+    expect(groups).toHaveLength(2);
+    expect(groups[0].querySelector(".sessions-group-title")?.textContent).toBe("r1");
+    expect(groups[0].querySelectorAll(".sessions-row")).toHaveLength(2);
+    expect(groups[1].querySelector(".sessions-group-title")?.textContent).toBe("r2");
+    expect(groups[1].querySelectorAll(".sessions-row")).toHaveLength(1);
+  });
+
+  it("collapses and expands the recent and saved sections like sidebar panels", async () => {
+    state.sessions = [{ id: "recent-1", title: "Recent One", directory: "/repo/r1", updatedAt: 1 }];
+    await act(async () => root.render(<SessionsTab open onClose={() => {}} />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+
+    const toggles = container.querySelectorAll(".sessions-section .section-toggle");
+    expect(toggles).toHaveLength(2);
+    expect(container.querySelectorAll(".sessions-row")).toHaveLength(3);
+
+    await act(async () => (toggles[0] as HTMLButtonElement).click());
+    expect(container.querySelectorAll(".sessions-row")).toHaveLength(2);
+    expect(container.querySelector(".sessions-group")).toBeNull();
+
+    await act(async () => (toggles[1] as HTMLButtonElement).click());
+    expect(container.querySelectorAll(".sessions-row")).toHaveLength(0);
+
+    await act(async () => (toggles[0] as HTMLButtonElement).click());
+    expect(container.querySelectorAll(".sessions-row")).toHaveLength(1);
   });
 });
