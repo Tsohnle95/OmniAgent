@@ -1,6 +1,8 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { languageForPath } from "../monaco";
+import type { editor } from "monaco-editor";
+import { languageForPath, monaco } from "../monaco";
+import { createDiagnosticsScheduler, isHtmlFile, validateHtmlContent } from "../diagnostics";
 import { useStore } from "../store";
 import { registerEditor, unregisterEditor } from "../reveal";
 import type { Tab } from "@shared/types";
@@ -93,6 +95,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   }, [saveTab, tab.path]);
 
   const language = useMemo(() => languageForPath(tab.path), [tab.path]);
+  const htmlFile = useMemo(() => isHtmlFile(tab.path), [tab.path]);
   const diffAvailable = tab.baseline?.kind === "known";
   const diffUnknown = tab.baseline?.kind === "unknown";
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;
@@ -100,6 +103,26 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
     () => ({ ...EDITOR_OPTIONS, wordWrap: (wordWrap ? "on" : "off") as "on" | "off" }),
     [wordWrap]
   );
+
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const schedulerRef = useRef<ReturnType<typeof createDiagnosticsScheduler> | null>(null);
+
+  useEffect(() => {
+    if (!htmlFile) return;
+    const scheduler = createDiagnosticsScheduler(validateHtmlContent, (markers) => {
+      const model = editorRef.current?.getModel();
+      if (!model || model.isDisposed()) return;
+      monaco.editor.setModelMarkers(model, "htmlhint", markers);
+    });
+    schedulerRef.current = scheduler;
+    return () => scheduler.cancel();
+  }, [htmlFile]);
+
+  useEffect(() => {
+    if (!htmlFile || mode !== "edit") return;
+    schedulerRef.current?.schedule(tab.content);
+    return () => schedulerRef.current?.cancel();
+  }, [htmlFile, mode, tab.content]);
 
   useEffect(() => () => unregisterEditor(tab.path), [tab.path]);
 
@@ -192,7 +215,11 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           language={language}
           path={tab.path}
           value={tab.content}
-          onMount={(ed) => registerEditor(tab.path, ed)}
+          onMount={(ed) => {
+            editorRef.current = ed;
+            registerEditor(tab.path, ed);
+            if (htmlFile) schedulerRef.current?.schedule(tab.content);
+          }}
           options={options}
           onChange={(value) => {
             if (value !== undefined) editContent(tab.path, value);

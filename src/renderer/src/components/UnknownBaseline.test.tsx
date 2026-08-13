@@ -56,7 +56,15 @@ vi.mock("@monaco-editor/react", () => ({
   default: () => <div data-testid="editor" />,
   DiffEditor: () => <div data-testid="diff-editor" />
 }));
-vi.mock("../monaco", () => ({ languageForPath: () => "typescript" }));
+vi.mock("../monaco", () => ({
+  languageForPath: () => "typescript",
+  monaco: { editor: { setModelMarkers: vi.fn() } }
+}));
+vi.mock("../diagnostics", () => ({
+  createDiagnosticsScheduler: () => ({ schedule: vi.fn(), cancel: vi.fn() }),
+  isHtmlFile: () => false,
+  validateHtmlContent: () => []
+}));
 
 describe("unknown baseline presentation", () => {
   let container: HTMLDivElement;
