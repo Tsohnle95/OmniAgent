@@ -238,6 +238,8 @@ export function Composer(): ReactNode {
     agents,
     currentAgent,
     switchAgent,
+    loadAgents,
+    loadModels,
     sendPrompt,
     runCommand,
     stop,
@@ -675,7 +677,14 @@ export function Composer(): ReactNode {
           <button
             className={`composer-selector ${menu === "agent" ? "open" : ""}`}
             title="Change agent"
-            onClick={() => setMenu(menu === "agent" ? null : "agent")}
+            onClick={() => {
+              if (menu === "agent") {
+                setMenu(null);
+                return;
+              }
+              setMenu("agent");
+              if (agents.length === 0) void loadAgents();
+            }}
           >
             <span className="codicon codicon-git-branch" />
             <span>{currentAgent?.name ?? "Agent"}</span>
@@ -687,6 +696,7 @@ export function Composer(): ReactNode {
             onClick={() => {
               setMenu(menu === "model" ? null : "model");
               if (menu !== "model") setModelView("list");
+              if (menu !== "model" && models.length === 0) void loadModels();
             }}
           >
             <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
@@ -755,19 +765,23 @@ export function Composer(): ReactNode {
       {menu && (
         <div className="composer-menu">
           {menu === "agent" ? (
-            agents.map((agent) => (
-              <button
-                key={agent.id}
-                className={`composer-menu-item ${currentAgent?.id === agent.id ? "selected" : ""}`}
-                onClick={() => {
-                  void switchAgent(agent.id);
-                  setMenu(null);
-                }}
-              >
-                <span className="composer-menu-check">{currentAgent?.id === agent.id ? "✓" : ""}</span>
-                {agent.name}
-              </button>
-            ))
+            agents.length > 0 ? (
+              agents.map((agent) => (
+                <button
+                  key={agent.id}
+                  className={`composer-menu-item ${currentAgent?.id === agent.id ? "selected" : ""}`}
+                  onClick={() => {
+                    void switchAgent(agent.id);
+                    setMenu(null);
+                  }}
+                >
+                  <span className="composer-menu-check">{currentAgent?.id === agent.id ? "✓" : ""}</span>
+                  {agent.name}
+                </button>
+              ))
+            ) : (
+              <div className="composer-menu-empty">No agents available.</div>
+            )
           ) : (
             <>
               <div className="composer-menu-header">

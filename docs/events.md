@@ -63,6 +63,9 @@ is backgrounded.
 | `message.part.removed` | Removes the projected part |
 | `session.model.selected` | Retains internal model-switch metadata and updates `currentModel` for the active session; it does not create a chat row |
 | `session.agent.selected` | Retains internal agent-switch metadata and updates `currentAgent` for the active session; it does not create a chat row |
+| `agent.updated` | Refetches the agent catalog for the active session so the composer agent picker recovers from a lazy or empty first load |
+| `catalog.updated` | Refetches the model catalog so the composer model picker stays current |
+| `models-dev.refreshed` | Legacy model-catalog change event; handled identically to `catalog.updated` |
 | `session.usage.updated` | Records cumulative session token usage (`tokens`) and cost (`cost`) for the addressed session; drives the token-usage popup in the agent header |
 | `session.usage.recorded` | Same usage snapshot as `session.usage.updated` on the durable legacy stream; handled identically |
 | `todo.updated` | Replaces the active session todo list rendered in the dock above the composer; `todowrite` tool-part input/metadata is also consumed as a beta-protocol fallback |
@@ -80,9 +83,7 @@ by the switch statement. Revisit when adding features:
 - `filesystem.changed`, `reference.updated` (the main process handles the
   filesystem event separately; see below)
 - `project.*`, `plugin.*`, `command.*`, `skill.*`, `mcp.*`, `vcs.*`,
-  `websearch.*`, `pty.*`, `question.*`, `form.*`, `tui.*`
-- `models-dev.refreshed` (fired when the model catalog changes; the app
-  only reloads models on session open)
+  `websearch.*`, `pty.*`, `question.*`, `form.*`, `tui.*`, `config.*`
 
 The main process accepts both `type` and the legacy SSE `event` field when it
 forwards an event. The renderer accepts current `data` and legacy `properties`

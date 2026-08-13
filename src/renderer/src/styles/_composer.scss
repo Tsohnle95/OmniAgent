@@ -219,6 +219,13 @@
 
 .composer-menu-item.selected { color: var(--text); }
 
+.composer-menu-empty {
+  padding: 10px 8px;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+}
+
 .composer-menu-check {
   width: 14px;
   flex-shrink: 0;

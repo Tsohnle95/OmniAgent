@@ -95,10 +95,15 @@ Key mechanisms:
   `sessionSelection()` before falling back to `modelDefault()`, so a newly
   created or reopened GPT/agent session cannot be mislabeled with the previous
   session's model in the composer.
-- **Catalog self-heal** — a `connected` effect re-runs `loadModels()` /
-  `loadAgents()` once the backend client is up, so a boot or reconnect that
-  first hit a silent empty catalog (no client yet) is retried and the
-  composer agent/model menus never stay empty.
+- **Catalog self-heal** — the store re-checks backend health every 2s until
+  the first successful connect; a `connected` effect then re-runs
+  `loadModels()` / `loadAgents()` once the backend client is up, so a boot or
+  reconnect that first hit a silent empty catalog (no client yet) is retried
+  and the composer agent/model menus never stay empty. `agent.updated` and
+  `catalog.updated` events additionally refetch the agent/model catalogs when
+  the service resolves them lazily after a session opened, and opening a
+  picker menu whose list is still empty refetches that catalog and shows a
+  "No agents available" placeholder instead of a blank box.
 - **V2 session reducer** — `chat-stream.ts` buffers admitted input until its
   promoted event, retains non-chat agent/model switches as internal state, and
   folds synthetic/skill/shell/compaction messages, assistant lifecycle, and

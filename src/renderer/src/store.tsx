@@ -1291,6 +1291,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           }
           break;
         }
+        case "agent.updated": {
+          void loadAgents();
+          break;
+        }
+        case "catalog.updated":
+        case "models-dev.refreshed": {
+          void loadModels();
+          break;
+        }
         case "session.status": {
           const status = data.status as { type?: string; attempt?: number; message?: string; next?: number } | undefined;
           if (status?.type === "busy" && targetSessionID) setSessionBusy(targetSessionID, true);
@@ -1382,7 +1391,19 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     });
 
-    void window.openshell.health().then(setConnected);
+    let healthTimer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    const tryConnect = async (): Promise<void> => {
+      if (cancelled) return;
+      const ok = await window.openshell.health().catch(() => false);
+      if (cancelled) return;
+      if (ok) {
+        setConnected(true);
+        return;
+      }
+      healthTimer = setTimeout(() => void tryConnect(), 2000);
+    };
+    void tryConnect();
     const startup = activations.accept();
     void window.openshell.state().then((s) => {
       if (s && activations.current(startup) && (!sessionRef.current || s.workspace.generation >= sessionRef.current.workspace.generation)) {
@@ -1390,6 +1411,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     });
     return () => {
+      cancelled = true;
+      if (healthTimer !== null) clearTimeout(healthTimer);
       off();
       if (timer !== null) clearTimeout(timer);
       persistence.cancelAll();

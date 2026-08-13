@@ -16,6 +16,8 @@ vi.mock("../store", () => ({
     agents: [],
     currentAgent: null,
     switchAgent: vi.fn(),
+    loadAgents: vi.fn(),
+    loadModels: vi.fn(),
     sendPrompt: vi.fn(),
     runCommand: vi.fn(),
     stop: vi.fn(),

@@ -140,7 +140,7 @@ for (const file of ["src/renderer/src/store.tsx", "src/renderer/src/chat-stream.
   });
 }
 const eventsDoc = documentation.get("docs/events.md");
-const handledEvents = tableColumn(eventsDoc, "## Events the renderer handles", /^\| `([\w.]+)` \|/gm);
+const handledEvents = tableColumn(eventsDoc, "## Events the renderer handles", /^\| `([\w.-]+)` \|/gm);
 const notHandledSection = eventsDoc.slice(eventsDoc.indexOf("## Events forwarded but NOT handled"), eventsDoc.indexOf("## Main-process event handling"));
 const notHandledEvents = [...notHandledSection.matchAll(/`((?:session|permission|filesystem|project|plugin|command|skill|mcp|vcs|websearch|pty|question|form|tui|reference|integration|catalog|agent|model|installation|config|usage|shell)\.[\w.*-]+)`/g)].map((match) => match[1]);
 checkInventory("docs/events.md", "handled event table", handledEvents);
