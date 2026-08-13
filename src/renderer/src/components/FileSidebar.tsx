@@ -348,6 +348,8 @@ export function FileSidebar({
     if (key && loadedSessionKey.current !== key) {
       loadedSessionKey.current = key;
       void ensureRootOpen();
+    } else if (!key) {
+      loadedSessionKey.current = null;
     }
   }, [session, ensureRootOpen]);
 

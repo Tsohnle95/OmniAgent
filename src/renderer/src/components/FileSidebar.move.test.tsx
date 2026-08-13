@@ -1,28 +1,41 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TreeEntry } from "@shared/types";
 import { FileSidebar } from "./FileSidebar";
 
+type MockSession = { id: string; directory: string; workspace: { id: string; generation: number } };
+
+const session: MockSession = {
+  id: "session",
+  directory: "/workspace",
+  workspace: { id: "11111111-1111-4111-8111-111111111111", generation: 1 }
+};
+
+const initialTree: Record<string, TreeEntry[]> = {
+  "": [
+    { path: "alpha", type: "directory" as const },
+    { path: "beta", type: "directory" as const },
+    { path: "note.txt", type: "file" as const }
+  ],
+  alpha: [
+    { path: "alpha/sub", type: "directory" as const },
+    { path: "alpha/child.txt", type: "file" as const }
+  ],
+  "alpha/sub": []
+};
+
+const initialExpanded = new Set(["", "alpha", "alpha/sub"]);
+
 const store = {
-  session: { id: "session", directory: "/workspace", workspace: { id: "11111111-1111-4111-8111-111111111111", generation: 1 } },
+  session: session as MockSession | null,
   selectFolder: vi.fn(),
-  tree: {
-    "": [
-      { path: "alpha", type: "directory" as const },
-      { path: "beta", type: "directory" as const },
-      { path: "note.txt", type: "file" as const }
-    ],
-    alpha: [
-      { path: "alpha/sub", type: "directory" as const },
-      { path: "alpha/child.txt", type: "file" as const }
-    ],
-    "alpha/sub": []
-  },
+  tree: initialTree,
   toggleDir: vi.fn(),
   ensureRootOpen: vi.fn(),
   agentFiles: new Map(),
   openFile: vi.fn(),
-  expanded: new Set(["", "alpha", "alpha/sub"]),
+  expanded: initialExpanded,
   openCtxMenu: vi.fn(),
   pendingCreate: null,
   commitName: vi.fn(),
@@ -70,6 +83,10 @@ describe("FileSidebar drag-and-drop moves", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    store.session = session;
+    store.tree = initialTree;
+    store.expanded = initialExpanded;
+    store.ensureRootOpen.mockReset();
     vi.unstubAllGlobals();
   });
 
@@ -78,6 +95,36 @@ describe("FileSidebar drag-and-drop moves", () => {
 
     expect(store.ensureRootOpen).toHaveBeenCalledTimes(1);
     expect(store.toggleDir).not.toHaveBeenCalled();
+  });
+
+  it("re-arms the root guard when the last panel closes so a reopened session loads", () => {
+    store.ensureRootOpen.mockImplementation(async () => {
+      store.tree = { "": [{ path: "alpha", type: "directory" as const }] };
+      store.expanded = new Set(["", "alpha"]);
+    });
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    expect(store.ensureRootOpen).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      store.session = null;
+      store.tree = {};
+      store.expanded = new Set();
+      root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />);
+    });
+    expect(container.textContent).toContain("Loading…");
+
+    act(() => {
+      store.session = {
+        ...session,
+        workspace: { id: "22222222-2222-4222-8222-222222222222", generation: 2 }
+      };
+      root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />);
+    });
+    expect(store.ensureRootOpen).toHaveBeenCalledTimes(2);
+
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    expect(container.textContent).not.toContain("Loading…");
+    expect(row(container, "alpha")).toBeTruthy();
   });
 
   it("moves a file into a folder on drop", () => {
