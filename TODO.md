@@ -7,21 +7,6 @@ the README roadmap; this file is the actionable queue.
 Work order: execute per `docs/dispatch.md` (one commit per unit, `npm run check`
 green before each commit, fresh reviewer + mechanical closure at the end).
 
-Wave 1 (parallel — disjoint file areas):
-- recovery retention (main process)
-- packaging / launch button (scripts)
-- HTML/CSS validation (editor/monaco)
-
-Wave 2 (sequential — shared agent panel/store files):
-- `/` commands + @file support
-- context-window usage tracker
-- subagent session links
-
-Wave 3 (sequential): folder drag-and-drop (sidebar/store)
-
-Wave 4 (last, cross-cutting — restructures session state): concurrent
-multi-session/window support
-
 - [x] - `.openshell-recovery/` transactions are never deleted, so every app-mediated save leaves 3 full file copies behind and the dir grows forever. Add retention: on activation, purge `complete`/`failed`/`acknowledged` transactions older than 24h, and interrupted (`source-held`/`held-validated`) ones older than 7 days. (`.openshell-recovery/` is already gitignored.)
 
 - [x] - there seems to be a run failed every time i push code to github? what is this? does it need to exist? — Fixed: `scripts/check-docs.mjs` still required the deleted `final-document.md`, breaking the `verify` job on every push. Removed the reference; CI gate is green again.
@@ -43,7 +28,7 @@ multi-session/window support
 
 - [x] - add w3c or equivalent html and css validation functionality like in vs code
 
-- [ ] I want to be able to start entirely new model sessions, where it spawns another identical model panel with the same resizing panel logic, where you can pick another work space, etc. also add a sessions tab with the recents and saved workspaces, so i can swap sessions easily By clicking them.
+- [x] I want to be able to start entirely new model sessions, where it spawns another identical model panel with the same resizing panel logic, where you can pick another work space, etc. also add a sessions tab with the recents and saved workspaces, so i can swap sessions easily By clicking them.
 
 - [x] I want to be able to add some sort of a or build some sort of a launch button so I can treat this like a normal application, like any other application built with Electron, like Spotify, for example. I don't want to have to keep building it by clicking the build command in the root. I want to be able to drag this to my applications folder and then bring an icon into my dock.
 
