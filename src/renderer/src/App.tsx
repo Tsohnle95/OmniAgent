@@ -25,9 +25,11 @@ function useDragResize(
   flip: boolean,
   open: boolean,
   onOpen: () => void,
-  onCollapse?: () => void
+  onCollapse?: () => void,
+  left?: number,
+  setLeft?: (value: number) => void
 ): (e: React.MouseEvent) => void {
-  const startRef = useRef<{ x: number; width: number; open: boolean } | null>(null);
+  const startRef = useRef<{ x: number; width: number; open: boolean; left: number } | null>(null);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -35,7 +37,8 @@ function useDragResize(
     startRef.current = {
       x: e.clientX,
       width: startedOpen ? width : COLLAPSED_PANEL_W,
-      open: startedOpen
+      open: startedOpen,
+      left: left ?? 0
     };
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
@@ -51,40 +54,16 @@ function useDragResize(
 
       if (rawW > COLLAPSED_PANEL_W || !onCollapse) {
         const nextW = onCollapse ? rawW : Math.max(min, rawW);
-        setWidth(Math.min(max, nextW));
+        const capped = Math.min(max, nextW);
+        setWidth(capped);
+        if (flip && setLeft) {
+          setLeft(startRef.current.left + startRef.current.width - capped);
+        }
         if (!startRef.current.open) {
           startRef.current.open = true;
           onOpen();
         }
       }
-    };
-    const up = (): void => {
-      if (startRef.current) startRef.current = null;
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-  };
-
-  return onMouseDown;
-}
-
-function useDragMove(
-  value: number,
-  setValue: (value: number) => void,
-  min: number,
-  max: number
-): (e: React.MouseEvent) => void {
-  const startRef = useRef<{ x: number; value: number } | null>(null);
-
-  const onMouseDown = (e: React.MouseEvent): void => {
-    e.preventDefault();
-    startRef.current = { x: e.clientX, value };
-    const move = (ev: MouseEvent): void => {
-      if (!startRef.current) return;
-      const next = startRef.current.value + (ev.clientX - startRef.current.x);
-      setValue(Math.min(max, Math.max(min, next)));
     };
     const up = (): void => {
       if (startRef.current) startRef.current = null;
@@ -241,21 +220,27 @@ function PanelColumn({
   }, [onFocus, onSlot]);
   const collapse = useCallback(() => onSlot((current) => ({ ...current, open: false })), [onSlot]);
   const open = useCallback(() => onSlot((current) => ({ ...current, open: true })), [onSlot]);
-  const resize = useDragResize(
+  const resizeRight = useDragResize(
     slot.width,
     (width) => onSlot((current) => ({ ...current, width: typeof width === "function" ? width(current.width) : width })),
     AGENT_MIN_W,
     rightMax,
-    isAnchor,
+    false,
     slot.open,
     open,
     collapse
   );
-  const slide = useDragMove(
+  const resizeLeft = useDragResize(
+    slot.width,
+    (width) => onSlot((current) => ({ ...current, width: typeof width === "function" ? width(current.width) : width })),
+    AGENT_MIN_W,
+    Math.max(AGENT_MIN_W, slot.left + slot.width - leftMin),
+    true,
+    slot.open,
+    open,
+    collapse,
     slot.left,
-    (left) => onSlot((current) => ({ ...current, left })),
-    leftMin,
-    leftMax
+    (left) => onSlot((current) => ({ ...current, left }))
   );
   const slideBy = (delta: number): void => {
     onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
@@ -264,16 +249,16 @@ function PanelColumn({
   if (slot.open) {
     return (
       <div className="agent-col" style={{ left: `${slot.left}px`, width: `${slot.width}px` }}>
-        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={isAnchor ? resize : slide} onResizeRight={isAnchor ? undefined : resize} onPanelDrag={isAnchor ? undefined : slideBy} />
+        <AgentPanel session={session} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={resizeLeft} onResizeRight={isAnchor ? undefined : resizeRight} onPanelDrag={isAnchor ? undefined : slideBy} />
       </div>
     );
   }
   return (
     <div className="agent-col" style={{ left: `${slot.left}px`, width: `${COLLAPSED_PANEL_W}px` }}>
       {isLast ? (
-        <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={isAnchor ? resize : slide} onResizeRight={isAnchor ? undefined : resize} />
+        <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={resizeLeft} onResizeRight={isAnchor ? undefined : resizeRight} />
       ) : (
-        <PanelSliver busy={view.busy} label={label} onExpand={expand} onLeftDrag={isAnchor ? resize : slide} onRightDrag={isAnchor ? undefined : resize} />
+        <PanelSliver busy={view.busy} label={label} onExpand={expand} onLeftDrag={resizeLeft} onRightDrag={isAnchor ? undefined : resizeRight} />
       )}
     </div>
   );

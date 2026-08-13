@@ -257,7 +257,7 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()).toEqual([280, 280]);
   });
 
-  it("slides a model by its left edge and keeps its width", async () => {
+  it("extends a model from its left edge without moving its right edge", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -269,13 +269,13 @@ describe("Layout panel sizing", () => {
     expect(handles).toHaveLength(2);
     await act(async () => {
       handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 400 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 340 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300 }));
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentLefts()).toEqual([609, 949]);
-    expect(agentWidths()).toEqual([280, 280]);
+    expect(agentWidths()).toEqual([380, 280]);
+    expect(agentLefts()).toEqual([569, 949]);
   });
 
   it("keeps the original agent panel right-anchored and resizes from its left edge", async () => {
