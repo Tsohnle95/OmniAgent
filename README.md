@@ -81,7 +81,12 @@ npm run check      # typecheck, tests, docs check, and production build
 ```sh
 npm run build      # production build only
 npm start          # run the production build
+npm run pack       # build + package a real macOS app -> release/mac/OpenShell.app
 ```
+
+Or click **Install app** on the Welcome screen (macOS): it packages the app
+and drops `OpenShell.app` into `/Applications` so OpenShell behaves like a
+normal app — Finder, Dock, and all.
 
 ## Documentation
 
@@ -113,6 +118,10 @@ session. Delivered so far (see `git log`):
   `message.list`).
 - **Model choice persists** across sessions (last-used model is stored and
   passed to `session.create`), and the picker labels show the provider.
+- **Installable macOS app** — electron-builder packaging (`npm run pack` or
+  the Welcome screen's Install app button) produces a real `OpenShell.app`
+  and installs it to `/Applications` for Dock-and-Finder treatment like any
+  normal application.
 
 The long-term goal is to feel like Codex/Antigravity: a calm, informative
 streaming agent panel that always shows what the agent is doing.

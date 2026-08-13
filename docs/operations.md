@@ -21,6 +21,8 @@ npm run dev      # electron-vite dev with HMR (main/preload/renderer)
 npm test         # Vitest unit/component tests in jsdom
 npm run test:platform # launcher tests and real Electron-hosted PTY smoke
 npm run build    # production build -> out/
+npm run pack     # build + package a real macOS app -> release/mac/OpenShell.app
+npm run install-app # CLI equivalent of the Welcome screen Install app button
 npm run check    # typecheck, tests, docs check, and production build
 npm start        # launch the existing production build with electron-vite preview
 ```
@@ -29,6 +31,15 @@ npm start        # launch the existing production build with electron-vite previ
 portable Node launcher prepares and selects the branded app bundle on macOS and
 uses plain Electron on Linux and Windows, without shell-specific environment
 syntax. After a manual build you can also launch with `npx electron .`.
+`npm run pack` and `npm run install-app` are macOS-only: both run
+`scripts/install-app.mjs`, which builds `out/`, packages the app with
+electron-builder (`electron-builder.yml`, `asar: false`, unpacked
+`Contents/Resources/app` layout), and ad-hoc re-signs the bundle;
+`install-app` then replaces `/Applications/OpenShell.app` (removing any
+existing copy first, `cp -R` preserving the signature). The Welcome screen's
+Install app button (macOS, hidden in packaged builds) drives the same script
+over the `shell:install-app` channel and toasts the result. `release/` and
+`build/` are gitignored builder outputs.
 `npm run test:platform` also runs the hidden-window renderer trust smoke on
 macOS. Linux and Windows run the launcher and Electron PTY coverage but skip the
 GUI smoke because a normal `BrowserWindow` requires a display there; macOS CI is

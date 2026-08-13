@@ -1,0 +1,17 @@
+appId: dev.openshell.app
+productName: OpenShell
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+  - resources/icon.png
+asar: false
+electronDist: node_modules/electron/dist
+npmRebuild: false
+mac:
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+  identity: null
+  target:
+    - dir

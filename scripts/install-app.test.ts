@@ -1,0 +1,115 @@
+// @vitest-environment node
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { installApp } from "./install-app.mjs";
+
+interface Invocation {
+  file: string;
+  args: string[];
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; maxBuffer?: number };
+}
+
+const root = path.resolve("fixture-root");
+const builderCli = path.join(root, "node_modules", "electron-builder", "cli.js");
+const viteBin = path.join(root, "node_modules", "electron-vite", "bin", "electron-vite.js");
+const builtApp = path.join(root, "release", "mac-arm64", "OpenShell.app");
+const destination = path.join("/Applications", "OpenShell.app");
+
+function harness(platform: NodeJS.Platform, existing: Record<string, boolean> = {}) {
+  const invocations: Invocation[] = [];
+  const removed: string[] = [];
+  const execFileSync = (file: string, args: string[], options: Invocation["options"]) => {
+    invocations.push({ file, args: [...args], options });
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  const existsSync = (p: string) => existing[p] ?? p === path.join(root, "release");
+  const rmSync = (p: string, options?: { recursive?: boolean; force?: boolean }) => {
+    expect(options?.recursive).toBe(true);
+    expect(options?.force).toBe(true);
+    removed.push(p);
+  };
+  const readdirSync = (p: string) => {
+    expect(p).toBe(path.join(root, "release"));
+    return ["mac-arm64"];
+  };
+  return {
+    run: (packOnly = false) => installApp({ platform, root, packOnly, execFileSync, existsSync, rmSync, readdirSync }),
+    invocations,
+    removed
+  };
+}
+
+describe("pack and install app script", () => {
+  it("builds, packages, signs, and installs over an existing copy on darwin", () => {
+    const { run, invocations, removed } = harness("darwin", { [builderCli]: true, [builtApp]: true, [destination]: true });
+    const result = run();
+
+    expect(result).toEqual({ ok: true, message: `Installed OpenShell to ${destination}` });
+    expect(invocations).toHaveLength(4);
+    expect(invocations[0].file).toBe(process.execPath);
+    expect(invocations[0].args).toEqual([viteBin, "build"]);
+    expect(invocations[1].file).toBe(process.execPath);
+    expect(invocations[1].args).toEqual([builderCli, "--mac", "dir", "--config", "electron-builder.yml", "--projectDir", root]);
+    expect(invocations[2].file).toBe("codesign");
+    expect(invocations[2].args).toEqual(["--force", "--deep", "--sign", "-", builtApp]);
+    expect(invocations[3].file).toBe("cp");
+    expect(invocations[3].args).toEqual(["-R", builtApp, destination]);
+    expect(removed).toEqual([destination]);
+    for (const invocation of invocations.slice(0, 2)) {
+      expect(invocation.options.cwd).toBe(root);
+      expect(invocation.options.env?.ELECTRON_RUN_AS_NODE).toBe("1");
+    }
+    expect(invocations[2].options).toBeUndefined();
+    expect(invocations[3].options).toBeUndefined();
+  });
+
+  it("skips the copy and install when asked to only pack", () => {
+    const { run, invocations, removed } = harness("darwin", { [builderCli]: true, [builtApp]: true });
+    const result = run(true);
+
+    expect(result).toEqual({ ok: true, message: `Packaged ${path.relative(root, builtApp)}` });
+    expect(invocations).toHaveLength(3);
+    expect(invocations[2].file).toBe("codesign");
+    expect(removed).toEqual([]);
+  });
+
+  it("does not remove a missing destination before installing", () => {
+    const { run, removed } = harness("darwin", { [builderCli]: true, [builtApp]: true });
+    expect(run().ok).toBe(true);
+    expect(removed).toEqual([]);
+  });
+
+  it("refuses to run on non-darwin platforms", () => {
+    for (const platform of ["linux", "win32"] as const) {
+      const { run, invocations } = harness(platform);
+      expect(run()).toEqual({ ok: false, message: "Install app is macOS-only" });
+      expect(invocations).toEqual([]);
+    }
+  });
+
+  it("reports a missing builder install before running anything", () => {
+    const { run, invocations } = harness("darwin");
+    expect(run()).toEqual({ ok: false, message: "electron-builder is not installed — run npm install first" });
+    expect(invocations).toEqual([]);
+  });
+
+  it("reports when packaging produced no bundle and never signs or copies", () => {
+    const { run, invocations } = harness("darwin", { [builderCli]: true });
+    expect(run()).toEqual({ ok: false, message: "Packaging did not produce an OpenShell.app bundle under release/" });
+    expect(invocations).toHaveLength(2);
+  });
+
+  it("propagates build tool failures so the CLI entry reports them", () => {
+    const execFileSync = () => {
+      throw new Error("builder exploded");
+    };
+    expect(() => installApp({
+      platform: "darwin",
+      root,
+      execFileSync,
+      existsSync: () => true,
+      rmSync: () => {},
+      readdirSync: () => []
+    })).toThrow("builder exploded");
+  });
+});

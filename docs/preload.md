@@ -13,6 +13,7 @@ automatically.
 | Member | Type |
 |---|---|
 | `platform()` | `string` — `process.platform` (not an invoke; the renderer uses it for the darwin titlebar inset) |
+| `isPackaged()` | `boolean` — true when main added the `--openshell-packaged` flag; the renderer hides install affordances in packaged builds |
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
 | `selectFolder()` | `Promise<SessionInfo \| null>` |
 | `openSession(dir)` | `Promise<SessionInfo>` |
@@ -50,6 +51,7 @@ automatically.
 | `sessionSelection()` | `Promise<SessionSelection \| null>` |
 | `providerUsage()` | `Promise<ProviderUsageResult[]>` |
 | `health()` | `Promise<boolean>` |
+| `installApp()` | `Promise<{ok: boolean, message: string}>` — macOS-only: builds the packaged app and installs it to `/Applications`; `ok` false with a message on failure |
 
 All are `ipcRenderer.invoke` wrappers over the `shell:*` channels
 documented in `docs/main.md`. `onMessage` subscribes to

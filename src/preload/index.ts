@@ -20,6 +20,7 @@ import type {
 
 const api = {
   platform: process.platform,
+  isPackaged: process.argv.includes("--openshell-packaged"),
   onMessage: (cb: (msg: BackendMessage) => void): (() => void) => {
     const listener = (_e: unknown, msg: BackendMessage): void => cb(msg);
     ipcRenderer.on("shell:message", listener);
@@ -86,7 +87,8 @@ const api = {
   sessionSelection: (): Promise<SessionSelection | null> =>
     ipcRenderer.invoke("shell:session-selection"),
   providerUsage: (): Promise<ProviderUsageResult[]> => ipcRenderer.invoke("shell:provider-usage"),
-  health: (): Promise<boolean> => ipcRenderer.invoke("shell:health")
+  health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),
+  installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app")
 };
 
 export type OpenShellApi = typeof api;

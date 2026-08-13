@@ -17,12 +17,39 @@ function formatWhen(ts: number): string {
 
 type WelcomeTab = "sessions" | "projects";
 
+type InstallToast = { id: number; text: string; tone: "info" | "error" };
+
+let installToastId = 0;
+
 export function Welcome(): ReactNode {
   const { selectFolder, openSession, reopenSession, connected } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<WelcomeTab>("sessions");
+  const [installing, setInstalling] = useState(false);
+  const [installToasts, setInstallToasts] = useState<InstallToast[]>([]);
+
+  const notifyInstall = (text: string, tone: "info" | "error" = "info"): void => {
+    const id = ++installToastId;
+    setInstallToasts((prev) => [...prev.slice(-2), { id, text, tone }]);
+    setTimeout(() => setInstallToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  };
+
+  const installApp = async (): Promise<void> => {
+    if (installing) return;
+    setInstalling(true);
+    try {
+      const result = await window.openshell.installApp();
+      notifyInstall(result.message, result.ok ? "info" : "error");
+    } catch (error) {
+      notifyInstall(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const canInstall = window.openshell.platform === "darwin" && !window.openshell.isPackaged;
 
   useEffect(() => {
     void window.openshell
@@ -45,98 +72,121 @@ export function Welcome(): ReactNode {
   const isSessions = tab === "sessions";
 
   return (
-    <div className="welcome">
-      <div className="welcome-inner">
-        <section className="welcome-hero">
-          <div className="welcome-mark" aria-hidden>
-            <ShellMark />
-          </div>
-          <h1 className="welcome-title">OpenShell</h1>
-          <p className="welcome-sub">
-            A workspace for the opencode2 agent — open a repository, tell it what to build,
-            and watch the files change in real time.
-          </p>
-          <button className="welcome-cta" onClick={() => void selectFolder()}>
-            <span className="codicon codicon-folder-opened" aria-hidden />
-            Open a folder
-          </button>
-          {!connected && (
-            <p className="welcome-warn">
-              opencode service not reachable — it will be started automatically.
+    <>
+      <div className="welcome">
+        <div className="welcome-inner">
+          <section className="welcome-hero">
+            <div className="welcome-mark" aria-hidden>
+              <ShellMark />
+            </div>
+            <h1 className="welcome-title">OpenShell</h1>
+            <p className="welcome-sub">
+              A workspace for the opencode2 agent — open a repository, tell it what to build,
+              and watch the files change in real time.
             </p>
-          )}
-        </section>
-
-        <section className="welcome-frame">
-          <div className="welcome-tabs" role="tablist" aria-label="Recent work">
-            <button
-              role="tab"
-              aria-selected={isSessions}
-              className={`welcome-tab ${isSessions ? "on" : ""}`}
-              onClick={() => setTab("sessions")}
-            >
-              Sessions
-              <span className="welcome-tab-count">{sessions.length}</span>
-            </button>
-            <button
-              role="tab"
-              aria-selected={!isSessions}
-              className={`welcome-tab ${isSessions ? "" : "on"}`}
-              onClick={() => setTab("projects")}
-            >
-              Projects
-              <span className="welcome-tab-count">{projects.length}</span>
-            </button>
-          </div>
-
-          <div className="welcome-list" role="tabpanel">
-            <div className={`welcome-pane ${isSessions ? "" : "hidden"}`} aria-hidden={!isSessions}>
-              {loading && <p className="welcome-empty">Loading…</p>}
-              {!loading && sessions.length === 0 && (
-                <p className="welcome-empty">No recent sessions yet — open a folder to start one.</p>
-              )}
-              {sessions.map((s) => (
+            <div className="welcome-actions">
+              <button className="welcome-cta" onClick={() => void selectFolder()}>
+                <span className="codicon codicon-folder-opened" aria-hidden />
+                Open a folder
+              </button>
+              {canInstall && (
                 <button
-                  key={s.id}
-                  className="welcome-row"
-                  onClick={() => void reopenSession(s.id)}
-                  title={s.directory}
+                  className="welcome-cta welcome-cta-secondary"
+                  onClick={() => void installApp()}
+                  disabled={installing}
                 >
-                  <span className="welcome-row-icon codicon codicon-history" aria-hidden />
-                  <span className="welcome-row-main">
-                    <span className="welcome-row-title">{s.title}</span>
-                    <span className="welcome-row-meta">
-                      {formatWhen(s.updatedAt)} · {s.directory}
+                  <span className="codicon codicon-cloud-download" aria-hidden />
+                  {installing ? "Installing…" : "Install app"}
+                </button>
+              )}
+            </div>
+            {!connected && (
+              <p className="welcome-warn">
+                opencode service not reachable — it will be started automatically.
+              </p>
+            )}
+          </section>
+
+          <section className="welcome-frame">
+            <div className="welcome-tabs" role="tablist" aria-label="Recent work">
+              <button
+                role="tab"
+                aria-selected={isSessions}
+                className={`welcome-tab ${isSessions ? "on" : ""}`}
+                onClick={() => setTab("sessions")}
+              >
+                Sessions
+                <span className="welcome-tab-count">{sessions.length}</span>
+              </button>
+              <button
+                role="tab"
+                aria-selected={!isSessions}
+                className={`welcome-tab ${isSessions ? "" : "on"}`}
+                onClick={() => setTab("projects")}
+              >
+                Projects
+                <span className="welcome-tab-count">{projects.length}</span>
+              </button>
+            </div>
+
+            <div className="welcome-list" role="tabpanel">
+              <div className={`welcome-pane ${isSessions ? "" : "hidden"}`} aria-hidden={!isSessions}>
+                {loading && <p className="welcome-empty">Loading…</p>}
+                {!loading && sessions.length === 0 && (
+                  <p className="welcome-empty">No recent sessions yet — open a folder to start one.</p>
+                )}
+                {sessions.map((s) => (
+                  <button
+                    key={s.id}
+                    className="welcome-row"
+                    onClick={() => void reopenSession(s.id)}
+                    title={s.directory}
+                  >
+                    <span className="welcome-row-icon codicon codicon-history" aria-hidden />
+                    <span className="welcome-row-main">
+                      <span className="welcome-row-title">{s.title}</span>
+                      <span className="welcome-row-meta">
+                        {formatWhen(s.updatedAt)} · {s.directory}
+                      </span>
                     </span>
-                  </span>
-                  <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
-                </button>
-              ))}
+                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                  </button>
+                ))}
+              </div>
+              <div className={`welcome-pane ${isSessions ? "hidden" : ""}`} aria-hidden={isSessions}>
+                {loading && <p className="welcome-empty">Loading…</p>}
+                {!loading && projects.length === 0 && (
+                  <p className="welcome-empty">No recent projects found.</p>
+                )}
+                {projects.map((p) => (
+                  <button
+                    key={p.directory}
+                    className="welcome-row"
+                    onClick={() => void openSession(p.directory)}
+                    title={p.directory}
+                  >
+                    <span className="welcome-row-icon codicon codicon-folder" aria-hidden />
+                    <span className="welcome-row-main">
+                      <span className="welcome-row-title">{p.name}</span>
+                      <span className="welcome-row-meta">{p.directory}</span>
+                    </span>
+                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className={`welcome-pane ${isSessions ? "hidden" : ""}`} aria-hidden={isSessions}>
-              {loading && <p className="welcome-empty">Loading…</p>}
-              {!loading && projects.length === 0 && (
-                <p className="welcome-empty">No recent projects found.</p>
-              )}
-              {projects.map((p) => (
-                <button
-                  key={p.directory}
-                  className="welcome-row"
-                  onClick={() => void openSession(p.directory)}
-                  title={p.directory}
-                >
-                  <span className="welcome-row-icon codicon codicon-folder" aria-hidden />
-                  <span className="welcome-row-main">
-                    <span className="welcome-row-title">{p.name}</span>
-                    <span className="welcome-row-meta">{p.directory}</span>
-                  </span>
-                  <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
-    </div>
+      {installToasts.length > 0 && (
+        <div className="toasts">
+          {installToasts.map((t) => (
+            <div key={t.id} className={`toast ${t.tone}`}>
+              {t.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

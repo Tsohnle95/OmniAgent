@@ -16,6 +16,7 @@ npm run dev        # electron-vite dev with HMR
 npm run typecheck  # tsc --noEmit for node + web configs
 npm test           # Vitest unit/component tests in jsdom
 npm run build      # electron-vite build -> out/
+npm run pack       # build + package installable OpenShell.app (macOS) -> release/
 npm run check      # canonical verification gate
 npm start          # run the production build
 ```
@@ -30,6 +31,7 @@ npm start          # run the production build
 | Backend | `src/main/opencode.ts` | All opencode2 API traffic, session state, fs watching, baselines |
 | Provider usage | `src/main/provider-usage.ts` | Reads opencode's stored OAuth credentials and fetches per-provider plan/rate-limit data (ChatGPT, Claude, Copilot) |
 | Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
+| Packaging | `scripts/install-app.mjs` | electron-builder pack (`electron-builder.yml`) and `/Applications` install behind the Welcome Install app button |
 | Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
 | Renderer store | `src/renderer/src/store.tsx` | All UI state; subscribes to backend events |
 | Dispatch skill | `.opencode/skills/dispatch/` | Portable pipeline: repo-agnostic SKILL.md + checker copy |

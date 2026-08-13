@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent, ty
 import path from "node:path";
 import fsp from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
@@ -289,7 +290,8 @@ function createWindow(show = true): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      additionalArguments: app.isPackaged ? ["--openshell-packaged"] : []
     }
   });
   win = newWin;
@@ -498,6 +500,38 @@ async function runTrustBoundarySmoke(): Promise<void> {
   if (!Object.values(result).every(Boolean)) throw new Error(`trust smoke failed: ${JSON.stringify(result)}`);
 }
 
+async function installApplication(): Promise<{ ok: boolean; message: string }> {
+  if (process.platform !== "darwin") return { ok: false, message: "Install app is macOS-only" };
+  if (app.isPackaged) return { ok: false, message: "OpenShell is already running as a packaged app" };
+  const script = path.join(app.getAppPath(), "scripts", "install-app.mjs");
+  const run = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+    const child = spawn(process.execPath, [script], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
+  for (const line of run.stdout.trim().split("\n").reverse()) {
+    try {
+      const parsed = JSON.parse(line) as { ok?: unknown; message?: unknown };
+      if (typeof parsed.ok === "boolean" && typeof parsed.message === "string") {
+        return { ok: parsed.ok, message: parsed.message };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return { ok: false, message: run.stderr.trim() || `Install app failed (exit code ${run.code ?? "unknown"})` };
+}
+
 function handleTrusted<Args extends unknown[], Result>(
   channel: string,
   listener: (event: IpcMainInvokeEvent, ...args: Args) => Result
@@ -685,6 +719,8 @@ function registerIpc(): void {
   handleTrusted("shell:provider-usage", async () => backend.providerUsage());
 
   handleTrusted("shell:health", async () => backend.connect().catch(() => false));
+
+  handleTrusted("shell:install-app", async () => installApplication());
 }
 
 if (!app.requestSingleInstanceLock()) {

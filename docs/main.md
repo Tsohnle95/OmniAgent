@@ -152,6 +152,7 @@ Internals:
 | `shell:session-selection` | `() → SessionSelection \| null` |
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |
 | `shell:health` | `() → boolean` |
+| `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/OpenShell.app` |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend
 message. Every `shell:*` invoke is accepted only from the active window's
@@ -178,7 +179,20 @@ use `scripts/launch.mjs` to run
 `dev.openshell.app` id) and ad-hoc re-signs it. The launcher then
 points electron-vite at that bundle via `ELECTRON_EXEC_PATH` so the dock
 shows the real name and icon instead of Electron's defaults. Linux and Windows
-skip bundle preparation and use plain Electron.
+skip bundle preparation and use plain Electron. Production packaging uses the
+same brand: `npm run pack` (or the Welcome screen's Install app button on
+macOS, only when the app is unpackaged) runs `scripts/install-app.mjs`, which
+builds `out/`, packages `release/mac/OpenShell.app` with electron-builder
+(`electron-builder.yml`; `asar: false` keeps the unpacked `app/` layout so
+the trusted packaged document stays exactly
+`file://…/OpenShell.app/Contents/Resources/app/out/renderer/index.html`),
+ad-hoc re-signs the bundle, and — for the install flow — replaces
+`/Applications/OpenShell.app` with `cp -R`, preserving the signature.
+`shell:install-app` runs the script as a child of the Electron binary under
+`ELECTRON_RUN_AS_NODE=1` and parses the JSON result line it prints. The
+renderer gates the button on `window.openshell.isPackaged`: main passes
+`--openshell-packaged` as an `additionalArguments` flag when
+`app.isPackaged`, and the preload exposes it from `process.argv`.
 
 PTY messages come from a second emitter, `TerminalManager`
 (`src/main/terminal.ts`): it forwards `{kind:"terminal-data",
