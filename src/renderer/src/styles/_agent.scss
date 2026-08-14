@@ -5,6 +5,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 
 .agent-header {
@@ -12,6 +13,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
 }
@@ -57,7 +60,13 @@
   50% { opacity: 0.35; }
 }
 
-.agent-title { font-weight: 600; }
+.agent-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
 
 .agent-title .agent-workspace {
   margin-left: 8px;
@@ -70,6 +79,7 @@
 
 .agent-header-actions {
   margin-left: auto;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 6px;
