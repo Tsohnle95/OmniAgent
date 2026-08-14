@@ -39,6 +39,27 @@ Exposed via `useStore()` (context). State:
 | `pendingCreate` | `{parent, kind} \| null` | inline "new file/folder" name input target |
 | `pendingRename` | `{path} \| null` | inline rename input target |
 
+## Authoritative chat store (`chat-store.ts`)
+
+Model-response events (`session.step.*`, `session.text.*`,
+`session.reasoning.*`, `session.tool.*`, `session.retry.scheduled`,
+`message.*`, plus execution/status lifecycle events) mutate a per-session
+authoritative store — server messages and parts kept in binary-search ordered
+maps (`binary.ts`) plus a session status map — instead of appending to the
+transcript directly. The transcript the UI reads is a projection
+(`projectAssistantItems`) applied after each event batch; auxiliary items
+(permissions, shells, selections, compaction) still reduce into the flat
+transcript via `reduceChatStream` in `chat-stream.ts`. Full part snapshots
+carry dedupe bookkeeping so a trailing delta already included in a snapshot
+is not applied twice, finished tool cards cannot regress, and history
+hydration (`hydrateChatState`) never shrinks longer live text.
+
+When a delta arrives for an unknown message or part (an incomplete session
+snapshot), the store materializes the session over `shell:session-transcript`
+and merges the authoritative history. `server.connected` /
+`global.disposed` re-materialize every open panel, which covers gaps after
+stream reconnects.
+
 Actions: `openSession` / `selectFolder` (spawn a new panel), `reopenSession(id, silent)`
 (focus the panel when the session is open, otherwise activate a new one), `focusSession(id)`,
 `closePanel(id)`, `loadSessions`, `sendPrompt(text, files, workspace?)`, `stop(workspace?)`,

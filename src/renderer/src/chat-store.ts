@@ -1,0 +1,865 @@
+import type { AssistantPartView, TranscriptItem } from "@shared/types";
+import { partFromProjection, type ChatStreamEvent } from "./chat-stream";
+import { Binary } from "./binary";
+
+export const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"]);
+const DELTA_OVERLAP_FIELDS = ["text", "output", "input"] as const;
+const FINAL_TOOL_STATUSES = new Set(["completed", "error", "aborted", "failed", "timeout", "cancelled"]);
+
+export interface ChatMessageRecord {
+  id: string;
+  sessionID: string;
+  role: string;
+  time: { created?: number; completed?: number };
+  finish?: unknown;
+  error?: unknown;
+  retry?: { attempt: number; message: string; next?: number };
+  [key: string]: unknown;
+}
+
+export interface ChatPartRecord {
+  id: string;
+  messageID: string;
+  sessionID?: string;
+  type: string;
+  text?: string;
+  state?: Record<string, unknown>;
+  time?: { created?: number; completed?: number };
+  [key: string]: unknown;
+}
+
+export type ChatSessionStatus =
+  | { type: "busy" }
+  | { type: "idle" }
+  | { type: "retry"; attempt: number; message: string; next: number };
+
+export interface ChatDirectoryState {
+  message: Record<string, ChatMessageRecord[]>;
+  part: Record<string, ChatPartRecord[]>;
+  session_status: Record<string, ChatSessionStatus>;
+}
+
+export type ChatMaterializationReason = "missing-owning-message" | "orphan-delta" | "missing-delta-part";
+
+export type ChatEventResult =
+  | boolean
+  | {
+      changed: boolean;
+      materialization: {
+        type: "incomplete-session-snapshot";
+        reason: ChatMaterializationReason;
+        sessionID?: string;
+        messageID: string;
+        partID?: string;
+      };
+    };
+
+function eventMessageID(data: Record<string, any>): string {
+  return String(data.assistantMessageID ?? data.messageID ?? "");
+}
+
+function eventToolID(data: Record<string, any>): string {
+  return String(data.callID ?? data.id ?? "");
+}
+
+function textPartID(messageID: string, type: "text" | "reasoning", ordinal: unknown): string {
+  return `${messageID}:${type}:${Number(ordinal ?? 0)}`;
+}
+
+function toolPartID(messageID: string, callID: string): string {
+  return `${messageID}:tool:${callID}`;
+}
+
+function errorText(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    if (typeof value.message === "string") return value.message;
+  }
+  return error == null ? "" : String(error);
+}
+
+function appendNonOverlappingDelta(existingValue: string | undefined, delta: string): string {
+  if (!existingValue || delta.length === 0) return (existingValue ?? "") + delta;
+  if (existingValue.endsWith(delta)) return existingValue;
+
+  const maxOverlap = Math.min(existingValue.length, delta.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (existingValue.endsWith(delta.slice(0, overlap))) {
+      return existingValue + delta.slice(overlap);
+    }
+  }
+
+  return existingValue + delta;
+}
+
+function partFieldValue(part: ChatPartRecord, field: string): string | undefined {
+  if (field === "text") return typeof part.text === "string" ? part.text : undefined;
+  const value = part.state?.[field];
+  return typeof value === "string" ? value : undefined;
+}
+
+function setPartFieldValue(part: ChatPartRecord, field: string, value: string): ChatPartRecord {
+  if (field === "text") return { ...part, text: value };
+  return { ...part, state: { ...part.state, [field]: value } };
+}
+
+function getUpdatedDeltaFields(previous: ChatPartRecord, next: ChatPartRecord): string[] {
+  const dedupeFields: string[] = [];
+  for (const field of DELTA_OVERLAP_FIELDS) {
+    const previousValue = partFieldValue(previous, field);
+    const nextValue = partFieldValue(next, field);
+    if (!previousValue || !nextValue) continue;
+    if (nextValue === previousValue || nextValue.startsWith(previousValue) || previousValue.startsWith(nextValue)) {
+      dedupeFields.push(field);
+    }
+  }
+  return dedupeFields;
+}
+
+function getPartEndTime(part: ChatPartRecord): number | undefined {
+  const stateEnd = part.state?.time as { end?: unknown } | undefined;
+  if (typeof stateEnd?.end === "number") return stateEnd.end;
+  const timeCompleted = part.time?.completed;
+  return typeof timeCompleted === "number" ? timeCompleted : undefined;
+}
+
+function getToolStatus(part: ChatPartRecord): string | undefined {
+  if (part.type !== "tool") return undefined;
+  const status = part.state?.status;
+  return typeof status === "string" ? status : undefined;
+}
+
+function shouldPreserveExistingPart(previous: ChatPartRecord, next: ChatPartRecord): boolean {
+  if (previous.type !== "tool" || next.type !== "tool") return false;
+
+  const previousStatus = getToolStatus(previous);
+  const nextStatus = getToolStatus(next);
+  if (previousStatus && FINAL_TOOL_STATUSES.has(previousStatus) && (!nextStatus || !FINAL_TOOL_STATUSES.has(nextStatus))) {
+    return true;
+  }
+  if (previousStatus && FINAL_TOOL_STATUSES.has(previousStatus) && nextStatus && FINAL_TOOL_STATUSES.has(nextStatus) && previousStatus !== nextStatus) {
+    return true;
+  }
+
+  const previousEnd = getPartEndTime(previous);
+  const nextEnd = getPartEndTime(next);
+  if (typeof previousEnd === "number" && typeof nextEnd !== "number") return true;
+
+  return false;
+}
+
+function areSessionStatusesEqual(left: ChatSessionStatus | undefined, right: ChatSessionStatus): boolean {
+  if (left === right) return true;
+  if (!left || left.type !== right.type) return false;
+  if (left.type === "retry" && right.type === "retry") {
+    return left.attempt === right.attempt && left.message === right.message && left.next === right.next;
+  }
+  return true;
+}
+
+function areJsonEquivalent(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (left === undefined || right === undefined) return left === right;
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
+function areMessageUpdateFieldsEqual(existing: ChatMessageRecord, next: ChatMessageRecord): boolean {
+  if (existing.role !== next.role) return false;
+  if (existing.finish !== next.finish) return false;
+  if (existing.time?.completed !== next.time?.completed) return false;
+
+  const fields = ["summary", "error", "cost", "tokens", "structured", "model", "tools", "format", "variant", "agent", "system"];
+  for (const field of fields) {
+    if (!areJsonEquivalent(existing[field], next[field])) return false;
+  }
+
+  return true;
+}
+
+function hasMessage(draft: ChatDirectoryState, sessionID: string, messageID: string): boolean {
+  const messages = draft.message[sessionID];
+  if (!messages) return false;
+  return Binary.search(messages, messageID, (message) => message.id).found;
+}
+
+function retryRecord(value: unknown): ChatMessageRecord["retry"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const attempt = Number(raw.attempt ?? 1);
+  const message = errorText((raw as { error?: unknown }).error) || "Retrying";
+  const next = Number(raw.at ?? 0) || undefined;
+  return { attempt, message, ...(next !== undefined ? { next } : {}) };
+}
+
+function insertMessage(draft: ChatDirectoryState, sessionID: string, message: ChatMessageRecord): void {
+  const messages = draft.message[sessionID] ?? [];
+  draft.message[sessionID] = messages;
+  const result = Binary.search(messages, message.id, (item) => item.id);
+  if (result.found) {
+    messages[result.index] = message;
+  } else {
+    messages.splice(result.index, 0, message);
+  }
+}
+
+function insertPart(draft: ChatDirectoryState, part: ChatPartRecord): void {
+  const parts = draft.part[part.messageID] ?? [];
+  draft.part[part.messageID] = parts;
+  const result = Binary.search(parts, part.id, (item) => item.id);
+  if (result.found) parts[result.index] = part;
+  else parts.splice(result.index, 0, part);
+}
+
+function upsertPart(draft: ChatDirectoryState, next: ChatPartRecord): boolean {
+  const parts = draft.part[next.messageID];
+  if (!parts) {
+    draft.part[next.messageID] = [next];
+    return true;
+  }
+  const result = Binary.search(parts, next.id, (part) => part.id);
+  if (result.found) {
+    const previous = parts[result.index];
+    if (shouldPreserveExistingPart(previous, next)) return false;
+    const dedupeFields = getUpdatedDeltaFields(previous, next);
+    parts[result.index] = dedupeFields.length > 0
+      ? { ...next, __dedupeNextDeltaFields: dedupeFields }
+      : next;
+    return true;
+  }
+  parts.splice(result.index, 0, next);
+  return true;
+}
+
+function applyDelta(
+  draft: ChatDirectoryState,
+  props: { sessionID?: string; messageID: string; partID: string; field: string; delta: string }
+): ChatEventResult {
+  const parts = draft.part[props.messageID];
+  if (!parts) {
+    return {
+      changed: false,
+      materialization: {
+        type: "incomplete-session-snapshot",
+        reason: "orphan-delta",
+        sessionID: props.sessionID,
+        messageID: props.messageID,
+        partID: props.partID
+      }
+    };
+  }
+  const result = Binary.search(parts, props.partID, (part) => part.id);
+  if (!result.found) {
+    return {
+      changed: false,
+      materialization: {
+        type: "incomplete-session-snapshot",
+        reason: "missing-delta-part",
+        sessionID: props.sessionID,
+        messageID: props.messageID,
+        partID: props.partID
+      }
+    };
+  }
+  const existing = parts[result.index];
+  const dedupeFields = (existing as unknown as { __dedupeNextDeltaFields?: string[] }).__dedupeNextDeltaFields ?? [];
+  const shouldDedupe = dedupeFields.includes(props.field);
+  const existingValue = partFieldValue(existing, props.field);
+  const next = setPartFieldValue(
+    existing,
+    props.field,
+    shouldDedupe ? appendNonOverlappingDelta(existingValue, props.delta) : (existingValue ?? "") + props.delta
+  ) as unknown as { __dedupeNextDeltaFields?: string[] } & ChatPartRecord;
+  next.__dedupeNextDeltaFields = dedupeFields.filter((field) => field !== props.field);
+  parts[result.index] = next as ChatPartRecord;
+  return true;
+}
+
+function basePart(messageID: string, sessionID: string, partID: string, type: string, created: number): ChatPartRecord {
+  return {
+    id: partID,
+    messageID,
+    sessionID,
+    type,
+    time: { created }
+  };
+}
+
+function textSnapshot(messageID: string, sessionID: string, partID: string, type: "text" | "reasoning", text: string, created: number): ChatPartRecord {
+  return {
+    ...basePart(messageID, sessionID, partID, type, created),
+    text,
+    time: { created, completed: created }
+  };
+}
+
+function completeLatestIncomplete(draft: ChatDirectoryState, sessionID: string): void {
+  const messages = draft.message[sessionID];
+  if (!messages) return;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") continue;
+    if (!message.time?.completed && !message.finish) {
+      messages[index] = { ...message, time: { ...message.time, completed: Date.now() } };
+      return;
+    }
+  }
+}
+
+export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: string, event: ChatStreamEvent): ChatEventResult {
+  const data = event.data;
+  const sessionID = typeof data.sessionID === "string" ? data.sessionID : routedSessionID;
+
+  switch (event.type) {
+    case "session.status": {
+      const raw = data.status as { type?: unknown; attempt?: unknown; message?: unknown; next?: unknown } | undefined;
+      const status: ChatSessionStatus | null = raw?.type === "busy"
+        ? { type: "busy" }
+        : raw?.type === "idle"
+          ? { type: "idle" }
+          : raw?.type === "retry"
+            ? { type: "retry", attempt: Number(raw.attempt ?? 1), message: String(raw.message ?? "Retrying"), next: Number(raw.next ?? 0) }
+            : null;
+      if (!status) return false;
+      if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
+      draft.session_status[sessionID] = status;
+      return true;
+    }
+    case "session.idle": {
+      const status: ChatSessionStatus = { type: "idle" };
+      if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
+      draft.session_status[sessionID] = status;
+      return true;
+    }
+    case "session.error": {
+      const status: ChatSessionStatus = { type: "idle" };
+      if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
+      draft.session_status[sessionID] = status;
+      return true;
+    }
+    case "message.updated": {
+      const info = (data.info ?? data) as Record<string, any>;
+      const messageID = String(info.id ?? "");
+      const infoSessionID = typeof info.sessionID === "string" ? info.sessionID : sessionID;
+      if (!messageID || !infoSessionID) return false;
+      const next: ChatMessageRecord = {
+        id: messageID,
+        sessionID: infoSessionID,
+        role: String(info.role ?? info.type ?? "assistant"),
+        time: { created: Number(info.time?.created ?? event.created), completed: Number(info.time?.completed ?? 0) || undefined },
+        finish: info.finish,
+        ...(info.error ? { error: info.error } : {}),
+        ...(retryRecord(info.retry) ? { retry: retryRecord(info.retry) } : {})
+      };
+      const messages = draft.message[infoSessionID] ?? [];
+      draft.message[infoSessionID] = messages;
+      const result = Binary.search(messages, messageID, (message) => message.id);
+      if (result.found) {
+        const existing = messages[result.index];
+        if (areMessageUpdateFieldsEqual(existing, next)) return false;
+        messages[result.index] = next;
+      } else {
+        messages.splice(result.index, 0, next);
+      }
+      return true;
+    }
+    case "message.removed": {
+      const messageID = String(data.messageID ?? "");
+      if (!messageID) return false;
+      const messages = draft.message[sessionID];
+      if (messages) {
+        const result = Binary.search(messages, messageID, (message) => message.id);
+        if (result.found) {
+          messages.splice(result.index, 1);
+          if (messages.length === 0) delete draft.message[sessionID];
+        }
+      }
+      delete draft.part[messageID];
+      return true;
+    }
+    case "message.part.updated": {
+      const part = (data.part ?? data) as Record<string, any>;
+      if (SKIP_PARTS.has(String(part.type))) return false;
+      const messageID = String(part.messageID ?? data.messageID ?? "");
+      const partSessionID = typeof part.sessionID === "string" ? part.sessionID : sessionID;
+      if (!messageID) return false;
+      const missingOwningMessage = !hasMessage(draft, partSessionID, messageID);
+      const next: ChatPartRecord = {
+        id: String(part.id ?? ""),
+        messageID,
+        sessionID: partSessionID,
+        type: String(part.type ?? ""),
+        ...(typeof part.text === "string" ? { text: part.text } : {}),
+        ...(part.state && typeof part.state === "object" ? { state: part.state as Record<string, unknown> } : {}),
+        ...(part.time && typeof part.time === "object" ? { time: part.time as { created?: number; completed?: number } } : {})
+      };
+      if (!next.id) return false;
+      upsertPart(draft, next);
+      return missingOwningMessage
+        ? {
+            changed: true,
+            materialization: {
+              type: "incomplete-session-snapshot",
+              reason: "missing-owning-message",
+              sessionID: partSessionID,
+              messageID,
+              partID: next.id
+            }
+          }
+        : true;
+    }
+    case "message.part.removed": {
+      const messageID = String(data.messageID ?? "");
+      const partID = String(data.partID ?? "");
+      if (!messageID || !partID) return false;
+      const parts = draft.part[messageID];
+      if (!parts) return false;
+      const result = Binary.search(parts, partID, (part) => part.id);
+      if (!result.found) return false;
+      parts.splice(result.index, 1);
+      if (parts.length === 0) delete draft.part[messageID];
+      return true;
+    }
+    case "message.part.delta":
+      return applyDelta(draft, {
+        sessionID,
+        messageID: String(data.messageID ?? ""),
+        partID: String(data.partID ?? ""),
+        field: String(data.field ?? "text"),
+        delta: String(data.delta ?? "")
+      });
+    case "session.step.started": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      const messages = draft.message[sessionID] ?? [];
+      draft.message[sessionID] = messages;
+      for (let index = 0; index < messages.length; index += 1) {
+        const message = messages[index];
+        if (message.role !== "assistant" || message.id === messageID) continue;
+        if (!message.time?.completed && !message.finish) {
+          messages[index] = { ...message, retry: undefined, time: { ...message.time, completed: event.created } };
+        }
+      }
+      insertMessage(draft, sessionID, {
+        id: messageID,
+        sessionID,
+        role: "assistant",
+        time: { created: event.created }
+      });
+      return true;
+    }
+    case "session.step.ended": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      insertMessage(draft, sessionID, {
+        id: messageID,
+        sessionID,
+        role: "assistant",
+        time: { created: event.created, completed: event.created }
+      });
+      return true;
+    }
+    case "session.step.failed": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      insertMessage(draft, sessionID, {
+        id: messageID,
+        sessionID,
+        role: "assistant",
+        time: { created: event.created, completed: event.created },
+        error: { message: errorText(data.error) || "Step failed" }
+      });
+      return true;
+    }
+    case "session.text.started": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      const partID = textPartID(messageID, "text", data.ordinal);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      if (Binary.search(parts, partID, (part) => part.id).found) return false;
+      parts.splice(Binary.search(parts, partID, (part) => part.id).index, 0, basePart(messageID, sessionID, partID, "text", event.created));
+      return true;
+    }
+    case "session.text.delta":
+      return applyDelta(draft, {
+        sessionID,
+        messageID: eventMessageID(data),
+        partID: textPartID(eventMessageID(data), "text", data.ordinal),
+        field: "text",
+        delta: String(data.delta ?? "")
+      });
+    case "session.text.ended": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      const partID = textPartID(messageID, "text", data.ordinal);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      const existing = Binary.search(parts, partID, (part) => part.id);
+      if (!existing.found) {
+        parts.splice(existing.index, 0, textSnapshot(messageID, sessionID, partID, "text", String(data.text ?? ""), event.created));
+        return true;
+      }
+      const previous = parts[existing.index];
+      const previousText = typeof previous.text === "string" ? previous.text : "";
+      const nextText = String(data.text ?? "");
+      return upsertPart(draft, {
+        ...textSnapshot(messageID, sessionID, partID, "text", nextText.length >= previousText.length ? nextText : previousText, event.created),
+        time: { created: previous.time?.created ?? event.created, completed: event.created }
+      });
+    }
+    case "session.reasoning.started": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      const partID = textPartID(messageID, "reasoning", data.ordinal);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      if (Binary.search(parts, partID, (part) => part.id).found) return false;
+      parts.splice(Binary.search(parts, partID, (part) => part.id).index, 0, basePart(messageID, sessionID, partID, "reasoning", event.created));
+      return true;
+    }
+    case "session.reasoning.delta":
+      return applyDelta(draft, {
+        sessionID,
+        messageID: eventMessageID(data),
+        partID: textPartID(eventMessageID(data), "reasoning", data.ordinal),
+        field: "text",
+        delta: String(data.delta ?? "")
+      });
+    case "session.reasoning.ended": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      const partID = textPartID(messageID, "reasoning", data.ordinal);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      const existing = Binary.search(parts, partID, (part) => part.id);
+      if (!existing.found) {
+        parts.splice(existing.index, 0, textSnapshot(messageID, sessionID, partID, "reasoning", String(data.text ?? ""), event.created));
+        return true;
+      }
+      const previous = parts[existing.index];
+      const previousText = typeof previous.text === "string" ? previous.text : "";
+      const nextText = String(data.text ?? "");
+      return upsertPart(draft, {
+        ...textSnapshot(messageID, sessionID, partID, "reasoning", nextText.length >= previousText.length ? nextText : previousText, event.created),
+        time: { created: previous.time?.created ?? event.created, completed: event.created }
+      });
+    }
+    case "session.tool.input.started": {
+      const messageID = eventMessageID(data);
+      const callID = eventToolID(data);
+      if (!messageID || !callID) return false;
+      const partID = toolPartID(messageID, callID);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      if (Binary.search(parts, partID, (part) => part.id).found) return false;
+      const part: ChatPartRecord = {
+        ...basePart(messageID, sessionID, partID, "tool", event.created),
+        ...(typeof data.name === "string" && data.name ? { name: data.name } : {}),
+        callID,
+        state: { status: "running", input: "" }
+      };
+      parts.splice(Binary.search(parts, partID, (part) => part.id).index, 0, part);
+      return true;
+    }
+    case "session.tool.input.delta": {
+      const messageID = eventMessageID(data);
+      const callID = eventToolID(data);
+      if (!messageID || !callID) return false;
+      return applyDelta(draft, {
+        sessionID,
+        messageID,
+        partID: toolPartID(messageID, callID),
+        field: "input",
+        delta: String(data.delta ?? "")
+      });
+    }
+    case "session.tool.input.ended": {
+      const messageID = eventMessageID(data);
+      const callID = eventToolID(data);
+      if (!messageID || !callID) return false;
+      const partID = toolPartID(messageID, callID);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      const existing = Binary.search(parts, partID, (part) => part.id);
+      if (!existing.found) {
+        const part: ChatPartRecord = {
+          ...basePart(messageID, sessionID, partID, "tool", event.created),
+          callID,
+          state: { status: "running", input: String(data.text ?? "") }
+        };
+        parts.splice(existing.index, 0, part);
+        return true;
+      }
+      const previous = parts[existing.index];
+      const previousInput = typeof previous.state?.input === "string" ? previous.state.input : "";
+      const nextInput = String(data.text ?? "");
+      return upsertPart(draft, {
+        ...previous,
+        state: {
+          ...previous.state,
+          input: nextInput.length >= previousInput.length ? nextInput : previousInput
+        }
+      });
+    }
+    case "session.tool.called": {
+      const messageID = eventMessageID(data);
+      const callID = eventToolID(data);
+      if (!messageID || !callID) return false;
+      const partID = toolPartID(messageID, callID);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      const existing = Binary.search(parts, partID, (part) => part.id);
+      const part: ChatPartRecord = {
+        ...basePart(messageID, sessionID, partID, "tool", event.created),
+        ...(typeof data.name === "string" && data.name ? { name: data.name } : {}),
+        callID,
+        state: {
+          ...(existing.found ? existing && parts[existing.index].state : {}),
+          status: "running",
+          input: data.input,
+          ...(data.metadata ? { metadata: data.metadata } : {})
+        },
+        time: { created: existing.found ? parts[existing.index].time?.created ?? event.created : event.created },
+        ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
+        ...(data.state && typeof data.state === "object" ? { providerState: data.state } : {})
+      };
+      if (!existing.found) {
+        parts.splice(existing.index, 0, part);
+        return true;
+      }
+      return upsertPart(draft, part);
+    }
+    case "session.tool.progress": {
+      const messageID = eventMessageID(data);
+      const callID = eventToolID(data);
+      if (!messageID || !callID) return false;
+      const partID = toolPartID(messageID, callID);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      const existing = Binary.search(parts, partID, (part) => part.id);
+      if (!existing.found) {
+        const part: ChatPartRecord = {
+          ...basePart(messageID, sessionID, partID, "tool", event.created),
+          callID,
+          state: { status: "running", progress: data.progress ?? data.metadata, ...(data.metadata ? { metadata: data.metadata } : {}) }
+        };
+        parts.splice(existing.index, 0, part);
+        return true;
+      }
+      const previous = parts[existing.index];
+      parts[existing.index] = {
+        ...previous,
+        state: {
+          ...previous.state,
+          progress: data.progress ?? data.metadata,
+          ...(data.metadata ? { metadata: data.metadata } : {})
+        }
+      };
+      return true;
+    }
+    case "session.tool.success":
+    case "session.tool.failed": {
+      const messageID = eventMessageID(data);
+      const callID = eventToolID(data);
+      if (!messageID || !callID) return false;
+      const partID = toolPartID(messageID, callID);
+      const parts = draft.part[messageID] ?? [];
+      draft.part[messageID] = parts;
+      const existing = Binary.search(parts, partID, (part) => part.id);
+      const failed = event.type === "session.tool.failed";
+      const next: ChatPartRecord = {
+        ...basePart(messageID, sessionID, partID, "tool", event.created),
+        ...(existing.found && typeof parts[existing.index].name === "string" ? { name: parts[existing.index].name } : {}),
+        callID,
+        state: {
+          ...(existing.found ? existing && parts[existing.index].state : {}),
+          status: failed ? "error" : "completed",
+          time: { start: existing.found ? parts[existing.index].time?.created ?? event.created : event.created, end: event.created },
+          ...(data.metadata ? { metadata: data.metadata } : {}),
+          progress: undefined,
+          ...(data.content !== undefined ? { content: data.content } : {}),
+          ...(data.output !== undefined ? { output: data.output } : {}),
+          ...(failed ? { error: data.error } : {})
+        },
+        time: { created: existing.found ? parts[existing.index].time?.created ?? event.created : event.created, completed: event.created },
+        ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
+        ...(data.resultState && typeof data.resultState === "object" ? { providerResultState: data.resultState } : {})
+      };
+      if (!existing.found) {
+        parts.splice(existing.index, 0, next);
+        return true;
+      }
+      return upsertPart(draft, next);
+    }
+    case "session.retry.scheduled": {
+      const messageID = eventMessageID(data);
+      if (!messageID) return false;
+      const retry = {
+        attempt: Number(data.attempt ?? 1),
+        message: errorText(data.error) || "Retrying",
+        next: Number(data.at ?? data.next ?? 0) || undefined
+      };
+      const messages = draft.message[sessionID] ?? [];
+      draft.message[sessionID] = messages;
+      const result = Binary.search(messages, messageID, (message) => message.id);
+      if (result.found) {
+        messages[result.index] = { ...messages[result.index], retry: retry.next !== undefined ? retry as { attempt: number; message: string; next: number } : retry };
+      } else {
+        messages.splice(result.index, 0, { id: messageID, sessionID, role: "assistant", time: { created: event.created }, retry });
+      }
+      return true;
+    }
+    case "session.execution.succeeded":
+    case "session.execution.failed":
+    case "session.execution.interrupted": {
+      completeLatestIncomplete(draft, sessionID);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+export function attachRetryToLatestAssistant(
+  draft: ChatDirectoryState,
+  sessionID: string,
+  retry: { attempt: number; message: string; next?: number }
+): boolean {
+  const messages = draft.message[sessionID];
+  if (!messages) return false;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") continue;
+    messages[index] = { ...message, retry };
+    return true;
+  }
+  return false;
+}
+
+export function projectAssistantItems(draft: ChatDirectoryState, sessionID: string): TranscriptItem[] {
+  const messages = draft.message[sessionID] ?? [];
+  const out: TranscriptItem[] = [];
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    const parts = (draft.part[message.id] ?? []).flatMap((part): AssistantPartView[] => {
+      const view = partFromProjection(part as Record<string, any>, Number(message.time?.created ?? 0));
+      return view ? [view] : [];
+    });
+    const retry = message.retry;
+    out.push({
+      kind: "assistant",
+      id: message.id,
+      messageID: message.id,
+      parts,
+      completed: Boolean(message.time?.completed ?? message.finish),
+      ...(retry && typeof retry === "object"
+        ? {
+            retry: {
+              attempt: Number((retry as Record<string, unknown>).attempt ?? 1),
+              message: String((retry as Record<string, unknown>).message ?? "Retrying"),
+              next: Number((retry as Record<string, unknown>).next ?? 0) || undefined
+            }
+          }
+        : {}),
+      ...(message.error ? { error: errorText(message.error) } : {})
+    });
+  }
+  return out;
+}
+
+function recordFromView(messageID: string, sessionID: string, view: Extract<TranscriptItem, { kind: "assistant" }>["parts"][number]): ChatPartRecord {
+  if (view.kind === "text" || view.kind === "reasoning") {
+    return {
+      id: view.id,
+      messageID,
+      sessionID,
+      type: view.kind,
+      text: view.text,
+      time: view.complete ? { completed: 1 } : {}
+    };
+  }
+  const tool = view.tool;
+  return {
+    id: view.id,
+    messageID,
+    sessionID,
+    type: "tool",
+    ...(tool.title !== "tool" ? { name: tool.title } : {}),
+    callID: tool.id,
+    state: {
+      status: tool.status === "running" ? "running" : tool.status === "success" ? "completed" : "error",
+      input: tool.inputValue ?? tool.input ?? "",
+      ...(tool.output !== undefined ? { output: tool.output } : {}),
+      ...(tool.metadata ? { metadata: tool.metadata } : {}),
+      ...(tool.progress !== undefined ? { progress: tool.progress } : {})
+    },
+    time: { created: tool.startedAt, ...(tool.duration !== undefined && tool.startedAt ? { completed: tool.startedAt + tool.duration } : {}) },
+    ...(tool.executed !== undefined ? { executed: tool.executed } : {}),
+    ...(tool.providerState ? { providerState: tool.providerState } : {}),
+    ...(tool.providerResultState ? { providerResultState: tool.providerResultState } : {})
+  };
+}
+
+export function hydrateChatState(draft: ChatDirectoryState, sessionID: string, transcript: TranscriptItem[]): void {
+  for (const item of transcript) {
+    if (item.kind !== "assistant") continue;
+    const messages = draft.message[sessionID] ?? [];
+    draft.message[sessionID] = messages;
+    const messageResult = Binary.search(messages, item.id, (message) => message.id);
+    const hydratedMessage: ChatMessageRecord = {
+      id: item.id,
+      sessionID,
+      role: "assistant",
+      time: { ...(item.completed ? { completed: 1 } : {}) },
+      ...(item.error ? { error: { message: item.error } } : {}),
+      ...(item.retry ? { retry: item.retry } : {})
+    };
+    if (messageResult.found) {
+      const previous = messages[messageResult.index];
+      messages[messageResult.index] = {
+        ...previous,
+        ...hydratedMessage,
+        time: hydratedMessage.time.completed
+          ? { ...previous.time, completed: previous.time?.completed ?? hydratedMessage.time.completed }
+          : previous.time,
+        error: previous.error ?? hydratedMessage.error,
+        retry: previous.retry ?? hydratedMessage.retry
+      };
+    } else {
+      messages.splice(messageResult.index, 0, hydratedMessage);
+    }
+    for (const view of item.parts) {
+      const record = recordFromView(item.id, sessionID, view);
+      const parts = draft.part[item.id] ?? [];
+      draft.part[item.id] = parts;
+      const partResult = Binary.search(parts, record.id, (part) => part.id);
+      if (!partResult.found) {
+        parts.splice(partResult.index, 0, record);
+        continue;
+      }
+      const previous = parts[partResult.index];
+      if (previous.type === "tool" && record.type === "tool") {
+        const previousStatus = getToolStatus(previous);
+        const previousFinished = Boolean(previousStatus && FINAL_TOOL_STATUSES.has(previousStatus));
+        parts[partResult.index] = previousFinished
+          ? previous
+          : { ...previous, ...record, state: { ...previous.state, ...record.state }, time: { ...previous.time, ...record.time } };
+      } else if ((previous.type === "text" || previous.type === "reasoning") && record.type === previous.type) {
+        parts[partResult.index] = {
+          ...record,
+          text: typeof previous.text === "string" && previous.text.length > String(record.text ?? "").length
+            ? previous.text
+            : record.text,
+          time: { ...record.time, ...(previous.time?.completed ? { completed: previous.time.completed } : {}) }
+        };
+      } else {
+        parts[partResult.index] = record;
+      }
+    }
+  }
+}

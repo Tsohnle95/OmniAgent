@@ -1,5 +1,6 @@
 import type { TranscriptItem } from "@shared/types";
-import { reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { applyChatEvent, projectAssistantItems, type ChatDirectoryState } from "./chat-store";
+import type { ChatStreamEvent } from "./chat-stream";
 
 export const LARGE_SESSION_TURNS = 400;
 export const LARGE_SESSION_OUTPUT_CHARS = 32 * 1024;
@@ -15,18 +16,22 @@ export function largeSessionEvents(turns = LARGE_SESSION_TURNS): ChatStreamEvent
     const messageID = `assistant-${index}`;
     const callID = `tool-${index}`;
     return [
-      event(`step-${index}`, "session.step.started", { assistantMessageID: messageID }),
-      event(`text-${index}`, "session.text.ended", { assistantMessageID: messageID, ordinal: 0, text: TEXT }),
-      event(`tool-start-${index}`, "session.tool.input.started", { assistantMessageID: messageID, callID, name: "bash" }),
-      event(`tool-call-${index}`, "session.tool.called", { assistantMessageID: messageID, callID, input: { command: `printf ${index}` } }),
-      event(`tool-end-${index}`, "session.tool.success", { assistantMessageID: messageID, callID, content: [{ type: "text", text: OUTPUT }] }),
-      event(`step-end-${index}`, "session.step.ended", { assistantMessageID: messageID })
+      event(`step-${index}`, "session.step.started", { sessionID: "session", assistantMessageID: messageID }),
+      event(`text-${index}`, "session.text.ended", { sessionID: "session", assistantMessageID: messageID, ordinal: 0, text: TEXT }),
+      event(`tool-start-${index}`, "session.tool.input.started", { sessionID: "session", assistantMessageID: messageID, callID, name: "bash" }),
+      event(`tool-call-${index}`, "session.tool.called", { sessionID: "session", assistantMessageID: messageID, callID, input: { command: `printf ${index}` } }),
+      event(`tool-end-${index}`, "session.tool.success", { sessionID: "session", assistantMessageID: messageID, callID, content: [{ type: "text", text: OUTPUT }] }),
+      event(`step-end-${index}`, "session.step.ended", { sessionID: "session", assistantMessageID: messageID })
     ];
   }).flat();
 }
 
 export function reduceLargeSession(turns = LARGE_SESSION_TURNS): TranscriptItem[] {
-  return largeSessionEvents(turns).reduce(reduceChatStream, [] as TranscriptItem[]);
+  const state: ChatDirectoryState = { message: {}, part: {}, session_status: {} };
+  for (const streamEvent of largeSessionEvents(turns)) {
+    applyChatEvent(state, "session", streamEvent);
+  }
+  return projectAssistantItems(state, "session");
 }
 
 export function retainedOutputChars(items: TranscriptItem[]): number {

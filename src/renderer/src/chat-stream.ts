@@ -8,14 +8,6 @@ export interface ChatStreamEvent {
   data: Record<string, any>;
 }
 
-function messageID(data: Record<string, any>): string {
-  return String(data.assistantMessageID ?? data.messageID ?? "");
-}
-
-function toolID(data: Record<string, any>): string {
-  return String(data.callID ?? data.id ?? "");
-}
-
 function errorText(error: unknown): string {
   if (typeof error === "string") return error;
   if (error && typeof error === "object") {
@@ -121,167 +113,7 @@ function inferTool(input: unknown): string {
   return "tool";
 }
 
-function createAssistant(id: string, created: number): Extract<TranscriptItem, { kind: "assistant" }> {
-  return {
-    kind: "assistant",
-    id,
-    messageID: id,
-    parts: [],
-    completed: false
-  };
-}
-
-function updateAssistant(
-  items: TranscriptItem[],
-  id: string,
-  created: number,
-  update: (assistant: Extract<TranscriptItem, { kind: "assistant" }>) => Extract<TranscriptItem, { kind: "assistant" }>
-): TranscriptItem[] {
-  if (!id) return items;
-  const index = items.findIndex((item) => item.kind === "assistant" && item.messageID === id);
-  if (index === -1) return [...items, update(createAssistant(id, created))];
-  return items.map((item, itemIndex) =>
-    itemIndex === index && item.kind === "assistant" ? update(item) : item
-  );
-}
-
-function updateLatestAssistant(
-  items: TranscriptItem[],
-  update: (assistant: Extract<TranscriptItem, { kind: "assistant" }>) => Extract<TranscriptItem, { kind: "assistant" }>
-): TranscriptItem[] {
-  let index = -1;
-  for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
-    if (items[itemIndex].kind === "assistant") {
-      index = itemIndex;
-      break;
-    }
-  }
-  if (index === -1) return items;
-  return items.map((item, itemIndex) =>
-    itemIndex === index && item.kind === "assistant" ? update(item) : item
-  );
-}
-
-function upsertItem(items: TranscriptItem[], item: TranscriptItem): TranscriptItem[] {
-  const index = items.findIndex((current) => current.id === item.id);
-  if (index === -1) return [...items, item];
-  return items.map((current, itemIndex) => itemIndex === index ? item : current);
-}
-
-function updateLatestCompaction(
-  items: TranscriptItem[],
-  update: (item: Extract<TranscriptItem, { kind: "compaction" }>) => Extract<TranscriptItem, { kind: "compaction" }>
-): TranscriptItem[] {
-  let index = -1;
-  for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
-    if (items[itemIndex].kind === "compaction") {
-      index = itemIndex;
-      break;
-    }
-  }
-  if (index === -1) return items;
-  return items.map((item, itemIndex) =>
-    itemIndex === index && item.kind === "compaction" ? update(item) : item
-  );
-}
-
-function upsertPart(
-  assistant: Extract<TranscriptItem, { kind: "assistant" }>,
-  part: AssistantPartView
-): Extract<TranscriptItem, { kind: "assistant" }> {
-  const index = assistant.parts.findIndex((item) => item.id === part.id);
-  if (index === -1) return { ...assistant, parts: [...assistant.parts, part] };
-  const current = assistant.parts[index];
-  if (current.kind === "text" && part.kind === "text") {
-    part = {
-      ...part,
-      text: part.text.length >= current.text.length ? part.text : current.text,
-      complete: current.complete || part.complete
-    };
-  } else if (current.kind === "reasoning" && part.kind === "reasoning") {
-    part = {
-      ...part,
-      text: part.text.length >= current.text.length ? part.text : current.text,
-      complete: current.complete || part.complete
-    };
-  } else if (current.kind === "tool" && part.kind === "tool") {
-    const currentFinished = current.tool.status !== "running";
-    if (currentFinished && part.tool.status === "running") part = current;
-    else part = { ...part, tool: { ...current.tool, ...part.tool } };
-  }
-  return {
-    ...assistant,
-    parts: assistant.parts.map((item, itemIndex) => itemIndex === index ? part : item)
-  };
-}
-
-function updatePart(
-  assistant: Extract<TranscriptItem, { kind: "assistant" }>,
-  id: string,
-  fallback: AssistantPartView,
-  update: (part: AssistantPartView) => AssistantPartView
-): Extract<TranscriptItem, { kind: "assistant" }> {
-  const index = assistant.parts.findIndex((part) => part.id === id);
-  if (index === -1) return { ...assistant, parts: [...assistant.parts, update(fallback)] };
-  return {
-    ...assistant,
-    parts: assistant.parts.map((part, partIndex) => partIndex === index ? update(part) : part)
-  };
-}
-
-function updateToolPart(
-  assistant: Extract<TranscriptItem, { kind: "assistant" }>,
-  partID: string,
-  field: string,
-  delta: string
-): Extract<TranscriptItem, { kind: "assistant" }> {
-  return updatePart(
-    assistant,
-    partID,
-    { kind: "tool", id: partID, tool: initialTool(partID, "tool", Date.now()) },
-    (part) => {
-      if (part.kind !== "tool") return part;
-      if (field === "output") return { ...part, tool: { ...part.tool, output: appendNonOverlappingDelta(part.tool.output ?? "", delta) } };
-      if (field === "input") return { ...part, tool: { ...part.tool, input: appendNonOverlappingDelta(part.tool.input ?? "", delta) } };
-      return part;
-    }
-  );
-}
-
-function textPartID(id: string, type: "text" | "reasoning", ordinal: unknown): string {
-  return `${id}:${type}:${Number(ordinal ?? 0)}`;
-}
-
-function initialTool(id: string, title: string, created: number): ToolCallView {
-  return {
-    id,
-    title: title || "tool",
-    detail: "",
-    status: "running",
-    startedAt: created
-  };
-}
-
-function updateTool(
-  items: TranscriptItem[],
-  event: ChatStreamEvent,
-  update: (tool: ToolCallView) => ToolCallView
-): TranscriptItem[] {
-  const id = messageID(event.data);
-  const callID = toolID(event.data);
-  if (!id || !callID) return items;
-  const partID = `${id}:tool:${callID}`;
-  return updateAssistant(items, id, event.created, (assistant) =>
-    updatePart(
-      assistant,
-      partID,
-      { kind: "tool", id: partID, tool: initialTool(callID, "tool", event.created) },
-      (part) => part.kind === "tool" ? { ...part, tool: update(part.tool) } : part
-    )
-  );
-}
-
-function partFromProjection(part: Record<string, any>, created: number): AssistantPartView | null {
+export function partFromProjection(part: Record<string, any>, created: number): AssistantPartView | null {
   const id = String(part.id ?? "");
   if (!id) return null;
   if (part.type === "text" || part.type === "reasoning") {
@@ -316,6 +148,7 @@ function partFromProjection(part: Record<string, any>, created: number): Assista
       output,
       startedAt,
       ...(completedAt ? { duration: Math.max(0, completedAt - startedAt) } : {}),
+      ...(state.progress !== undefined ? { progress: stringify(state.progress) } : {}),
       paths: paths(input),
       metadata: metadata(state.metadata),
       inputValue: input,
@@ -360,20 +193,31 @@ function promoteInput(items: TranscriptItem[], inputID: string): TranscriptItem[
   });
 }
 
-function appendNonOverlappingDelta(current: string, delta: string): string {
-  if (!delta || current.endsWith(delta)) return current;
-  const maxOverlap = Math.min(current.length, delta.length);
-  for (let length = maxOverlap; length > 0; length -= 1) {
-    if (current.slice(-length) === delta.slice(0, length)) {
-      return current + delta.slice(length);
+function upsertItem(items: TranscriptItem[], item: TranscriptItem): TranscriptItem[] {
+  const index = items.findIndex((current) => current.id === item.id);
+  if (index === -1) return [...items, item];
+  return items.map((current, itemIndex) => itemIndex === index ? item : current);
+}
+
+function updateLatestCompaction(
+  items: TranscriptItem[],
+  update: (item: Extract<TranscriptItem, { kind: "compaction" }>) => Extract<TranscriptItem, { kind: "compaction" }>
+): TranscriptItem[] {
+  let index = -1;
+  for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
+    if (items[itemIndex].kind === "compaction") {
+      index = itemIndex;
+      break;
     }
   }
-  return current + delta;
+  if (index === -1) return items;
+  return items.map((item, itemIndex) =>
+    itemIndex === index && item.kind === "compaction" ? update(item) : item
+  );
 }
 
 export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent): TranscriptItem[] {
   const data = event.data;
-  const id = messageID(data);
   switch (event.type) {
     case "session.input.admitted": {
       const input = data.input as Record<string, any> | undefined;
@@ -527,221 +371,6 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
           }]
         : updated;
     }
-    case "session.step.started":
-      return updateAssistant(
-        items.map((item) =>
-          item.kind === "assistant" && item.messageID !== id && !item.completed
-            ? { ...item, completed: true, retry: undefined }
-            : item
-        ),
-        id,
-        event.created,
-        (assistant) => ({
-        ...assistant,
-        completed: false,
-        retry: undefined,
-        error: undefined
-        })
-      );
-    case "session.step.ended":
-      return updateAssistant(items, id, event.created, (assistant) => ({ ...assistant, completed: true }));
-    case "session.step.failed":
-      return updateAssistant(items, id, event.created, (assistant) => ({
-        ...assistant,
-        completed: true,
-        retry: undefined,
-        error: errorText(data.error) || "Step failed"
-      }));
-    case "session.text.started": {
-      const partID = textPartID(id, "text", data.ordinal);
-      return updateAssistant(items, id, event.created, (assistant) =>
-        upsertPart(assistant, { kind: "text", id: partID, text: "", complete: false })
-      );
-    }
-    case "session.text.delta": {
-      const partID = textPartID(id, "text", data.ordinal);
-      return updateAssistant(items, id, event.created, (assistant) =>
-        updatePart(
-          assistant,
-          partID,
-           { kind: "text", id: partID, text: "", complete: false },
-           (part) => part.kind === "text"
-             ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
-             : part
-        )
-      );
-    }
-    case "session.text.ended": {
-      const partID = textPartID(id, "text", data.ordinal);
-      return updateAssistant(items, id, event.created, (assistant) =>
-        updatePart(
-          assistant,
-          partID,
-          { kind: "text", id: partID, text: "", complete: true },
-          (part) => part.kind === "text"
-            ? { ...part, text: String(data.text ?? ""), complete: true }
-            : part
-        )
-      );
-    }
-    case "session.reasoning.started": {
-      const partID = textPartID(id, "reasoning", data.ordinal);
-      return updateAssistant(items, id, event.created, (assistant) =>
-        upsertPart(assistant, { kind: "reasoning", id: partID, text: "", complete: false })
-      );
-    }
-    case "session.reasoning.delta": {
-      const partID = textPartID(id, "reasoning", data.ordinal);
-      return updateAssistant(items, id, event.created, (assistant) =>
-        updatePart(
-          assistant,
-          partID,
-           { kind: "reasoning", id: partID, text: "", complete: false },
-           (part) => part.kind === "reasoning"
-             ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
-             : part
-        )
-      );
-    }
-    case "session.reasoning.ended": {
-      const partID = textPartID(id, "reasoning", data.ordinal);
-      return updateAssistant(items, id, event.created, (assistant) =>
-        updatePart(
-          assistant,
-          partID,
-          { kind: "reasoning", id: partID, text: "", complete: true },
-          (part) => part.kind === "reasoning"
-            ? { ...part, text: String(data.text ?? ""), complete: true }
-            : part
-        )
-      );
-    }
-    case "session.tool.input.started":
-      return updateTool(items, event, (tool) => ({
-        ...tool,
-        title: String(data.name ?? tool.title),
-        input: "",
-        startedAt: event.created
-      }));
-    case "session.tool.input.delta":
-      return updateTool(items, event, (tool) => ({
-        ...tool,
-        input: appendNonOverlappingDelta(tool.input ?? "", String(data.delta ?? ""))
-      }));
-    case "session.tool.input.ended":
-      return updateTool(items, event, (tool) => ({ ...tool, input: String(data.text ?? tool.input ?? "") }));
-    case "session.tool.called":
-      return updateTool(items, event, (tool) => {
-        const input = data.input;
-        return {
-          ...tool,
-          title: tool.title === "tool" ? inferTool(input) : tool.title,
-          detail: toolDetail(input),
-          input: stringify(input),
-          inputValue: input,
-          paths: paths(input),
-          metadata: metadata(data.metadata) ?? tool.metadata,
-          ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
-          providerState: metadata(data.state) ?? tool.providerState,
-          startedAt: tool.startedAt ?? event.created
-        };
-      });
-    case "session.tool.progress":
-      return updateTool(items, event, (tool) => ({
-        ...tool,
-        progress: stringify(data.progress ?? data.metadata),
-        metadata: metadata(data.metadata) ?? tool.metadata
-      }));
-    case "session.tool.success":
-      return updateTool(items, event, (tool) => tool.status === "running"
-        ? {
-            ...tool,
-            status: "success",
-            output: retainOutput(toolOutput(data)),
-            content: retainToolContent(toolContent(data)),
-            metadata: metadata(data.metadata) ?? tool.metadata,
-            ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
-            providerResultState: metadata(data.resultState) ?? tool.providerResultState,
-            progress: undefined,
-            duration: Math.max(0, event.created - (tool.startedAt ?? event.created))
-          }
-        : tool);
-    case "session.tool.failed":
-      return updateTool(items, event, (tool) => tool.status === "running"
-        ? {
-            ...tool,
-            status: "failed",
-            output: retainOutput(toolOutput(data) || errorText(data.error) || "Tool failed"),
-            content: retainToolContent(toolContent(data)),
-            metadata: metadata(data.metadata) ?? tool.metadata,
-            ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
-            providerResultState: metadata(data.resultState) ?? tool.providerResultState,
-            progress: undefined,
-            duration: Math.max(0, event.created - (tool.startedAt ?? event.created))
-          }
-        : tool);
-    case "session.retry.scheduled":
-      return updateAssistant(items, id, event.created, (assistant) => ({
-        ...assistant,
-        retry: {
-          attempt: Number(data.attempt ?? 1),
-          message: errorText(data.error) || "Retrying",
-          next: Number(data.at ?? data.next ?? 0) || undefined
-        }
-      }));
-    case "message.updated": {
-      const info = data.info as Record<string, any> | undefined;
-      if (!info || (info.role !== "assistant" && info.type !== "assistant")) return items;
-      const assistantID = String(info.id ?? "");
-      return updateAssistant(items, assistantID, Number(info.time?.created ?? event.created), (assistant) => ({
-        ...assistant,
-        completed: Boolean(info.time?.completed ?? info.finish),
-        error: errorText(info.error) || undefined
-      }));
-    }
-    case "message.removed":
-      return items.filter((item) => item.kind !== "assistant" || item.messageID !== String(data.messageID ?? ""));
-    case "message.part.updated": {
-      const projection = (data.part ?? data) as Record<string, any>;
-      const assistantID = String(projection.messageID ?? data.messageID ?? "");
-      const part = partFromProjection(projection, event.created);
-      if (!assistantID || !part) return items;
-      if (typeof data.delta === "string" && (part.kind === "text" || part.kind === "reasoning")) {
-        part.text = part.text.endsWith(data.delta) ? part.text : part.text + data.delta;
-      }
-      return updateAssistant(items, assistantID, event.created, (assistant) => upsertPart(assistant, part));
-    }
-    case "message.part.delta": {
-      const assistantID = String(data.messageID ?? "");
-      const partID = String(data.partID ?? "");
-      if (!assistantID || !partID) return items;
-      const field = String(data.field ?? "text");
-      return updateAssistant(items, assistantID, event.created, (assistant) =>
-        field === "text"
-          ? updatePart(
-              assistant,
-              partID,
-              { kind: "text", id: partID, text: "", complete: false },
-              (part) => part.kind === "text" || part.kind === "reasoning"
-                ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
-                : part
-            )
-          : updateToolPart(assistant, partID, field, String(data.delta ?? ""))
-      );
-    }
-    case "message.part.removed": {
-      const assistantID = String(data.messageID ?? "");
-      const partID = String(data.partID ?? "");
-      return updateAssistant(items, assistantID, event.created, (assistant) => ({
-        ...assistant,
-        parts: assistant.parts.filter((part) => part.id !== partID)
-      }));
-    }
-    case "session.execution.succeeded":
-    case "session.execution.failed":
-    case "session.execution.interrupted":
-    case "session.idle":
-      return updateLatestAssistant(items, (assistant) => ({ ...assistant, completed: true, retry: undefined }));
     default:
       return items;
   }
@@ -807,69 +436,6 @@ export function mergeChatHistory(history: TranscriptItem[], live: TranscriptItem
     const next = history.slice(historyIndex + 1).find((candidate) => result.some((current) => matches(current, candidate)));
     if (next) result.splice(result.findIndex((current) => matches(current, next)), 0, item);
     else result.push(item);
-  }
-  return result;
-}
-
-function deltaKey(event: ChatStreamEvent): string | null {
-  const data = event.data;
-  if (event.type === "session.text.delta" || event.type === "session.reasoning.delta") {
-    return `${event.type}:${data.sessionID}:${data.assistantMessageID}:${data.ordinal ?? 0}`;
-  }
-  if (event.type === "session.tool.input.delta") {
-    return `${event.type}:${data.sessionID}:${data.assistantMessageID}:${toolID(data)}`;
-  }
-  if (event.type === "message.part.delta") {
-    return `${event.type}:${data.sessionID}:${data.messageID}:${data.partID}:${data.field}`;
-  }
-  return null;
-}
-
-export function coalesceChatStream(events: ChatStreamEvent[]): ChatStreamEvent[] {
-  const result: ChatStreamEvent[] = [];
-  const coalesced = new Map<string, number>();
-  for (const event of events) {
-    const key = deltaKey(event);
-    if (event.type === "message.part.updated") {
-      const part = event.data.part as Record<string, any> | undefined;
-      const messageID = String(part?.messageID ?? event.data.messageID ?? "");
-      const partID = String(part?.id ?? event.data.partID ?? "");
-      if (messageID && partID) {
-        const suffix = `:${messageID}:${partID}:`;
-        for (const pendingKey of coalesced.keys()) {
-          if (pendingKey.startsWith("message.part.delta:") && pendingKey.includes(suffix)) coalesced.delete(pendingKey);
-        }
-      }
-    }
-    const previousIndex = key ? coalesced.get(key) : undefined;
-    if (previousIndex !== undefined) {
-      const previous = result[previousIndex];
-      result[previousIndex] = {
-        ...event,
-        data: {
-          ...event.data,
-          delta: String(previous.data.delta ?? "") + String(event.data.delta ?? "")
-        }
-      };
-      continue;
-    }
-    if (event.type === "message.part.updated") {
-      const previous = result.at(-1);
-      const currentPart = event.data.part as Record<string, any> | undefined;
-      const previousPart = previous?.data.part as Record<string, any> | undefined;
-      if (
-        previous?.type === "message.part.updated" &&
-        currentPart?.id &&
-        previousPart?.id &&
-        currentPart.id === previousPart.id &&
-        currentPart.messageID === previousPart.messageID
-      ) {
-        result[result.length - 1] = event;
-        continue;
-      }
-    }
-    if (key) coalesced.set(key, result.length);
-    result.push(event);
   }
   return result;
 }

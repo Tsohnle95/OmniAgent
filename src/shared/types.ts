@@ -28,6 +28,11 @@ export interface ReopenedSession {
   usage: SessionUsage | null;
 }
 
+export interface SessionTranscript {
+  transcript: TranscriptItem[];
+  todos: TodoItem[];
+}
+
 export interface SessionUsage {
   cost: number;
   tokens: {

@@ -1,20 +1,44 @@
 # opencode2 Event Protocol
 
 The main process subscribes to the opencode2 SSE stream
-(`client.event.subscribe()`) and forwards **every** event to the renderer
-as `{ kind: "event", type, data }` (`BackendMessage`). The renderer
-dispatch lives in `src/renderer/src/store.tsx` (the `onMessage` effect).
+(`client.event.subscribe()`) through a transport pipeline
+(`src/main/stream-pipeline.ts`) and forwards **every** event to the renderer
+as `{ kind: "event", type, data }` (`BackendMessage`). The renderer dispatch
+lives in `src/renderer/src/store.tsx` (the `onMessage` effect).
 
 Session events are routed by `data.sessionID` into a per-session transcript
 and busy-state store, so every open panel streams independently: child and
 subagent streams keep flowing while the user works in another panel, and
 model/agent selections land on the panel that owns the session.
 
-Incoming events use the same scheduling strategy as OpenCode: they queue for
-a 16ms frame, adjacent deltas for the same part are concatenated, and adjacent
-authoritative `message.part.updated` snapshots for the same part collapse to
-the newest snapshot. The queue uses a timer so it still drains when the window
-is backgrounded.
+Incoming events use the same scheduling strategy as OpenChamber: the main
+process queues events per directory and flushes one batch per 33ms frame.
+Deltas for the same part (`session.text.delta`, `session.reasoning.delta`,
+`session.tool.input.delta`, `session.compaction.delta`, `message.part.delta`)
+are concatenated while they share a coalescing key; an authoritative snapshot
+(`session.text.ended`, `session.reasoning.ended`, `session.tool.input.ended`,
+terminal tool events, `message.part.updated`) clears that part's delta key so
+a delta arriving after the snapshot never merges into a pre-snapshot delta the
+snapshot already covers. `session.idle` / `session.error` /
+`session.created` / `session.deleted` clear the `session.status` coalescing
+key. A 30s heartbeat aborts a silent stream and reconnects immediately;
+stream failures retry with exponential backoff (250ms base, ×2, 5s cap). The
+backend drops its client and rediscovers the service on stream errors, and
+after a reconnect it emits a synthetic `server.connected` so the renderer
+re-materializes open sessions.
+
+The renderer keeps an authoritative per-session chat store
+(`src/renderer/src/chat-store.ts`): server messages and parts in binary-search
+ordered maps keyed by message/part id, plus a session status map. Events
+mutate the store; the visible transcript is a projection of it. Full part
+snapshots replace streaming state with dedupe bookkeeping
+(`__dedupeNextDeltaFields`) so a trailing delta already included in the
+snapshot is not applied twice, and a finished tool card is never regressed by
+a stale running snapshot. When the store detects an incomplete session
+snapshot (an orphan delta, a delta for an unknown part, or a part whose
+owning message is missing) it materializes that session over
+`shell:session-transcript` and merges the authoritative history without
+regressing longer live text.
 
 ## Events the renderer handles
 
@@ -32,12 +56,12 @@ is backgrounded.
 | `session.execution.interrupted` | Sets `busy = false`, completes the active assistant, clears retry state, and adds an error status line |
 | `session.idle` | Sets `busy = false` and completes the active assistant |
 | `session.status` | Mirrors OpenCode `busy` / `idle` / `retry`; retry details attach to the latest assistant |
-| `session.step.started` | Creates or reopens the addressed assistant message, clears its retry/error state, and completes a different unfinished assistant |
+| `session.step.started` | Creates or reopens the addressed assistant message in the authoritative chat store, clears its retry/error state, and completes a different unfinished assistant |
 | `session.step.ended` | Completes the addressed assistant message |
 | `session.step.failed` | Completes the assistant and records the structured failure |
 | `session.text.started` | Adds one ordered text part for the message/ordinal |
-| `session.text.delta` | Appends streamed text to that part |
-| `session.text.ended` | Replaces the part with the authoritative final text and marks it complete |
+| `session.text.delta` | Appends streamed text to that part (materializing the session if the message or part is unknown) |
+| `session.text.ended` | Replaces the part with the authoritative final text, marks it complete, and dedupes trailing deltas |
 | `session.reasoning.started` | Adds one ordered reasoning part behind a collapsed Thinking disclosure in event order |
 | `session.reasoning.delta` | Appends streamed reasoning to that part |
 | `session.reasoning.ended` | Replaces the part with authoritative final reasoning and keeps it available through the disclosure after completion |
@@ -57,11 +81,13 @@ is backgrounded.
 | `session.compaction.delta` | Streams the compaction summary into the active compaction entry |
 | `session.compaction.ended` | Finalizes the authoritative compaction summary |
 | `session.compaction.failed` | Finalizes compaction with its structured error |
-| `message.updated` | Creates/reconciles a legacy assistant projection and its completion/error state |
-| `message.removed` | Removes the projected assistant message |
-| `message.part.updated` | Authoritatively reconciles an ordered legacy text, reasoning, or tool part |
-| `message.part.delta` | Appends a legacy text/reasoning field delta |
-| `message.part.removed` | Removes the projected part |
+| `message.updated` | Upserts the authoritative assistant message (skipped when unchanged) with its completion/error state |
+| `message.removed` | Removes the assistant message and its parts from the authoritative store |
+| `message.part.updated` | Authoritatively reconciles an ordered text, reasoning, or tool part; requests materialization when the owning message is missing |
+| `message.part.delta` | Appends a text/input/output field delta; orphan and missing-part deltas trigger materialization |
+| `message.part.removed` | Removes the part from the authoritative store |
+| `server.connected` | Re-materializes every open session from the authoritative message history (emitted by the server and synthetically by main after a stream reconnect) |
+| `global.disposed` | Same full re-materialization after the server reports its stream was disposed |
 | `session.model.selected` | Retains internal model-switch metadata and updates `currentModel` for the addressed session's panel; it does not create a chat row |
 | `session.agent.selected` | Retains internal agent-switch metadata and updates `currentAgent` for the addressed session's panel; it does not create a chat row |
 | `agent.updated` | Refetches the agent catalog for the addressed session so the composer agent picker recovers from a lazy or empty first load |
@@ -94,8 +120,11 @@ OpenCode client, the latest upstream protocol, and older opencode2 services.
 
 ## Main-process event handling
 
-`handleServerEvent` in `src/main/opencode.ts` additionally intercepts
-two types after forwarding:
+The transport pipeline in `src/main/stream-pipeline.ts` (see the scheduling
+paragraph above) delivers per-directory batches into `deliverEvents` in
+`src/main/opencode.ts`, which forwards each event and then runs
+`handleServerEvent`. `handleServerEvent` intercepts two types after
+forwarding:
 
 - `session.tool.called` → `snapshotInputs(context, input)` snapshots structured
   file paths for the session context addressed by the event's `sessionID`

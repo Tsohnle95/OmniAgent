@@ -29,11 +29,13 @@ npm start          # run the production build
 |---|---|---|
 | Main process | `src/main/index.ts` | Window, IPC handlers, backend wiring |
 | Backend | `src/main/opencode.ts` | All opencode2 API traffic, session state, fs watching, baselines |
+| Stream transport | `src/main/stream-pipeline.ts` | SSE pipeline: per-directory delta coalescing, snapshot barriers, 33ms batched flush, heartbeat, reconnect backoff |
 | Provider usage | `src/main/provider-usage.ts` | Reads opencode's stored OAuth credentials and fetches per-provider plan/rate-limit data (ChatGPT, Claude, Copilot) |
 | Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
 | Packaging | `scripts/install-app.mjs` | electron-builder pack (`electron-builder.yml`) and `/Applications` install behind the Welcome Install app button |
 | Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
 | Renderer store | `src/renderer/src/store.tsx` | All UI state (concurrent sessions: panels + per-workspace slices); subscribes to backend events |
+| Chat store | `src/renderer/src/chat-store.ts` | Authoritative per-session message/part maps (`binary.ts`); transcript projection + snapshot materialization |
 | Dispatch skill | `.opencode/skills/dispatch/` | Portable pipeline: repo-agnostic SKILL.md + checker copy |
 | Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panels, welcome, sessions rail, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
@@ -52,11 +54,16 @@ queue is `TODO.md` — start a session by reading both.
 
 The Electron **main process** is the only thing that talks to opencode2
 (`@opencode-ai/client`). It spawns/connects to the service, creates a
-session for the opened directory, and runs an SSE event loop that forwards
-every server event to the renderer over IPC. The **renderer** (React) keeps
-all UI state in one store and renders a three-pane layout: file tree,
-Monaco editor with an Edit/Diff toggle, and the streaming agent panel. The
-main process also watches the repo with `fs.watch`; every change streams a
+session for the opened directory, and runs an SSE pipeline that coalesces
+events per directory into 33ms batches (delta concatenation, snapshot
+barriers, heartbeat, reconnect backoff) and forwards every server event to
+the renderer over IPC. The **renderer** (React) keeps all UI state in one
+store and renders a three-pane layout: file tree,
+Monaco editor with an Edit/Diff toggle, and the streaming agent panel. Model
+response events mutate an authoritative per-session message/part chat store
+whose projection is the visible transcript; incomplete snapshots materialize
+from the session's message history. The main
+process also watches the repo with `fs.watch`; every change streams a
 `{baseline, content}` update so Changes reflects observed workspace changes
 and Diff compares against the first established baseline when known.
 

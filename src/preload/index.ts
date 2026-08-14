@@ -15,6 +15,7 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
+  SessionTranscript,
   W3cDiagnostic,
   WorkspaceIdentity
 } from "@shared/types";
@@ -34,6 +35,8 @@ const api = {
   closeSession: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:close-session", workspace),
   openSessionById: (sessionID: string, generation: number): Promise<ReopenedSession> =>
     ipcRenderer.invoke("shell:open-session-id", sessionID, generation),
+  sessionTranscript: (sessionID: string): Promise<SessionTranscript> =>
+    ipcRenderer.invoke("shell:session-transcript", sessionID),
   prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<void> =>
     ipcRenderer.invoke("shell:prompt", workspace, text, files),
   commands: (workspace: WorkspaceIdentity): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands", workspace),

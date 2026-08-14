@@ -21,6 +21,7 @@ automatically.
 | `activeSessions()` | `Promise<SessionInfo[]>` — currently open backend sessions in activation order; the last element is the most recently activated (used for startup restore) |
 | `closeSession(workspace)` | `Promise<void>` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `openSessionById(sessionID, generation)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions |
+| `sessionTranscript(sessionID)` | `Promise<{transcript, todos}>` — authoritative message replay used to materialize incomplete stream snapshots |
 | `prompt(workspace, text, files?)` | `Promise<void>`; files are `PromptFile[]` — paths from `selectFiles()` or @-mentions (with `mention` spans) |
 | `commands(workspace)` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
 | `runCommand(workspace, name, args?)` | `Promise<void>` — runs a slash command or skill in the addressed session |

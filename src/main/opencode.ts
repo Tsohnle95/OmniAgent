@@ -25,6 +25,7 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
+  SessionTranscript,
   SessionUsage,
   TodoItem,
   ToolContentView,
@@ -38,6 +39,7 @@ import type { WorkspaceIdentity } from "@shared/types";
 import { fetchProviderUsage } from "./provider-usage";
 import { WorkspaceOperationCoordinator } from "./operation-coordinator";
 import { BackendEventLoop } from "./backend-event-loop";
+import { createStreamPipeline, type RawStreamEvent } from "./stream-pipeline";
 import { knownBaseline, observedBaseline, preserveBaseline, unknownBaseline } from "./file-baseline";
 import { movePathToTrash } from "./trash";
 import {
@@ -472,6 +474,7 @@ export class OpenShellBackend {
   private readonly mutations = new WorkspaceOperationCoordinator();
   private lastEnsureAt = 0;
   private readonly ensureCooldownMs = 30_000;
+  private streamConnectedOnce = false;
 
   constructor(private readonly mutationPhase: MutationPhaseHandler = () => {}) {}
 
@@ -579,34 +582,57 @@ export class OpenShellBackend {
   }
 
   private async runEventLoop(signal: AbortSignal, generation: number): Promise<void> {
-    while (!this.stopped && this.eventLoop.current(generation)) {
-      try {
-        if (!this.client && !(await this.connect())) {
-          if (!this.eventLoop.current(generation)) return;
-          await sleep(2000, signal);
-          continue;
-        }
-        if (!this.eventLoop.current(generation)) return;
-        for await (const evt of this.client!.event.subscribe({ signal })) {
-          if (this.stopped || !this.eventLoop.current(generation)) return;
-          const typed = evt as {
-            type?: string;
-            event?: string;
-            data?: unknown;
-            properties?: unknown;
-            location?: { directory?: string };
-          };
-          const type = typed.type ?? typed.event ?? "unknown";
-          this.emit({ kind: "event", type, data: evt });
-          await this.handleServerEvent(type, typed.data ?? typed.properties, typed.location).catch(() => {});
-          if (!this.eventLoop.current(generation)) return;
-        }
-      } catch (err) {
-        if (signal.aborted || !this.eventLoop.current(generation)) return;
-        console.error("[openshell] event loop error:", err);
+    const pipeline = createStreamPipeline({
+      subscribe: (attemptSignal) => this.subscribeEvents(attemptSignal, generation),
+      onEvents: (directory, events) => this.deliverEvents(directory, events, generation),
+      onStreamError: () => {
         this.client = null;
+      },
+      onReconnect: () => {
+        if (!this.streamConnectedOnce) {
+          this.streamConnectedOnce = true;
+          return;
+        }
+        this.emit({ kind: "event", type: "server.connected", data: {} });
       }
-      await sleep(1500, signal);
+    });
+    await pipeline.run(signal);
+  }
+
+  private async subscribeEvents(
+    signal: AbortSignal,
+    generation: number
+  ): Promise<AsyncIterable<RawStreamEvent>> {
+    while (!this.stopped && this.eventLoop.current(generation)) {
+      if (!this.client && !(await this.connect())) {
+        if (!this.eventLoop.current(generation)) break;
+        await sleep(2000, signal);
+        continue;
+      }
+      if (!this.eventLoop.current(generation)) break;
+      return this.client!.event.subscribe({ signal });
+    }
+    throw Object.assign(new Error("stream aborted"), { name: "AbortError" });
+  }
+
+  private async deliverEvents(
+    _directory: string,
+    events: RawStreamEvent[],
+    generation: number
+  ): Promise<void> {
+    for (const evt of events) {
+      if (this.stopped || !this.eventLoop.current(generation)) return;
+      const typed = evt as {
+        type?: string;
+        event?: string;
+        data?: unknown;
+        properties?: unknown;
+        location?: { directory?: string };
+      };
+      const type = typed.type ?? typed.event ?? "unknown";
+      this.emit({ kind: "event", type, data: evt });
+      await this.handleServerEvent(type, typed.data ?? typed.properties, typed.location).catch(() => {});
+      if (!this.eventLoop.current(generation)) return;
     }
   }
 
@@ -1235,6 +1261,16 @@ export class OpenShellBackend {
       : [];
     const history = messages as unknown[];
     return { session, transcript: replayTranscript(history), todos: replayTodos(history), usage };
+  }
+
+  async sessionTranscript(sessionID: string): Promise<SessionTranscript> {
+    if (!this.client) throw new Error("not connected to opencode service");
+    const messagesRes = await this.client.message.list({ sessionID }).catch(() => null);
+    const messages = messagesRes
+      ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
+      : [];
+    const history = messages as unknown[];
+    return { transcript: replayTranscript(history), todos: replayTodos(history) };
   }
 
   async getState(): Promise<SessionInfo | null> {

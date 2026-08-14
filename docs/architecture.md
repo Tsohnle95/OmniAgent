@@ -39,8 +39,11 @@ its work while live diffs of changed files appear in the editor.
 2. Falls back to `Service.ensure({ command: ["opencode2", "serve", "--service"] })`
    which spawns the service and waits for it to be ready.
 3. Creates a typed client: `OpenCode.make({ baseUrl, headers })`.
-4. The `runEventLoop()` SSE loop re-connects automatically and
-   retries every 1.5s; `connect()` is retried every 2s until a client exists.
+4. The `runEventLoop()` SSE loop runs through the `createStreamPipeline`
+   transport (`src/main/stream-pipeline.ts`): 33ms per-directory batched
+   flushing with delta coalescing and snapshot barriers, a 30s heartbeat, and
+   exponential reconnect backoff; `connect()` is retried every 2s until a
+   client exists.
 
 ## Message flow
 
@@ -48,8 +51,9 @@ All backend→renderer message kinds are defined in
 `src/shared/types.ts` (`BackendMessage`):
 
 - `{ kind: "event", type, data }` — every opencode2 SSE event forwarded
-  verbatim. The renderer dispatches on `type`. See `docs/events.md` for
-  the full protocol map.
+  through the main-process transport pipeline (coalesced per directory and
+  flushed in 33ms batches). The renderer dispatches on `type`. See
+  `docs/events.md` for the full protocol map.
 - `{ kind: "file-update", file: { workspace, sessionID, path, baseline, content, deleted } }` —
   emitted by the generation-bound fs watcher (below).
 - `{ kind: "session", session: { id, directory, workspace } }` — emitted when a

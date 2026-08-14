@@ -29,7 +29,13 @@ import type {
   WorkspaceIdentity
 } from "@shared/types";
 import { mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
-import { createChatStreamPipeline } from "./chat-stream-pipeline";
+import {
+  applyChatEvent,
+  attachRetryToLatestAssistant,
+  hydrateChatState,
+  projectAssistantItems,
+  type ChatDirectoryState
+} from "./chat-store";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { sameWorkspace } from "@shared/generation";
@@ -230,7 +236,7 @@ function filterEntries(entries: TreeEntry[]): TreeEntry[] {
   });
 }
 
-const CHAT_STREAM_TYPES = new Set([
+const AUX_CHAT_STREAM_TYPES = new Set([
   "session.input.admitted",
   "session.input.promoted",
   "session.input.cancelled",
@@ -243,33 +249,7 @@ const CHAT_STREAM_TYPES = new Set([
   "session.compaction.started",
   "session.compaction.delta",
   "session.compaction.ended",
-  "session.compaction.failed",
-  "session.step.started",
-  "session.step.ended",
-  "session.step.failed",
-  "session.text.started",
-  "session.text.delta",
-  "session.text.ended",
-  "session.reasoning.started",
-  "session.reasoning.delta",
-  "session.reasoning.ended",
-  "session.tool.input.started",
-  "session.tool.input.delta",
-  "session.tool.input.ended",
-  "session.tool.called",
-  "session.tool.progress",
-  "session.tool.success",
-  "session.tool.failed",
-  "session.retry.scheduled",
-  "message.updated",
-  "message.removed",
-  "message.part.updated",
-  "message.part.delta",
-  "message.part.removed",
-  "session.execution.succeeded",
-  "session.execution.failed",
-  "session.execution.interrupted",
-  "session.idle"
+  "session.compaction.failed"
 ]);
 
 function normalizeStreamEvent(msg: BackendMessage): ChatStreamEvent | null {
@@ -474,6 +454,59 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       : { ...current, [sessionID]: value });
   }, []);
 
+  const chatStatesRef = useRef(new Map<string, ChatDirectoryState>());
+  const materializingRef = useRef(new Set<string>());
+
+  const chatStateFor = useCallback((sessionID: string): ChatDirectoryState => {
+    let state = chatStatesRef.current.get(sessionID);
+    if (!state) {
+      state = { message: {}, part: {}, session_status: {} };
+      chatStatesRef.current.set(sessionID, state);
+    }
+    return state;
+  }, []);
+
+  const applyProjection = useCallback((sessionID: string) => {
+    const state = chatStatesRef.current.get(sessionID);
+    if (!state) return;
+    const projected = projectAssistantItems(state, sessionID);
+    updateSessionTranscript(sessionID, (prev) => {
+      const pending = new Map(projected.map((item) => [item.id, item] as const));
+      const result: TranscriptItem[] = [];
+      for (const item of prev) {
+        if (item.kind === "assistant") {
+          const next = pending.get(item.id);
+          if (next) {
+            result.push(next);
+            pending.delete(item.id);
+          }
+          continue;
+        }
+        result.push(item);
+      }
+      for (const item of projected) {
+        if (pending.has(item.id)) result.push(item);
+      }
+      return result;
+    });
+  }, [updateSessionTranscript]);
+
+  const materializeSession = useCallback(async (sessionID: string): Promise<void> => {
+    const panel = panelForSession(sessionID);
+    if (!panel || materializingRef.current.has(sessionID)) return;
+    materializingRef.current.add(sessionID);
+    try {
+      const snapshot = await window.openshell.sessionTranscript(sessionID);
+      if (!panelForSession(sessionID)) return;
+      hydrateChatState(chatStateFor(sessionID), sessionID, snapshot.transcript);
+      applyProjection(sessionID);
+      setTodosFor(panel.workspace.id, snapshot.todos);
+    } catch {
+    } finally {
+      materializingRef.current.delete(sessionID);
+    }
+  }, [panelForSession, chatStateFor, applyProjection, setTodosFor]);
+
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
     setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
@@ -493,10 +526,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       try {
         const reopened = await window.openshell.openSessionById(sessionID, request);
         if (!panelForSession(sessionID)) return;
+        const merged = mergeChatHistory(reopened.transcript, transcriptsBySessionRef.current[sessionID] ?? []);
+        chatStatesRef.current.delete(sessionID);
+        hydrateChatState(chatStateFor(sessionID), sessionID, merged);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
           sessionID,
-          mergeChatHistory(reopened.transcript, current[sessionID] ?? []),
+          merged,
           protectedSessionIDs()
         ));
         const running = [...reopened.transcript].reverse().find((item) => item.kind === "assistant");
@@ -521,7 +557,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
       }
     },
-    [toast, panelForSession, setTodosFor, protectedSessionIDs]
+    [toast, panelForSession, chatStateFor, setTodosFor, protectedSessionIDs]
   );
 
   const focusSession = useCallback((sessionID: string): void => {
@@ -541,6 +577,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     const closing = panelsRef.current.find((panel) => panel.id === sessionID);
     panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
     setPanels(panelsRef.current);
+    chatStatesRef.current.delete(sessionID);
+    materializingRef.current.delete(sessionID);
     if (closing) {
       void window.openshell.closeSession(closing.workspace).catch(() => {});
     }
@@ -747,13 +785,16 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           setActiveSessionID(reopened.session.id);
         }
         void loadRecovery(reopened.session.workspace);
+        const merged = mergeChatHistory(
+          reopened.transcript,
+          transcriptsBySessionRef.current[reopened.session.id] ?? []
+        );
+        chatStatesRef.current.delete(reopened.session.id);
+        hydrateChatState(chatStateFor(reopened.session.id), reopened.session.id, merged);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
           reopened.session.id,
-          mergeChatHistory(
-            reopened.transcript,
-            current[reopened.session.id] ?? []
-          ),
+          merged,
           protectedSessionIDs()
         ));
         const running = [...reopened.transcript].reverse().find((item) => item.kind === "assistant");
@@ -780,7 +821,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [attachPanel, focusSession, panelForSession, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
+    [attachPanel, focusSession, panelForSession, chatStateFor, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
   );
 
   const sendPrompt = useCallback(
@@ -1444,11 +1485,45 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         : sessionRef.current?.id;
       const targetWorkspace = targetSessionID ? workspaceOfSession(targetSessionID) : null;
       const active = Boolean(targetSessionID && targetSessionID === sessionRef.current?.id);
-      if (targetSessionID && CHAT_STREAM_TYPES.has(type)) {
+      if (targetSessionID && AUX_CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
       }
 
       switch (type) {
+        case "session.step.started":
+        case "session.step.ended":
+        case "session.step.failed":
+        case "session.text.started":
+        case "session.text.delta":
+        case "session.text.ended":
+        case "session.reasoning.started":
+        case "session.reasoning.delta":
+        case "session.reasoning.ended":
+        case "session.tool.input.started":
+        case "session.tool.input.delta":
+        case "session.tool.input.ended":
+        case "session.tool.called":
+        case "session.tool.progress":
+        case "session.tool.success":
+        case "session.tool.failed":
+        case "session.retry.scheduled":
+        case "message.updated":
+        case "message.removed":
+        case "message.part.updated":
+        case "message.part.delta":
+        case "message.part.removed": {
+          if (!targetSessionID) break;
+          const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+          if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+          const materialization = typeof result === "boolean" ? undefined : result.materialization;
+          if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);
+          break;
+        }
+        case "server.connected":
+        case "global.disposed": {
+          for (const panel of panelsRef.current) void materializeSession(panel.id);
+          break;
+        }
         case "session.created": {
           const location = data.location as { directory?: string } | undefined;
           const directory = location?.directory ?? streamEvent.data.location?.directory;
@@ -1502,7 +1577,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.execution.succeeded":
         case "session.execution.failed":
         case "session.execution.interrupted": {
-          if (targetSessionID) setSessionBusy(targetSessionID, false);
+          if (targetSessionID) {
+            setSessionBusy(targetSessionID, false);
+            const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+          }
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           const ok = type === "session.execution.succeeded";
           if (!ok && targetSessionID) {
@@ -1519,7 +1598,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           break;
         }
         case "session.idle": {
-          if (targetSessionID) setSessionBusy(targetSessionID, false);
+          if (targetSessionID) {
+            setSessionBusy(targetSessionID, false);
+            const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+          }
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           break;
         }
@@ -1574,22 +1657,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           if (status?.type === "idle" && targetSessionID) setSessionBusy(targetSessionID, false);
           if (status?.type === "retry" && targetSessionID) {
             setSessionBusy(targetSessionID, true);
-            updateSessionTranscript(targetSessionID, (prev) => {
-              const assistant = [...prev].reverse().find((item) => item.kind === "assistant");
-              if (!assistant || assistant.kind !== "assistant") return prev;
-              return prev.map((item) =>
-                item.kind === "assistant" && item.messageID === assistant.messageID
-                  ? {
-                      ...item,
-                      retry: {
-                        attempt: Number(status.attempt ?? 1),
-                        message: String(status.message ?? "Retrying"),
-                        next: status.next
-                      }
-                    }
-                  : item
-              );
-            });
+            if (attachRetryToLatestAssistant(chatStateFor(targetSessionID), targetSessionID, {
+              attempt: Number(status.attempt ?? 1),
+              message: String(status.message ?? "Retrying"),
+              next: status.next
+            })) {
+              applyProjection(targetSessionID);
+            }
+          }
+          if (targetSessionID) {
+            const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
           }
           break;
         }
@@ -1635,16 +1713,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     };
 
-    const streamPipeline = createChatStreamPipeline((events) => {
-      for (const event of events) processMessage({ kind: "event", type: event.type, data: event });
-    });
     const off = window.openshell.onMessage((msg: BackendMessage) => {
-      const event = normalizeStreamEvent(msg);
-      if (!event) {
-        processMessage(msg);
-        return;
-      }
-      streamPipeline.enqueue(event);
+      processMessage(msg);
     });
 
     let healthTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1672,7 +1742,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       cancelled = true;
       if (healthTimer !== null) clearTimeout(healthTimer);
       off();
-      streamPipeline.cleanup();
       persistence.cancelAll();
     };
   }, [
@@ -1694,6 +1763,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setAgentFilesFor,
     setTabsFor,
     setTreeFor,
+    chatStateFor,
+    applyProjection,
+    materializeSession,
     persistence
   ]);
 

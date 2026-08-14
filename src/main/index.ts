@@ -574,6 +574,10 @@ function registerIpc(): void {
     backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)))
   );
 
+  handleTrusted("shell:session-transcript", async (_e, sessionID: string) =>
+    backend.sessionTranscript(sessionId(sessionID))
+  );
+
   handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []) => {
     const payload = promptPayload(workspace, text, files);
     return backend.prompt(payload.workspace, payload.text, payload.files);

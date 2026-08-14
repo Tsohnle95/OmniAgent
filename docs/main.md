@@ -49,6 +49,7 @@ Public methods (all used by IPC):
 | `activeSessions()` | The open contexts' `SessionInfo` in activation order, primary last (startup restore) |
 | `closeSession(workspace)` | Tears down the addressed context (stops its watcher, removes it from the context map) when its panel closes; the opencode session itself stays alive so recents can reopen it |
 | `openSessionById(sessionID)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one |
+| `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
 | `prompt(workspace, text, files?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt` |
 | `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
@@ -90,10 +91,17 @@ so a future server endpoint can replace the fetchers without UI changes.
 
 Internals:
 
-- `runEventLoop()` — one global reconnecting SSE loop; forwards every event as
-  `{kind:"event", type, data}` then runs `handleServerEvent` (see
-  `docs/events.md`). Stop/restart serializes subscription lifetimes, and
-  filesystem side handling requires a matching top-level event location.
+- `runEventLoop()` — one global reconnecting SSE loop driven by the
+  `createStreamPipeline` transport in `src/main/stream-pipeline.ts`: 33ms
+  per-directory batched flushing with delta coalescing and snapshot barriers,
+  a 30s heartbeat that aborts silent streams, and exponential reconnect
+  backoff (250ms base, ×2, 5s cap). Stream errors drop the client so the next
+  attempt rediscovers the service, and reconnects emit a synthetic
+  `server.connected` so the renderer re-materializes open sessions.
+  `deliverEvents` forwards each event as `{kind:"event", type, data}` and
+  runs `handleServerEvent` (see `docs/events.md`). Stop/restart serializes
+  subscription lifetimes, and filesystem side handling requires a matching
+  top-level event location.
 - `activateSession(info)` — canonicalizes, mints a fresh
   `{id, generation}` workspace identity, and creates a per-session context
   with its own watcher maps and activation guard; re-activating the same
@@ -144,6 +152,7 @@ Internals:
 | `shell:active-sessions` | `() → SessionInfo[]` — open backend sessions, most recently activated last |
 | `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `shell:open-session-id` | `(sessionID, generation) → ReopenedSession` |
+| `shell:session-transcript` | `(sessionID) → { transcript, todos }` — stream materialization snapshot; does not activate a context |
 | `shell:prompt` | `(workspace, text, files?) → void` |
 | `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
