@@ -36,6 +36,30 @@ import {
   projectAssistantItems,
   type ChatDirectoryState
 } from "./chat-store";
+import { emptyStreamingStore, touchStreamingSession, updateStreamingState, type MessageStreamState, type StreamingStore } from "./streaming";
+import { IDLE_ACTIVITY, resolveSessionActivity, type SessionActivityResult } from "./session-activity";
+import { resolveAssistantStatus, type WorkingSummary } from "./assistant-status";
+import {
+  addToQueue,
+  clearSending,
+  createMessageQueueTarget,
+  createQueuedAutoSendRetryScheduler,
+  getMessageQueueKey,
+  getQueueForTarget,
+  getQueuedAutoSendRetryDelayMs,
+  getSendableQueue,
+  isQueuedAutoSendBackedOff,
+  loadMessageQueueState,
+  markSending,
+  persistMessageQueueState,
+  RECENT_ABORT_WINDOW_MS,
+  removeFromQueue,
+  resolveQueuedStatusType,
+  type FollowUpBehavior,
+  type MessageQueueState,
+  type MessageQueueTarget,
+  type QueuedAutoSendFailure
+} from "./message-queue";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { sameWorkspace } from "@shared/generation";
@@ -69,6 +93,10 @@ export interface PanelView {
   currentModel: ModelOption | null;
   agents: AgentOption[];
   currentAgent: AgentOption | null;
+  activity: SessionActivityResult;
+  assistantStatus: WorkingSummary | null;
+  streaming: MessageStreamState | null;
+  queuedCount: number;
 }
 
 function ancestorDirs(path: string): string[] {
@@ -100,6 +128,8 @@ interface Store {
   currentAgent: AgentOption | null;
   approvalMode: ApprovalMode;
   wordWrap: boolean;
+  followUpBehavior: FollowUpBehavior;
+  setFollowUpBehavior: (behavior: FollowUpBehavior) => void;
   sessions: SessionSummary[];
   panels: SessionInfo[];
   panelViews: Record<string, PanelView>;
@@ -310,6 +340,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
+  const [streamingStore, setStreamingStore] = useState<StreamingStore>(() => emptyStreamingStore());
+  const [messageQueue, setMessageQueue] = useState<MessageQueueState>(() => loadMessageQueueState());
+  const [autoSendTick, setAutoSendTick] = useState(0);
 
   const activeWorkspaceID = activeSessionID
     ? (panels.find((panel) => panel.id === activeSessionID)?.workspace.id ?? null)
@@ -344,6 +377,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   panelsRef.current = panels;
   const transcriptsBySessionRef = useRef(transcriptsBySession);
   transcriptsBySessionRef.current = transcriptsBySession;
+  const streamingRef = useRef<StreamingStore>(streamingStore);
+  const messageQueueRef = useRef<MessageQueueState>(messageQueue);
+  const stopAtBySessionRef = useRef(new Map<string, number>());
+  const autoSendInFlightRef = useRef(new Set<string>());
+  const autoSendFailuresRef = useRef(new Map<string, QueuedAutoSendFailure>());
   const agentFilesByWorkspaceRef = useRef(agentFilesByWorkspace);
   agentFilesByWorkspaceRef.current = agentFilesByWorkspace;
   const expandedByWorkspaceRef = useRef(expandedByWorkspace);
@@ -507,6 +545,26 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       materializingRef.current.delete(sessionID);
     }
   }, [panelForSession, chatStateFor, applyProjection, setTodosFor]);
+
+  const commitStreaming = useCallback((next: StreamingStore) => {
+    streamingRef.current = next;
+    setStreamingStore(next);
+  }, []);
+
+  const commitQueue = useCallback((next: MessageQueueState) => {
+    messageQueueRef.current = next;
+    setMessageQueue(next);
+    persistMessageQueueState(next);
+  }, []);
+
+  const syncStreaming = useCallback((sessionID: string) => {
+    const next = updateStreamingState(chatStateFor(sessionID), streamingRef.current);
+    if (next) commitStreaming(next);
+  }, [chatStateFor, commitStreaming]);
+
+  const setFollowUpBehavior = useCallback((behavior: FollowUpBehavior) => {
+    commitQueue({ ...messageQueueRef.current, followUpBehavior: behavior });
+  }, [commitQueue]);
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -833,6 +891,28 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const t = text.trim();
       if (!t && files.length === 0) return;
       const promptText = t || "Review the attached files.";
+      const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
+      const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
+      const activity = resolveSessionActivity({
+        sessionId: panel.id,
+        statusType: streamingRef.current.streamingMessageIds.get(panel.id)
+          ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
+          : undefined,
+        trailingAssistantIncomplete: trailingAssistant?.kind === "assistant" && !trailingAssistant.completed,
+        pendingPermissions: transcript.filter((item) => item.kind === "permission" && item.pending).length
+      });
+      if (activity.isWorking) {
+        if (messageQueueRef.current.followUpBehavior === "queue") {
+          const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
+          if (queueTarget) {
+            commitQueue(addToQueue(messageQueueRef.current, queueTarget, { content: promptText, attachments: files }));
+            toast(`Queued: ${promptText}`);
+          }
+          return;
+        }
+        setSessionBusy(panel.id, false);
+        await window.openshell.interrupt(target).catch(() => {});
+      }
       const attachments: UserAttachment[] = files.map((file) => ({
         name: file.path.split(/[\\/]/).pop() ?? file.path
       }));
@@ -850,7 +930,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast, panelFor, setTodosFor, updateSessionTranscript]
+    [toast, panelFor, setTodosFor, updateSessionTranscript, setSessionBusy, commitQueue]
   );
 
   const runCommand = useCallback(async (name: string, args = "", workspace?: WorkspaceIdentity) => {
@@ -867,6 +947,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     const target = workspace ?? sessionRef.current?.workspace;
     const panel = target ? panelFor(target) : null;
     if (!panel || !target) return;
+    stopAtBySessionRef.current.set(panel.id, Date.now());
     setSessionBusy(panel.id, false);
     await window.openshell.interrupt(target).catch(() => {});
   }, [setSessionBusy, panelFor]);
@@ -1518,6 +1599,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
           const materialization = typeof result === "boolean" ? undefined : result.materialization;
           if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);
+          syncStreaming(targetSessionID);
+          if (type === "message.part.delta" || type === "session.text.delta" || type === "session.reasoning.delta" || type === "session.tool.input.delta") {
+            const touched = touchStreamingSession(streamingRef.current, targetSessionID);
+            if (touched) commitStreaming(touched);
+          }
           break;
         }
         case "server.connected":
@@ -1582,6 +1668,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             setSessionBusy(targetSessionID, false);
             const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
             if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            syncStreaming(targetSessionID);
           }
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           const ok = type === "session.execution.succeeded";
@@ -1603,6 +1690,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             setSessionBusy(targetSessionID, false);
             const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
             if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            syncStreaming(targetSessionID);
           }
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           break;
@@ -1669,6 +1757,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           if (targetSessionID) {
             const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
             if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            syncStreaming(targetSessionID);
           }
           break;
         }
@@ -1776,19 +1865,111 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     void loadAgents();
   }, [connected, loadModels, loadAgents]);
 
+  const autoSendRetrySchedulerRef = useRef<ReturnType<typeof createQueuedAutoSendRetryScheduler> | null>(null);
+  if (!autoSendRetrySchedulerRef.current) {
+    autoSendRetrySchedulerRef.current = createQueuedAutoSendRetryScheduler(() => setAutoSendTick((tick) => tick + 1));
+  }
+
+  useEffect(() => () => autoSendRetrySchedulerRef.current?.dispose(), []);
+
+  useEffect(() => {
+    const dispatchSessionQueue = async (panel: SessionInfo): Promise<void> => {
+      const target = createMessageQueueTarget(panel.id, panel.workspace.id);
+      if (!target) return;
+      const key = getMessageQueueKey(target);
+      const queue = messageQueueRef.current.queuedMessages[key] ?? [];
+      if (queue.length === 0) return;
+      if (autoSendInFlightRef.current.has(key)) return;
+
+      const stopAt = stopAtBySessionRef.current.get(panel.id);
+      if (stopAt !== undefined && Date.now() - stopAt < RECENT_ABORT_WINDOW_MS) {
+        autoSendRetrySchedulerRef.current?.schedule(stopAt + RECENT_ABORT_WINDOW_MS);
+        return;
+      }
+
+      const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
+      const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
+      const currentStatus = resolveQueuedStatusType({
+        statusType: streamingStore.streamingMessageIds.get(panel.id)
+          ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
+          : undefined,
+        trailingAssistantIncomplete: trailingAssistant?.kind === "assistant" && !trailingAssistant.completed
+      });
+      if (currentStatus !== "idle") return;
+
+      const sendable = getSendableQueue(messageQueueRef.current, target);
+      const queued = sendable[0];
+      if (!queued) return;
+
+      const failure = autoSendFailuresRef.current.get(key);
+      if (failure && failure.messageId !== queued.id) {
+        autoSendFailuresRef.current.delete(key);
+      } else if (failure && isQueuedAutoSendBackedOff(failure, queued.id, Date.now())) {
+        autoSendRetrySchedulerRef.current?.schedule(failure.nextAttemptAt);
+        return;
+      }
+
+      autoSendInFlightRef.current.add(key);
+      commitQueue(markSending(messageQueueRef.current, target, queued.id));
+      try {
+        await window.openshell.prompt(panel.workspace, queued.content, queued.attachments ?? []);
+        commitQueue(removeFromQueue(messageQueueRef.current, target, queued.id));
+        commitQueue(clearSending(messageQueueRef.current, target, queued.id));
+      } catch {
+        commitQueue(clearSending(messageQueueRef.current, target, queued.id));
+        const failures = (failure?.failures ?? 0) + 1;
+        const nextAttemptAt = Date.now() + getQueuedAutoSendRetryDelayMs(failures);
+        autoSendFailuresRef.current.set(key, { messageId: queued.id, failures, nextAttemptAt });
+        autoSendRetrySchedulerRef.current?.schedule(nextAttemptAt);
+      } finally {
+        autoSendInFlightRef.current.delete(key);
+      }
+    };
+    for (const panel of panelsRef.current) void dispatchSessionQueue(panel);
+  }, [streamingStore, messageQueue, transcriptsBySession, busyBySession, autoSendTick, commitQueue, panels]);
+
   const panelViews = useMemo<Record<string, PanelView>>(() => {
     const views: Record<string, PanelView> = {};
     for (const panel of panels) {
+      const transcript = transcriptsBySession[panel.id] ?? [];
+      const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
+      const trailingAssistantIncomplete = trailingAssistant?.kind === "assistant" && !trailingAssistant.completed;
+      const pendingPermissions = transcript.filter((item) => item.kind === "permission" && item.pending).length;
+      const activity = resolveSessionActivity({
+        sessionId: panel.id,
+        statusType: busyBySession[panel.id]
+          ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
+          : undefined,
+        trailingAssistantIncomplete,
+        pendingPermissions
+      });
+      const streamingID = streamingStore.streamingMessageIds.get(panel.id);
+      const streaming = streamingID ? streamingStore.messageStreamStates.get(streamingID) ?? null : null;
+      const assistantStatus = resolveAssistantStatus({
+        assistantId: trailingAssistant?.kind === "assistant" ? trailingAssistant.id : null,
+        activity,
+        parts: trailingAssistant?.kind === "assistant" ? trailingAssistant.parts : [],
+        pendingPermissions,
+        retryInfo: trailingAssistant?.kind === "assistant" && trailingAssistant.retry
+          ? { attempt: trailingAssistant.retry.attempt, next: trailingAssistant.retry.next }
+          : null
+      });
+      const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
+      const queuedCount = queueTarget ? getQueueForTarget(messageQueue, queueTarget).length : 0;
       views[panel.workspace.id] = {
         session: panel,
         busy: Boolean(busyBySession[panel.id]),
-        transcript: transcriptsBySession[panel.id] ?? [],
+        transcript,
         todos: todosByWorkspace[panel.workspace.id] ?? [],
         sessionUsage: usageBySession[panel.id] ?? null,
         models: modelsByWorkspace[panel.workspace.id] ?? [],
         currentModel: currentModelByWorkspace[panel.workspace.id] ?? null,
         agents: agentsByWorkspace[panel.workspace.id] ?? [],
-        currentAgent: currentAgentByWorkspace[panel.workspace.id] ?? null
+        currentAgent: currentAgentByWorkspace[panel.workspace.id] ?? null,
+        activity,
+        assistantStatus,
+        streaming,
+        queuedCount
       };
     }
     return views;
@@ -1801,7 +1982,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     modelsByWorkspace,
     currentModelByWorkspace,
     agentsByWorkspace,
-    currentAgentByWorkspace
+    currentAgentByWorkspace,
+    streamingStore,
+    messageQueue
   ]);
 
   const value = useMemo<Store>(
@@ -1827,6 +2010,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       currentAgent,
       approvalMode,
       wordWrap,
+      followUpBehavior: messageQueue.followUpBehavior,
+      setFollowUpBehavior,
       sessions,
       panels,
       panelViews,
@@ -1875,7 +2060,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }),
     [
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts, recoveryRecords,
-      models, currentModel, agents, currentAgent, approvalMode, wordWrap, sessions, panels, panelViews, activeSessionID,
+      models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
       focusSession, closePanel, openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
@@ -1902,7 +2087,11 @@ const EMPTY_VIEW: PanelView = {
   models: [],
   currentModel: null,
   agents: [],
-  currentAgent: null
+  currentAgent: null,
+  activity: IDLE_ACTIVITY,
+  assistantStatus: null,
+  streaming: null,
+  queuedCount: 0
 };
 
 export function usePanel(workspace: WorkspaceIdentity | null | undefined): PanelView {

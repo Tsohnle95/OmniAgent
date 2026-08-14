@@ -249,7 +249,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const activeSession = session === undefined ? store.session : session;
   const workspace = activeSession?.workspace ?? null;
   const view = usePanel(workspace);
-  const { models, currentModel, agents, currentAgent, busy } = view;
+  const { models, currentModel, agents, currentAgent, busy, assistantStatus, queuedCount } = view;
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
   const [menu, setMenu] = useState<MenuKind>(null);
@@ -734,7 +734,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
           </button>
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
-            title={busy ? "Stop the agent" : canSend ? "Send (Enter)" : "Type a prompt first"}
+            title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
             disabled={!busy && !canSend}
             onClick={busy ? () => void stop(workspace ?? undefined) : send}
           >
@@ -744,6 +744,10 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
       </div>
 
       {notice && <div className="composer-notice">{notice}</div>}
+
+      {!notice && queuedCount > 0 && (
+        <div className="composer-notice">{queuedCount} queued message{queuedCount === 1 ? "" : "s"}</div>
+      )}
 
       {completion && completion.items.length > 0 && (
         <div className="composer-completions">

@@ -60,6 +60,36 @@ and merges the authoritative history. `server.connected` /
 `global.disposed` re-materialize every open panel, which covers gaps after
 stream reconnects.
 
+## Streaming lifecycle (`streaming.ts`, `session-activity.ts`, `assistant-status.ts`)
+
+Ports of OpenChamber's sync streaming stack. `streaming.ts` tracks which
+message is streaming per session and its lifecycle phase
+(`streaming` / `cooldown` / `completed`) with `startedAt` / `lastUpdateAt` /
+`completedAt` timestamps; `lastUpdateAt` writes are throttled to a 1s
+heartbeat so streaming text does not churn the store at token rate. The store
+reconciles it after every chat event batch (`syncStreaming`) and touches the
+heartbeat for part deltas. `session-activity.ts` resolves the session phase
+(`idle` / `busy` / `retry`): it mirrors the authoritative status, falls back
+to the trailing incomplete assistant while status settles, and yields to a
+pending permission so the send button stays a send. `assistant-status.ts`
+derives the working summary every panel exposes: the active part
+(text → "composing", reasoning → "thinking", running tool → its
+tool phrase, editing tools → "editing file", otherwise a stable generic
+phrase), `canAbort`, and retry info. `PanelView.activity`,
+`PanelView.assistantStatus`, and `PanelView.streaming` carry these to
+components; the composer's stop button title shows the live status text.
+
+## Message queue (`message-queue.ts`)
+
+A port of OpenChamber's message queue store. Sending a prompt while the
+session is working honors `followUpBehavior`: `queue` (default) appends to a
+persisted per-session queue (max 20 messages, 50 targets; in-flight sends are
+never dropped) shown under the composer; `steer` interrupts and sends. An
+auto-send effect dispatches the queue the moment the session goes idle,
+respecting the 2s abort window after a stop, send-id de-duplication, and
+exponential retry backoff (2s base, 60s cap). The queue survives restarts via
+`localStorage`.
+
 Actions: `openSession` / `selectFolder` (spawn a new panel), `reopenSession(id, silent)`
 (focus the panel when the session is open, otherwise activate a new one), `focusSession(id)`,
 `closePanel(id)`, `loadSessions`, `sendPrompt(text, files, workspace?)`, `stop(workspace?)`,
