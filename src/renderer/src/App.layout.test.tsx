@@ -36,6 +36,7 @@ function info(directory: string, generation: number): SessionInfo {
 }
 
 function api(): typeof window.openshell {
+  let openedGeneration = 3;
   return {
     platform: "darwin",
     onMessage: (handler: (msg: BackendMessage) => void) => {
@@ -50,6 +51,7 @@ function api(): typeof window.openshell {
     modelDefault: async () => null,
     sessionSelection: async () => null,
     agents: async () => [],
+    openSession: async (directory: string) => info(directory, ++openedGeneration),
     sessions: async () => [],
     openSessionById: async () => ({ session: info("/repo", 1), transcript: [], todos: [], usage: null }),
     readFile: async () => "content",
@@ -399,7 +401,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()[0]).toBeCloseTo(1229 - 230, 0);
   });
 
-  it("keeps the anchored panel close button while model panels keep theirs", async () => {
+  it("keeps the anchor collapse control and closes only non-anchor panels", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -431,7 +433,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(agentWidths()).toEqual([716, 717]);
-    expect(agentLefts()).toEqual([2, 718]);
+    expect(agentLefts()).toEqual([0, 716]);
 
     await act(async () => {
       modeButton().click();
@@ -443,7 +445,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([2, 615]);
   });
 
-  it("agent mode splits three open agents evenly with the anchor rightmost", async () => {
+  it("model mode places three panels into three quadrants", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -457,8 +459,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([477, 477, 478]);
-    expect(agentLefts()).toEqual([3, 480, 957]);
+    expect(agentWidths()).toEqual([716, 716, 716]);
+    expect(agentLefts()).toEqual([0, 0, 716]);
+    expect(agentCols().map((col) => col.style.top)).toEqual(["50%", "0%", "0%"]);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
   });
 
   it("restores a single agent to its default right-anchored width after agent mode", async () => {
@@ -483,7 +487,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([949]);
   });
 
-  it("agent mode frees the anchored panel to drag anywhere and re-anchors only on exit", async () => {
+  it("model mode duplicates panels from its add control and stops at four", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
@@ -495,31 +499,26 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([1434]);
-    expect(agentLefts()).toEqual([1]);
+    const add = (): HTMLButtonElement => container.querySelector<HTMLButtonElement>('button[aria-label="Duplicate model panel"], button[aria-label="Add model panel"]')!;
+    expect(add().getAttribute("aria-label")).toBe("Duplicate model panel");
+    const openSession = vi.spyOn(window.openshell, "openSession");
 
-    const handles = container.querySelectorAll<HTMLElement>(".agent-col .panel-resize-right");
-    expect(handles).toHaveLength(1);
     await act(async () => {
-      handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 800 }));
-      window.dispatchEvent(new MouseEvent("mouseup", {}));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      add().click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
+    expect(openSession).toHaveBeenCalledWith("/repo", expect.any(Number));
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+    expect(agentWidths()).toEqual([716, 717]);
 
-    expect(agentWidths()).toEqual([1234]);
-    expect(agentLefts()).toEqual([1]);
-
-    const headers = container.querySelectorAll<HTMLElement>(".agent-header");
     await act(async () => {
-      headers[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 500 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 600 }));
-      window.dispatchEvent(new MouseEvent("mouseup", {}));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      add().click();
+      add().click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
     });
-
-    expect(agentWidths()).toEqual([1234]);
-    expect(agentLefts()).toEqual([101]);
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(4);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
+    expect(add().disabled).toBe(true);
 
     await act(async () => {
       modeButton().click();
@@ -527,11 +526,11 @@ describe("Layout panel sizing", () => {
     });
 
     expect(gridCols()[0]).toBe("250px");
-    expect(agentWidths()).toEqual([280]);
-    expect(agentLefts()).toEqual([949]);
+    expect(agentWidths()).toEqual([306, 306, 306, 307]);
+    expect(agentLefts()).toEqual([4, 310, 616, 922]);
   });
 
-  it("opening the file tray during agent mode never moves the agent panel", async () => {
+  it("opening the file tray during model mode recomputes the grid", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -545,7 +544,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(agentWidths()).toEqual([716, 717]);
-    expect(agentLefts()).toEqual([2, 718]);
+    expect(agentLefts()).toEqual([0, 716]);
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>(".sidebar.collapsed .activity-btn")!.click();
@@ -553,7 +552,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(gridCols()[0]).toBe("280px");
-    expect(agentLefts()).toEqual([2, 718]);
-    expect(agentWidths()).toEqual([598, 481]);
+    expect(agentLefts()).toEqual([0, 598]);
+    expect(agentWidths()).toEqual([598, 599]);
   });
 });
