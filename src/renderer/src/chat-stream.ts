@@ -323,6 +323,17 @@ function promoteInput(items: TranscriptItem[], inputID: string): TranscriptItem[
   });
 }
 
+function appendNonOverlappingDelta(current: string, delta: string): string {
+  if (!delta || current.endsWith(delta)) return current;
+  const maxOverlap = Math.min(current.length, delta.length);
+  for (let length = maxOverlap; length > 0; length -= 1) {
+    if (current.slice(-length) === delta.slice(0, length)) {
+      return current + delta.slice(length);
+    }
+  }
+  return current + delta;
+}
+
 export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent): TranscriptItem[] {
   const data = event.data;
   const id = messageID(data);
@@ -669,7 +680,7 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
           partID,
           { kind: "text", id: partID, text: "", complete: false },
           (part) => part.kind === "text" || part.kind === "reasoning"
-            ? { ...part, text: part.text + String(data.delta ?? "") }
+            ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
             : part
         )
       );
@@ -772,11 +783,24 @@ function deltaKey(event: ChatStreamEvent): string | null {
 
 export function coalesceChatStream(events: ChatStreamEvent[]): ChatStreamEvent[] {
   const result: ChatStreamEvent[] = [];
+  const coalesced = new Map<string, number>();
   for (const event of events) {
     const key = deltaKey(event);
-    const previous = result.at(-1);
-    if (key && previous && deltaKey(previous) === key) {
-      result[result.length - 1] = {
+    if (event.type === "message.part.updated") {
+      const part = event.data.part as Record<string, any> | undefined;
+      const messageID = String(part?.messageID ?? event.data.messageID ?? "");
+      const partID = String(part?.id ?? event.data.partID ?? "");
+      if (messageID && partID) {
+        const suffix = `:${messageID}:${partID}:`;
+        for (const pendingKey of coalesced.keys()) {
+          if (pendingKey.startsWith("message.part.delta:") && pendingKey.includes(suffix)) coalesced.delete(pendingKey);
+        }
+      }
+    }
+    const previousIndex = key ? coalesced.get(key) : undefined;
+    if (previousIndex !== undefined) {
+      const previous = result[previousIndex];
+      result[previousIndex] = {
         ...event,
         data: {
           ...event.data,
@@ -785,10 +809,12 @@ export function coalesceChatStream(events: ChatStreamEvent[]): ChatStreamEvent[]
       };
       continue;
     }
-    if (event.type === "message.part.updated" && previous?.type === "message.part.updated") {
+    if (event.type === "message.part.updated") {
+      const previous = result.at(-1);
       const currentPart = event.data.part as Record<string, any> | undefined;
-      const previousPart = previous.data.part as Record<string, any> | undefined;
+      const previousPart = previous?.data.part as Record<string, any> | undefined;
       if (
+        previous?.type === "message.part.updated" &&
         currentPart?.id &&
         previousPart?.id &&
         currentPart.id === previousPart.id &&
@@ -798,6 +824,7 @@ export function coalesceChatStream(events: ChatStreamEvent[]): ChatStreamEvent[]
         continue;
       }
     }
+    if (key) coalesced.set(key, result.length);
     result.push(event);
   }
   return result;

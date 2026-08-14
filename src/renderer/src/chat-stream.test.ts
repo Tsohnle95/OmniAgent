@@ -54,6 +54,36 @@ describe("chat stream replay", () => {
     });
   });
 
+  it("coalesces separated deltas and respects snapshot barriers", () => {
+    const events = coalesceChatStream([
+      event("one", "message.part.delta", { sessionID: "s", messageID: "m", partID: "p", field: "text", delta: "a" }),
+      event("other", "session.step.started", { sessionID: "s", assistantMessageID: "m" }),
+      event("two", "message.part.delta", { sessionID: "s", messageID: "m", partID: "p", field: "text", delta: "b" }),
+      event("snapshot", "message.part.updated", { part: { id: "p", messageID: "m", type: "text", text: "ab" } }),
+      event("three", "message.part.delta", { sessionID: "s", messageID: "m", partID: "p", field: "text", delta: "c" })
+    ]);
+
+    expect(events.map((item) => item.type)).toEqual([
+      "message.part.delta",
+      "session.step.started",
+      "message.part.updated",
+      "message.part.delta"
+    ]);
+    expect(events[0]?.data.delta).toBe("ab");
+    expect(events[3]?.data.delta).toBe("c");
+  });
+
+  it("does not duplicate a delta already included in a part snapshot", () => {
+    const snapshot = reduceChatStream([], event("snapshot", "message.part.updated", {
+      part: { id: "part-1", messageID: "assistant-1", type: "text", text: "Hello" }
+    }));
+    const result = reduceChatStream(snapshot, event("delta", "message.part.delta", {
+      messageID: "assistant-1", partID: "part-1", field: "text", delta: "Hello"
+    }));
+
+    expect(result[0]).toMatchObject({ parts: [{ text: "Hello" }] });
+  });
+
   it("bounds completed live shell output", () => {
     const output = "x".repeat(MAX_RETAINED_OUTPUT_CHARS * 2);
     const transcript = reduceChatStream([], event("shell-end", "session.shell.ended", {
