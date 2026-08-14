@@ -488,6 +488,24 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([949]);
   });
 
+  it("reopens a collapsed model panel when entering model mode", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    await act(async () => {
+      container.querySelector<HTMLElement>(".agent-collapse")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+    expect(agentWidths()[0]).toBeGreaterThan(1000);
+  });
+
   it("model mode duplicates panels from its add control and stops at four", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));

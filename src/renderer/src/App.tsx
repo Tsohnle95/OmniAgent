@@ -334,13 +334,34 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const slotFor = (panel: SessionInfo): PanelSlot => {
     const anchorId = panels[0]?.workspace.id ?? null;
     const stored = slots[panel.workspace.id];
+    if (inAgentMode && panels.length === 1) {
+      return {
+        open: true,
+        width: Math.max(COLLAPSED_PANEL_W, winW - COLLAPSED_PANEL_W - fixedPanelChrome),
+        left: 0,
+        top: 0,
+        height: 100
+      };
+    }
     if (panel.workspace.id === anchorId) {
       const open = stored?.open ?? true;
       const width = stored ? (open ? stored.width : COLLAPSED_PANEL_W) : AGENT_DEFAULT_W;
-      if (inAgentMode && stored) return { open, width, left: stored.left, top: stored.top, height: stored.height };
+      if (inAgentMode && stored) {
+        return {
+          open: true,
+          width: Math.max(AGENT_DEFAULT_W, stored.width),
+          left: stored.left,
+          top: stored.top,
+          height: stored.height
+        };
+      }
       return { open, width, left: Math.max(0, areaW - width), top: 0, height: 100 };
     }
-    if (stored) return stored;
+    if (stored) {
+      return inAgentMode && !stored.open
+        ? { ...stored, open: true, width: Math.max(AGENT_DEFAULT_W, stored.width) }
+        : stored;
+    }
     const anchorStored = anchorId ? slots[anchorId] : undefined;
     const anchorWidth = anchorStored ? (anchorStored.open ? anchorStored.width : COLLAPSED_PANEL_W) : AGENT_DEFAULT_W;
     const anchorLeft = Math.max(0, areaW - anchorWidth);
@@ -494,16 +515,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const distributeEvenly = useCallback((sideShownAt: number, singleRestore: boolean): void => {
     setSlots((current) => {
       const anchorId = panels[0]?.workspace.id ?? null;
-      const openIDs = panels
-        .filter((panel) => panel.workspace.id === anchorId || (current[panel.workspace.id]?.open ?? true))
-        .map((panel) => panel.workspace.id);
+      const modelMode = prevSidebarRef.current !== null;
+      const openIDs = modelMode
+        ? panels.map((panel) => panel.workspace.id)
+        : panels
+          .filter((panel) => panel.workspace.id === anchorId || (current[panel.workspace.id]?.open ?? true))
+          .map((panel) => panel.workspace.id);
       if (openIDs.length === 0) return current;
       if (singleRestore && openIDs.length === 1 && anchorId) {
         return { ...current, [anchorId]: { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 } };
       }
       const area = Math.max(0, winW - sideShownAt - 1);
       const total = Math.max(0, winW - fixedPanelChrome - sideShownAt);
-      const modelMode = prevSidebarRef.current !== null;
       const grid = modelMode && openIDs.length >= 3;
       const columns = grid ? 2 : openIDs.length;
       const rows = grid ? 2 : 1;
