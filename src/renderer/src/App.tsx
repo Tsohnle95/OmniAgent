@@ -628,6 +628,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           </button>
           <button
             className={`icon-btn ${inAgentMode ? "on" : ""}`}
+            data-panel-action="toggle-model-mode"
             aria-label={inAgentMode ? "Exit model mode" : "Enter model mode"}
             aria-pressed={inAgentMode}
             title={inAgentMode
@@ -640,6 +641,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           {inAgentMode && (
             <button
               className="icon-btn"
+              data-panel-action="add-model-panel"
               title={panels.length + pendingModelPanels >= 4 ? "Model panel limit reached (4)" : panels.length === 1 ? "Duplicate model panel" : "Add model panel"}
               aria-label={panels.length === 1 ? "Duplicate model panel" : "Add model panel"}
               disabled={panels.length + pendingModelPanels >= 4}

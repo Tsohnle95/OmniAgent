@@ -549,6 +549,23 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([4, 310, 616, 922]);
   });
 
+  it("only the plus control adds a model panel", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    const openSession = vi.spyOn(window.openshell, "openSession");
+    const modeButton = (): HTMLButtonElement => container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-model-mode"]')!;
+
+    await act(async () => {
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      modeButton().click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(openSession).not.toHaveBeenCalled();
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+  });
+
   it("opening the file tray during model mode recomputes the grid", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
