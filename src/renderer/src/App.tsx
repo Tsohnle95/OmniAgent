@@ -634,7 +634,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             title={inAgentMode
               ? "Exit model mode — restore the file tray"
               : "Model mode — collapse the file tray and split models across the app"}
-            onClick={toggleAgentMode}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              toggleAgentMode();
+            }}
           >
             <span className="codicon codicon-robot" />
           </button>

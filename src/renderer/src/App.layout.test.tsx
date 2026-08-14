@@ -564,6 +564,7 @@ describe("Layout panel sizing", () => {
 
     expect(openSession).not.toHaveBeenCalled();
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+    expect(container.querySelector('[data-panel-action="add-model-panel"]')).toBeNull();
   });
 
   it("opening the file tray during model mode recomputes the grid", async () => {
