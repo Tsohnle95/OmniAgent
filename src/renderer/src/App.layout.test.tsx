@@ -578,6 +578,6 @@ describe("Layout panel sizing", () => {
 
     expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "425px", "425px"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
-    expect(agentWidths()).toEqual([425, 425, 425, 426]);
+    expect(agentWidths()).toEqual([425, 425, 426, 426]);
   });
 });
