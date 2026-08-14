@@ -40,6 +40,7 @@ import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { sameWorkspace } from "@shared/generation";
 import { retainSessionRecord } from "@shared/retention";
+import { createChatStreamPipeline } from "./chat-stream-pipeline";
 
 export interface Toast {
   id: number;
