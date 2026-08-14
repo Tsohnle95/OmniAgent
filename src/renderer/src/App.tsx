@@ -644,7 +644,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           className="workspace-area"
           style={
             {
-              "--editor-right": `${Math.max(0, areaW - (ordered.length > 0 ? slotFor(ordered[0]).left : areaW))}px`
+              "--editor-right": `${inAgentMode ? 0 : Math.max(0, areaW - (ordered.length > 0 ? slotFor(ordered[0]).left : areaW))}px`
             } as CSSProperties
           }
         >

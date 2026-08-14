@@ -463,6 +463,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([0, 0, 716]);
     expect(agentCols().map((col) => col.style.top)).toEqual(["50%", "0%", "0%"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
+    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
   it("restores a single agent to its default right-anchored width after agent mode", async () => {
