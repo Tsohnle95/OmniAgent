@@ -28,7 +28,8 @@ import type {
   UserAttachment,
   WorkspaceIdentity
 } from "@shared/types";
-import { coalesceChatStream, mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { createChatStreamPipeline } from "./chat-stream-pipeline";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { sameWorkspace } from "@shared/generation";
@@ -1634,28 +1635,16 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     };
 
-    let queued: ChatStreamEvent[] = [];
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let lastFlush = 0;
-    const flushEvents = (): void => {
-      timer = null;
-      const events = coalesceChatStream(queued);
-      queued = [];
-      lastFlush = Date.now();
-      for (const event of events) {
-        processMessage({ kind: "event", type: event.type, data: event });
-      }
-    };
+    const streamPipeline = createChatStreamPipeline((events) => {
+      for (const event of events) processMessage({ kind: "event", type: event.type, data: event });
+    });
     const off = window.openshell.onMessage((msg: BackendMessage) => {
       const event = normalizeStreamEvent(msg);
       if (!event) {
         processMessage(msg);
         return;
       }
-      queued.push(event);
-      if (timer === null) {
-        timer = setTimeout(flushEvents, Math.max(0, 16 - (Date.now() - lastFlush)));
-      }
+      streamPipeline.enqueue(event);
     });
 
     let healthTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1683,7 +1672,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       cancelled = true;
       if (healthTimer !== null) clearTimeout(healthTimer);
       off();
-      if (timer !== null) clearTimeout(timer);
+      streamPipeline.cleanup();
       persistence.cancelAll();
     };
   }, [

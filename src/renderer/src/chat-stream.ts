@@ -191,6 +191,24 @@ function upsertPart(
 ): Extract<TranscriptItem, { kind: "assistant" }> {
   const index = assistant.parts.findIndex((item) => item.id === part.id);
   if (index === -1) return { ...assistant, parts: [...assistant.parts, part] };
+  const current = assistant.parts[index];
+  if (current.kind === "text" && part.kind === "text") {
+    part = {
+      ...part,
+      text: part.text.length >= current.text.length ? part.text : current.text,
+      complete: current.complete || part.complete
+    };
+  } else if (current.kind === "reasoning" && part.kind === "reasoning") {
+    part = {
+      ...part,
+      text: part.text.length >= current.text.length ? part.text : current.text,
+      complete: current.complete || part.complete
+    };
+  } else if (current.kind === "tool" && part.kind === "tool") {
+    const currentFinished = current.tool.status !== "running";
+    if (currentFinished && part.tool.status === "running") part = current;
+    else part = { ...part, tool: { ...current.tool, ...part.tool } };
+  }
   return {
     ...assistant,
     parts: assistant.parts.map((item, itemIndex) => itemIndex === index ? part : item)
@@ -209,6 +227,25 @@ function updatePart(
     ...assistant,
     parts: assistant.parts.map((part, partIndex) => partIndex === index ? update(part) : part)
   };
+}
+
+function updateToolPart(
+  assistant: Extract<TranscriptItem, { kind: "assistant" }>,
+  partID: string,
+  field: string,
+  delta: string
+): Extract<TranscriptItem, { kind: "assistant" }> {
+  return updatePart(
+    assistant,
+    partID,
+    { kind: "tool", id: partID, tool: initialTool(partID, "tool", Date.now()) },
+    (part) => {
+      if (part.kind !== "tool") return part;
+      if (field === "output") return { ...part, tool: { ...part.tool, output: appendNonOverlappingDelta(part.tool.output ?? "", delta) } };
+      if (field === "input") return { ...part, tool: { ...part.tool, input: appendNonOverlappingDelta(part.tool.input ?? "", delta) } };
+      return part;
+    }
+  );
 }
 
 function textPartID(id: string, type: "text" | "reasoning", ordinal: unknown): string {
@@ -527,8 +564,10 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         updatePart(
           assistant,
           partID,
-          { kind: "text", id: partID, text: "", complete: false },
-          (part) => part.kind === "text" ? { ...part, text: part.text + String(data.delta ?? "") } : part
+           { kind: "text", id: partID, text: "", complete: false },
+           (part) => part.kind === "text"
+             ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
+             : part
         )
       );
     }
@@ -557,10 +596,10 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         updatePart(
           assistant,
           partID,
-          { kind: "reasoning", id: partID, text: "", complete: false },
-          (part) => part.kind === "reasoning"
-            ? { ...part, text: part.text + String(data.delta ?? "") }
-            : part
+           { kind: "reasoning", id: partID, text: "", complete: false },
+           (part) => part.kind === "reasoning"
+             ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
+             : part
         )
       );
     }
@@ -585,7 +624,10 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         startedAt: event.created
       }));
     case "session.tool.input.delta":
-      return updateTool(items, event, (tool) => ({ ...tool, input: (tool.input ?? "") + String(data.delta ?? "") }));
+      return updateTool(items, event, (tool) => ({
+        ...tool,
+        input: appendNonOverlappingDelta(tool.input ?? "", String(data.delta ?? ""))
+      }));
     case "session.tool.input.ended":
       return updateTool(items, event, (tool) => ({ ...tool, input: String(data.text ?? tool.input ?? "") }));
     case "session.tool.called":
@@ -670,19 +712,21 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
       return updateAssistant(items, assistantID, event.created, (assistant) => upsertPart(assistant, part));
     }
     case "message.part.delta": {
-      if (data.field && data.field !== "text") return items;
       const assistantID = String(data.messageID ?? "");
       const partID = String(data.partID ?? "");
       if (!assistantID || !partID) return items;
+      const field = String(data.field ?? "text");
       return updateAssistant(items, assistantID, event.created, (assistant) =>
-        updatePart(
-          assistant,
-          partID,
-          { kind: "text", id: partID, text: "", complete: false },
-          (part) => part.kind === "text" || part.kind === "reasoning"
-            ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
-            : part
-        )
+        field === "text"
+          ? updatePart(
+              assistant,
+              partID,
+              { kind: "text", id: partID, text: "", complete: false },
+              (part) => part.kind === "text" || part.kind === "reasoning"
+                ? { ...part, text: appendNonOverlappingDelta(part.text, String(data.delta ?? "")) }
+                : part
+            )
+          : updateToolPart(assistant, partID, field, String(data.delta ?? ""))
       );
     }
     case "message.part.removed": {
