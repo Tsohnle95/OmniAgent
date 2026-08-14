@@ -108,6 +108,8 @@ normal app — Finder, Dock, and all.
   it ignores, and how tool cards are assembled.
 - `docs/main.md`, `docs/preload.md`, `docs/renderer.md`, `docs/shared.md` —
   per-module references, each self-contained.
+- `landing.html` — the animated one-file product landing page; open it
+  directly in a browser (fully self-contained, no network needed).
 
 ## Notes / roadmap
 
