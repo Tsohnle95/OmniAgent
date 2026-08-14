@@ -246,26 +246,17 @@ released at that collapsed position.
 - `openshell-dark` theme (diff insert/remove colors included).
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
-- CSS/SCSS/LESS diagnostics come from the bundled CSS worker; validation is
-  pinned on with `cssDefaults.setDiagnosticsOptions({ validate: true })`.
-  HTML gets no validation from its bundled worker, so the renderer runs
-  `htmlhint` on the main thread instead.
+- CSS and HTML worker diagnostics are disabled so editor markers come only from
+  the W3C validation service.
 
-## Editor diagnostics (`diagnostics.ts`)
+## W3C editor validation
 
-- `isHtmlFile()` — restricts validation to real `.html`/`.htm` files so
-  `.vue`/`.svelte` tabs (which also map to the `html` language) are skipped.
-- `validateHtmlContent()` — runs htmlhint with a validity-only ruleset
-  (tag pairing, duplicate attributes, unique ids, empty `src`, missing
-  `alt`, unsafe/special characters) and converts each hint to a monaco
-  `IMarkerData` with 1-based positions and `Error` severity. Empty and
-  >4 MiB inputs are skipped.
-- `createDiagnosticsScheduler()` — debounced (400 ms) validation that
-  publishes through a caller-supplied callback.
-- `EditorPane` wires the scheduler per tab: `onMount` captures the editor
-  and schedules an initial pass, content changes reschedule, and markers
-  are published to the tab's model via
-  `monaco.editor.setModelMarkers(model, "htmlhint", markers)`.
+- `EditorPane` validates open HTML, CSS, SCSS, and LESS files after a 400 ms
+  debounce while in Edit mode.
+- The main process calls the Nu Html Checker for HTML and the W3C CSS Validator
+  for stylesheets, then returns diagnostics that become Monaco markers.
+- Network failures leave the editor unchanged; Vue and Svelte files are not
+  sent to the validators.
 
 ## Entry
 

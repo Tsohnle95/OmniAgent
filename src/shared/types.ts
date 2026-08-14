@@ -158,6 +158,16 @@ export interface ReferenceOption {
   description?: string;
 }
 
+export interface W3cDiagnostic {
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  message: string;
+  severity: "error" | "warning";
+  source: "w3c-html" | "w3c-css";
+}
+
 export interface PromptFile {
   path: string;
   mention?: { start: number; end: number; text: string };

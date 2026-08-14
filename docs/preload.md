@@ -55,6 +55,7 @@ automatically.
 | `providerUsage()` | `Promise<ProviderUsageResult[]>` |
 | `health()` | `Promise<boolean>` |
 | `installApp()` | `Promise<{ok: boolean, message: string}>` — macOS-only: builds the packaged app and installs it to `/Applications`; `ok` false with a message on failure |
+| `validateW3c(path, content)` | `Promise<W3cDiagnostic[]>` — validates HTML/CSS source through the W3C services |
 
 All are `ipcRenderer.invoke` wrappers over the `shell:*` channels
 documented in `docs/main.md`. `onMessage` subscribes to

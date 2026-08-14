@@ -14,6 +14,7 @@ import {
   type TrustedApplicationLocation
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
+import { validateWithW3c } from "./w3c-validation";
 import type {
   FileWriteIdentity,
   PermissionReply,
@@ -748,6 +749,12 @@ function registerIpc(): void {
   handleTrusted("shell:health", async () => backend.connect().catch(() => false));
 
   handleTrusted("shell:install-app", async () => installApplication());
+
+  handleTrusted("shell:validate-w3c", async (_e, filePath: string, content: string) => {
+    const path = directoryPath(filePath);
+    const source = fileContent(content);
+    return validateWithW3c(path, source);
+  });
 }
 
 if (!app.requestSingleInstanceLock()) {

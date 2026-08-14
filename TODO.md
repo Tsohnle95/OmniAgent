@@ -26,7 +26,7 @@ green before each commit, fresh reviewer + mechanical closure at the end).
 
 - [x] When I go to create a folder or anything in the explorer area, I'm not able to drag folders out of their current hierarchy and into different places, so I need to be able to do that.
 
-- [x] - add w3c or equivalent html and css validation functionality like in vs code
+- [x] - add W3C HTML and CSS validation in the editor; the editor calls the Nu Html Checker and W3C CSS Validator and shows their errors and warnings as Monaco markers
 
 - [x] I want to be able to start entirely new model sessions, where it spawns another identical model panel with the same resizing panel logic, where you can pick another work space, etc. also add a sessions tab with the recents and saved workspaces, so i can swap sessions easily By clicking them.
 

@@ -178,6 +178,7 @@ Internals:
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |
 | `shell:health` | `() → boolean` |
 | `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/OpenShell.app` |
+| `shell:validate-w3c` | `(path, content) → W3cDiagnostic[]`; calls the Nu Html Checker or W3C CSS Validator for supported HTML and stylesheet paths |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend
 message. Every `shell:*` invoke is accepted only from the active window's

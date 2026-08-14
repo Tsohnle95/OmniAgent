@@ -15,6 +15,7 @@ import type {
   SessionInfo,
   SessionSelection,
   SessionSummary,
+  W3cDiagnostic,
   WorkspaceIdentity
 } from "@shared/types";
 
@@ -92,7 +93,9 @@ const api = {
     ipcRenderer.invoke("shell:session-selection", workspace),
   providerUsage: (): Promise<ProviderUsageResult[]> => ipcRenderer.invoke("shell:provider-usage"),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),
-  installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app")
+  installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app"),
+  validateW3c: (path: string, content: string): Promise<W3cDiagnostic[]> =>
+    ipcRenderer.invoke("shell:validate-w3c", path, content)
 };
 
 export type OpenShellApi = typeof api;

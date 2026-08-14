@@ -26,7 +26,11 @@ window.MonacoEnvironment = {
 
 loader.config({ monaco });
 
-monaco.languages.css.cssDefaults.setDiagnosticsOptions({ validate: true });
+monaco.languages.css.cssDefaults.setDiagnosticsOptions({ validate: false });
+monaco.languages.html.htmlDefaults.setModeConfiguration({
+  ...monaco.languages.html.htmlDefaults.modeConfiguration,
+  diagnostics: false
+});
 
 monaco.editor.defineTheme("openshell-dark", {
   base: "vs-dark",

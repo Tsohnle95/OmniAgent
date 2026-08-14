@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { languageForPath, monaco } from "../monaco";
-import { createDiagnosticsScheduler, isHtmlFile, validateHtmlContent } from "../diagnostics";
+import type { W3cDiagnostic } from "@shared/types";
 import { useStore } from "../store";
 import { registerEditor, unregisterEditor } from "../reveal";
 import type { Tab } from "@shared/types";
@@ -95,7 +95,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   }, [saveTab, tab.path]);
 
   const language = useMemo(() => languageForPath(tab.path), [tab.path]);
-  const htmlFile = useMemo(() => isHtmlFile(tab.path), [tab.path]);
+  const w3cFile = useMemo(() => /\.(?:html?|css|scss|less)$/i.test(tab.path), [tab.path]);
   const diffAvailable = tab.baseline?.kind === "known";
   const diffUnknown = tab.baseline?.kind === "unknown";
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;
@@ -105,24 +105,29 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   );
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const schedulerRef = useRef<ReturnType<typeof createDiagnosticsScheduler> | null>(null);
+  const validationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const validationGeneration = useRef(0);
 
   useEffect(() => {
-    if (!htmlFile) return;
-    const scheduler = createDiagnosticsScheduler(validateHtmlContent, (markers) => {
-      const model = editorRef.current?.getModel();
-      if (!model || model.isDisposed()) return;
-      monaco.editor.setModelMarkers(model, "htmlhint", markers);
-    });
-    schedulerRef.current = scheduler;
-    return () => scheduler.cancel();
-  }, [htmlFile]);
-
-  useEffect(() => {
-    if (!htmlFile || mode !== "edit") return;
-    schedulerRef.current?.schedule(tab.content);
-    return () => schedulerRef.current?.cancel();
-  }, [htmlFile, mode, tab.content]);
+    if (!w3cFile || mode !== "edit") return;
+    if (validationTimer.current !== null) clearTimeout(validationTimer.current);
+    const generation = ++validationGeneration.current;
+    const model = editorRef.current?.getModel();
+    if (model && !model.isDisposed()) monaco.editor.setModelMarkers(model, "w3c", []);
+    validationTimer.current = setTimeout(() => {
+      void window.openshell.validateW3c(tab.path, tab.content).then((diagnostics) => {
+        if (generation !== validationGeneration.current) return;
+        const model = editorRef.current?.getModel();
+        if (!model || model.isDisposed()) return;
+        monaco.editor.setModelMarkers(model, "w3c", diagnostics.map(toMarker));
+      }).catch(() => {});
+    }, 400);
+    return () => {
+      if (validationTimer.current !== null) clearTimeout(validationTimer.current);
+      validationTimer.current = null;
+      validationGeneration.current++;
+    };
+  }, [mode, tab.content, tab.path, w3cFile]);
 
   useEffect(() => () => unregisterEditor(tab.path), [tab.path]);
 
@@ -218,7 +223,6 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           onMount={(ed) => {
             editorRef.current = ed;
             registerEditor(tab.path, ed);
-            if (htmlFile) schedulerRef.current?.schedule(tab.content);
           }}
           options={options}
           onChange={(value) => {
@@ -228,6 +232,18 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
       )}
     </div>
   );
+}
+
+function toMarker(diagnostic: W3cDiagnostic): editor.IMarkerData {
+  return {
+    startLineNumber: diagnostic.line,
+    startColumn: diagnostic.column,
+    endLineNumber: diagnostic.endLine,
+    endColumn: diagnostic.endColumn,
+    message: diagnostic.message,
+    severity: diagnostic.severity === "warning" ? 4 : 8,
+    source: diagnostic.source
+  };
 }
 
 export function EditorPane(): ReactNode {
