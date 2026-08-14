@@ -10,7 +10,7 @@ export interface ChatMessageRecord {
   id: string;
   sessionID: string;
   role: string;
-  time: { created?: number; completed?: number };
+  time: { created?: number; completed?: number; end?: number };
   finish?: unknown;
   error?: unknown;
   retry?: { attempt: number; message: string; next?: number };
@@ -24,7 +24,7 @@ export interface ChatPartRecord {
   type: string;
   text?: string;
   state?: Record<string, unknown>;
-  time?: { created?: number; completed?: number };
+  time?: { created?: number; completed?: number; end?: number };
   [key: string]: unknown;
 }
 
@@ -53,6 +53,11 @@ export type ChatEventResult =
         partID?: string;
       };
     };
+
+export interface ChatStateSnapshot {
+  message: Record<string, ChatMessageRecord[]>;
+  session_status: Record<string, ChatSessionStatus>;
+}
 
 function eventMessageID(data: Record<string, any>): string {
   return String(data.assistantMessageID ?? data.messageID ?? "");
@@ -196,23 +201,41 @@ function retryRecord(value: unknown): ChatMessageRecord["retry"] | undefined {
   return { attempt, message, ...(next !== undefined ? { next } : {}) };
 }
 
-function insertMessage(draft: ChatDirectoryState, sessionID: string, message: ChatMessageRecord): void {
+export function insertMessage(draft: ChatDirectoryState, sessionID: string, message: ChatMessageRecord): void {
   const messages = draft.message[sessionID] ?? [];
-  draft.message[sessionID] = messages;
   const result = Binary.search(messages, message.id, (item) => item.id);
+  const next = [...messages];
   if (result.found) {
-    messages[result.index] = message;
+    next[result.index] = message;
   } else {
-    messages.splice(result.index, 0, message);
+    next.splice(result.index, 0, message);
   }
+  draft.message[sessionID] = next;
+}
+
+export function insertUserMessage(
+  draft: ChatDirectoryState,
+  sessionID: string,
+  id: string,
+  text: string,
+  model?: Record<string, unknown>
+): void {
+  insertMessage(draft, sessionID, {
+    id,
+    sessionID,
+    role: "user",
+    time: { created: Date.now() },
+    ...(model && typeof model === "object" ? { model } : {})
+  });
 }
 
 function insertPart(draft: ChatDirectoryState, part: ChatPartRecord): void {
   const parts = draft.part[part.messageID] ?? [];
-  draft.part[part.messageID] = parts;
   const result = Binary.search(parts, part.id, (item) => item.id);
-  if (result.found) parts[result.index] = part;
-  else parts.splice(result.index, 0, part);
+  const next = [...parts];
+  if (result.found) next[result.index] = part;
+  else next.splice(result.index, 0, part);
+  draft.part[part.messageID] = next;
 }
 
 function upsertPart(draft: ChatDirectoryState, next: ChatPartRecord): boolean {
@@ -226,12 +249,17 @@ function upsertPart(draft: ChatDirectoryState, next: ChatPartRecord): boolean {
     const previous = parts[result.index];
     if (shouldPreserveExistingPart(previous, next)) return false;
     const dedupeFields = getUpdatedDeltaFields(previous, next);
-    parts[result.index] = dedupeFields.length > 0
+    const replaced = dedupeFields.length > 0
       ? { ...next, __dedupeNextDeltaFields: dedupeFields }
       : next;
+    const replacedParts = [...parts];
+    replacedParts[result.index] = replaced;
+    draft.part[next.messageID] = replacedParts;
     return true;
   }
-  parts.splice(result.index, 0, next);
+  const inserted = [...parts];
+  inserted.splice(result.index, 0, next);
+  draft.part[next.messageID] = inserted;
   return true;
 }
 
@@ -269,13 +297,15 @@ function applyDelta(
   const dedupeFields = (existing as unknown as { __dedupeNextDeltaFields?: string[] }).__dedupeNextDeltaFields ?? [];
   const shouldDedupe = dedupeFields.includes(props.field);
   const existingValue = partFieldValue(existing, props.field);
-  const next = setPartFieldValue(
+  const updated = setPartFieldValue(
     existing,
     props.field,
     shouldDedupe ? appendNonOverlappingDelta(existingValue, props.delta) : (existingValue ?? "") + props.delta
   ) as unknown as { __dedupeNextDeltaFields?: string[] } & ChatPartRecord;
-  next.__dedupeNextDeltaFields = dedupeFields.filter((field) => field !== props.field);
-  parts[result.index] = next as ChatPartRecord;
+  updated.__dedupeNextDeltaFields = dedupeFields.filter((field) => field !== props.field);
+  const next = [...parts];
+  next[result.index] = updated as ChatPartRecord;
+  draft.part[props.messageID] = next;
   return true;
 }
 
@@ -304,10 +334,37 @@ function completeLatestIncomplete(draft: ChatDirectoryState, sessionID: string):
     const message = messages[index];
     if (message.role !== "assistant") continue;
     if (!message.time?.completed && !message.finish) {
-      messages[index] = { ...message, time: { ...message.time, completed: Date.now() } };
+      const next = [...messages];
+      next[index] = { ...message, time: { ...message.time, completed: Date.now() } };
+      draft.message[sessionID] = next;
       return;
     }
   }
+}
+
+export function attachRetryToLatestAssistant(
+  draft: ChatDirectoryState,
+  sessionID: string,
+  retry: { attempt: number; message: string; next?: number }
+): boolean {
+  const messages = draft.message[sessionID];
+  if (!messages) return false;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") continue;
+    const next = [...messages];
+    next[index] = { ...message, retry };
+    draft.message[sessionID] = next;
+    return true;
+  }
+  return false;
+}
+
+export function snapshotChatState(draft: ChatDirectoryState): ChatStateSnapshot {
+  return {
+    message: { ...draft.message },
+    session_status: { ...draft.session_status }
+  };
 }
 
 export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: string, event: ChatStreamEvent): ChatEventResult {
@@ -326,19 +383,19 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
             : null;
       if (!status) return false;
       if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
-      draft.session_status[sessionID] = status;
+      draft.session_status = { ...draft.session_status, [sessionID]: status };
       return true;
     }
     case "session.idle": {
       const status: ChatSessionStatus = { type: "idle" };
       if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
-      draft.session_status[sessionID] = status;
+      draft.session_status = { ...draft.session_status, [sessionID]: status };
       return true;
     }
     case "session.error": {
       const status: ChatSessionStatus = { type: "idle" };
       if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
-      draft.session_status[sessionID] = status;
+      draft.session_status = { ...draft.session_status, [sessionID]: status };
       return true;
     }
     case "message.updated": {
@@ -347,6 +404,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       const infoSessionID = typeof info.sessionID === "string" ? info.sessionID : sessionID;
       if (!messageID || !infoSessionID) return false;
       const next: ChatMessageRecord = {
+        ...info,
         id: messageID,
         sessionID: infoSessionID,
         role: String(info.role ?? info.type ?? "assistant"),
@@ -356,14 +414,17 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         ...(retryRecord(info.retry) ? { retry: retryRecord(info.retry) } : {})
       };
       const messages = draft.message[infoSessionID] ?? [];
-      draft.message[infoSessionID] = messages;
       const result = Binary.search(messages, messageID, (message) => message.id);
       if (result.found) {
         const existing = messages[result.index];
         if (areMessageUpdateFieldsEqual(existing, next)) return false;
-        messages[result.index] = next;
+        const replaced = [...messages];
+        replaced[result.index] = next;
+        draft.message[infoSessionID] = replaced;
       } else {
-        messages.splice(result.index, 0, next);
+        const inserted = [...messages];
+        inserted.splice(result.index, 0, next);
+        draft.message[infoSessionID] = inserted;
       }
       return true;
     }
@@ -374,11 +435,13 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (messages) {
         const result = Binary.search(messages, messageID, (message) => message.id);
         if (result.found) {
-          messages.splice(result.index, 1);
-          if (messages.length === 0) delete draft.message[sessionID];
+          const next = [...messages];
+          next.splice(result.index, 1);
+          if (next.length === 0) delete draft.message[sessionID];
+          else draft.message[sessionID] = next;
         }
       }
-      delete draft.part[messageID];
+      if (messageID in draft.part) delete draft.part[messageID];
       return true;
     }
     case "message.part.updated": {
@@ -389,13 +452,11 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID) return false;
       const missingOwningMessage = !hasMessage(draft, partSessionID, messageID);
       const next: ChatPartRecord = {
+        ...part,
         id: String(part.id ?? ""),
         messageID,
         sessionID: partSessionID,
-        type: String(part.type ?? ""),
-        ...(typeof part.text === "string" ? { text: part.text } : {}),
-        ...(part.state && typeof part.state === "object" ? { state: part.state as Record<string, unknown> } : {}),
-        ...(part.time && typeof part.time === "object" ? { time: part.time as { created?: number; completed?: number } } : {})
+        type: String(part.type ?? "")
       };
       if (!next.id) return false;
       upsertPart(draft, next);
@@ -420,8 +481,10 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!parts) return false;
       const result = Binary.search(parts, partID, (part) => part.id);
       if (!result.found) return false;
-      parts.splice(result.index, 1);
-      if (parts.length === 0) delete draft.part[messageID];
+      const next = [...parts];
+      next.splice(result.index, 1);
+      if (next.length === 0) delete draft.part[messageID];
+      else draft.part[messageID] = next;
       return true;
     }
     case "message.part.delta":
@@ -436,14 +499,12 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       const messageID = eventMessageID(data);
       if (!messageID) return false;
       const messages = draft.message[sessionID] ?? [];
-      draft.message[sessionID] = messages;
-      for (let index = 0; index < messages.length; index += 1) {
-        const message = messages[index];
-        if (message.role !== "assistant" || message.id === messageID) continue;
-        if (!message.time?.completed && !message.finish) {
-          messages[index] = { ...message, retry: undefined, time: { ...message.time, completed: event.created } };
-        }
-      }
+      const next = messages.map((message) => {
+        if (message.role !== "assistant" || message.id === messageID) return message;
+        if (message.time?.completed || message.finish) return message;
+        return { ...message, retry: undefined, time: { ...message.time, completed: event.created } };
+      });
+      draft.message[sessionID] = next;
       insertMessage(draft, sessionID, {
         id: messageID,
         sessionID,
@@ -480,9 +541,9 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID) return false;
       const partID = textPartID(messageID, "text", data.ordinal);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
-      if (Binary.search(parts, partID, (part) => part.id).found) return false;
-      parts.splice(Binary.search(parts, partID, (part) => part.id).index, 0, basePart(messageID, sessionID, partID, "text", event.created));
+      const result = Binary.search(parts, partID, (part) => part.id);
+      if (result.found) return false;
+      insertPart(draft, basePart(messageID, sessionID, partID, "text", event.created));
       return true;
     }
     case "session.text.delta":
@@ -498,10 +559,9 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID) return false;
       const partID = textPartID(messageID, "text", data.ordinal);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
       const existing = Binary.search(parts, partID, (part) => part.id);
       if (!existing.found) {
-        parts.splice(existing.index, 0, textSnapshot(messageID, sessionID, partID, "text", String(data.text ?? ""), event.created));
+        insertPart(draft, textSnapshot(messageID, sessionID, partID, "text", String(data.text ?? ""), event.created));
         return true;
       }
       const previous = parts[existing.index];
@@ -517,9 +577,9 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID) return false;
       const partID = textPartID(messageID, "reasoning", data.ordinal);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
-      if (Binary.search(parts, partID, (part) => part.id).found) return false;
-      parts.splice(Binary.search(parts, partID, (part) => part.id).index, 0, basePart(messageID, sessionID, partID, "reasoning", event.created));
+      const result = Binary.search(parts, partID, (part) => part.id);
+      if (result.found) return false;
+      insertPart(draft, basePart(messageID, sessionID, partID, "reasoning", event.created));
       return true;
     }
     case "session.reasoning.delta":
@@ -535,10 +595,9 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID) return false;
       const partID = textPartID(messageID, "reasoning", data.ordinal);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
       const existing = Binary.search(parts, partID, (part) => part.id);
       if (!existing.found) {
-        parts.splice(existing.index, 0, textSnapshot(messageID, sessionID, partID, "reasoning", String(data.text ?? ""), event.created));
+        insertPart(draft, textSnapshot(messageID, sessionID, partID, "reasoning", String(data.text ?? ""), event.created));
         return true;
       }
       const previous = parts[existing.index];
@@ -555,15 +614,14 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID || !callID) return false;
       const partID = toolPartID(messageID, callID);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
-      if (Binary.search(parts, partID, (part) => part.id).found) return false;
-      const part: ChatPartRecord = {
+      const result = Binary.search(parts, partID, (part) => part.id);
+      if (result.found) return false;
+      insertPart(draft, {
         ...basePart(messageID, sessionID, partID, "tool", event.created),
         ...(typeof data.name === "string" && data.name ? { name: data.name } : {}),
         callID,
         state: { status: "running", input: "" }
-      };
-      parts.splice(Binary.search(parts, partID, (part) => part.id).index, 0, part);
+      });
       return true;
     }
     case "session.tool.input.delta": {
@@ -584,15 +642,13 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID || !callID) return false;
       const partID = toolPartID(messageID, callID);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
       const existing = Binary.search(parts, partID, (part) => part.id);
       if (!existing.found) {
-        const part: ChatPartRecord = {
+        insertPart(draft, {
           ...basePart(messageID, sessionID, partID, "tool", event.created),
           callID,
           state: { status: "running", input: String(data.text ?? "") }
-        };
-        parts.splice(existing.index, 0, part);
+        });
         return true;
       }
       const previous = parts[existing.index];
@@ -612,24 +668,24 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID || !callID) return false;
       const partID = toolPartID(messageID, callID);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
       const existing = Binary.search(parts, partID, (part) => part.id);
+      const previous = existing.found ? parts[existing.index] : undefined;
       const part: ChatPartRecord = {
         ...basePart(messageID, sessionID, partID, "tool", event.created),
         ...(typeof data.name === "string" && data.name ? { name: data.name } : {}),
         callID,
         state: {
-          ...(existing.found ? existing && parts[existing.index].state : {}),
+          ...(previous?.state ?? {}),
           status: "running",
           input: data.input,
           ...(data.metadata ? { metadata: data.metadata } : {})
         },
-        time: { created: existing.found ? parts[existing.index].time?.created ?? event.created : event.created },
+        time: { created: previous?.time?.created ?? event.created },
         ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
         ...(data.state && typeof data.state === "object" ? { providerState: data.state } : {})
       };
       if (!existing.found) {
-        parts.splice(existing.index, 0, part);
+        insertPart(draft, part);
         return true;
       }
       return upsertPart(draft, part);
@@ -640,19 +696,18 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID || !callID) return false;
       const partID = toolPartID(messageID, callID);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
       const existing = Binary.search(parts, partID, (part) => part.id);
       if (!existing.found) {
-        const part: ChatPartRecord = {
+        insertPart(draft, {
           ...basePart(messageID, sessionID, partID, "tool", event.created),
           callID,
           state: { status: "running", progress: data.progress ?? data.metadata, ...(data.metadata ? { metadata: data.metadata } : {}) }
-        };
-        parts.splice(existing.index, 0, part);
+        });
         return true;
       }
       const previous = parts[existing.index];
-      parts[existing.index] = {
+      const next = [...parts];
+      next[existing.index] = {
         ...previous,
         state: {
           ...previous.state,
@@ -660,6 +715,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
           ...(data.metadata ? { metadata: data.metadata } : {})
         }
       };
+      draft.part[messageID] = next;
       return true;
     }
     case "session.tool.success":
@@ -669,29 +725,29 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID || !callID) return false;
       const partID = toolPartID(messageID, callID);
       const parts = draft.part[messageID] ?? [];
-      draft.part[messageID] = parts;
       const existing = Binary.search(parts, partID, (part) => part.id);
+      const previous = existing.found ? parts[existing.index] : undefined;
       const failed = event.type === "session.tool.failed";
       const next: ChatPartRecord = {
         ...basePart(messageID, sessionID, partID, "tool", event.created),
-        ...(existing.found && typeof parts[existing.index].name === "string" ? { name: parts[existing.index].name } : {}),
+        ...(typeof previous?.name === "string" ? { name: previous.name } : {}),
         callID,
         state: {
-          ...(existing.found ? existing && parts[existing.index].state : {}),
+          ...(previous?.state ?? {}),
           status: failed ? "error" : "completed",
-          time: { start: existing.found ? parts[existing.index].time?.created ?? event.created : event.created, end: event.created },
+          time: { start: previous?.time?.created ?? event.created, end: event.created },
           ...(data.metadata ? { metadata: data.metadata } : {}),
           progress: undefined,
           ...(data.content !== undefined ? { content: data.content } : {}),
           ...(data.output !== undefined ? { output: data.output } : {}),
           ...(failed ? { error: data.error } : {})
         },
-        time: { created: existing.found ? parts[existing.index].time?.created ?? event.created : event.created, completed: event.created },
+        time: { created: previous?.time?.created ?? event.created, completed: event.created },
         ...(typeof data.executed === "boolean" ? { executed: data.executed } : {}),
         ...(data.resultState && typeof data.resultState === "object" ? { providerResultState: data.resultState } : {})
       };
       if (!existing.found) {
-        parts.splice(existing.index, 0, next);
+        insertPart(draft, next);
         return true;
       }
       return upsertPart(draft, next);
@@ -705,12 +761,13 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         next: Number(data.at ?? data.next ?? 0) || undefined
       };
       const messages = draft.message[sessionID] ?? [];
-      draft.message[sessionID] = messages;
       const result = Binary.search(messages, messageID, (message) => message.id);
       if (result.found) {
-        messages[result.index] = { ...messages[result.index], retry: retry.next !== undefined ? retry as { attempt: number; message: string; next: number } : retry };
+        const next = [...messages];
+        next[result.index] = { ...messages[result.index], retry };
+        draft.message[sessionID] = next;
       } else {
-        messages.splice(result.index, 0, { id: messageID, sessionID, role: "assistant", time: { created: event.created }, retry });
+        insertMessage(draft, sessionID, { id: messageID, sessionID, role: "assistant", time: { created: event.created }, retry });
       }
       return true;
     }
@@ -723,22 +780,6 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
     default:
       return false;
   }
-}
-
-export function attachRetryToLatestAssistant(
-  draft: ChatDirectoryState,
-  sessionID: string,
-  retry: { attempt: number; message: string; next?: number }
-): boolean {
-  const messages = draft.message[sessionID];
-  if (!messages) return false;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== "assistant") continue;
-    messages[index] = { ...message, retry };
-    return true;
-  }
-  return false;
 }
 
 export function projectAssistantItems(draft: ChatDirectoryState, sessionID: string): TranscriptItem[] {
@@ -809,7 +850,6 @@ export function hydrateChatState(draft: ChatDirectoryState, sessionID: string, t
   for (const item of transcript) {
     if (item.kind !== "assistant") continue;
     const messages = draft.message[sessionID] ?? [];
-    draft.message[sessionID] = messages;
     const messageResult = Binary.search(messages, item.id, (message) => message.id);
     const hydratedMessage: ChatMessageRecord = {
       id: item.id,
@@ -821,7 +861,8 @@ export function hydrateChatState(draft: ChatDirectoryState, sessionID: string, t
     };
     if (messageResult.found) {
       const previous = messages[messageResult.index];
-      messages[messageResult.index] = {
+      const next = [...messages];
+      next[messageResult.index] = {
         ...previous,
         ...hydratedMessage,
         time: hydratedMessage.time.completed
@@ -830,27 +871,28 @@ export function hydrateChatState(draft: ChatDirectoryState, sessionID: string, t
         error: previous.error ?? hydratedMessage.error,
         retry: previous.retry ?? hydratedMessage.retry
       };
+      draft.message[sessionID] = next;
     } else {
-      messages.splice(messageResult.index, 0, hydratedMessage);
+      insertMessage(draft, sessionID, hydratedMessage);
     }
     for (const view of item.parts) {
       const record = recordFromView(item.id, sessionID, view);
       const parts = draft.part[item.id] ?? [];
-      draft.part[item.id] = parts;
       const partResult = Binary.search(parts, record.id, (part) => part.id);
       if (!partResult.found) {
-        parts.splice(partResult.index, 0, record);
+        insertPart(draft, record);
         continue;
       }
       const previous = parts[partResult.index];
+      const next = [...parts];
       if (previous.type === "tool" && record.type === "tool") {
         const previousStatus = getToolStatus(previous);
         const previousFinished = Boolean(previousStatus && FINAL_TOOL_STATUSES.has(previousStatus));
-        parts[partResult.index] = previousFinished
+        next[partResult.index] = previousFinished
           ? previous
           : { ...previous, ...record, state: { ...previous.state, ...record.state }, time: { ...previous.time, ...record.time } };
       } else if ((previous.type === "text" || previous.type === "reasoning") && record.type === previous.type) {
-        parts[partResult.index] = {
+        next[partResult.index] = {
           ...record,
           text: typeof previous.text === "string" && previous.text.length > String(record.text ?? "").length
             ? previous.text
@@ -858,8 +900,9 @@ export function hydrateChatState(draft: ChatDirectoryState, sessionID: string, t
           time: { ...record.time, ...(previous.time?.completed ? { completed: previous.time.completed } : {}) }
         };
       } else {
-        parts[partResult.index] = record;
+        next[partResult.index] = record;
       }
+      draft.part[item.id] = next;
     }
   }
 }

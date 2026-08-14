@@ -33,33 +33,60 @@ import {
   applyChatEvent,
   attachRetryToLatestAssistant,
   hydrateChatState,
+  insertUserMessage,
   projectAssistantItems,
-  type ChatDirectoryState
+  snapshotChatState,
+  type ChatDirectoryState,
+  type ChatStateSnapshot
 } from "./chat-store";
-import { emptyStreamingStore, touchStreamingSession, updateStreamingState, type MessageStreamState, type StreamingStore } from "./streaming";
+import {
+  emptyStreamingStore,
+  touchStreamingSession,
+  updateChangedStreamingSessions,
+  updateStreamingState,
+  type MessageStreamState,
+  type StreamingStore
+} from "./streaming";
 import { IDLE_ACTIVITY, resolveSessionActivity, type SessionActivityResult } from "./session-activity";
-import { resolveAssistantStatus, type WorkingSummary } from "./assistant-status";
+import {
+  getActiveAssistantContext,
+  resolveAssistantStatus,
+  type ActiveAssistantModel,
+  type FormingSummary,
+  type SessionAbortFlag,
+  type WorkingSummary
+} from "./assistant-status";
 import {
   addToQueue,
   clearSending,
   createMessageQueueTarget,
-  createQueuedAutoSendRetryScheduler,
   getMessageQueueKey,
   getQueueForTarget,
-  getQueuedAutoSendRetryDelayMs,
   getSendableQueue,
-  isQueuedAutoSendBackedOff,
   loadMessageQueueState,
   markSending,
   persistMessageQueueState,
-  RECENT_ABORT_WINDOW_MS,
   removeFromQueue,
-  resolveQueuedStatusType,
+  reorderQueue,
+  popToInput,
   type FollowUpBehavior,
   type MessageQueueState,
   type MessageQueueTarget,
-  type QueuedAutoSendFailure
+  type QueuedMessage
 } from "./message-queue";
+import {
+  buildQueuedAutoSendPayload,
+  createQueuedAutoSendRetryScheduler,
+  getAbortHoldUntil,
+  getQueuedAutoSendRetryDelayMs,
+  isQueuedAutoSendBackedOff,
+  resolveQueuedSessionStatusType,
+  resolveSessionSendConfig,
+  sendQueuedAutoSendPayload,
+  shouldDispatchQueuedAutoSend,
+  type QueuedAutoSendFailure,
+  type QueueStatusType
+} from "./queued-auto-send";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { sameWorkspace } from "@shared/generation";
@@ -95,8 +122,11 @@ export interface PanelView {
   currentAgent: AgentOption | null;
   activity: SessionActivityResult;
   assistantStatus: WorkingSummary | null;
+  forming: FormingSummary | null;
+  activeModel: ActiveAssistantModel | null;
   streaming: MessageStreamState | null;
   queuedCount: number;
+  queuedMessages: QueuedMessage[];
 }
 
 function ancestorDirs(path: string): string[] {
@@ -162,6 +192,10 @@ interface Store {
   toggleDir: (path: string) => Promise<void>;
   ensureRootOpen: () => Promise<void>;
   replyPermission: (requestID: string, reply: PermissionReply, sessionID?: string) => Promise<void>;
+  removeQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => void;
+  popQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => QueuedMessage | null;
+  sendQueuedNow: (workspace: WorkspaceIdentity, messageID: string) => Promise<void>;
+  reorderQueuedMessage: (workspace: WorkspaceIdentity, fromID: string, toID: string) => void;
   ctxMenu: CtxMenuState | null;
   pendingCreate: PendingCreate | null;
   pendingRename: { path: string } | null;
@@ -343,6 +377,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [streamingStore, setStreamingStore] = useState<StreamingStore>(() => emptyStreamingStore());
   const [messageQueue, setMessageQueue] = useState<MessageQueueState>(() => loadMessageQueueState());
   const [autoSendTick, setAutoSendTick] = useState(0);
+  const [sessionAbortFlags, setSessionAbortFlags] = useState<Record<string, SessionAbortFlag>>({});
 
   const activeWorkspaceID = activeSessionID
     ? (panels.find((panel) => panel.id === activeSessionID)?.workspace.id ?? null)
@@ -379,9 +414,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   transcriptsBySessionRef.current = transcriptsBySession;
   const streamingRef = useRef<StreamingStore>(streamingStore);
   const messageQueueRef = useRef<MessageQueueState>(messageQueue);
-  const stopAtBySessionRef = useRef(new Map<string, number>());
   const autoSendInFlightRef = useRef(new Set<string>());
   const autoSendFailuresRef = useRef(new Map<string, QueuedAutoSendFailure>());
+  const previousQueueStatusRef = useRef(new Map<string, QueueStatusType>());
   const agentFilesByWorkspaceRef = useRef(agentFilesByWorkspace);
   agentFilesByWorkspaceRef.current = agentFilesByWorkspace;
   const expandedByWorkspaceRef = useRef(expandedByWorkspace);
@@ -530,22 +565,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     });
   }, [updateSessionTranscript]);
 
-  const materializeSession = useCallback(async (sessionID: string): Promise<void> => {
-    const panel = panelForSession(sessionID);
-    if (!panel || materializingRef.current.has(sessionID)) return;
-    materializingRef.current.add(sessionID);
-    try {
-      const snapshot = await window.openshell.sessionTranscript(sessionID);
-      if (!panelForSession(sessionID)) return;
-      hydrateChatState(chatStateFor(sessionID), sessionID, snapshot.transcript);
-      applyProjection(sessionID);
-      setTodosFor(panel.workspace.id, snapshot.todos);
-    } catch {
-    } finally {
-      materializingRef.current.delete(sessionID);
-    }
-  }, [panelForSession, chatStateFor, applyProjection, setTodosFor]);
-
   const commitStreaming = useCallback((next: StreamingStore) => {
     streamingRef.current = next;
     setStreamingStore(next);
@@ -557,7 +576,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     persistMessageQueueState(next);
   }, []);
 
-  const syncStreaming = useCallback((sessionID: string) => {
+  const syncStreaming = useCallback((sessionID: string, previous: ChatStateSnapshot) => {
+    const next = updateChangedStreamingSessions(chatStateFor(sessionID), previous, streamingRef.current);
+    if (next) commitStreaming(next);
+  }, [chatStateFor, commitStreaming]);
+
+  const reconcileStreaming = useCallback((sessionID: string) => {
     const next = updateStreamingState(chatStateFor(sessionID), streamingRef.current);
     if (next) commitStreaming(next);
   }, [chatStateFor, commitStreaming]);
@@ -566,11 +590,78 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     commitQueue({ ...messageQueueRef.current, followUpBehavior: behavior });
   }, [commitQueue]);
 
+  const queueTargetFor = useCallback((workspace: WorkspaceIdentity): MessageQueueTarget | null => {
+    const panel = panelFor(workspace);
+    return panel ? createMessageQueueTarget(panel.id, panel.workspace.id) : null;
+  }, [panelFor]);
+
+  const removeQueuedMessage = useCallback((workspace: WorkspaceIdentity, messageID: string) => {
+    const target = queueTargetFor(workspace);
+    if (!target) return;
+    commitQueue(removeFromQueue(messageQueueRef.current, target, messageID));
+  }, [queueTargetFor, commitQueue]);
+
+  const popQueuedMessage = useCallback((workspace: WorkspaceIdentity, messageID: string): QueuedMessage | null => {
+    const target = queueTargetFor(workspace);
+    if (!target) return null;
+    const popped = popToInput(messageQueueRef.current, target, messageID);
+    commitQueue(popped.state);
+    return popped.message;
+  }, [queueTargetFor, commitQueue]);
+
+  const reorderQueuedMessage = useCallback((workspace: WorkspaceIdentity, fromID: string, toID: string) => {
+    const target = queueTargetFor(workspace);
+    if (!target) return;
+    commitQueue(reorderQueue(messageQueueRef.current, target, fromID, toID));
+  }, [queueTargetFor, commitQueue]);
+
+  const materializeSession = useCallback(async (sessionID: string): Promise<void> => {
+    const panel = panelForSession(sessionID);
+    if (!panel || materializingRef.current.has(sessionID)) return;
+    materializingRef.current.add(sessionID);
+    try {
+      const snapshot = await window.openshell.sessionTranscript(sessionID);
+      if (!panelForSession(sessionID)) return;
+      hydrateChatState(chatStateFor(sessionID), sessionID, snapshot.transcript);
+      applyProjection(sessionID);
+      reconcileStreaming(sessionID);
+      setTodosFor(panel.workspace.id, snapshot.todos);
+    } catch {
+    } finally {
+      materializingRef.current.delete(sessionID);
+    }
+  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor]);
+
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
     setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
+
+  const sendQueuedNow = useCallback(async (workspace: WorkspaceIdentity, messageID: string): Promise<void> => {
+    const panel = panelFor(workspace);
+    if (!panel) return;
+    const popped = popQueuedMessage(workspace, messageID);
+    if (!popped) return;
+    const promptText = popped.content || "Review the attached files.";
+    const attachments: UserAttachment[] = (popped.attachments ?? []).map((file) => ({
+      name: file.path.split(/[\\/]/).pop() ?? file.path
+    }));
+    updateSessionTranscript(panel.id, (prev) => [
+      ...prev,
+      {
+        kind: "user",
+        id: `user-${Date.now()}`,
+        text: promptText,
+        ...(attachments.length > 0 ? { attachments } : {})
+      }
+    ]);
+    try {
+      await window.openshell.prompt(workspace, promptText, popped.attachments ?? []);
+    } catch (err) {
+      if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [panelFor, popQueuedMessage, updateSessionTranscript, toast]);
 
   const attachPanel = useCallback((info: SessionInfo): void => {
     panelsRef.current = panelsRef.current.some((panel) => panel.workspace.id === info.workspace.id)
@@ -588,6 +679,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         const merged = mergeChatHistory(reopened.transcript, transcriptsBySessionRef.current[sessionID] ?? []);
         chatStatesRef.current.delete(sessionID);
         hydrateChatState(chatStateFor(sessionID), sessionID, merged);
+        reconcileStreaming(sessionID);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
           sessionID,
@@ -616,7 +708,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
       }
     },
-    [toast, panelForSession, chatStateFor, setTodosFor, protectedSessionIDs]
+    [toast, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, protectedSessionIDs]
   );
 
   const focusSession = useCallback((sessionID: string): void => {
@@ -850,6 +942,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         );
         chatStatesRef.current.delete(reopened.session.id);
         hydrateChatState(chatStateFor(reopened.session.id), reopened.session.id, merged);
+        reconcileStreaming(reopened.session.id);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
           reopened.session.id,
@@ -880,7 +973,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [attachPanel, focusSession, panelForSession, chatStateFor, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
+    [attachPanel, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
   );
 
   const sendPrompt = useCallback(
@@ -947,7 +1040,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     const target = workspace ?? sessionRef.current?.workspace;
     const panel = target ? panelFor(target) : null;
     if (!panel || !target) return;
-    stopAtBySessionRef.current.set(panel.id, Date.now());
+    setSessionAbortFlags((current) => ({
+      ...current,
+      [panel.id]: { timestamp: Date.now(), acknowledged: false }
+    }));
     setSessionBusy(panel.id, false);
     await window.openshell.interrupt(target).catch(() => {});
   }, [setSessionBusy, panelFor]);
@@ -1567,6 +1663,21 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         : sessionRef.current?.id;
       const targetWorkspace = targetSessionID ? workspaceOfSession(targetSessionID) : null;
       const active = Boolean(targetSessionID && targetSessionID === sessionRef.current?.id);
+      if (type === "session.input.promoted" && targetSessionID) {
+        const input = data.input as Record<string, any> | undefined;
+        if (input?.type === "user" && typeof data.inputID === "string") {
+          insertUserMessage(
+            chatStateFor(targetSessionID),
+            targetSessionID,
+            data.inputID,
+            String(input.data?.text ?? ""),
+            input.data?.model && typeof input.data.model === "object"
+              ? input.data.model as Record<string, unknown>
+              : undefined
+          );
+        }
+      }
+
       if (targetSessionID && AUX_CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
       }
@@ -1595,11 +1706,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "message.part.delta":
         case "message.part.removed": {
           if (!targetSessionID) break;
-          const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+          const draft = chatStateFor(targetSessionID);
+          const previous = snapshotChatState(draft);
+          const result = applyChatEvent(draft, targetSessionID, streamEvent);
           if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
           const materialization = typeof result === "boolean" ? undefined : result.materialization;
           if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);
-          syncStreaming(targetSessionID);
+          syncStreaming(targetSessionID, previous);
           if (type === "message.part.delta" || type === "session.text.delta" || type === "session.reasoning.delta" || type === "session.tool.input.delta") {
             const touched = touchStreamingSession(streamingRef.current, targetSessionID);
             if (touched) commitStreaming(touched);
@@ -1666,9 +1779,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.execution.interrupted": {
           if (targetSessionID) {
             setSessionBusy(targetSessionID, false);
-            const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+            const draft = chatStateFor(targetSessionID);
+            const previous = snapshotChatState(draft);
+            const result = applyChatEvent(draft, targetSessionID, streamEvent);
             if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
-            syncStreaming(targetSessionID);
+            syncStreaming(targetSessionID, previous);
+            setSessionAbortFlags((current) => current[targetSessionID]
+              ? { ...current, [targetSessionID]: { ...current[targetSessionID], acknowledged: true } }
+              : current);
           }
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           const ok = type === "session.execution.succeeded";
@@ -1688,9 +1806,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.idle": {
           if (targetSessionID) {
             setSessionBusy(targetSessionID, false);
-            const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+            const draft = chatStateFor(targetSessionID);
+            const previous = snapshotChatState(draft);
+            const result = applyChatEvent(draft, targetSessionID, streamEvent);
             if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
-            syncStreaming(targetSessionID);
+            syncStreaming(targetSessionID, previous);
+            setSessionAbortFlags((current) => current[targetSessionID]
+              ? { ...current, [targetSessionID]: { ...current[targetSessionID], acknowledged: true } }
+              : current);
           }
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           break;
@@ -1755,9 +1878,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             }
           }
           if (targetSessionID) {
-            const result = applyChatEvent(chatStateFor(targetSessionID), targetSessionID, streamEvent);
+            const draft = chatStateFor(targetSessionID);
+            const previous = snapshotChatState(draft);
+            const result = applyChatEvent(draft, targetSessionID, streamEvent);
             if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
-            syncStreaming(targetSessionID);
+            syncStreaming(targetSessionID, previous);
           }
           break;
         }
@@ -1881,52 +2006,69 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       if (queue.length === 0) return;
       if (autoSendInFlightRef.current.has(key)) return;
 
-      const stopAt = stopAtBySessionRef.current.get(panel.id);
-      if (stopAt !== undefined && Date.now() - stopAt < RECENT_ABORT_WINDOW_MS) {
-        autoSendRetrySchedulerRef.current?.schedule(stopAt + RECENT_ABORT_WINDOW_MS);
+      const abortHoldUntil = getAbortHoldUntil(sessionAbortFlags[panel.id]);
+      if (abortHoldUntil !== null) {
+        autoSendRetrySchedulerRef.current?.schedule(abortHoldUntil);
         return;
       }
 
       const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
       const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
-      const currentStatus = resolveQueuedStatusType({
+      const currentStatus = resolveQueuedSessionStatusType({
         statusType: streamingStore.streamingMessageIds.get(panel.id)
           ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
           : undefined,
         trailingAssistantIncomplete: trailingAssistant?.kind === "assistant" && !trailingAssistant.completed
       });
-      if (currentStatus !== "idle") return;
+      const previousStatus = previousQueueStatusRef.current.get(key);
+      previousQueueStatusRef.current.set(key, currentStatus);
+      if (!shouldDispatchQueuedAutoSend(previousStatus, currentStatus, true)) return;
 
       const sendable = getSendableQueue(messageQueueRef.current, target);
-      const queued = sendable[0];
-      if (!queued) return;
+      const payload = buildQueuedAutoSendPayload(sendable, agentsByWorkspaceRef.current[panel.workspace.id] ?? []);
+      if (!payload) return;
 
       const failure = autoSendFailuresRef.current.get(key);
-      if (failure && failure.messageId !== queued.id) {
+      if (failure && failure.messageId !== payload.queuedMessageId) {
         autoSendFailuresRef.current.delete(key);
-      } else if (failure && isQueuedAutoSendBackedOff(failure, queued.id, Date.now())) {
+      } else if (failure && isQueuedAutoSendBackedOff(failure, payload.queuedMessageId, Date.now())) {
         autoSendRetrySchedulerRef.current?.schedule(failure.nextAttemptAt);
         return;
       }
 
+      const resolved = resolveSessionSendConfig(
+        payload.sendConfig?.providerID && payload.sendConfig?.modelID
+          ? payload.sendConfig
+          : {
+              agent: currentAgentByWorkspace[panel.workspace.id]?.name,
+              providerID: currentModelByWorkspace[panel.workspace.id]?.providerID,
+              modelID: currentModelByWorkspace[panel.workspace.id]?.id,
+              variant: currentModelByWorkspace[panel.workspace.id]?.variant
+            }
+      );
+      if (!resolved.providerID || !resolved.modelID) {
+        autoSendRetrySchedulerRef.current?.schedule(Date.now() + getQueuedAutoSendRetryDelayMs(1));
+        return;
+      }
+
       autoSendInFlightRef.current.add(key);
-      commitQueue(markSending(messageQueueRef.current, target, queued.id));
+      commitQueue(markSending(messageQueueRef.current, target, payload.queuedMessageId));
       try {
-        await window.openshell.prompt(panel.workspace, queued.content, queued.attachments ?? []);
-        commitQueue(removeFromQueue(messageQueueRef.current, target, queued.id));
-        commitQueue(clearSending(messageQueueRef.current, target, queued.id));
+        await sendQueuedAutoSendPayload(panel.workspace, payload);
+        commitQueue(removeFromQueue(messageQueueRef.current, target, payload.queuedMessageId));
+        commitQueue(clearSending(messageQueueRef.current, target, payload.queuedMessageId));
       } catch {
-        commitQueue(clearSending(messageQueueRef.current, target, queued.id));
+        commitQueue(clearSending(messageQueueRef.current, target, payload.queuedMessageId));
         const failures = (failure?.failures ?? 0) + 1;
         const nextAttemptAt = Date.now() + getQueuedAutoSendRetryDelayMs(failures);
-        autoSendFailuresRef.current.set(key, { messageId: queued.id, failures, nextAttemptAt });
+        autoSendFailuresRef.current.set(key, { messageId: payload.queuedMessageId, failures, nextAttemptAt });
         autoSendRetrySchedulerRef.current?.schedule(nextAttemptAt);
       } finally {
         autoSendInFlightRef.current.delete(key);
       }
     };
     for (const panel of panelsRef.current) void dispatchSessionQueue(panel);
-  }, [streamingStore, messageQueue, transcriptsBySession, busyBySession, autoSendTick, commitQueue, panels]);
+  }, [streamingStore, messageQueue, transcriptsBySession, busyBySession, autoSendTick, commitQueue, panels, sessionAbortFlags, currentModelByWorkspace, currentAgentByWorkspace]);
 
   const panelViews = useMemo<Record<string, PanelView>>(() => {
     const views: Record<string, PanelView> = {};
@@ -1945,17 +2087,25 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       });
       const streamingID = streamingStore.streamingMessageIds.get(panel.id);
       const streaming = streamingID ? streamingStore.messageStreamStates.get(streamingID) ?? null : null;
-      const assistantStatus = resolveAssistantStatus({
-        assistantId: trailingAssistant?.kind === "assistant" ? trailingAssistant.id : null,
+      const chatState = chatStatesRef.current.get(panel.id);
+      const rawMessages = chatState?.message[panel.id] ?? [];
+      const rawParts = trailingAssistant?.kind === "assistant"
+        ? chatState?.part[trailingAssistant.id] ?? []
+        : [];
+      const activeContext = getActiveAssistantContext(rawMessages);
+      const statusSnapshot = resolveAssistantStatus({
+        assistantId: activeContext.assistantId,
+        model: activeContext.model,
         activity,
-        parts: trailingAssistant?.kind === "assistant" ? trailingAssistant.parts : [],
+        parts: rawParts,
         pendingPermissions,
+        abortFlag: sessionAbortFlags[panel.id] ?? null,
         retryInfo: trailingAssistant?.kind === "assistant" && trailingAssistant.retry
           ? { attempt: trailingAssistant.retry.attempt, next: trailingAssistant.retry.next }
           : null
       });
       const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
-      const queuedCount = queueTarget ? getQueueForTarget(messageQueue, queueTarget).length : 0;
+      const queuedMessages = queueTarget ? getQueueForTarget(messageQueue, queueTarget) : [];
       views[panel.workspace.id] = {
         session: panel,
         busy: Boolean(busyBySession[panel.id]),
@@ -1967,9 +2117,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         agents: agentsByWorkspace[panel.workspace.id] ?? [],
         currentAgent: currentAgentByWorkspace[panel.workspace.id] ?? null,
         activity,
-        assistantStatus,
+        assistantStatus: statusSnapshot?.working ?? null,
+        forming: statusSnapshot?.forming ?? null,
+        activeModel: statusSnapshot?.activeModel ?? null,
         streaming,
-        queuedCount
+        queuedCount: queuedMessages.length,
+        queuedMessages
       };
     }
     return views;
@@ -1984,7 +2137,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     agentsByWorkspace,
     currentAgentByWorkspace,
     streamingStore,
-    messageQueue
+    messageQueue,
+    sessionAbortFlags
   ]);
 
   const value = useMemo<Store>(
@@ -2044,6 +2198,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       toggleDir,
       ensureRootOpen,
       replyPermission,
+      removeQueuedMessage,
+      popQueuedMessage,
+      sendQueuedNow,
+      reorderQueuedMessage,
       ctxMenu,
       pendingCreate,
       pendingRename,
@@ -2065,7 +2223,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
-      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, moveEntry, openRecovery, acknowledgeRecovery
+      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, moveEntry, openRecovery, acknowledgeRecovery,
+      removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage
     ]
   );
 
@@ -2090,8 +2249,11 @@ const EMPTY_VIEW: PanelView = {
   currentAgent: null,
   activity: IDLE_ACTIVITY,
   assistantStatus: null,
+  forming: null,
+  activeModel: null,
   streaming: null,
-  queuedCount: 0
+  queuedCount: 0,
+  queuedMessages: []
 };
 
 export function usePanel(workspace: WorkspaceIdentity | null | undefined): PanelView {

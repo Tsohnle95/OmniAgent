@@ -3,6 +3,7 @@ import {
   emptyStreamingStore,
   findTrailingAssistantMessage,
   touchStreamingSession,
+  updateChangedStreamingSessions,
   updateStreamingState
 } from "./streaming";
 import type { ChatDirectoryState, ChatMessageRecord } from "./chat-store";
@@ -85,5 +86,39 @@ describe("streaming lifecycle", () => {
     expect(touchStreamingSession(streaming, "s", 1_400)).toBeNull();
     expect(touchStreamingSession(streaming, "s", 2_001)?.messageStreamStates.get("a1")?.lastUpdateAt).toBe(2_001);
     expect(touchStreamingSession(streaming, "other")).toBeNull();
+  });
+
+  it("reconciles incrementally when the message array identity changes", () => {
+    const current = emptyStreamingStore();
+    const streaming = updateStreamingState(state([assistant("a1")], "busy"), current, 1_000)!;
+    const before = state([assistant("a1")], "busy");
+    const beforeSnapshot = { message: { ...before.message }, session_status: { ...before.session_status } };
+    const after = state([assistant("a1", 5_000)], "idle");
+
+    const next = updateChangedStreamingSessions(after, beforeSnapshot, streaming, 6_000);
+
+    expect(next?.streamingMessageIds.get("s")).toBeNull();
+    expect(next?.messageStreamStates.get("a1")?.phase).toBe("completed");
+  });
+
+  it("skips incremental reconciliation when nothing changed", () => {
+    const current = emptyStreamingStore();
+    const draft = state([assistant("a1")], "busy");
+    const snapshot = { message: { ...draft.message }, session_status: { ...draft.session_status } };
+
+    expect(updateChangedStreamingSessions(draft, snapshot, current, 1_000)).toBeNull();
+  });
+
+  it("completes the previous message when the trailing assistant changes", () => {
+    const current = emptyStreamingStore();
+    const streaming = updateStreamingState(state([assistant("a1")], "busy"), current, 1_000)!;
+    const draft = state([assistant("a1", 2_000), assistant("a2")], "busy");
+    draft.message.s = draft.message.s.map((message) => ({ ...message }));
+    const snapshot = { message: { s: state([assistant("a1", 2_000)], "busy").message.s }, session_status: { s: { type: "busy" as const } } };
+
+    const next = updateChangedStreamingSessions(draft, snapshot, streaming, 2_000);
+
+    expect(next?.streamingMessageIds.get("s")).toBe("a2");
+    expect(next?.messageStreamStates.get("a1")?.phase).toBe("completed");
   });
 });

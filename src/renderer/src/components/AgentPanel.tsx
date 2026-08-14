@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePanel, useStore } from "../store";
 import { OpenCodeTimeline } from "./OpenCodeTimeline";
+import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, WorkspaceIdentity } from "@shared/types";
 import { sameWorkspace } from "@shared/generation";
@@ -249,7 +250,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const activeSession = session === undefined ? store.session : session;
   const workspace = activeSession?.workspace ?? null;
   const view = usePanel(workspace);
-  const { models, currentModel, agents, currentAgent, busy, assistantStatus, queuedCount } = view;
+  const { models, currentModel, agents, currentAgent, busy, assistantStatus } = view;
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
   const [menu, setMenu] = useState<MenuKind>(null);
@@ -745,8 +746,14 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
 
       {notice && <div className="composer-notice">{notice}</div>}
 
-      {!notice && queuedCount > 0 && (
-        <div className="composer-notice">{queuedCount} queued message{queuedCount === 1 ? "" : "s"}</div>
+      {workspace && (
+        <QueuedMessageChips
+          workspace={workspace}
+          onEditMessage={(content, attachments) => {
+            setInput(content);
+            setFiles(attachments.map((file) => ({ path: file.path, name: file.path.split(/[\\/]/).pop() ?? file.path })));
+          }}
+        />
       )}
 
       {completion && completion.items.length > 0 && (

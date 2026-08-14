@@ -66,29 +66,44 @@ Ports of OpenChamber's sync streaming stack. `streaming.ts` tracks which
 message is streaming per session and its lifecycle phase
 (`streaming` / `cooldown` / `completed`) with `startedAt` / `lastUpdateAt` /
 `completedAt` timestamps; `lastUpdateAt` writes are throttled to a 1s
-heartbeat so streaming text does not churn the store at token rate. The store
-reconciles it after every chat event batch (`syncStreaming`) and touches the
-heartbeat for part deltas. `session-activity.ts` resolves the session phase
-(`idle` / `busy` / `retry`): it mirrors the authoritative status, falls back
-to the trailing incomplete assistant while status settles, and yields to a
-pending permission so the send button stays a send. `assistant-status.ts`
-derives the working summary every panel exposes: the active part
-(text → "composing", reasoning → "thinking", running tool → its
-tool phrase, editing tools → "editing file", otherwise a stable generic
-phrase), `canAbort`, and retry info. `PanelView.activity`,
-`PanelView.assistantStatus`, and `PanelView.streaming` carry these to
-components; the composer's stop button title shows the live status text.
+heartbeat so streaming text does not churn the store at token rate. The
+store reconciles it incrementally after every chat event batch
+(`updateChangedStreamingSessions` compares the pre-event snapshot against the
+copy-on-write message/status maps), falls back to a full reconcile after
+history hydration, and touches the heartbeat for part deltas.
+`session-activity.ts` resolves the session phase (`idle` / `busy` / `retry`):
+it mirrors the authoritative status, falls back to the trailing incomplete
+assistant while status settles, and yields to a pending permission so the
+send button stays a send. `assistant-status.ts` derives the working summary
+every panel exposes: the active model (from the trailing assistant's
+`parentID` back to its user message), the active part (text → "composing",
+reasoning → "thinking", running tool → its tool phrase, editing tools →
+"editing file", otherwise a stable generic phrase), the fully-synthetic
+message guard, the forming state, `canAbort`, unacknowledged abort flags set
+by `stop()`, the question overlay (questions are not handled by OpenShell yet,
+so `pendingQuestions` is always 0), and retry info. `PanelView.activity`,
+`PanelView.assistantStatus`, `PanelView.forming`, `PanelView.activeModel`,
+and `PanelView.streaming` carry these to components; the composer's stop
+button title shows the live status text.
 
-## Message queue (`message-queue.ts`)
+## Message queue (`message-queue.ts`, `queued-auto-send.ts`)
 
-A port of OpenChamber's message queue store. Sending a prompt while the
-session is working honors `followUpBehavior`: `queue` (default) appends to a
-persisted per-session queue (max 20 messages, 50 targets; in-flight sends are
-never dropped) shown under the composer; `steer` interrupts and sends. An
-auto-send effect dispatches the queue the moment the session goes idle,
-respecting the 2s abort window after a stop, send-id de-duplication, and
-exponential retry backoff (2s base, 60s cap). The queue survives restarts via
-`localStorage`.
+A port of OpenChamber's message queue store and auto-send hook. Sending a
+prompt while the session is working honors `followUpBehavior`: `queue`
+(default) appends to a persisted per-session queue (max 20 messages, 50
+targets; legacy pre-v2 queues migrate into a quarantine map; in-flight sends
+are never dropped); `steer` interrupts and sends. `QueuedMessageChips`
+renders the queue above the composer with first-line previews, attachment
+counts, move up/down reordering (OpenChamber drags chips with dnd-kit, which
+OpenShell does not depend on), edit-back-to-composer, send-now, and remove.
+The auto-send effect dispatches the queue when the session becomes idle
+(previous-status transition gate), respecting the 2s abort window after a
+stop, agent @-mention parsing, send-id de-duplication, and exponential retry
+backoff (2s base, 60s cap). Queue-time send config (provider/model/agent)
+is captured and resolved like OpenChamber, but OpenShell's prompt API is
+session-scoped, so the config is informational and the session's current
+model/agent handles the send. OpenChamber's auto-review gate has no
+OpenShell equivalent and is wired as a no-op parameter.
 
 Actions: `openSession` / `selectFolder` (spawn a new panel), `reopenSession(id, silent)`
 (focus the panel when the session is open, otherwise activate a new one), `focusSession(id)`,

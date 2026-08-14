@@ -1,0 +1,79 @@
+import { useCallback } from "react";
+import type { PromptFile, WorkspaceIdentity } from "@shared/types";
+import { usePanel, useStore } from "../store";
+
+function firstLine(content: string): string {
+  const lines = content.split("\n");
+  const first = lines[0] ?? "";
+  const maxLength = 100;
+  if (first.length > maxLength) {
+    return `${first.substring(0, maxLength)}...`;
+  }
+  return first + (lines.length > 1 ? "..." : "");
+}
+
+export function QueuedMessageChips({
+  workspace,
+  onEditMessage
+}: {
+  workspace: WorkspaceIdentity;
+  onEditMessage: (content: string, attachments: PromptFile[]) => void;
+}): React.ReactNode {
+  const view = usePanel(workspace);
+  const store = useStore();
+  const queuedMessages = view.queuedMessages ?? [];
+
+  const handleEdit = useCallback((messageID: string) => {
+    const popped = store.popQueuedMessage(workspace, messageID);
+    if (popped) onEditMessage(popped.content, popped.attachments ?? []);
+  }, [store, workspace, onEditMessage]);
+
+  if (queuedMessages.length === 0) return null;
+
+  return (
+    <div className="queued-chips">
+      <div className="queued-chips-head">
+        <span>Queued messages</span>
+        <span className="queued-chips-count">{queuedMessages.length}</span>
+      </div>
+      <div className="queued-chips-list">
+        {queuedMessages.map((message, index) => {
+          const attachmentCount = message.attachments?.length ?? 0;
+          return (
+            <div key={message.id} className="queued-chip">
+              <span className="queued-chip-text" title={message.content}>
+                {firstLine(message.content)}
+                {attachmentCount > 0 && <span className="queued-chip-attachments">{attachmentCount} attachment{attachmentCount === 1 ? "" : "s"}</span>}
+              </span>
+              <button
+                className="queued-chip-button"
+                title="Move up"
+                disabled={index === 0}
+                onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index - 1].id)}
+              >
+                <span className="codicon codicon-arrow-up" />
+              </button>
+              <button
+                className="queued-chip-button"
+                title="Move down"
+                disabled={index === queuedMessages.length - 1}
+                onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index + 1].id)}
+              >
+                <span className="codicon codicon-arrow-down" />
+              </button>
+              <button className="queued-chip-button" title="Edit in composer" onClick={() => handleEdit(message.id)}>
+                <span className="codicon codicon-edit" />
+              </button>
+              <button className="queued-chip-button" title="Send now" onClick={() => void store.sendQueuedNow(workspace, message.id)}>
+                <span className="codicon codicon-send" />
+              </button>
+              <button className="queued-chip-button" title="Remove" onClick={() => store.removeQueuedMessage(workspace, message.id)}>
+                <span className="codicon codicon-close" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

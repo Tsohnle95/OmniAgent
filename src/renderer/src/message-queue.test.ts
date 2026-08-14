@@ -8,18 +8,22 @@ import {
   emptyMessageQueueState,
   getMessageQueueKey,
   getQueueForTarget,
-  getQueuedAutoSendRetryDelayMs,
   getSendableQueue,
-  isQueuedAutoSendBackedOff,
+  loadMessageQueueState,
   markSending,
+  migrateMessageQueueState,
   normalizeFollowUpBehavior,
   popToInput,
   removeFromQueue,
   reorderQueue,
-  resolveQueuedStatusType,
-  shouldDispatchQueuedAutoSend,
   type MessageQueueState
 } from "./message-queue";
+import {
+  getQueuedAutoSendRetryDelayMs,
+  isQueuedAutoSendBackedOff,
+  resolveQueuedSessionStatusType,
+  shouldDispatchQueuedAutoSend
+} from "./queued-auto-send";
 
 const target = { workspaceID: "w1", sessionID: "s1" };
 
@@ -119,9 +123,35 @@ describe("message queue", () => {
   });
 
   it("resolves queue status with the trailing assistant fallback", () => {
-    expect(resolveQueuedStatusType({ statusType: "busy", trailingAssistantIncomplete: false })).toBe("busy");
-    expect(resolveQueuedStatusType({ statusType: undefined, trailingAssistantIncomplete: true })).toBe("busy");
-    expect(resolveQueuedStatusType({ statusType: undefined, trailingAssistantIncomplete: false })).toBe("idle");
-    expect(resolveQueuedStatusType({ statusType: "retry", trailingAssistantIncomplete: false })).toBe("retry");
+    expect(resolveQueuedSessionStatusType({ statusType: "busy", trailingAssistantIncomplete: false })).toBe("busy");
+    expect(resolveQueuedSessionStatusType({ statusType: undefined, trailingAssistantIncomplete: true })).toBe("busy");
+    expect(resolveQueuedSessionStatusType({ statusType: undefined, trailingAssistantIncomplete: false })).toBe("idle");
+    expect(resolveQueuedSessionStatusType({ statusType: "retry", trailingAssistantIncomplete: false })).toBe("retry");
+  });
+
+  it("migrates legacy queues into quarantine", () => {
+    const migrated = migrateMessageQueueState({
+      queuedMessages: { "w1\ns1": [{ id: "m1", content: "legacy", createdAt: 1 }] },
+      followUpBehavior: "steer"
+    }, 1);
+
+    expect(migrated.queuedMessages).toEqual({});
+    expect(migrated.quarantinedLegacyMessages?.["w1\ns1"]).toHaveLength(1);
+    expect(migrated.followUpBehavior).toBe("steer");
+  });
+
+  it("keeps current queues across a version-2 load", () => {
+    window.localStorage.setItem("messageQueue", JSON.stringify({
+      queuedMessages: { "w1\ns1": [{ id: "m1", content: "hello", createdAt: 1 }] },
+      followUpBehavior: "queue"
+    }));
+
+    const state = loadMessageQueueState();
+
+    expect(state.queuedMessages["w1\ns1"]).toHaveLength(1);
+    expect(state.followUpBehavior).toBe("queue");
+    expect(state.quarantinedLegacyMessages).toEqual({});
+    expect(state.sendingIds).toEqual({});
+    window.localStorage.clear();
   });
 });

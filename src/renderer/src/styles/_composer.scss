@@ -293,6 +293,81 @@
   white-space: nowrap;
 }
 
+.queued-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 6px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.queued-chips-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-weak);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.queued-chips-count {
+  color: var(--yellow);
+}
+
+.queued-chips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.queued-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.queued-chip-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-base);
+}
+
+.queued-chip-attachments {
+  margin-left: 6px;
+  color: var(--text-weak);
+}
+
+.queued-chip-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-weak);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.queued-chip-button:hover:not(:disabled) {
+  background: var(--interactive-hover);
+  color: var(--text-base);
+}
+
+.queued-chip-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .composer-attachments {
   display: flex;
   flex-wrap: wrap;

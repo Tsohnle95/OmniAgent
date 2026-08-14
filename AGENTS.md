@@ -37,7 +37,7 @@ npm start          # run the production build
 | Renderer store | `src/renderer/src/store.tsx` | All UI state (concurrent sessions: panels + per-workspace slices); subscribes to backend events |
 | Chat store | `src/renderer/src/chat-store.ts` | Authoritative per-session message/part maps (`binary.ts`); transcript projection + snapshot materialization |
 | Streaming stack | `src/renderer/src/streaming.ts` + `session-activity.ts` + `assistant-status.ts` | Per-message stream lifecycle (streaming/cooldown/completed, 1Hz heartbeat), session phase, and working-summary derivation |
-| Message queue | `src/renderer/src/message-queue.ts` | Persisted per-session prompt queue with follow-up behavior (queue/steer) and auto-send backoff |
+| Message queue | `src/renderer/src/message-queue.ts` + `queued-auto-send.ts` + `messages/` | Persisted per-session prompt queue with follow-up behavior (queue/steer), auto-send backoff, agent mentions, synthetic-part guards |
 | Dispatch skill | `.opencode/skills/dispatch/` | Portable pipeline: repo-agnostic SKILL.md + checker copy |
 | Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panels, welcome, sessions rail, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |

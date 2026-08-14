@@ -69,6 +69,7 @@ export const parseMessageQueueKey = (key: string): MessageQueueTarget | null => 
 
 export interface MessageQueueState {
   queuedMessages: Record<string, QueuedMessage[]>;
+  quarantinedLegacyMessages: Record<string, QueuedMessage[]>;
   followUpBehavior: FollowUpBehavior;
   sendingIds: Record<string, string[]>;
 }
@@ -76,6 +77,7 @@ export interface MessageQueueState {
 export function emptyMessageQueueState(): MessageQueueState {
   return {
     queuedMessages: {},
+    quarantinedLegacyMessages: {},
     followUpBehavior: DEFAULT_FOLLOW_UP_BEHAVIOR,
     sendingIds: {}
   };
@@ -179,7 +181,6 @@ export function clearQueue(state: MessageQueueState, target: MessageQueueTarget)
 export function clearAllQueues(state: MessageQueueState): MessageQueueState {
   return { ...state, queuedMessages: {}, sendingIds: {} };
 }
-
 export function markSending(state: MessageQueueState, target: MessageQueueTarget, messageId: string): MessageQueueState {
   const key = getMessageQueueKey(target);
   const current = state.sendingIds[key] ?? [];
@@ -212,87 +213,31 @@ export function getQueueForTarget(state: MessageQueueState, target: MessageQueue
   return state.queuedMessages[getMessageQueueKey(target)] ?? [];
 }
 
-export const RECENT_ABORT_WINDOW_MS = 2000;
-
-const AUTO_SEND_RETRY_BASE_DELAY_MS = 2000;
-const AUTO_SEND_RETRY_MAX_DELAY_MS = 60000;
-
-export interface QueuedAutoSendFailure {
-  messageId: string;
-  failures: number;
-  nextAttemptAt: number;
-}
-
-export const getQueuedAutoSendRetryDelayMs = (failures: number): number =>
-  Math.min(AUTO_SEND_RETRY_BASE_DELAY_MS * 2 ** Math.max(failures - 1, 0), AUTO_SEND_RETRY_MAX_DELAY_MS);
-
-export const isQueuedAutoSendBackedOff = (
-  failure: QueuedAutoSendFailure | undefined,
-  messageId: string,
-  now: number
-): boolean => failure !== undefined && failure.messageId === messageId && now < failure.nextAttemptAt;
-
-export function createQueuedAutoSendRetryScheduler(
-  onWake: () => void,
-  now: () => number = Date.now,
-  scheduleTimeout: (callback: () => void, delay: number) => ReturnType<typeof setTimeout> = setTimeout,
-  cancelTimeout: (timer: ReturnType<typeof setTimeout>) => void = clearTimeout
-): {
-  schedule: (retryAt: number) => void;
-  dispose: () => void;
-} {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let scheduledAt: number | null = null;
-
-  return {
-    schedule(retryAt: number) {
-      if (scheduledAt !== null && scheduledAt <= retryAt) return;
-      if (timer !== null) cancelTimeout(timer);
-      scheduledAt = retryAt;
-      timer = scheduleTimeout(() => {
-        timer = null;
-        scheduledAt = null;
-        onWake();
-      }, Math.max(0, retryAt - now()));
-    },
-    dispose() {
-      if (timer !== null) cancelTimeout(timer);
-      timer = null;
-      scheduledAt = null;
-    }
-  };
-}
-
-export type QueueStatusType = "idle" | "busy" | "retry";
-
-export const shouldDispatchQueuedAutoSend = (
-  previousStatusType: QueueStatusType | undefined,
-  currentStatusType: QueueStatusType,
-  hasQueuedItems = false
-): boolean => {
-  if (hasQueuedItems && currentStatusType === "idle") return true;
-  return (previousStatusType === "busy" || previousStatusType === "retry")
-    && currentStatusType === "idle";
+type PersistedMessageQueueState = {
+  queuedMessages?: Record<string, QueuedMessage[]>;
+  quarantinedLegacyMessages?: Record<string, QueuedMessage[]>;
+  followUpBehavior?: FollowUpBehavior;
+  queueModeEnabled?: boolean;
 };
 
-export const resolveQueuedStatusType = (input: {
-  statusType: QueueStatusType | undefined;
-  trailingAssistantIncomplete: boolean;
-}): QueueStatusType => {
-  const { statusType, trailingAssistantIncomplete } = input;
-  if (statusType === "busy" || statusType === "retry") {
-    return statusType;
-  }
-  if (trailingAssistantIncomplete) {
-    return "busy";
-  }
-  return "idle";
+export const migrateMessageQueueState = (persistedState: unknown, version: number): Partial<MessageQueueState> => {
+  const state = (persistedState ?? {}) as PersistedMessageQueueState;
+  const legacyQueues = version < 2 ? (state.queuedMessages ?? {}) : {};
+  return {
+    queuedMessages: version < 2 ? {} : (state.queuedMessages ?? {}),
+    quarantinedLegacyMessages: {
+      ...(state.quarantinedLegacyMessages ?? {}),
+      ...legacyQueues
+    },
+    followUpBehavior: normalizeFollowUpBehavior(state.followUpBehavior, state.queueModeEnabled ?? null)
+  };
 };
 
 export function persistMessageQueueState(state: MessageQueueState): void {
   try {
     window.localStorage.setItem("messageQueue", JSON.stringify({
       queuedMessages: state.queuedMessages,
+      quarantinedLegacyMessages: state.quarantinedLegacyMessages,
       followUpBehavior: state.followUpBehavior
     }));
   } catch {
@@ -303,10 +248,11 @@ export function loadMessageQueueState(): MessageQueueState {
   try {
     const raw = window.localStorage.getItem("messageQueue");
     if (!raw) return emptyMessageQueueState();
-    const parsed = JSON.parse(raw) as { queuedMessages?: unknown; followUpBehavior?: unknown };
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const migrated = migrateMessageQueueState(parsed, 2);
     const queuedMessages: Record<string, QueuedMessage[]> = {};
-    if (parsed.queuedMessages && typeof parsed.queuedMessages === "object") {
-      for (const [key, value] of Object.entries(parsed.queuedMessages)) {
+    if (migrated.queuedMessages && typeof migrated.queuedMessages === "object") {
+      for (const [key, value] of Object.entries(migrated.queuedMessages)) {
         if (Array.isArray(value)) {
           queuedMessages[key] = value.filter((message): message is QueuedMessage =>
             Boolean(message && typeof message === "object" && typeof message.id === "string" && typeof message.content === "string")
@@ -314,9 +260,20 @@ export function loadMessageQueueState(): MessageQueueState {
         }
       }
     }
+    const quarantinedLegacyMessages: Record<string, QueuedMessage[]> = {};
+    if (migrated.quarantinedLegacyMessages && typeof migrated.quarantinedLegacyMessages === "object") {
+      for (const [key, value] of Object.entries(migrated.quarantinedLegacyMessages)) {
+        if (Array.isArray(value)) {
+          quarantinedLegacyMessages[key] = value.filter((message): message is QueuedMessage =>
+            Boolean(message && typeof message === "object" && typeof message.id === "string" && typeof message.content === "string")
+          );
+        }
+      }
+    }
     return {
       queuedMessages,
-      followUpBehavior: normalizeFollowUpBehavior(parsed.followUpBehavior),
+      quarantinedLegacyMessages,
+      followUpBehavior: migrated.followUpBehavior ?? DEFAULT_FOLLOW_UP_BEHAVIOR,
       sendingIds: {}
     };
   } catch {
