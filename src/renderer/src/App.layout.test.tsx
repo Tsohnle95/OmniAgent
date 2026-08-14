@@ -555,4 +555,29 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([0, 598]);
     expect(agentWidths()).toEqual([598, 599]);
   });
+
+  it("keeps model quadrants spanning the workspace after a window resize", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      dispatch({ kind: "session", session: info("/three", 3) });
+      dispatch({ kind: "session", session: info("/four", 4) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      setWidth(900);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "425px", "425px"]);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
+    expect(agentWidths()).toEqual([425, 425, 425, 426]);
+  });
 });

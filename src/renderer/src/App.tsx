@@ -254,13 +254,13 @@ function PanelColumn({
 
   if (slot.open) {
     return (
-      <div className="agent-col" style={{ left: `${slot.left}px`, top: `${slot.top}%`, width: `${slot.width}px`, height: `${slot.height}%` }}>
+      <div className="agent-col" style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
         <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? undefined : resizeLeft} onResizeRight={freeMove ? undefined : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove ? undefined : isAnchor ? undefined : slideBy} />
       </div>
     );
   }
   return (
-    <div className="agent-col" style={{ left: `${slot.left}px`, top: `${slot.top}%`, width: `${COLLAPSED_PANEL_W}px`, height: `${slot.height}%` }}>
+    <div className="agent-col" style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${COLLAPSED_PANEL_W}px`, height: `${slot.height}%` }}>
       {isLast ? (
         <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={resizeLeft} onResizeRight={isAnchor && !freeMove ? undefined : resizeRight} />
       ) : (
