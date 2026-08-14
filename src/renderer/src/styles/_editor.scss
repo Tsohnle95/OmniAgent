@@ -156,7 +156,15 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
+  min-width: 0;
+  padding: 16px;
   color: var(--text-dim);
+  text-align: center;
+}
+
+.editor-empty p {
+  max-width: 100%;
+  margin: 0;
 }
 
 .editor-empty-icon { font-size: 42px; color: var(--text-faint); margin-bottom: 10px; }
