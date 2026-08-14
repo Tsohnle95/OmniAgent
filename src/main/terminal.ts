@@ -1,4 +1,4 @@
-import { spawn, type IPty } from "node-pty";
+import { spawn, type IDisposable, type IPty } from "node-pty";
 import type { WorkspaceIdentity } from "@shared/types";
 
 export interface PtyHandle {
@@ -13,7 +13,12 @@ export function defaultShell(platform: NodeJS.Platform, env: NodeJS.ProcessEnv):
 }
 
 export class TerminalManager {
-  private terminals = new Map<string, { pty: IPty; workspaceId: string }>();
+  private terminals = new Map<string, {
+    pty: IPty;
+    workspaceId: string;
+    dataSubscription: IDisposable;
+    exitSubscription: IDisposable;
+  }>();
   private listeners = new Set<(msg: unknown) => void>();
 
   constructor(private readonly spawnPty: typeof spawn = spawn) {}
@@ -37,14 +42,18 @@ export class TerminalManager {
       cwd: directory,
       env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" }
     });
-    this.terminals.set(id, { pty, workspaceId: workspace.id });
-    pty.onData((data) => {
+    const terminal = {
+      pty,
+      workspaceId: workspace.id,
+      dataSubscription: pty.onData((data) => {
       this.emit({ kind: "terminal-data", terminal: { id, data } });
-    });
-    pty.onExit(({ exitCode }) => {
+      }),
+      exitSubscription: pty.onExit(({ exitCode }) => {
       this.terminals.delete(id);
       this.emit({ kind: "terminal-exit", terminal: { id, exitCode } });
-    });
+      })
+    };
+    this.terminals.set(id, terminal);
   }
 
   private get(id: string, workspace: WorkspaceIdentity): IPty {
@@ -70,15 +79,18 @@ export class TerminalManager {
     const terminal = this.terminals.get(id);
     if (!terminal) throw new Error("unknown terminal");
     if (workspace && terminal.workspaceId !== workspace.id) throw new Error("stale terminal");
+    this.terminals.delete(id);
+    terminal.dataSubscription.dispose();
+    terminal.exitSubscription.dispose();
     try {
       terminal.pty.kill();
     } catch {
-      /* already dead */
+      return;
     }
-    this.terminals.delete(id);
   }
 
-  stopAll(): void {
+  async stopAll(): Promise<void> {
     for (const id of [...this.terminals.keys()]) this.stop(id);
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
 }

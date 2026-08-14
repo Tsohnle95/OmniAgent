@@ -821,7 +821,15 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
-app.on("before-quit", () => {
-  void backend.stop();
-  terminals.stopAll();
+let quitting = false;
+
+app.on("before-quit", (event) => {
+  if (quitting) return;
+  event.preventDefault();
+  quitting = true;
+  void (async () => {
+    await backend.stop();
+    await terminals.stopAll();
+    app.quit();
+  })();
 });
