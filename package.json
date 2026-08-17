@@ -10,7 +10,8 @@
   "scripts": {
     "postinstall": "node scripts/configure-node-pty.mjs",
     "dev": "node scripts/launch.mjs dev",
-    "build": "electron-vite build",
+    "build": "npm run build:compile && npm start",
+    "build:compile": "electron-vite build",
     "start": "node scripts/launch.mjs preview",
     "pack": "node scripts/install-app.mjs --pack-only",
     "install-app": "node scripts/install-app.mjs",
@@ -18,7 +19,7 @@
     "test": "vitest run",
     "test:platform": "vitest run scripts/launch.test.ts src/main/terminal.test.ts && node scripts/pty-smoke.mjs && node scripts/electron-pty-smoke.mjs && node scripts/electron-trust-smoke.mjs",
     "docs:check": "node scripts/check-docs.mjs",
-    "check": "npm run typecheck && npm test && npm run docs:check && npm run build"
+    "check": "npm run typecheck && npm test && npm run docs:check && npm run build:compile"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

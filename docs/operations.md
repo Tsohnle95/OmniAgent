@@ -20,14 +20,17 @@ and verified in real sessions.
 npm run dev      # electron-vite dev with HMR (main/preload/renderer)
 npm test         # Vitest unit/component tests in jsdom
 npm run test:platform # launcher tests and real Electron-hosted PTY smoke
-npm run build    # production build -> out/
+npm run build    # compile then launch the production app (one command)
+npm run build:compile # compile only -> out/ (no launch)
 npm run pack     # build + package a real macOS app -> release/mac/OpenShell.app
 npm run install-app # CLI equivalent of the Welcome screen Install app button
-npm run check    # typecheck, tests, docs check, and production build
+npm run check    # typecheck, tests, docs check, and compile-only build
 npm start        # launch the existing production build with electron-vite preview
 ```
 
-`npm start` does not build first; run `npm run build` after source changes. The
+`npm run build` compiles into `out/` and immediately launches the result;
+`npm run build:compile` is the compile-only form (used by CI and `npm run
+check`) and `npm start` launches an existing build without rebuilding. The
 portable Node launcher prepares and selects the branded app bundle on macOS and
 uses plain Electron on Linux and Windows, without shell-specific environment
 syntax. After a manual build you can also launch with `npx electron .`.
@@ -110,8 +113,8 @@ median or jsdom timing as a cross-machine browser benchmark.
 ## Smoke test checklist
 
 1. `which opencode2` — binary present.
-2. `npm run build && npm start` with output captured to a log:
-   `nohup npm start > /tmp/openshell-smoke.log 2>&1 &`
+2. `npm run build` (compiles then launches) with output captured to a log:
+   `nohup npm run build > /tmp/openshell-smoke.log 2>&1 &`
 3. After ~10s check the log for `[openshell]` console.error lines
    (`[openshell] event loop error:` means the SSE subscription failed).
 4. Verify the backend spawned its service:

@@ -81,14 +81,15 @@ do not claim automated GUI coverage.
 npm install
 npm run dev        # electron-vite dev with HMR
 npm test           # unit/component tests in Vitest + jsdom
-npm run check      # typecheck, tests, docs check, and production build
+npm run check      # typecheck, tests, docs check, and compile-only build
 ```
 
-## Build
+## Build & run
 
 ```sh
-npm run build      # production build only
-npm start          # run the production build
+npm run build      # compile then launch the app (one command) — or:
+npm run build:compile  # compile only -> out/ (no launch)
+npm start          # run the existing production build without rebuilding
 npm run pack       # build + package a real macOS app -> release/mac/OpenShell.app
 ```
 

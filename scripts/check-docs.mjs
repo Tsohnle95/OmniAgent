@@ -70,8 +70,8 @@ for (const [file, markdown] of documentation) {
 }
 
 check(
-  packageJson.scripts.check === "npm run typecheck && npm test && npm run docs:check && npm run build",
-  "package.json check script must run typecheck, tests, documented surface presence, and build"
+  packageJson.scripts.check === "npm run typecheck && npm test && npm run docs:check && npm run build:compile",
+  "package.json check script must run typecheck, tests, documented surface presence, and the compile-only build"
 );
 check(packageJson.engines?.node === ">=22.23.2 <23", "package.json engines.node must be >=22.23.2 <23");
 check((await read(".node-version")).trim() === "22.23.2", ".node-version must select 22.23.2");
