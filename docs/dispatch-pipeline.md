@@ -9,33 +9,26 @@ ever required to run the pipeline.
 ## The chain
 
 ```
-  repo                       portable                     global (~/.config/opencode)
-  ────                       ────────                     ─────────────────────────────
-  AGENTS.md ───────────────┐
-  (work order, gate,       │ points at
-  commit discipline)       ▼
-                     docs/dispatch.md
-                     (10-step spine)
-                          │
-                          │ encoded portably as
-                          ▼
-  TODO.md ──────────► .opencode/skills/dispatch/ ──symlink──► ~/.config/opencode/skills/dispatch
-  (backlog,            SKILL.md (repo-agnostic spine)         (advertised to the
-   one unit per item)  scripts/check-dispatch.mjs             model in every repo)
-                          │ portable copy of the repo
-                          │ checker, takes the plan path
-                          ▼
-  dispatch-plan.json ◄── orchestrator writes it, both gates judge it
-  (gitignored,          mechanical: npm run dispatch:check (repo) or
-   deleted at close)      node <skill>/scripts/check-dispatch.mjs <plan> (portable)
-                          judgment: a fresh plan-review agent
-                          │
-                          ▼
-                     waves of worker subagents (≤ 3 concurrent) ──► one fresh
-                     reviewer subagent ──► orchestrator closes mechanically
-  AGENTS.md (global): loads the dispatch skill when asked to work a backlog
-  agents/reviewer.md (global): read-only reviewer subagent used for both
-    plan review and end-of-run review
+  repo
+  ────
+  AGENTS.md (work order, gate, commit discipline)
+      │ points at
+      ▼
+  docs/dispatch.md (10-step spine)
+      │ orchestrator follows the spine
+      ▼
+  dispatch-plan.json ◄── TODO.md (backlog, one commit-worthy
+  (gitignored,            unit per item) and
+   deleted at close)      scripts/check-dispatch.mjs
+                          (npm run dispatch:check — mechanical
+                           gate: coverage, paths, waves, deps)
+      │ judgment: a fresh plan-review agent
+      ▼
+  waves of worker subagents (≤ 3 concurrent)
+      ▼
+  one fresh reviewer subagent
+      ▼
+  orchestrator closes mechanically
 ```
 
 For the human, the whole system is two decisions: keep `TODO.md` up to date,
@@ -63,8 +56,7 @@ one is committed, green, and the tree is clean.**
 | Workers collide on shared files | `dispatch-plan.json` wave assignments | "which two items share a file in the same wave?" |
 | Worker fails the project gate | the failing gate output | "is this a real regression in the unit, or an unrelated pre-existing failure?" |
 | Reviewer finds defects after the run | the reviewer's findings | "which findings are orchestration-caused versus unit-caused?" |
-| The flow never starts (no plan appears) | `~/.config/opencode/skills/dispatch`, `~/.config/opencode/AGENTS.md` | "is the symlink live and did the session advertise the dispatch skill?" |
-| Skill exists but the model never sees it | `.opencode/skills/dispatch/SKILL.md` frontmatter | "does the description parse as YAML — quote any value containing ': '?" |
+| The flow never starts (no plan appears) | `docs/dispatch.md`, `TODO.md` | "is the orchestrator pointed at the spine and the backlog?" |
 | Reviewer agent can edit files | `~/.config/opencode/agents/reviewer.md` | "are edit and shell denied in the reviewer permissions?" |
 | Tree dirty at close | `git status` | "did a worker leave uncommitted changes, or is the plan file still present?" |
 
@@ -74,8 +66,6 @@ For the human: write backlog items in `TODO.md`, one commit-worthy unit per
 line; trust the pipeline; check the end-of-run report. Nothing else is asked
 of a human.
 
-For the orchestrator: follow the 10-step spine in [`dispatch.md`](dispatch.md)
-or the portable copy in `.opencode/skills/dispatch/SKILL.md`; gate twice
-before dispatching anything; keep waves disjoint; never self-review; close
-mechanically. The global wiring under `~/.config/opencode` is the machine's
-job, maintained by the same agents that own this repo.
+For the orchestrator: follow the 10-step spine in [`dispatch.md`](dispatch.md);
+gate twice before dispatching anything; keep waves disjoint; never self-review;
+close mechanically.
