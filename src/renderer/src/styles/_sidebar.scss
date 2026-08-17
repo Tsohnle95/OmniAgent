@@ -1,28 +1,11 @@
 .sidebar {
-  --bg-panel: #161410;
-  --bg-hover: #1f1c17;
-  --bg-active: #2a251d;
-  --bg-elev: #1d1b17;
-  --border: #2d2a23;
-  --text: #ece7dc;
-  --text-dim: #a29c8e;
-  --text-faint: #6f6a5d;
-  --accent: #d97757;
-  --red: #e2635a;
-
-  background:
-    radial-gradient(560px 300px at 28% 0%, rgba(217, 119, 87, 0.05), transparent 70%),
-    var(--bg-panel);
+  background: var(--bg-panel);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
 }
-
-.sidebar ::-webkit-scrollbar-thumb { background: #3c3931; }
-
-.sidebar ::-webkit-scrollbar-thumb:hover { background: #4a463c; }
 
 .sidebar-header {
   display: flex;
@@ -48,7 +31,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 8px rgba(217, 119, 87, 0.55);
+  box-shadow: 0 0 10px rgba(94, 155, 255, 0.5);
   flex-shrink: 0;
 }
 
@@ -86,11 +69,11 @@
   height: 34px;
   background: none;
   border: none;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--text-dim);
   font-size: 17px;
   cursor: pointer;
-  transition: background 100ms ease, color 100ms ease;
+  transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
 .activity-btn:hover { background: var(--bg-hover); color: var(--accent); }
@@ -102,8 +85,8 @@
   font-size: 15px;
   cursor: pointer;
   padding: 3px 7px;
-  border-radius: 6px;
-  transition: background 100ms ease, color 100ms ease;
+  border-radius: var(--radius-sm);
+  transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
 .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
@@ -120,12 +103,13 @@
 .sidebar-section.explorer { flex: 1; min-height: 0; }
 
 .sidebar-count {
-  background: #262219;
-  border-radius: 8px;
-  padding: 1px 7px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0 8px;
   font-size: 10px;
   font-weight: 600;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 .section-trigger {
@@ -141,16 +125,16 @@
   padding: 5px 8px;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-faint);
   cursor: pointer;
   font-family: inherit;
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
   text-align: left;
-  transition: background 100ms ease, color 100ms ease;
+  transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
 .section-toggle:hover, .section-toggle.open {
@@ -163,7 +147,7 @@
 .section-toggle .si-chevron {
   flex-shrink: 0;
   display: inline-flex;
-  transition: transform 120ms ease;
+  transition: transform 120ms var(--ease);
 }
 
 .section-toggle .si-chevron.open { transform: rotate(180deg); }
@@ -189,11 +173,10 @@
 }
 
 .tree-empty {
-  padding: 8px 10px;
-  font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  font-style: italic;
-  font-size: 13.5px;
+  padding: 10px 12px;
+  font-size: 13px;
   color: var(--text-faint);
+  line-height: 1.5;
 }
 
 .tree-row {
@@ -202,27 +185,27 @@
   gap: 7px;
   padding: 4px 8px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
   min-width: 0;
-  transition: background 100ms ease;
+  transition: background 100ms var(--ease);
 }
 
 .tree-row:hover { background: var(--bg-hover); }
 
 .tree-row.drop-target {
-  background: rgba(217, 119, 87, 0.12);
+  background: var(--accent-tint);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .tree.drop-root {
-  background: rgba(217, 119, 87, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(217, 119, 87, 0.35);
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 1px rgba(94, 155, 255, 0.35);
 }
 
 .tree-row.file.active {
-  background: rgba(217, 119, 87, 0.1);
+  background: var(--accent-tint);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
@@ -244,11 +227,11 @@
   flex-shrink: 0;
 }
 
-.tree-row.dir .si-icon { color: #d8b88a; transition: color 100ms ease; }
+.tree-row.dir .si-icon { color: var(--text-dim); transition: color 100ms var(--ease); }
 
 .tree-row.dir.open .si-icon { color: var(--accent); }
 
-.tree-row.file .si-icon { color: var(--text-dim); }
+.tree-row.file .si-icon { color: var(--text-faint); }
 
 .tree-name {
   flex: 1;
@@ -258,8 +241,8 @@
 }
 
 .tree-children {
-  margin-left: 16px;
-  border-left: 1px solid rgba(217, 119, 87, 0.16);
+  margin-left: 14px;
+  border-left: 1px solid var(--border);
   padding-left: 0;
 }
 
@@ -275,7 +258,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 6px rgba(217, 119, 87, 0.5);
+  box-shadow: 0 0 6px rgba(94, 155, 255, 0.5);
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -287,10 +270,10 @@
   z-index: 100;
   min-width: 176px;
   background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
   padding: 5px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
 }
@@ -306,9 +289,9 @@
   font-size: 12.5px;
   text-align: left;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
-  transition: background 100ms ease;
+  transition: background 100ms var(--ease);
 }
 
 .ctx-item .si-mini { color: var(--text-dim); flex-shrink: 0; }
@@ -333,13 +316,14 @@
   flex: 1;
   min-width: 0;
   height: 20px;
-  background: #1b1915;
+  background: var(--bg-elev);
   border: 1px solid var(--accent);
   color: var(--text);
   font-size: 12.5px;
   padding: 2px 6px;
   outline: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px rgba(94, 155, 255, 0.14);
 }
 
 .tree-row-actions {
@@ -363,14 +347,10 @@
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  border-radius: 4px;
-  transition: background 100ms ease, color 100ms ease;
+  border-radius: var(--radius-sm);
+  transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
 .tree-row-action:hover { background: var(--bg-active); color: var(--accent); }
 
 .tree-row-action .si-mini { flex-shrink: 0; }
-
-.activity-btn {
-  --shell-prompt: var(--accent);
-}

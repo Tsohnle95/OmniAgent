@@ -28,13 +28,14 @@
 }
 
 .error-boundary-reload {
-  background: var(--bg-active);
-  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
   color: var(--text);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 6px 14px;
   font-size: 12.5px;
   cursor: pointer;
+  transition: background 100ms var(--ease), border-color 100ms var(--ease);
 }
 
-.error-boundary-reload:hover { background: var(--bg-hover); }
+.error-boundary-reload:hover { background: var(--bg-hover); border-color: var(--accent); }

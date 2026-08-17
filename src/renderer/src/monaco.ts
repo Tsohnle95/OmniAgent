@@ -44,20 +44,20 @@ monaco.editor.defineTheme("openshell-dark", {
     { token: "function", foreground: "DCDCAA" }
   ],
   colors: {
-    "editor.background": "#1e1e22",
-    "editor.lineHighlightBackground": "#2a2a30",
-    "editorLineNumber.foreground": "#5a5a64",
-    "editorCursor.foreground": "#aeafad",
-    "editor.selectionBackground": "#264f78",
-    "editorGutter.background": "#1e1e22",
-    "diffEditor.insertedTextBackground": "#0f2e18",
-    "diffEditor.removedTextBackground": "#431616",
-    "diffEditor.insertedLineBackground": "#0f2e18",
-    "diffEditor.removedLineBackground": "#431616",
-    "diffEditor.diagonalFill": "#1e1e22",
-    "scrollbarSlider.background": "#4a4a5233",
-    "scrollbarSlider.hoverBackground": "#4a4a5266",
-    "minimap.background": "#1e1e22"
+    "editor.background": "#17181d",
+    "editor.lineHighlightBackground": "#1b1d23",
+    "editorLineNumber.foreground": "#4a515e",
+    "editorCursor.foreground": "#b9c6dc",
+    "editor.selectionBackground": "#2e4d78",
+    "editorGutter.background": "#17181d",
+    "diffEditor.insertedTextBackground": "#11301f",
+    "diffEditor.removedTextBackground": "#3a1b1d",
+    "diffEditor.insertedLineBackground": "#11301f",
+    "diffEditor.removedLineBackground": "#3a1b1d",
+    "diffEditor.diagonalFill": "#17181d",
+    "scrollbarSlider.background": "rgba(255, 255, 255, 0.14)",
+    "scrollbarSlider.hoverBackground": "rgba(255, 255, 255, 0.24)",
+    "minimap.background": "#17181d"
   }
 });
 

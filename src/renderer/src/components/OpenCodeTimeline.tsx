@@ -20,27 +20,27 @@ function isInternalSystemReminder(item: Extract<TranscriptItem, { kind: "synthet
 }
 
 const AGENT_TONES: Record<string, string> = {
-  build: "#c3d4fd",
-  explore: "#f7e5b5",
-  plan: "#f799c6",
-  review: "#b8e9c1",
-  writer: "#9e99f7"
+  build: "#a9c3ff",
+  explore: "#f0dfa8",
+  plan: "#f5a8cf",
+  review: "#a5e0b8",
+  writer: "#a8a3f0"
 };
 
 const AGENT_PALETTE = [
-  "#2090f5", "#9dbefe", "#fbb73c", "#edb2f1", "#93e9f6", "#35c02d",
-  "#f5b238", "#ff9ae2", "#93e9f6", "#9bcd97", "#fc533a", "#fbb73c"
+  "#5e9bff", "#8db4ff", "#e0af68", "#e49ac7", "#6fc3df", "#4cc38a",
+  "#f0b14f", "#ff9ae2", "#7fd9e8", "#9bcd97", "#ff8b85", "#e0af68"
 ];
 
 function agentTone(name: string, configured?: string): string {
   const aliases: Record<string, string> = {
-    primary: "#a2bcff",
-    secondary: "#aeaeae",
-    accent: "#a2bcff",
-    success: "#78d38b",
-    warning: "#f3da9b",
-    error: "#f17471",
-    info: "#93e9f6"
+    primary: "#8db4ff",
+    secondary: "#9aa1ad",
+    accent: "#8db4ff",
+    success: "#4cc38a",
+    warning: "#e0af68",
+    error: "#f16d6b",
+    info: "#6fc3df"
   };
   if (configured) return aliases[configured] ?? configured;
   const key = name.toLowerCase();

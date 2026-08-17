@@ -11,15 +11,16 @@
 }
 
 .toast {
-  background: var(--bg-active);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
   padding: 7px 14px;
   font-size: 12.5px;
   max-width: 70vw;
+  box-shadow: var(--shadow-sm);
 }
 
-.toast.error { border-color: var(--red); color: #f0a0a0; }
+.toast.error { border-color: rgba(241, 109, 107, 0.6); color: #ffb4b0; }
 
 .recovery-notice {
   position: fixed;
@@ -30,16 +31,16 @@
   max-height: min(420px, calc(100vh - 80px));
   overflow: auto;
   padding: 14px;
-  border: 1px solid #735d2d;
-  border-radius: 8px;
-  background: #211d15;
-  box-shadow: 0 12px 32px #0009;
-  color: #eee4cc;
+  border: 1px solid rgba(224, 175, 104, 0.45);
+  border-radius: var(--radius-lg);
+  background: #1c1812;
+  box-shadow: var(--shadow-md);
+  color: #efe7d8;
 }
 
 .recovery-notice p {
   margin: 5px 0 12px;
-  color: #bcb29d;
+  color: var(--text-dim);
   font-size: 12px;
 }
 
@@ -47,7 +48,7 @@
   display: grid;
   gap: 4px;
   padding: 9px 0;
-  border-top: 1px solid #ffffff18;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .recovery-record span,
@@ -58,7 +59,7 @@
 }
 
 .recovery-record small {
-  color: #a89d88;
+  color: var(--text-faint);
 }
 
 .recovery-record button {
