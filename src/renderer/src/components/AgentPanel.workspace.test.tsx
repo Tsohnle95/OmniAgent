@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionInfo } from "@shared/types";
 
 let currentSession: SessionInfo;
+const selectPanelDirectoryMock = vi.fn(async () => {});
 
 vi.mock("../store", () => ({
   useStore: () => ({
@@ -21,7 +22,13 @@ vi.mock("../store", () => ({
     sendPrompt: vi.fn(),
     runCommand: vi.fn(),
     stop: vi.fn(),
-    busy: false
+    busy: false,
+    sessions: [],
+    reopenSession: vi.fn(),
+    providerUsage: [],
+    providerUsageLoading: false,
+    refreshProviderUsage: vi.fn(),
+    selectPanelDirectory: selectPanelDirectoryMock
   }),
   usePanel: () => ({
     session: currentSession,
@@ -36,7 +43,7 @@ vi.mock("../store", () => ({
   })
 }));
 
-import { Composer } from "./AgentPanel";
+import { AgentPanel, Composer } from "./AgentPanel";
 
 function session(id: string, generation: number): SessionInfo {
   return {
@@ -59,6 +66,7 @@ describe("composer workspace continuations", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     currentSession = session("one", 1);
+    selectPanelDirectoryMock.mockClear();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -69,6 +77,15 @@ describe("composer workspace continuations", () => {
     container.remove();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("changes the panel's workspace from the header folder control", async () => {
+    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    const folder = container.querySelector<HTMLButtonElement>('button[aria-label="Change workspace"]')!;
+    expect(folder).not.toBeNull();
+    await act(async () => folder.click());
+
+    expect(selectPanelDirectoryMock).toHaveBeenCalledWith(currentSession.workspace);
   });
 
   it("discards slash completions returned after a workspace switch", async () => {

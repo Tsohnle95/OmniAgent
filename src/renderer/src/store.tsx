@@ -168,7 +168,10 @@ interface Store {
   closePanel: (sessionID: string) => void;
   openSession: (dir: string) => Promise<void>;
   addModelPanel: (dir: string) => Promise<void>;
+  selectAddPanel: () => Promise<void>;
   selectFolder: () => Promise<void>;
+  selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
+  changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<void>;
   loadSessions: () => Promise<void>;
   sendPrompt: (text: string, files?: PromptFile[], workspace?: WorkspaceIdentity) => Promise<void>;
@@ -292,6 +295,13 @@ function sortEntries(entries: TreeEntry[]): TreeEntry[] {
     if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
     return a.path.localeCompare(b.path);
   });
+}
+
+function dropKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in record)) return record;
+  const next = { ...record };
+  delete next[key];
+  return next;
 }
 
 function filterEntries(entries: TreeEntry[]): TreeEntry[] {
@@ -873,6 +883,45 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }
   }, [toast]);
 
+  const swapPanelTo = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): void => {
+    const index = panelsRef.current.findIndex((panel) => sameWorkspace(panel.workspace, workspace));
+    if (index === -1) {
+      void window.openshell.closeSession(info.workspace).catch(() => {});
+      return;
+    }
+    const old = panelsRef.current[index];
+    void window.openshell.closeSession(old.workspace).catch(() => {});
+    const oldWorkspaceID = old.workspace.id;
+    chatStatesRef.current.delete(old.id);
+    materializingRef.current.delete(old.id);
+    delete todoKeysRef.current[oldWorkspaceID];
+    setBusyBySession((current) => dropKey(current, old.id));
+    setUsageBySession((current) => dropKey(current, old.id));
+    setTranscriptsBySession((current) => dropKey(current, old.id));
+    setSessionAbortFlags((current) => dropKey(current, old.id));
+    setTodosByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setTabsByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setActivePathByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setAgentFilesByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setTreeByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setExpandedByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setRecoveryByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setModelsByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setCurrentModelByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setAgentsByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setCurrentAgentByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    panelsRef.current = panelsRef.current.map((panel, panelIndex) => (panelIndex === index ? info : panel));
+    setPanels(panelsRef.current);
+    userActivatedRef.current = true;
+    focusSeqRef.current += 1;
+    sessionRef.current = info;
+    setActiveSessionID(info.id);
+    void loadRecovery(info.workspace);
+    void loadModels(info.workspace);
+    void loadAgents(info.workspace);
+    void loadSessions();
+  }, [setPanels, loadRecovery, loadModels, loadAgents, loadSessions]);
+
   const openSession = useCallback(
     async (dir: string) => {
       const request = ++requestSeqRef.current;
@@ -924,6 +973,61 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       }
     },
     [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]
+  );
+
+  const selectAddPanel = useCallback(async () => {
+    const request = ++requestSeqRef.current;
+    const activation = activationSeqRef.current;
+    try {
+      const info = await window.openshell.selectFolder(request);
+      if (!info) return;
+      if (activation !== activationSeqRef.current) {
+        await window.openshell.closeSession(info.workspace).catch(() => {});
+        return;
+      }
+      attachPanel(info);
+      userActivatedRef.current = true;
+      focusSeqRef.current += 1;
+      sessionRef.current = info;
+      setActiveSessionID(info.id);
+      void loadRecovery(info.workspace);
+      void loadModels(info.workspace);
+      void loadAgents(info.workspace);
+      void loadSessions();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]);
+
+  const swapPanelWorkspace = useCallback(
+    async (workspace: WorkspaceIdentity, pick: (request: number) => Promise<SessionInfo | null>) => {
+      const request = ++requestSeqRef.current;
+      const activation = activationSeqRef.current;
+      try {
+        const info = await pick(request);
+        if (!info) return;
+        if (activation !== activationSeqRef.current) {
+          await window.openshell.closeSession(info.workspace).catch(() => {});
+          return;
+        }
+        swapPanelTo(workspace, info);
+      } catch (err) {
+        if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [swapPanelTo, toast, panelFor]
+  );
+
+  const selectPanelDirectory = useCallback(
+    (workspace: WorkspaceIdentity) =>
+      swapPanelWorkspace(workspace, (request) => window.openshell.selectFolder(request)),
+    [swapPanelWorkspace]
+  );
+
+  const changePanelDirectory = useCallback(
+    (workspace: WorkspaceIdentity, dir: string) =>
+      swapPanelWorkspace(workspace, (request) => window.openshell.openSession(dir, request)),
+    [swapPanelWorkspace]
   );
 
   const selectFolder = useCallback(async () => {
@@ -2224,7 +2328,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       closePanel,
       openSession,
       addModelPanel,
+      selectAddPanel,
       selectFolder,
+      selectPanelDirectory,
+      changePanelDirectory,
       reopenSession,
       loadSessions,
       sendPrompt,
@@ -2270,7 +2377,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts, recoveryRecords,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
-      focusSession, closePanel, openSession, addModelPanel, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
+      focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,

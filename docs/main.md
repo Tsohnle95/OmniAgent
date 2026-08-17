@@ -146,8 +146,8 @@ Internals:
 
 | Channel | Args → Returns |
 |---|---|
-| `shell:select-folder` | `(generation) → SessionInfo \| null` (generation accepted before native dialog) |
-| `shell:open-session` | `(dir, generation) → SessionInfo` |
+| `shell:select-folder` | `(generation) → SessionInfo \| null` (generation accepted before native dialog); the returned session is mounted by the caller — replacing the displayed panels, added as a new panel, or swapped into an existing panel — depending on the store action that opened the dialog |
+| `shell:open-session` | `(dir, generation) → SessionInfo` — creates a session for `dir`; used for the app-wide replacement view, model-mode additions, and per-panel workspace swaps |
 | `shell:sessions` | `() → SessionSummary[]` |
 | `shell:active-sessions` | `() → SessionInfo[]` — open backend sessions, most recently activated last |
 | `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |

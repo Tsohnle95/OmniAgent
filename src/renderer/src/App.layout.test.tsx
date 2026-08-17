@@ -52,6 +52,7 @@ function api(): typeof window.openshell {
     sessionSelection: async () => null,
     agents: async () => [],
     openSession: async (directory: string) => info(directory, ++openedGeneration),
+    selectFolder: async () => info("/repo", ++openedGeneration),
     sessions: async () => [],
     openSessionById: async () => ({ session: info("/repo", 1), transcript: [], todos: [], usage: null }),
     readFile: async () => "content",
@@ -518,15 +519,15 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    const add = (): HTMLButtonElement => container.querySelector<HTMLButtonElement>('button[aria-label="Duplicate model panel"], button[aria-label="Add model panel"]')!;
-    expect(add().getAttribute("aria-label")).toBe("Duplicate model panel");
-    const openSession = vi.spyOn(window.openshell, "openSession");
+    const add = (): HTMLButtonElement => container.querySelector<HTMLButtonElement>('button[aria-label="Add model panel"]')!;
+    expect(add().getAttribute("aria-label")).toBe("Add model panel");
+    const selectFolder = vi.spyOn(window.openshell, "selectFolder");
 
     await act(async () => {
       add().click();
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
-    expect(openSession).toHaveBeenCalledWith("/repo", expect.any(Number));
+    expect(selectFolder).toHaveBeenCalledWith(expect.any(Number));
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentWidths()).toEqual([716, 717]);
 

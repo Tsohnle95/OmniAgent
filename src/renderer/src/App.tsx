@@ -271,7 +271,7 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels, focusSession, closePanel, addModelPanel: addModelPanelSession, selectFolder } = useStore();
+  const { panels, focusSession, closePanel, selectAddPanel, selectFolder } = useStore();
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
@@ -291,6 +291,25 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const prevPanelsRef = useRef<SessionInfo[] | null>(null);
+  useEffect(() => {
+    const prev = prevPanelsRef.current;
+    prevPanelsRef.current = panels;
+    if (!prev || prev.length !== panels.length) return;
+    for (let index = 0; index < panels.length; index += 1) {
+      const before = prev[index];
+      const after = panels[index];
+      if (before.id === after.id) continue;
+      setSlots((current) => {
+        const migrated = current[before.workspace.id];
+        if (!migrated || current[after.workspace.id] === migrated) return current;
+        const next = { ...current, [after.workspace.id]: migrated };
+        delete next[before.workspace.id];
+        return next;
+      });
+    }
+  }, [panels]);
 
   useEffect(() => {
     setSlots((current) => {
@@ -569,10 +588,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   }, [distributeEvenly, inAgentMode, panels.length]);
 
   const addModelPanel = (): void => {
-    const anchor = panels[0];
-    if (!inAgentMode || !anchor || panels.length + pendingModelPanels >= 4) return;
+    if (!inAgentMode || panels.length + pendingModelPanels >= 4) return;
     setPendingModelPanels((count) => count + 1);
-    void addModelPanelSession(anchor.directory).finally(() => setPendingModelPanels((count) => Math.max(0, count - 1)));
+    void selectAddPanel().finally(() => setPendingModelPanels((count) => Math.max(0, count - 1)));
   };
 
   const toggleAgentMode = (): void => {
@@ -646,8 +664,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             <button
               className="icon-btn"
               data-panel-action="add-model-panel"
-              title={panels.length + pendingModelPanels >= 4 ? "Model panel limit reached (4)" : panels.length === 1 ? "Duplicate model panel" : "Add model panel"}
-              aria-label={panels.length === 1 ? "Duplicate model panel" : "Add model panel"}
+              title={panels.length + pendingModelPanels >= 4 ? "Model panel limit reached (4)" : "Add model panel (choose a folder for the new panel)"}
+              aria-label="Add model panel"
               disabled={panels.length + pendingModelPanels >= 4}
               onClick={addModelPanel}
             >

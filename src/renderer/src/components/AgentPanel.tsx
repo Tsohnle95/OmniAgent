@@ -967,7 +967,8 @@ export function AgentPanel({
     reopenSession,
     providerUsage,
     providerUsageLoading,
-    refreshProviderUsage
+    refreshProviderUsage,
+    selectPanelDirectory
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
@@ -1109,12 +1110,28 @@ export function AgentPanel({
             <span className="agent-subagent">@{activeSession.agent}</span>
           )}
           {!activeSession?.parentID && activeSession?.directory && (
-            <span className="agent-workspace" title={activeSession.directory}>
+            <button
+              className="agent-workspace"
+              title={`Change workspace — currently ${activeSession.directory}`}
+              aria-label="Change workspace"
+              onClick={() => void selectPanelDirectory(activeSession.workspace)}
+            >
+              <span className="codicon codicon-folder-opened" aria-hidden />
               {activeSession.directory.split("/").filter(Boolean).pop()}
-            </span>
+            </button>
           )}
         </span>
         <div className="agent-header-actions">
+          {activeSession && !activeSession.parentID && (
+            <button
+              className="icon-btn agent-workspace-change"
+              title={activeSession.directory ? `Change workspace — currently ${activeSession.directory}` : "Change workspace"}
+              aria-label="Change workspace"
+              onClick={() => void selectPanelDirectory(activeSession.workspace)}
+            >
+              <span className="codicon codicon-folder-opened" />
+            </button>
+          )}
           <button
             className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
             title="Session and provider usage"
