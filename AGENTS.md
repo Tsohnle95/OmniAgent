@@ -44,10 +44,8 @@ npm start          # run the production build
 
 See `docs/` for full docs: `architecture.md` (system overview),
 `walkthrough.md` (guided tour of the connections), `events.md` (opencode2
-event protocol), `operations.md` (run/verify/debug playbook),
-`dispatch.md` (orchestrating multi-unit agent work),
-`dispatch-pipeline.md` (the chain: gates, wiring, failure modes),
-`main.md`, `preload.md`, `renderer.md`, `shared.md`. Open product
+event protocol), `operations.md` (run/verify/debug playbook), `main.md`,
+`preload.md`, `renderer.md`, `shared.md`. Open product
 requests live in the README's roadmap section; the actionable working
 queue is `TODO.md` — start a session by reading both.
 

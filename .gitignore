@@ -8,4 +8,3 @@ release/
 *.tsbuildinfo
 .DS_Store
 .openshell-recovery/
-dispatch-plan.json

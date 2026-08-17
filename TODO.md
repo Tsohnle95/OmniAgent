@@ -4,8 +4,8 @@ Add points here anytime — `- [ ]` for open items, `- [x]` when done.
 A fresh session can start working from this file. Bigger ideas belong in
 the README roadmap; this file is the actionable queue.
 
-Work order: execute per `docs/dispatch.md` (one commit per unit, `npm run check`
-green before each commit, fresh reviewer + mechanical closure at the end).
+Work order: one commit-worthy unit at a time, `npm run check` green before
+each commit, a fresh reviewer at the end.
 
 - [x] - `.openshell-recovery/` transactions are never deleted, so every app-mediated save leaves 3 full file copies behind and the dir grows forever. Add retention: on activation, purge `complete`/`failed`/`acknowledged` transactions older than 24h, and interrupted (`source-held`/`held-validated`) ones older than 7 days. (`.openshell-recovery/` is already gitignored.)
 
