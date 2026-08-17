@@ -19,6 +19,13 @@
   background:
     radial-gradient(900px 540px at 24% 14%, rgba(217, 119, 87, 0.07), transparent 70%),
     var(--canvas);
+  -webkit-app-region: drag;
+}
+
+.welcome button,
+.welcome [role="tab"],
+.welcome-row {
+  -webkit-app-region: no-drag;
 }
 
 .welcome-inner {

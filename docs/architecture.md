@@ -94,10 +94,11 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    defaults pick the model and agent; canonicalizes the workspace root,
    assigns a fresh immutable workspace identity, and starts the context's
    fs watcher.
-3. Emits `{ kind: "session" }`; the renderer adds the session as a new panel
-   and focuses it. Reopening an already-open session reuses its context
-   (stable workspace identity, no re-emit) and the renderer just focuses
-   the panel.
+3. Emits `{ kind: "session" }`; the renderer replaces the displayed panels
+   with the selected session and focuses it. Reopening an already-open session
+   reuses its context (stable workspace identity, no re-emit) and the renderer
+   just focuses the panel. Model mode's explicit `+` action is the additive
+   path.
 4. Prompts go through `client.session.prompt({ sessionID, text, files? })`;
    interrupt through `client.session.interrupt`.
 5. The backend owns any number of concurrent session contexts at once, each
@@ -122,14 +123,16 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
 
 The Changes list represents workspace file changes observed during the active
 session, regardless of whether they came from a tool, shell, editor, formatter,
-user, or another process. Main preserves the first baseline per path:
+user, or another process. Main preserves the first baseline per path until Git
+metadata changes, then refreshes the effective Git baseline:
 
 - **Tool snapshot**: when `session.tool.called` arrives, every file path
   found in the tool input (keys `filePath`/`file_path`/`path`) is read and
   stored as that file's baseline *before* the tool executes.
 - **git fallback**: files first observed via `fs.watch` use
-  `git show HEAD:<rel>` in a Git workspace; untracked Git paths use known empty
-  content.
+  `git show HEAD:<rel>` in a Git workspace; untracked Git paths use a known
+  empty baseline with `exists: false`. A Git HEAD result, including empty
+  content, represents an existing file.
 - **unknown fallback**: first-observed non-git changes have an explicit unknown
   baseline because the watcher only has post-change bytes.
 - **OpenShell mutations**: saves and creates establish a known baseline only
@@ -139,10 +142,14 @@ user, or another process. Main preserves the first baseline per path:
   workspace-scoped maps, then feeds every change through a 200ms debounce into
   `onFsChanged`, which compares against `lastKnown`, assigns a baseline if
   missing, and emits identity-bound `file-update` with `{baseline, content}`.
+  Git metadata events use the same debounce to refresh tracked snapshots;
+  files equal to their known baseline, and deleted paths with `exists: false`,
+  leave Changes, while files still differing remain listed.
   Await boundaries and emissions re-check that the context is still
   registered.
 
-The renderer merges updates into tabs. A known baseline enables Monaco Diff;
+The renderer merges updates into tabs and removes clean file updates from
+Changes. A known baseline enables Monaco Diff;
 an unknown baseline stays in Changes as `observed` with Diff unavailable.
 
 This is observation, not attribution. Structured tool paths can be captured

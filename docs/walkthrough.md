@@ -92,12 +92,12 @@ activated one is focused unless the user already acted.
    assigns a fresh immutable workspace identity, binds a new context with its
    own watcher maps, starts that context's `fs.watch`, and emits
    `{ kind: "session" }`.
-4. The store adds the session as a new panel and focuses it (the emitted
-   session message upserts idempotently), loads its models/agents/usage, and
-   `Root` switches from `Welcome` to the multi-panel `Layout`. Opening another
-   workspace (titlebar button, the panel `+` column, or the Sessions rail)
-   spawns a sibling panel; clicking a panel swaps the shared editor/tree/
-   terminal to that session while every panel keeps streaming.
+4. The store replaces the displayed panels with the session and focuses it
+   (the emitted session message upserts idempotently), loads its
+   models/agents/usage, and `Root` switches from `Welcome` to the `Layout`.
+   The model-mode `+` action is the explicit sibling-panel path; clicking a
+   running panel focuses it, while a saved or non-running recent session
+   replaces the current view.
 
 Recent sessions (`shell:sessions` → `session.list`) populate the Welcome
 screen; clicking one goes down `openSessionById` (see below).
@@ -139,21 +139,24 @@ baseline map (`snapshots` in `OpenShellBackend`):
    (`collectFilePaths`) and reads every file *before* the tool executes.
 2. **git fallback** — files first seen via `fs.watch` (or the server's
    `filesystem.changed`) get `git show HEAD:<rel>` as baseline when the
-   repo has a `.git`; Git-untracked paths use known empty content. Non-git
+   repo has a `.git`; Git-untracked paths use a known empty baseline with
+   `exists: false`, while an empty Git HEAD result represents an existing file. Non-git
    first observations use an explicit unknown baseline.
 3. **Editor writes and creates** — expected disk content or empty creation
    establishes a known baseline only when none exists; later saves preserve it.
 4. **Delete and rename** — tracked baselines remain on deletion updates and
    move to renamed targets.
 
-Changes flow: watcher (200ms debounce, `SKIP_DIRS` filter) or the server
+Changes flow: watcher (200ms debounce, `SKIP_DIRS` filter, with Git metadata
+events handled separately) or the server
 event → `OpenShellBackend.onFsChanged()` compares against `lastKnown`,
 assigns a baseline if missing, and emits
 `{ kind: "file-update", file: { path, baseline, content, deleted } }`.
 
 The store's backend-message handler merges file updates into two places: the
-`agentFiles` map (drives the sidebar CHANGES list) and the open tab. If
-the tab is **not** dirty the update replaces content and baseline; if the
+`agentFiles` map (drives the sidebar CHANGES list) and the open tab. Updates
+that equal a known baseline, or delete a path whose known baseline has
+`exists: false`, remove the path from `agentFiles`; if the tab is **not** dirty the update replaces content and baseline; if the
 user has unsaved edits it only updates the baseline and marks the tab
 `stale`, never clobbering the editor. Files open with their baseline from
 `agentFiles`, so the Edit/Diff toggle is instant.

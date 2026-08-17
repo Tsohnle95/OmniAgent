@@ -164,6 +164,45 @@ describe("store workspace continuations", () => {
     expect(listDir).toHaveBeenCalledWith(store.session!.workspace, "lib");
   });
 
+  it("removes restored files and created-then-deleted files while retaining deleted tracked files", async () => {
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    const workspace = store.session!.workspace;
+    await act(async () => messageHandler!({
+      kind: "file-update",
+      file: { workspace, sessionID: store.session!.id, path: "restored.txt", baseline: { kind: "known", content: "old" }, content: "new", deleted: false }
+    }));
+    await act(async () => messageHandler!({
+      kind: "file-update",
+      file: { workspace, sessionID: store.session!.id, path: "empty.txt", baseline: { kind: "known", content: "" }, content: null, deleted: true }
+    }));
+    expect(store.agentFiles.has("restored.txt")).toBe(true);
+    expect(store.agentFiles.has("empty.txt")).toBe(true);
+
+    await act(async () => {
+      messageHandler!({
+        kind: "file-update",
+        file: { workspace, sessionID: store.session!.id, path: "restored.txt", baseline: { kind: "known", content: "old" }, content: "old", deleted: false }
+      });
+    });
+
+    expect(store.agentFiles.has("restored.txt")).toBe(false);
+    expect(store.agentFiles.has("empty.txt")).toBe(true);
+
+    await act(async () => messageHandler!({
+      kind: "file-update",
+      file: { workspace, sessionID: store.session!.id, path: "created.txt", baseline: { kind: "known", content: "", exists: false }, content: null, deleted: true }
+    }));
+    expect(store.agentFiles.has("created.txt")).toBe(false);
+
+    await act(async () => messageHandler!({
+      kind: "file-update",
+      file: { workspace, sessionID: store.session!.id, path: "empty.txt", baseline: { kind: "known", content: "", exists: false }, content: null, deleted: true }
+    }));
+    expect(store.agentFiles.has("empty.txt")).toBe(false);
+  });
+
   it("drops deleted change entries instead of remapping them to the destination", async () => {
     window.openshell = api({ movePath: vi.fn(async () => {}) });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
@@ -247,7 +286,7 @@ describe("store workspace continuations", () => {
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
     await act(async () => store.openFile("one.txt"));
-    await act(async () => store.openSession("/two"));
+    await act(async () => store.addModelPanel("/two"));
     await act(async () => store.openFile("two.txt"));
 
     expect(store.panels).toHaveLength(2);
@@ -272,7 +311,7 @@ describe("store workspace continuations", () => {
     window.openshell = api({ openSessionById });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
-    await act(async () => store.openSession("/two"));
+    await act(async () => store.addModelPanel("/two"));
     expect(store.panels).toHaveLength(2);
     const first = store.panels[0];
 
@@ -288,7 +327,7 @@ describe("store workspace continuations", () => {
     window.openshell = api({ closeSession });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
-    await act(async () => store.openSession("/two"));
+    await act(async () => store.addModelPanel("/two"));
     expect(store.session?.id).toBe(store.panels[1].id);
     const closedWorkspace = store.panels[1].workspace;
 
@@ -308,7 +347,8 @@ describe("store workspace continuations", () => {
     const older = deferred<Awaited<ReturnType<NonNullable<OpenShellApi["openSessionById"]>>>>();
     const newer = deferred<Awaited<ReturnType<NonNullable<OpenShellApi["openSessionById"]>>>>();
     const openSessionById = vi.fn((id: string) => id === "older" ? older.promise : newer.promise);
-    window.openshell = api({ openSessionById });
+    const closeSession = vi.fn(async () => {});
+    window.openshell = api({ openSessionById, closeSession });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     let olderPending!: Promise<void>;
     let newerPending!: Promise<void>;
@@ -320,6 +360,101 @@ describe("store workspace continuations", () => {
     await act(async () => olderPending);
 
     expect(store.session?.directory).toBe("/newer");
+    expect(closeSession).toHaveBeenCalledWith(info("/older", 1).workspace);
+  });
+
+  it("replaces the displayed session and closes every old backend context", async () => {
+    const closeSession = vi.fn(async () => {});
+    window.openshell = api({ closeSession });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.addModelPanel("/two"));
+    const oldWorkspaces = store.panels.map((panel) => panel.workspace);
+
+    await act(async () => store.openSession("/three"));
+
+    expect(store.panels).toHaveLength(1);
+    expect(store.session?.directory).toBe("/three");
+    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[0]);
+    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[1]);
+  });
+
+  it("keeps explicit model-panel additions separate from workspace replacement", async () => {
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.addModelPanel("/one"));
+
+    expect(store.panels).toHaveLength(2);
+    expect(store.panels.every((panel) => panel.directory === "/one")).toBe(true);
+  });
+
+  it("replaces panels when the folder picker completes", async () => {
+    const closeSession = vi.fn(async () => {});
+    window.openshell = api({
+      closeSession,
+      selectFolder: vi.fn(async () => info("/picked", 3))
+    });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.addModelPanel("/two"));
+    const oldWorkspaces = store.panels.map((panel) => panel.workspace);
+
+    await act(async () => store.selectFolder());
+
+    expect(store.panels).toHaveLength(1);
+    expect(store.session?.directory).toBe("/picked");
+    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[0]);
+    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[1]);
+  });
+
+  it("closes a stale replacement context instead of reattaching it", async () => {
+    const older = deferred<SessionInfo>();
+    const newer = deferred<SessionInfo>();
+    const closeSession = vi.fn(async () => {});
+    const openSession = vi.fn((directory: string) => directory === "/older" ? older.promise : newer.promise);
+    window.openshell = api({ openSession, closeSession });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    let olderPending!: Promise<void>;
+    let newerPending!: Promise<void>;
+    await act(async () => { olderPending = store.openSession("/older"); });
+    await act(async () => { newerPending = store.openSession("/newer"); });
+    await act(async () => newer.resolve(info("/newer", 2)));
+    await act(async () => newerPending);
+    await act(async () => older.resolve(info("/older", 1)));
+    await act(async () => olderPending);
+
+    expect(store.session?.directory).toBe("/newer");
+    expect(store.panels.map((panel) => panel.directory)).toEqual(["/newer"]);
+    expect(closeSession).toHaveBeenCalledWith(info("/older", 1).workspace);
+  });
+
+  it("closes additive contexts that finish after a workspace replacement", async () => {
+    const first = deferred<SessionInfo>();
+    const second = deferred<SessionInfo>();
+    const closeSession = vi.fn(async () => {});
+    const openSession = vi.fn((directory: string) => {
+      if (directory === "/first") return first.promise;
+      if (directory === "/second") return second.promise;
+      return Promise.resolve(info(directory, 3));
+    });
+    window.openshell = api({ openSession, closeSession });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+
+    let firstPending!: Promise<void>;
+    let secondPending!: Promise<void>;
+    await act(async () => { firstPending = store.addModelPanel("/first"); });
+    await act(async () => { secondPending = store.addModelPanel("/second"); });
+    await act(async () => store.openSession("/replacement"));
+    await act(async () => first.resolve(info("/first", 1)));
+    await act(async () => second.resolve(info("/second", 2)));
+    await act(async () => firstPending);
+    await act(async () => secondPending);
+
+    expect(store.panels.map((panel) => panel.directory)).toEqual(["/replacement"]);
+    expect(store.session?.directory).toBe("/replacement");
+    expect(closeSession).toHaveBeenCalledWith(info("/first", 1).workspace);
+    expect(closeSession).toHaveBeenCalledWith(info("/second", 2).workspace);
   });
 
   it("loads, opens, acknowledges, and identity-gates recovery records", async () => {

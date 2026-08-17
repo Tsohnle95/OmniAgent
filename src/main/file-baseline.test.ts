@@ -11,7 +11,7 @@ describe("observed file baseline lifecycle", () => {
   });
 
   it("uses an empty known baseline for a file created by a structured tool or editor", () => {
-    expect(preserveBaseline(undefined, knownBaseline(""))).toEqual(knownBaseline(""));
+    expect(preserveBaseline(undefined, knownBaseline("", false))).toEqual({ kind: "known", content: "", exists: false });
   });
 
   it("retains the established baseline when the file is deleted", () => {
@@ -30,7 +30,11 @@ describe("observed file baseline lifecycle", () => {
   });
 
   it("treats a Git-untracked creation as an empty pre-session file", () => {
-    expect(observedBaseline(true, null)).toEqual(knownBaseline(""));
+    expect(observedBaseline(true, null)).toEqual({ kind: "known", content: "", exists: false });
+  });
+
+  it("keeps an empty tracked Git file as existing", () => {
+    expect(observedBaseline(true, "")).toEqual(knownBaseline(""));
   });
 
   it("marks a first-observed shell change unknown in a non-Git workspace", () => {

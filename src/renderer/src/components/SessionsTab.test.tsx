@@ -103,6 +103,20 @@ describe("SessionsTab rail", () => {
     expect(state.closePanel).toHaveBeenCalledWith("one");
   });
 
+  it("focuses a running recent session instead of reopening it", async () => {
+    state.panels = [session("one", "/repo/one", "One")];
+    state.sessions = [{ id: "one", title: "One", directory: "/repo/one", updatedAt: 1 }];
+    await act(async () => root.render(<SessionsTab open onClose={() => {}} />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+
+    const recent = [...container.querySelectorAll(".sessions-row")].find((row) => row.textContent?.includes("One"));
+    expect(recent).toBeTruthy();
+    await act(async () => (recent as HTMLDivElement).click());
+
+    expect(state.focusSession).toHaveBeenCalledWith("one");
+    expect(state.reopenSession).not.toHaveBeenCalled();
+  });
+
   it("lists recent sessions and reopens them on click", async () => {
     state.sessions = [
       { id: "recent-1", title: "Recent One", directory: "/repo/r1", updatedAt: Date.now() - 60000 },

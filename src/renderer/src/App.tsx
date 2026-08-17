@@ -271,7 +271,7 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels, focusSession, closePanel, openSession, selectFolder } = useStore();
+  const { panels, focusSession, closePanel, addModelPanel: addModelPanelSession, selectFolder } = useStore();
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(250);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
@@ -572,7 +572,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     const anchor = panels[0];
     if (!inAgentMode || !anchor || panels.length + pendingModelPanels >= 4) return;
     setPendingModelPanels((count) => count + 1);
-    void openSession(anchor.directory).finally(() => setPendingModelPanels((count) => Math.max(0, count - 1)));
+    void addModelPanelSession(anchor.directory).finally(() => setPendingModelPanels((count) => Math.max(0, count - 1)));
   };
 
   const toggleAgentMode = (): void => {

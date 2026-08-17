@@ -73,7 +73,7 @@ export function Welcome(): ReactNode {
 
   return (
     <>
-      <div className="welcome">
+      <div className="welcome" data-drag-region>
         <div className="welcome-inner">
           <section className="welcome-hero">
             <div className="welcome-mark" aria-hidden>

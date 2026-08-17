@@ -26,6 +26,7 @@ import { LatestGeneration } from "@shared/generation";
 
 const roots: string[] = [];
 const workspace: WorkspaceIdentity = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+type TestWatchContext = SessionContext["watchContext"];
 
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -443,6 +444,79 @@ describe("direct mutation observed changes", () => {
         deleted: true
       }
     }]);
+  });
+
+  it("emits a restored file with its effective baseline", async () => {
+    const { backend, root, messages } = await backendFixture();
+    const context = (backend as unknown as { contexts: Map<string, SessionContext> }).contexts.get(workspace.id)!.watchContext;
+    context.hasGit = true;
+    vi.spyOn(backend as unknown as { gitShow: (context: TestWatchContext, rel: string) => Promise<string | null> }, "gitShow")
+      .mockResolvedValue("before");
+    await writeFile(path.join(root, "restore.txt"), "changed");
+    await (backend as unknown as { onFsChanged(context: TestWatchContext, abs: string, event: string): Promise<void> })
+      .onFsChanged(context, path.join(root, "restore.txt"), "change");
+    await writeFile(path.join(root, "restore.txt"), "before");
+    await (backend as unknown as { onFsChanged(context: TestWatchContext, abs: string, event: string): Promise<void> })
+      .onFsChanged(context, path.join(root, "restore.txt"), "change");
+
+    expect(messages.map((message) => message.kind === "file-update" ? message.file?.content : null))
+      .toEqual(["changed", "before"]);
+  });
+
+  it("refreshes a changed file when Git advances its baseline", async () => {
+    const { backend, root, messages } = await backendFixture();
+    const context = (backend as unknown as { contexts: Map<string, SessionContext> }).contexts.get(workspace.id)!.watchContext;
+    context.hasGit = true;
+    const gitShow = vi.spyOn(backend as unknown as { gitShow: (context: TestWatchContext, rel: string) => Promise<string | null> }, "gitShow")
+      .mockResolvedValue("committed");
+    const file = path.join(root, "commit.txt");
+    context.snapshots.set(file, { kind: "known", content: "old commit" });
+    await writeFile(file, "working tree");
+
+    await (backend as unknown as { refreshGitBaselines(context: TestWatchContext): Promise<void> }).refreshGitBaselines(context);
+
+    const update = messages.find((message) => message.kind === "file-update");
+    expect(update?.kind === "file-update" ? update.file : null).toMatchObject({
+      path: "commit.txt",
+      baseline: { kind: "known", content: "committed" },
+      content: "working tree",
+      deleted: false
+    });
+    expect(gitShow).toHaveBeenCalledWith(context, "commit.txt");
+  });
+
+  it("keeps a tracked empty deletion until Git refresh sees it absent", async () => {
+    const { backend, root, messages } = await backendFixture();
+    const context = (backend as unknown as { contexts: Map<string, SessionContext> }).contexts.get(workspace.id)!.watchContext;
+    context.hasGit = true;
+    const gitShow = vi.spyOn(backend as unknown as { gitShow: (context: TestWatchContext, rel: string) => Promise<string | null> }, "gitShow")
+      .mockResolvedValueOnce("")
+      .mockResolvedValueOnce(null);
+    const file = path.join(root, "empty.txt");
+    context.snapshots.set(file, { kind: "known", content: "" });
+    await (backend as unknown as { refreshGitBaselines(context: TestWatchContext): Promise<void> }).refreshGitBaselines(context);
+    expect(messages.at(-1)).toMatchObject({
+      kind: "file-update",
+      file: { path: "empty.txt", baseline: { kind: "known", content: "" }, content: null, deleted: true }
+    });
+
+    await (backend as unknown as { refreshGitBaselines(context: TestWatchContext): Promise<void> }).refreshGitBaselines(context);
+    expect(messages.at(-1)).toMatchObject({
+      kind: "file-update",
+      file: { path: "empty.txt", baseline: { kind: "known", content: "", exists: false }, content: null, deleted: true }
+    });
+    expect(gitShow).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks a created-then-deleted file as absent from its baseline", async () => {
+    const { backend, messages } = await backendFixture();
+    await backend.createFile(workspace, "created.txt");
+    await backend.deletePath(workspace, "created.txt");
+
+    expect(messages.map((message) => message.kind === "file-update" ? message.file : null)).toEqual([
+      expect.objectContaining({ path: "created.txt", baseline: { kind: "known", content: "", exists: false }, content: "", deleted: false }),
+      expect.objectContaining({ path: "created.txt", baseline: { kind: "known", content: "", exists: false }, content: null, deleted: true })
+    ]);
   });
 
   it("emits old and new paths when renaming a previously untracked file", async () => {

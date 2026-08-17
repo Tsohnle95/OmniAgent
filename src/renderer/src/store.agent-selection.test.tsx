@@ -48,6 +48,7 @@ function api(overrides: Record<string, unknown> = {}): typeof window.openshell {
     agents: async () => AGENTS,
     sessions: async () => [],
     openSession: async (directory: string, generation: number, agent?: string) => info(directory, generation, agent),
+    closeSession: async () => {},
     readFile: async () => "content",
     listDir: async () => [],
     recoveryRecords: async () => [],

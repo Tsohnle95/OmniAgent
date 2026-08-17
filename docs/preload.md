@@ -15,8 +15,8 @@ automatically.
 | `platform()` | `string` — `process.platform` (not an invoke; the renderer uses it for the darwin titlebar inset) |
 | `isPackaged()` | `boolean` — true when main added the `--openshell-packaged` flag; the renderer hides install affordances in packaged builds |
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
-| `selectFolder(generation)` | `Promise<SessionInfo \| null>` — native dialog; the returned session becomes a new panel |
-| `openSession(dir, generation)` | `Promise<SessionInfo>` — creates an opencode session for `dir` as a new concurrent panel |
+| `selectFolder(generation)` | `Promise<SessionInfo \| null>` — native dialog; the returned session replaces the displayed panels |
+| `openSession(dir, generation)` | `Promise<SessionInfo>` — creates an opencode session for `dir` as the replacement view; model mode uses the renderer's explicit additive action |
 | `sessions()` | `Promise<SessionSummary[]>` — recent session list |
 | `activeSessions()` | `Promise<SessionInfo[]>` — currently open backend sessions in activation order; the last element is the most recently activated (used for startup restore) |
 | `closeSession(workspace)` | `Promise<void>` — tears down the backend context when a panel closes; the opencode session remains reopenable |

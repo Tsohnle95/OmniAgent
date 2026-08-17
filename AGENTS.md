@@ -66,8 +66,9 @@ response events mutate an authoritative per-session message/part chat store
 whose projection is the visible transcript; incomplete snapshots materialize
 from the session's message history. The main
 process also watches the repo with `fs.watch`; every change streams a
-`{baseline, content}` update so Changes reflects observed workspace changes
-and Diff compares against the first established baseline when known.
+`{baseline, content}` update so Changes reflects files still differing from
+their effective baseline. Git metadata changes refresh those baselines while
+the session is active, and Diff remains available when the baseline is known.
 
 ## Conventions (follow these)
 

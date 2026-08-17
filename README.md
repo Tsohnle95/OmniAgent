@@ -19,13 +19,13 @@ red/green diff.
   context activity, navigable subagent task cards, semantic shell/skill/
   compaction entries, borderless tool triggers, docked permission prompts,
   and the integrated prompt input. Stop interrupts the session.
-- **Concurrent sessions** — open another workspace from the titlebar, the
-  panel `+` column, or the Sessions rail and it becomes a second agent panel
-  with the same resize/collapse/tray behavior. Every panel streams its own
-  session; the editor, tree, Changes, usage, and terminal follow the focused
-  panel and restore per-session state when you swap.
+- **Concurrent model panels** — model mode's `+` action adds a sibling agent
+  panel with the same resize/collapse/tray behavior. Workspace selection from
+  the titlebar or Sessions rail replaces the current view with one fresh model;
+  per-workspace state remains available when a session is intentionally reopened.
 - **Sessions rail** — running panels, recent sessions, and saved workspaces
-  (`project.list`) in one dropdown; click to focus, reopen, or spawn.
+  (`project.list`) in one dropdown; click a running panel to focus it, or open
+  a non-running session/workspace as the replacement view.
 - **Changes list** — workspace file changes observed during the active session,
   regardless of author; known baselines open as diffs and unknown baselines are
   labeled explicitly.
@@ -116,11 +116,10 @@ normal app — Finder, Dock, and all.
 Open requests from real usage live in `TODO.md` — pick them up in a fresh
 session. Delivered so far (see `git log`):
 
-- **Concurrent multi-session** — "Open another workspace" spawns a second
-  agent panel with the same resizing/tray behavior; panels stream
-  independently, per-panel editor/tree/usage state survives focus swaps, and
-  a Sessions rail lists running panels plus recents and saved workspaces for
-  one-click swapping.
+- **Concurrent multi-session** — model mode's `+` action adds sibling agent
+  panels with independent streams; workspace selection replaces the current
+  view, while per-workspace state survives intentional reopening. The Sessions
+  rail lists running panels plus recents and saved workspaces.
 - **OpenCode web chat streaming** — OpenCode's per-session V2 reducer behavior,
   child-session task navigation, persistent collapsible reasoning, semantic
   session messages, timeline row construction,

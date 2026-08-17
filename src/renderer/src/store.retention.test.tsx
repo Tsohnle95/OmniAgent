@@ -100,8 +100,8 @@ describe("open panel retention", () => {
     window.openshell = api();
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
-    await act(async () => store.openSession("/two"));
-    await act(async () => store.openSession("/three"));
+    await act(async () => store.addModelPanel("/two"));
+    await act(async () => store.addModelPanel("/three"));
     expect(store.panels).toHaveLength(3);
 
     await act(async () => {
@@ -134,7 +134,7 @@ describe("open panel retention", () => {
     window.openshell = api({ openSessionById });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
-    await act(async () => store.openSession("/two"));
+    await act(async () => store.addModelPanel("/two"));
     const first = store.panels[0];
 
     await act(async () => store.focusSession(first.id));
@@ -160,7 +160,7 @@ describe("open panel retention", () => {
     const first = store.panels[0];
     await act(async () => { transcriptEvent(first.id, "live"); });
     await flush();
-    await act(async () => store.openSession("/two"));
+    await act(async () => store.addModelPanel("/two"));
     await act(async () => store.closePanel(first.id));
 
     await act(async () => {

@@ -935,6 +935,11 @@ export class OpenShellBackend {
     return SKIP_DIRS.has(first);
   }
 
+  private isGitMetadata(abs: string, root: string): boolean {
+    const rel = path.relative(root, abs);
+    return rel === ".git" || rel.startsWith(`.git${path.sep}`);
+  }
+
   private async snapshotInputs(context: SessionContext, input: unknown): Promise<void> {
     const watchContext = context.watchContext;
     if (!this.currentContext(context)) return;
@@ -943,7 +948,9 @@ export class OpenShellBackend {
       if (watchContext.snapshots.has(abs)) continue;
       try {
         const content = await this.readFile(context.workspace, this.relKey(abs, watchContext.root));
-        if (this.currentWatch(watchContext)) watchContext.snapshots.set(abs, knownBaseline(content ?? ""));
+        if (this.currentWatch(watchContext)) {
+          watchContext.snapshots.set(abs, knownBaseline(content ?? "", content !== null));
+        }
       } catch {
         /* ignore */
       }
@@ -981,6 +988,10 @@ export class OpenShellBackend {
         if (!this.currentContext(context)) return;
         if (!filename || typeof filename !== "string") return;
         const abs = this.abs(filename, context.directory);
+        if (this.isGitMetadata(abs, context.directory)) {
+          this.scheduleGitRefresh(context.watchContext);
+          return;
+        }
         if (this.shouldSkip(abs, context.directory)) return;
         this.scheduleWatch(context.watchContext, abs, event);
       });
@@ -1010,8 +1021,42 @@ export class OpenShellBackend {
     );
   }
 
+  private scheduleGitRefresh(context: WatchContext): void {
+    const key = path.join(context.root, ".git");
+    const existing = context.timers.get(key);
+    if (existing) clearTimeout(existing);
+    context.timers.set(key, setTimeout(() => {
+      context.timers.delete(key);
+      if (this.currentWatch(context)) void this.refreshGitBaselines(context);
+    }, 200));
+  }
+
+  private async refreshGitBaselines(context: WatchContext): Promise<void> {
+    for (const [abs] of context.snapshots) {
+      if (!this.currentWatch(context)) return;
+      const rel = this.relKey(abs, context.root);
+      const git = await this.gitShow(context, rel);
+      if (!this.currentWatch(context)) return;
+      const baseline = observedBaseline(true, git);
+      let content: string | null = null;
+      try {
+        content = await fsp.readFile(abs, "utf8");
+      } catch {
+      }
+      context.snapshots.set(abs, baseline);
+      if (content === null) context.lastKnown.delete(abs);
+      else context.lastKnown.set(abs, content);
+      this.emitFileUpdate(context, abs, content, baseline);
+    }
+  }
+
   private async onFsChanged(context: WatchContext, abs: string, event: string): Promise<void> {
-    if (!this.currentWatch(context) || this.shouldSkip(abs, context.root)) return;
+    if (!this.currentWatch(context)) return;
+    if (this.isGitMetadata(abs, context.root)) {
+      await this.refreshGitBaselines(context);
+      return;
+    }
+    if (this.shouldSkip(abs, context.root)) return;
     let stat: Awaited<ReturnType<typeof fsp.stat>> | null = null;
     try {
       stat = await fsp.stat(abs);
@@ -1700,7 +1745,7 @@ export class OpenShellBackend {
       this.contextFor(workspace);
       await fsp.writeFile(abs, "", { flag: "wx" });
       this.contextFor(workspace);
-      watchContext.snapshots.set(abs, preserveBaseline(watchContext.snapshots.get(abs), knownBaseline("")));
+      watchContext.snapshots.set(abs, preserveBaseline(watchContext.snapshots.get(abs), knownBaseline("", false)));
       watchContext.lastKnown.set(abs, "");
       this.emitFileUpdate(watchContext, abs, "");
     });

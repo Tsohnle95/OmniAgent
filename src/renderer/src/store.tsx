@@ -167,6 +167,7 @@ interface Store {
   focusSession: (sessionID: string) => void;
   closePanel: (sessionID: string) => void;
   openSession: (dir: string) => Promise<void>;
+  addModelPanel: (dir: string) => Promise<void>;
   selectFolder: () => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<void>;
   loadSessions: () => Promise<void>;
@@ -444,6 +445,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const sessionRef = useRef<SessionInfo | null>(session);
   sessionRef.current = session;
   const requestSeqRef = useRef(0);
+  const activationSeqRef = useRef(0);
   const userActivatedRef = useRef(false);
   const focusSeqRef = useRef(0);
 
@@ -740,6 +742,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     }
   }, []);
 
+  const replacePanels = useCallback((next: SessionInfo): void => {
+    for (const panel of panelsRef.current) {
+      if (panel.id !== next.id) closePanel(panel.id);
+    }
+    attachPanel(next);
+  }, [attachPanel, closePanel]);
+
   const loadRecovery = useCallback(async (workspace: WorkspaceIdentity) => {
     try {
       const records = await window.openshell.recoveryRecords(workspace);
@@ -867,18 +876,46 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const openSession = useCallback(
     async (dir: string) => {
       const request = ++requestSeqRef.current;
-      const focusSeq = focusSeqRef.current;
+      const activation = ++activationSeqRef.current;
       try {
         const info = await window.openshell.openSession(dir, request);
-        userActivatedRef.current = true;
-        attachPanel(info);
-        if (focusSeqRef.current === focusSeq) {
-          focusSeqRef.current += 1;
-          sessionRef.current = info;
-          setActiveSessionID(info.id);
+        if (activation !== activationSeqRef.current) {
+          await window.openshell.closeSession(info.workspace).catch(() => {});
+          return;
         }
+        userActivatedRef.current = true;
+        replacePanels(info);
+        focusSeqRef.current += 1;
+        sessionRef.current = info;
+        setActiveSessionID(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
+        void loadModels(info.workspace);
+        void loadAgents(info.workspace);
+        void loadSessions();
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions]
+  );
+
+  const addModelPanel = useCallback(
+    async (dir: string) => {
+      const request = ++requestSeqRef.current;
+      const activation = activationSeqRef.current;
+      try {
+        const info = await window.openshell.openSession(dir, request);
+        if (activation !== activationSeqRef.current) {
+          await window.openshell.closeSession(info.workspace).catch(() => {});
+          return;
+        }
+        attachPanel(info);
+        userActivatedRef.current = true;
+        focusSeqRef.current += 1;
+        sessionRef.current = info;
+        setActiveSessionID(info.id);
+        void loadRecovery(info.workspace);
         void loadModels(info.workspace);
         void loadAgents(info.workspace);
         void loadSessions();
@@ -891,17 +928,19 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const selectFolder = useCallback(async () => {
     const request = ++requestSeqRef.current;
-    const focusSeq = focusSeqRef.current;
+    const activation = ++activationSeqRef.current;
     try {
       const info = await window.openshell.selectFolder(request);
       if (info) {
-        userActivatedRef.current = true;
-        attachPanel(info);
-        if (focusSeqRef.current === focusSeq) {
-          focusSeqRef.current += 1;
-          sessionRef.current = info;
-          setActiveSessionID(info.id);
+        if (activation !== activationSeqRef.current) {
+          await window.openshell.closeSession(info.workspace).catch(() => {});
+          return;
         }
+        userActivatedRef.current = true;
+        replacePanels(info);
+        focusSeqRef.current += 1;
+        sessionRef.current = info;
+        setActiveSessionID(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -911,7 +950,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]);
+  }, [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions]);
 
   const reopenSession = useCallback(
     async (sessionID: string, silent = false) => {
@@ -925,11 +964,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         return;
       }
       const request = ++requestSeqRef.current;
-      const focusSeq = focusSeqRef.current;
+      const activation = silent ? 0 : ++activationSeqRef.current;
       try {
         const reopened = await window.openshell.openSessionById(sessionID, request);
-        attachPanel(reopened.session);
-        if (!silent && focusSeqRef.current === focusSeq) {
+        if (!silent && activation !== activationSeqRef.current) {
+          await window.openshell.closeSession(reopened.session.workspace).catch(() => {});
+          return;
+        }
+        if (silent) {
+          attachPanel(reopened.session);
+        } else {
+          replacePanels(reopened.session);
           userActivatedRef.current = true;
           focusSeqRef.current += 1;
           sessionRef.current = reopened.session;
@@ -973,7 +1018,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [attachPanel, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
+    [attachPanel, replacePanels, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
   );
 
   const sendPrompt = useCallback(
@@ -1611,7 +1656,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         setAgentFilesFor(f.workspace.id, (() => {
           const current = agentFilesByWorkspaceRef.current[f.workspace.id] ?? new Map<string, AgentFileState>();
           const next = new Map(current);
-          next.set(f.path, { baseline: f.baseline, content: f.content, deleted: f.deleted });
+          const clean = f.baseline.kind === "known" && (
+            (!f.deleted && f.content === f.baseline.content) ||
+            (f.deleted && f.baseline.exists === false)
+          );
+          if (clean) next.delete(f.path);
+          else next.set(f.path, { baseline: f.baseline, content: f.content, deleted: f.deleted });
           return next;
         })());
         setTabsFor(f.workspace.id, (prev) =>
@@ -2173,6 +2223,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       focusSession,
       closePanel,
       openSession,
+      addModelPanel,
       selectFolder,
       reopenSession,
       loadSessions,
@@ -2219,7 +2270,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts, recoveryRecords,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
-      focusSession, closePanel, openSession, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
+      focusSession, closePanel, openSession, addModelPanel, selectFolder, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,

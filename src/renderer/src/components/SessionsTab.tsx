@@ -139,7 +139,8 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
                     key={s.id}
                     className={`sessions-row ${runningSessions.has(s.id) ? "running" : ""}`}
                     onClick={() => {
-                      void reopenSession(s.id);
+                      if (runningSessions.has(s.id)) focusSession(s.id);
+                      else void reopenSession(s.id);
                       onClose();
                     }}
                     title={s.directory}

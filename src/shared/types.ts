@@ -104,7 +104,7 @@ export interface FileUpdate {
 }
 
 export type FileBaseline =
-  | { kind: "known"; content: string }
+  | { kind: "known"; content: string; exists?: boolean }
   | { kind: "unknown" };
 
 export interface FileWriteIdentity {

@@ -42,6 +42,7 @@ function api(): typeof window.openshell {
     agents: async () => agentList,
     sessions: async () => [],
     openSession: async (directory: string, generation: number) => info(directory, generation),
+    closeSession: async () => {},
     readFile: async () => "content",
     listDir: async () => [],
     recoveryRecords: async () => [],
