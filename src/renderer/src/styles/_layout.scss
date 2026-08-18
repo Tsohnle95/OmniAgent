@@ -31,6 +31,10 @@
   min-width: 0;
 }
 
+.agent-col.settling {
+  transition: width 180ms var(--ease), left 180ms var(--ease);
+}
+
 .agent-col > .agent-panel,
 .agent-col > .agent-tray,
 .agent-col > .agent-sliver {

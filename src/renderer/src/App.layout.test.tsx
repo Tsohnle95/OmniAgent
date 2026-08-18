@@ -288,7 +288,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([230, 280]);
+    expect(agentWidths()).toEqual([280, 280]);
     expect(agentLefts()).toEqual([669, 949]);
   });
 
@@ -388,8 +388,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()[0]).toBeCloseTo(230, 0);
-    expect(agentLefts()[0]).toBeCloseTo(1229 - 230, 0);
+    expect(agentWidths()[0]).toBeCloseTo(280, 0);
+    expect(agentLefts()[0]).toBeCloseTo(949, 0);
 
     const headers = container.querySelectorAll<HTMLElement>(".agent-header");
     await act(async () => {
@@ -399,8 +399,81 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()[0]).toBeCloseTo(230, 0);
-    expect(agentLefts()[0]).toBeCloseTo(1229 - 230, 0);
+    expect(agentWidths()[0]).toBeCloseTo(280, 0);
+    expect(agentLefts()[0]).toBeCloseTo(949, 0);
+  });
+
+  it("snaps a model panel back to the 280px minimum when released below it", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const leftHandles = container.querySelectorAll<HTMLElement>(".agent-col .agent-panel .panel-resize-left");
+    await act(async () => {
+      leftHandles[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 949 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1150 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([280, 280]);
+    expect(agentLefts()).toEqual([669, 949]);
+  });
+
+  it("reopening a collapsed panel by dragging settles at the 280px minimum", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      container.querySelectorAll<HTMLElement>(".agent-panel .agent-collapse")[0]!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+    expect(agentWidths()).toEqual([44, 280]);
+
+    const sliver = container.querySelectorAll<HTMLElement>(".agent-sliver")[0]!;
+    await act(async () => {
+      sliver.querySelector<HTMLElement>(".panel-resize-left")!.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, clientX: 669 })
+      );
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 600 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+    expect(agentWidths()).toEqual([280, 280]);
+    expect(agentLefts()).toEqual([433, 949]);
+  });
+
+  it("closes a model panel when its edge is dragged to the app edge", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+
+    const handles = container.querySelectorAll<HTMLElement>(".agent-col .agent-panel .panel-resize-right");
+    await act(async () => {
+      handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 949 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+    expect(container.querySelectorAll(".agent-sliver")).toHaveLength(1);
+    expect(agentWidths()).toEqual([44, 280]);
+    expect(agentLefts()).toEqual([669, 949]);
   });
 
   it("keeps the anchor collapse control and closes only non-anchor panels", async () => {

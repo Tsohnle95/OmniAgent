@@ -15,7 +15,7 @@ const SIDE_MIN_W = 170;
 const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
-const AGENT_MIN_W = 300;
+const AGENT_MIN_W = 280;
 
 function useDragResize(
   width: number,
@@ -27,9 +27,10 @@ function useDragResize(
   onOpen: () => void,
   onCollapse?: () => void,
   left?: number,
-  setLeft?: (value: number) => void
+  setLeft?: (value: number) => void,
+  onSnap?: () => void
 ): (e: React.MouseEvent) => void {
-  const startRef = useRef<{ x: number; width: number; open: boolean; left: number } | null>(null);
+  const startRef = useRef<{ x: number; width: number; open: boolean; left: number; live: number } | null>(null);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -38,7 +39,8 @@ function useDragResize(
       x: e.clientX,
       width: startedOpen ? width : COLLAPSED_PANEL_W,
       open: startedOpen,
-      left: left ?? 0
+      left: left ?? 0,
+      live: startedOpen ? width : COLLAPSED_PANEL_W
     };
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
@@ -55,6 +57,7 @@ function useDragResize(
       if (rawW > COLLAPSED_PANEL_W || !onCollapse) {
         const nextW = onCollapse ? rawW : Math.max(min, rawW);
         const capped = Math.min(max, nextW);
+        startRef.current.live = capped;
         setWidth(capped);
         if (flip && setLeft) {
           setLeft(startRef.current.left + startRef.current.width - capped);
@@ -66,7 +69,17 @@ function useDragResize(
       }
     };
     const up = (): void => {
-      if (startRef.current) startRef.current = null;
+      const start = startRef.current;
+      if (start && start.open && onCollapse) {
+        if (start.live <= COLLAPSED_PANEL_W) {
+          onCollapse();
+        } else if (start.live < min) {
+          if (flip && setLeft) setLeft(start.left + start.width - min);
+          setWidth(min);
+          onSnap?.();
+        }
+      }
+      startRef.current = null;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
@@ -218,6 +231,19 @@ function PanelColumn({
 }): ReactNode {
   const view = usePanel(session.workspace);
   const label = view.currentModel?.name ?? "Model";
+  const [settling, setSettling] = useState(false);
+  const settleTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+  }, []);
+  const settle = useCallback(() => {
+    setSettling(true);
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => {
+      settleTimerRef.current = null;
+      setSettling(false);
+    }, 200);
+  }, []);
   const expand = useCallback(() => {
     onFocus();
     onSlot((current) => ({ ...current, open: true, width: Math.max(AGENT_DEFAULT_W, current.width) }));
@@ -234,7 +260,8 @@ function PanelColumn({
     open,
     collapse,
     slot.left,
-    undefined
+    undefined,
+    settle
   );
   const resizeLeft = useDragResize(
     slot.width,
@@ -246,7 +273,8 @@ function PanelColumn({
     open,
     collapse,
     slot.left,
-    (left) => onSlot((current) => ({ ...current, left }))
+    (left) => onSlot((current) => ({ ...current, left })),
+    settle
   );
   const slideBy = (delta: number): void => {
     onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
@@ -254,13 +282,13 @@ function PanelColumn({
 
   if (slot.open) {
     return (
-      <div className="agent-col" style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
+      <div className={`agent-col ${settling ? "settling" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
         <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? undefined : resizeLeft} onResizeRight={freeMove ? undefined : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove ? undefined : isAnchor ? undefined : slideBy} />
       </div>
     );
   }
   return (
-    <div className="agent-col" style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${COLLAPSED_PANEL_W}px`, height: `${slot.height}%` }}>
+    <div className={`agent-col ${settling ? "settling" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${COLLAPSED_PANEL_W}px`, height: `${slot.height}%` }}>
       {isLast ? (
         <AgentTray busy={view.busy} label={label} onExpand={expand} onResizeLeft={resizeLeft} onResizeRight={isAnchor && !freeMove ? undefined : resizeRight} />
       ) : (
