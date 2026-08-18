@@ -393,7 +393,7 @@ describe("store workspace continuations", () => {
     const closeSession = vi.fn(async () => {});
     window.openshell = api({
       closeSession,
-      selectFolder: vi.fn(async () => info("/picked", 3))
+      selectFolder: vi.fn(async () => info("/picked", 99))
     });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));

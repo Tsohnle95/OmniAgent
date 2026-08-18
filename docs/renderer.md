@@ -18,7 +18,7 @@ Exposed via `useStore()` (context). State:
 | `busy` | `boolean` | active-session projection of the per-session busy map |
 | `todos` | `TodoItem[]` | live OpenCode todo state shown in the prompt dock while the session executes |
 | `transcript` | `TranscriptItem[]` | active-session projection of the per-session transcript map |
-| `sessionUsage` | `SessionUsage \| null` | active-session projection of cumulative token usage/cost; hydrated from `session.get` on reopen and kept fresh by `session.usage.updated` / `session.usage.recorded`; shown in the agent header popup |
+| `sessionUsage` | `SessionUsage \| null` | active-session projection of cumulative token usage/cost; hydrated from `session.get` whenever a panel is attached (reopen, add control, workspace swap, folder pick, startup restore) and kept fresh by `session.usage.updated` / `session.usage.recorded`; shown in the agent header popup |
 | `providerUsage` | `ProviderUsageResult[]` | per-provider plan/rate-limit snapshots fetched via `refreshProviderUsage()`; rendered under the session usage popup |
 | `providerUsageLoading` | `boolean` | true while `refreshProviderUsage()` is in flight (refetch happens each time the usage popup opens) |
 | `tabs` | `Tab[]` | open editor tabs for the focused workspace (per-workspace record; each session restores its own tabs on focus) |

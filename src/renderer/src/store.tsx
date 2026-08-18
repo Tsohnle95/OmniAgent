@@ -921,11 +921,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     focusSeqRef.current += 1;
     sessionRef.current = info;
     setActiveSessionID(info.id);
+    void hydrateTranscript(info.id);
     void loadRecovery(info.workspace);
     void loadModels(info.workspace);
     void loadAgents(info.workspace);
     void loadSessions();
-  }, [setPanels, loadRecovery, loadModels, loadAgents, loadSessions]);
+  }, [setPanels, loadRecovery, loadModels, loadAgents, loadSessions, hydrateTranscript]);
 
   const openSession = useCallback(
     async (dir: string) => {
@@ -942,6 +943,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         focusSeqRef.current += 1;
         sessionRef.current = info;
         setActiveSessionID(info.id);
+        void hydrateTranscript(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -951,7 +953,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions]
+    [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript]
   );
 
   const addModelPanel = useCallback(
@@ -969,6 +971,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         focusSeqRef.current += 1;
         sessionRef.current = info;
         setActiveSessionID(info.id);
+        void hydrateTranscript(info.id);
         void loadRecovery(info.workspace);
         void loadModels(info.workspace);
         void loadAgents(info.workspace);
@@ -977,7 +980,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]
+    [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript]
   );
 
   const selectAddPanel = useCallback(async () => {
@@ -995,6 +998,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       focusSeqRef.current += 1;
       sessionRef.current = info;
       setActiveSessionID(info.id);
+      void hydrateTranscript(info.id);
       void loadRecovery(info.workspace);
       void loadModels(info.workspace);
       void loadAgents(info.workspace);
@@ -1002,7 +1006,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions]);
+  }, [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript]);
 
   const swapPanelWorkspace = useCallback(
     async (workspace: WorkspaceIdentity, pick: (request: number) => Promise<SessionInfo | null>) => {
@@ -1053,6 +1057,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         focusSeqRef.current += 1;
         sessionRef.current = info;
         setActiveSessionID(info.id);
+        void hydrateTranscript(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -1062,7 +1067,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions]);
+  }, [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript]);
 
   const reopenSession = useCallback(
     async (sessionID: string, silent = false) => {
