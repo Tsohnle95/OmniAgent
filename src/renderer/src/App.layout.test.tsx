@@ -54,6 +54,7 @@ function api(): typeof window.openshell {
     openSession: async (directory: string) => info(directory, ++openedGeneration),
     selectFolder: async () => info("/repo", ++openedGeneration),
     sessions: async () => [],
+    closeSession: async () => {},
     openSessionById: async () => ({ session: info("/repo", 1), transcript: [], todos: [], usage: null }),
     readFile: async () => "content",
     listDir: async () => [],
@@ -566,6 +567,71 @@ describe("Layout panel sizing", () => {
     expect(openSession).not.toHaveBeenCalled();
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
     expect(container.querySelector('[data-panel-action="add-model-panel"]')).toBeNull();
+  });
+
+  it("changing a tray workspace in agent mode swaps in place instead of adding a third quadrant tray", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
+
+    let resolvePick!: (value: SessionInfo) => void;
+    const picked = new Promise<SessionInfo>((resolve) => { resolvePick = resolve; });
+    window.openshell = { ...window.openshell, selectFolder: vi.fn(() => picked) };
+
+    await act(async () => {
+      container.querySelectorAll<HTMLElement>(".agent-workspace-change")[0]!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    dispatch({ kind: "session", session: info("/picked", 9) });
+
+    await act(async () => {
+      resolvePick(info("/picked", 9));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
+    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentLefts()).toEqual([0, 716]);
+  });
+
+  it("closing a quadrant tray restores the default side-by-side trays", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      dispatch({ kind: "session", session: info("/three", 3) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentCols()).toHaveLength(3);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
+
+    await act(async () => {
+      container.querySelector<HTMLElement>(".agent-close")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentCols()).toHaveLength(2);
+    expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
+    expect(agentWidths()).toEqual([716, 717]);
   });
 
   it("opening the file tray during model mode recomputes the grid", async () => {

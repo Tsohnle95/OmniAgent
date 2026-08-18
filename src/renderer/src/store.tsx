@@ -542,6 +542,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const chatStatesRef = useRef(new Map<string, ChatDirectoryState>());
   const materializingRef = useRef(new Set<string>());
+  const swapPendingRef = useRef(false);
 
   const chatStateFor = useCallback((sessionID: string): ChatDirectoryState => {
     let state = chatStatesRef.current.get(sessionID);
@@ -910,7 +911,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setCurrentModelByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setAgentsByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setCurrentAgentByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    panelsRef.current = panelsRef.current.map((panel, panelIndex) => (panelIndex === index ? info : panel));
+    panelsRef.current = [
+      ...panelsRef.current.slice(0, index),
+      info,
+      ...panelsRef.current.slice(index + 1).filter((panel) => !sameWorkspace(panel.workspace, info.workspace))
+    ];
     setPanels(panelsRef.current);
     userActivatedRef.current = true;
     focusSeqRef.current += 1;
@@ -1003,6 +1008,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     async (workspace: WorkspaceIdentity, pick: (request: number) => Promise<SessionInfo | null>) => {
       const request = ++requestSeqRef.current;
       const activation = activationSeqRef.current;
+      swapPendingRef.current = true;
       try {
         const info = await pick(request);
         if (!info) return;
@@ -1013,6 +1019,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         swapPanelTo(workspace, info);
       } catch (err) {
         if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+      } finally {
+        swapPendingRef.current = false;
       }
     },
     [swapPanelTo, toast, panelFor]
@@ -1733,7 +1741,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
-        if (msg.session) attachPanel(msg.session);
+        if (msg.session && !swapPendingRef.current) attachPanel(msg.session);
         return;
       }
       if (msg.kind === "ui-command") {

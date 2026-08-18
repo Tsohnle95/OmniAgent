@@ -161,6 +161,30 @@ describe("per-panel workspace selection", () => {
     expect(store.session?.directory).toBe("/three");
   });
 
+  it("folds a mid-swap session event into the in-place swap instead of appending a panel", async () => {
+    const picked = deferred<SessionInfo>();
+    const closeSession = vi.fn(async () => {});
+    window.openshell = api({
+      closeSession,
+      selectFolder: vi.fn(() => picked.promise)
+    });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.addModelPanel("/two"));
+    const swappedWorkspace = store.panels[0].workspace;
+    let pending!: Promise<void>;
+    await act(async () => { pending = store.selectPanelDirectory(swappedWorkspace); });
+    const pickedInfo = info("/picked", 4);
+    await act(async () => { messageHandler?.({ kind: "session", session: pickedInfo }); });
+    await act(async () => picked.resolve(pickedInfo));
+    await act(async () => pending);
+
+    expect(closeSession).toHaveBeenCalledWith(swappedWorkspace);
+    expect(store.panels).toHaveLength(2);
+    expect(store.panels.map((panel) => panel.directory)).toEqual(["/picked", "/two"]);
+    expect(new Set(store.panels.map((panel) => panel.workspace.id)).size).toBe(2);
+  });
+
   it("closes a stale swap result that completes after a full workspace replacement", async () => {
     const picked = deferred<SessionInfo>();
     const closeSession = vi.fn(async () => {});
