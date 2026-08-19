@@ -1,11 +1,13 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionInfo } from "@shared/types";
+import type { SessionInfo, ModelOption } from "@shared/types";
 import type { AgentOption } from "@shared/types";
 
 let currentSession: SessionInfo;
 let currentAgents: AgentOption[];
+let currentModels: ModelOption[];
+let currentModel: ModelOption | null;
 const loadAgentsMock = vi.fn();
 const loadModelsMock = vi.fn();
 
@@ -14,8 +16,8 @@ vi.mock("../store", () => ({
     session: currentSession,
     approvalMode: "ask",
     toggleApprovalMode: vi.fn(),
-    models: [],
-    currentModel: null,
+    models: currentModels,
+    currentModel: currentModel,
     switchModel: vi.fn(),
     agents: currentAgents,
     currentAgent: null,
@@ -33,8 +35,8 @@ vi.mock("../store", () => ({
     transcript: [],
     todos: [],
     sessionUsage: null,
-    models: [],
-    currentModel: null,
+    models: currentModels,
+    currentModel: currentModel,
     agents: currentAgents,
     currentAgent: null
   })
@@ -51,6 +53,9 @@ describe("composer agent menu", () => {
     loadAgentsMock.mockClear();
     loadModelsMock.mockClear();
     currentAgents = [];
+    currentModels = [];
+    currentModel = null;
+    window.localStorage.clear();
     currentSession = {
       id: "one",
       directory: "/workspace",
@@ -93,5 +98,23 @@ describe("composer agent menu", () => {
     expect(items).toHaveLength(2);
     expect(items[0].textContent).toContain("Build");
     expect(items[1].textContent).toContain("Plan");
+  });
+
+  it("shows a gold star for favorited models listed in the Favorites section", async () => {
+    currentModels = [{ id: "gpt", name: "GPT", providerID: "openai" }];
+    window.localStorage.setItem("favoriteModels", JSON.stringify(["openai::gpt"]));
+    await act(async () => root.render(<Composer />));
+    const modelButton = container.querySelector<HTMLButtonElement>(
+      'button[title="Change model and response strength"]'
+    )!;
+    await act(async () => modelButton.click());
+
+    const favoritesGroup = [...container.querySelectorAll(".composer-menu-group")].find((group) =>
+      group.textContent?.includes("Favorites")
+    );
+    expect(favoritesGroup).not.toBeNull();
+    const star = favoritesGroup!.querySelector(".composer-menu-star");
+    expect(star).not.toBeNull();
+    expect(star!.className).toContain("on");
   });
 });

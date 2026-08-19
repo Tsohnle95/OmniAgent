@@ -881,7 +881,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                           </span>
                           {model.name}
                           <span
-                            className="composer-menu-star"
+                            className="composer-menu-star on"
                             title="Remove from favorites"
                             onClick={(e) => {
                               e.stopPropagation();
