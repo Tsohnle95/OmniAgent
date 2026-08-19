@@ -271,7 +271,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([389, 669, 949]);
   });
 
-  it("resizes one model without moving its neighbors", async () => {
+  it("keeps a model panel at the 280px minimum when dragged below it", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -403,7 +403,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()[0]).toBeCloseTo(949, 0);
   });
 
-  it("snaps a model panel back to the 280px minimum when released below it", async () => {
+  it("keeps the anchored panel at 280px while the drag continues below the minimum", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -415,6 +415,13 @@ describe("Layout panel sizing", () => {
     await act(async () => {
       leftHandles[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 949 }));
       window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1150 }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentWidths()).toEqual([280, 280]);
+    expect(agentLefts()).toEqual([669, 949]);
+
+    await act(async () => {
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
