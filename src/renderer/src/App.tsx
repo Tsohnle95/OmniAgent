@@ -672,22 +672,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           >
             <span className="codicon codicon-folder-opened" />
           </button>
-          <button
-            className={`icon-btn ${inAgentMode ? "on" : ""}`}
-            data-panel-action="toggle-model-mode"
-            aria-label={inAgentMode ? "Exit model mode" : "Enter model mode"}
-            aria-pressed={inAgentMode}
-            title={inAgentMode
-              ? "Exit model mode — restore the file tray"
-              : "Model mode — collapse the file tray and split models across the app"}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              toggleAgentMode();
-            }}
-          >
-            <span className="codicon codicon-robot" />
-          </button>
           {inAgentMode && (
             <button
               className="icon-btn"
@@ -700,6 +684,22 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               <span className="codicon codicon-add" />
             </button>
           )}
+          <button
+            className={`icon-btn ${inAgentMode ? "on" : ""}`}
+            data-panel-action="toggle-model-mode"
+            aria-label={inAgentMode ? "Exit Agent Mode" : "Enter Agent Mode"}
+            aria-pressed={inAgentMode}
+            title={inAgentMode
+              ? "Exit Agent Mode — restore the file tray"
+              : "Agent Mode — collapse the file tray and split models across the app"}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              toggleAgentMode();
+            }}
+          >
+            <span className="codicon codicon-robot" />
+          </button>
           <button
             className={`icon-btn ${trayOpen ? "on" : ""}`}
             title={trayOpen
