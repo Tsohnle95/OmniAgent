@@ -11,7 +11,7 @@ import { RecoveryNotice } from "./components/RecoveryNotice";
 import { SessionsTab } from "./components/SessionsTab";
 
 const COLLAPSED_PANEL_W = 44;
-const SIDE_MIN_W = 170;
+const SIDE_MIN_W = 280;
 const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
@@ -301,7 +301,7 @@ function PanelColumn({
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const { panels, focusSession, closePanel, selectAddPanel, selectFolder } = useStore();
   const [sideOpen, setSideOpen] = useState(true);
-  const [sideW, setSideW] = useState(250);
+  const [sideW, setSideW] = useState(SIDE_DEFAULT_W);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
   const [pendingModelPanels, setPendingModelPanels] = useState(0);
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
