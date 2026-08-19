@@ -168,7 +168,7 @@ interface Store {
   activeSessionID: string | null;
   focusSession: (sessionID: string) => void;
   closePanel: (sessionID: string) => void;
-  openSession: (dir: string) => Promise<void>;
+  openSession: (dir: string) => Promise<SessionInfo | null>;
   addModelPanel: (dir: string) => Promise<void>;
   selectAddPanel: () => Promise<void>;
   selectFolder: () => Promise<void>;
@@ -931,14 +931,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [setPanels, loadRecovery, loadModels, loadAgents, loadSessions, hydrateTranscript]);
 
   const openSession = useCallback(
-    async (dir: string) => {
+    async (dir: string): Promise<SessionInfo | null> => {
       const request = ++requestSeqRef.current;
       const activation = ++activationSeqRef.current;
       try {
         const info = await window.openshell.openSession(dir, request);
         if (activation !== activationSeqRef.current) {
           await window.openshell.closeSession(info.workspace).catch(() => {});
-          return;
+          return null;
         }
         userActivatedRef.current = true;
         replacePanels(info);
@@ -951,8 +951,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         void loadModels(info.workspace);
         void loadAgents(info.workspace);
         void loadSessions();
+        return info;
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
+        return null;
       }
     },
     [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript]
@@ -1457,8 +1459,25 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     },
     [toast, panelFor, setTabsFor, setActivePathFor]
   );
-  const openFileRef = useRef(openFile);
-  openFileRef.current = openFile;
+  const openSourceTarget = useCallback(
+    async (path: string, line: number): Promise<void> => {
+      const active = sessionRef.current?.workspace ?? null;
+      if (active) {
+        await openFile(path, { mode: "edit", source: path.startsWith("/") }, active);
+        requestReveal(path, line);
+        return;
+      }
+      if (!path.startsWith("/")) return;
+      const dir = path.slice(0, path.lastIndexOf("/"));
+      if (!dir || dir === path) return;
+      const opened = await openSession(dir);
+      if (!opened) return;
+      const rel = path.slice(dir.length + 1) || path;
+      await openFile(rel, { mode: "edit" }, opened.workspace);
+      requestReveal(rel, line);
+    },
+    [openSession, openFile]
+  );
 
   const commitName = useCallback(
     async (name: string) => {
@@ -1755,9 +1774,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (msg.command === "toggle-word-wrap") {
           toggleWordWrap();
         } else if (msg.command === "open-source" && typeof msg.path === "string" && typeof msg.line === "number") {
-          const path = msg.path;
-          const line = msg.line;
-          void openFileRef.current(path, { mode: "edit", source: path.startsWith("/") }).then(() => requestReveal(path, line));
+          void openSourceTarget(msg.path, msg.line);
         }
         return;
       }
@@ -2151,6 +2168,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, [
     attachPanel,
     focusSession,
+    openSourceTarget,
     loadModels,
     toggleWordWrap,
     loadAgents,

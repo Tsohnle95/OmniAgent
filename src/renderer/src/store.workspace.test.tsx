@@ -415,8 +415,8 @@ describe("store workspace continuations", () => {
     const openSession = vi.fn((directory: string) => directory === "/older" ? older.promise : newer.promise);
     window.openshell = api({ openSession, closeSession });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
-    let olderPending!: Promise<void>;
-    let newerPending!: Promise<void>;
+    let olderPending!: Promise<SessionInfo | null>;
+    let newerPending!: Promise<SessionInfo | null>;
     await act(async () => { olderPending = store.openSession("/older"); });
     await act(async () => { newerPending = store.openSession("/newer"); });
     await act(async () => newer.resolve(info("/newer", 2)));
