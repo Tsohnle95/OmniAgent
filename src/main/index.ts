@@ -72,7 +72,17 @@ const SKIP_DIRS = new Set([
   "coverage",
   ".venv",
   "venv",
-  "__pycache__"
+  "__pycache__",
+  ".opencode",
+  ".claude",
+  ".cursor",
+  ".aider",
+  ".windsurf",
+  ".codeium",
+  ".roo",
+  ".gemini",
+  ".kilocode",
+  ".continue"
 ]);
 
 const DEVTOOLS_WATCHER = `

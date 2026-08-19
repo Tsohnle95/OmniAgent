@@ -68,8 +68,11 @@ const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) 
 
 const SKIP_DIRS = new Set([
   ".git", "node_modules", ".next", ".venv", "__pycache__", ".cache", ".turbo", ".nx",
-  ".svn", ".hg", ".idea", ".vscode", ".openshell-recovery", "dist", "out", "build", "target", "coverage", ".pytest_cache"
+  ".svn", ".hg", ".idea", ".vscode", ".openshell-recovery", "dist", "out", "build", "target", "coverage", ".pytest_cache",
+  ".opencode", ".claude", ".cursor", ".aider", ".windsurf", ".codeium", ".roo", ".gemini", ".kilocode", ".continue"
 ]);
+
+const MAX_WATCHED_FILE_BYTES = 2 * 1024 * 1024;
 
 const RECOVERY_DIR = ".openshell-recovery";
 
@@ -931,8 +934,7 @@ export class OpenShellBackend {
 
   private shouldSkip(abs: string, root: string): boolean {
     const rel = path.relative(root, abs);
-    const first = rel.split(path.sep)[0];
-    return SKIP_DIRS.has(first);
+    return rel.split(path.sep).some((segment) => SKIP_DIRS.has(segment));
   }
 
   private isGitMetadata(abs: string, root: string): boolean {
@@ -1084,6 +1086,7 @@ export class OpenShellBackend {
       }
       return;
     }
+    if (stat.size > MAX_WATCHED_FILE_BYTES) return;
     let content: string;
     try {
       content = await fsp.readFile(abs, "utf8");

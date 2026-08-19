@@ -146,3 +146,34 @@ describe("backend watcher generation phases", () => {
     expect(context.snapshots.size).toBe(0);
   });
 });
+
+describe("watched file guards", () => {
+  it("ignores agent/tooling directories so their internal writes never reach the renderer", () => {
+    const { internals, context } = harness();
+    const skip = (rel: string): boolean =>
+      (internals as unknown as { shouldSkip(abs: string, root: string): boolean })
+        .shouldSkip(`${context.root}/${rel}`, context.root);
+    expect(skip(".opencode/session.jsonl")).toBe(true);
+    expect(skip(".opencode/node_modules/zod/index.js")).toBe(true);
+    expect(skip(".claude/foo")).toBe(true);
+    expect(skip(".cursor/bar")).toBe(true);
+    expect(skip("src/app.ts")).toBe(false);
+    expect(skip("README.md")).toBe(false);
+  });
+
+  it("does not read or emit oversized files to avoid renderer memory and IPC floods", async () => {
+    const { backend, internals, context } = harness();
+    const readSpy = vi.spyOn(fsp, "readFile");
+    vi.spyOn(fsp, "stat").mockResolvedValueOnce({
+      isFile: () => true,
+      size: 5 * 1024 * 1024
+    } as Awaited<ReturnType<typeof fsp.stat>>);
+    const messages: unknown[] = [];
+    backend.onMessage((message) => messages.push(message));
+
+    await internals.onFsChanged(context, `${context.root}/huge.json`, "change");
+
+    expect(readSpy).not.toHaveBeenCalled();
+    expect(messages).toEqual([]);
+  });
+});
