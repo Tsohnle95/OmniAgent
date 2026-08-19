@@ -76,16 +76,21 @@ Public methods (all used by IPC):
 | `switchAgent(workspace, id)` | Switches only the captured context session, then persists the choice |
 | `getState()` | The primary (most recently activated) session `{id, directory, workspace}` or null |
 | `sessionSelection(workspace)` | `session.get` → `{model?, agent?}` so the UI can restore the addressed session's current picks |
-| `providerUsage()` | Delegates to `src/main/provider-usage.ts` → `ProviderUsageResult[]` for every OAuth provider opencode has stored credentials for |
+| `providerUsage()` | Delegates to `src/main/provider-usage.ts` → `ProviderUsageResult[]` for every provider (OAuth or API-key) opencode has stored credentials for |
 
 Provider usage (`providerUsage()`): the opencode service exposes no
-provider plan/rate-limit API yet, so OpenShell reads the OAuth
-credentials opencode persists (`~/.local/share/opencode/auth.json`,
-plus the desktop-app location) and calls each provider's usage endpoint
-directly — ChatGPT's `/backend-api/wham/usage` (weekly/monthly windows,
-spend control, plan type), Anthropic's `/api/oauth/usage` (5h + weekly
-utilization), GitHub Copilot's `copilot_internal/user` (credits/quota).
-Tokens never leave the main process; the renderer only receives
+provider plan/rate-limit API yet, so OpenShell reads the credentials
+opencode persists — OAuth entries from `~/.local/share/opencode/auth.json`
+(plus the desktop-app location) and JSON-encoded credentials from the
+`account` / `credential` tables of `opencode.db` (V2 rows carry
+`active = NULL`; API-key values are `{"type":"key","key":...}`) — and
+calls each provider's usage endpoint directly — ChatGPT's
+`/backend-api/wham/usage` (weekly/monthly windows, spend control, plan
+type), Anthropic's `/api/oauth/usage` (5h + weekly utilization), GitHub
+Copilot's `copilot_internal/user` (credits/quota). The opencode GO
+subscription exposes no numeric usage endpoint, so its card reports the
+plan (`go`) with an "Active" balance whenever the API-key credential is
+present. Tokens never leave the main process; the renderer only receives
 normalized snapshots shaped like opencode's upcoming `/usage` response,
 so a future server endpoint can replace the fetchers without UI changes.
 

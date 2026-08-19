@@ -1,6 +1,7 @@
 import { promises as fsp } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { sqliteQuery } from "./sqlite";
 import type {
   ProviderUsageCredits,
   ProviderUsageError,
@@ -16,6 +17,47 @@ interface OAuthEntry {
   expires?: number;
   accountId?: string;
   enterpriseUrl?: string;
+}
+
+interface DbAccountRow {
+  url?: unknown;
+  access_token?: unknown;
+  refresh_token?: unknown;
+  token_expiry?: unknown;
+}
+
+interface DbCredentialRow {
+  integration_id?: unknown;
+  value?: unknown;
+}
+
+interface CredentialValue {
+  type?: string;
+  key?: string;
+  access?: string;
+  refresh?: string;
+  expires?: number;
+}
+
+function parseCredentialValue(raw: string): Pick<OAuthEntry, "access" | "refresh" | "expires"> | null {
+  let value: CredentialValue;
+  try {
+    value = JSON.parse(raw) as CredentialValue;
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object") return null;
+  if (value.type === "key" && typeof value.key === "string" && value.key) {
+    return { access: value.key };
+  }
+  if (value.type === "oauth") {
+    return {
+      access: typeof value.access === "string" ? value.access : undefined,
+      refresh: typeof value.refresh === "string" ? value.refresh : undefined,
+      expires: typeof value.expires === "number" ? value.expires : undefined
+    };
+  }
+  return null;
 }
 
 const TIMEOUT_MS = 10_000;
@@ -36,7 +78,7 @@ function authFileCandidates(): string[] {
   return candidates;
 }
 
-async function readOAuthEntries(): Promise<Record<string, OAuthEntry>> {
+async function readOAuthEntriesFromJson(): Promise<Record<string, OAuthEntry>> {
   for (const file of authFileCandidates()) {
     try {
       const raw = JSON.parse(await fsp.readFile(file, "utf8")) as Record<string, unknown>;
@@ -52,6 +94,69 @@ async function readOAuthEntries(): Promise<Record<string, OAuthEntry>> {
     }
   }
   return {};
+}
+
+function dbCandidates(): string[] {
+  const data = process.env.XDG_DATA_HOME ?? path.join(homedir(), ".local", "share");
+  const candidates = [
+    path.join(data, "opencode", "opencode.db"),
+    path.join(homedir(), ".config", "opencode", "opencode.db")
+  ];
+  if (process.platform === "darwin") {
+    candidates.push(
+      path.join(homedir(), "Library", "Application Support", "ai.opencode.desktop", "opencode", "opencode.db")
+    );
+  }
+  return candidates;
+}
+
+function providerKeyForAccountUrl(url: string | undefined): string | null {
+  const normalized = (url ?? "").toLowerCase();
+  if (normalized.includes("chatgpt") || normalized.includes("openai")) return "openai";
+  if (normalized.includes("anthropic") || normalized.includes("claude")) return "anthropic";
+  if (normalized.includes("github")) return "github-copilot";
+  return null;
+}
+
+export function entriesFromDbRows(accounts: DbAccountRow[], credentials: DbCredentialRow[]): Record<string, OAuthEntry> {
+  const out: Record<string, OAuthEntry> = {};
+  for (const row of accounts) {
+    const key = providerKeyForAccountUrl(row.url != null ? String(row.url) : undefined);
+    if (!key) continue;
+    const access = row.access_token != null ? String(row.access_token) : undefined;
+    if (!access) continue;
+    out[key] = {
+      type: "oauth",
+      access,
+      refresh: row.refresh_token != null ? String(row.refresh_token) : undefined,
+      expires: typeof row.token_expiry === "number" ? row.token_expiry : undefined
+    };
+  }
+  for (const row of credentials) {
+    if (String(row.integration_id ?? "") !== "opencode-go") continue;
+    const raw = row.value != null ? String(row.value) : undefined;
+    if (!raw) continue;
+    const parsed = parseCredentialValue(raw) ?? { access: raw };
+    if (!parsed.access) continue;
+    out["opencode-go"] = { type: "oauth", access: parsed.access, refresh: parsed.refresh, expires: parsed.expires };
+  }
+  return out;
+}
+
+async function readOAuthEntriesFromDb(): Promise<Record<string, OAuthEntry>> {
+  const out: Record<string, OAuthEntry> = {};
+  for (const db of dbCandidates()) {
+    const accounts = await sqliteQuery(db, "SELECT url, access_token, refresh_token, token_expiry FROM account;");
+    const credentials = await sqliteQuery(db, "SELECT integration_id, value FROM credential WHERE active IS NULL OR active = 1;");
+    Object.assign(out, entriesFromDbRows(accounts as DbAccountRow[], credentials as DbCredentialRow[]));
+  }
+  return out;
+}
+
+export async function readOAuthEntries(): Promise<Record<string, OAuthEntry>> {
+  const json = await readOAuthEntriesFromJson();
+  const db = await readOAuthEntriesFromDb();
+  return { ...json, ...db };
 }
 
 function expired(entry: OAuthEntry): boolean {
@@ -556,6 +661,24 @@ async function fetchCopilot(entry: OAuthEntry): Promise<ProviderUsageResult> {
   };
 }
 
+async function fetchOpencodeGo(entry: OAuthEntry): Promise<ProviderUsageResult> {
+  const displayName = "OpenCode Go";
+  if (!entry.access) {
+    return errorResult("opencode-go", displayName, "missing_oauth", `${displayName} is not authenticated. Run: opencode auth login`);
+  }
+  return {
+    provider: "opencode-go",
+    displayName,
+    status: "ok",
+    snapshot: {
+      windows: [],
+      credits: { hasCredits: true, unlimited: false, balance: "Active", label: "GO Subscription" },
+      planType: "go",
+      updatedAt: Date.now()
+    }
+  };
+}
+
 interface ProviderSpec {
   fetch: (entry: OAuthEntry) => Promise<ProviderUsageResult>;
 }
@@ -563,7 +686,8 @@ interface ProviderSpec {
 const PROVIDERS: Record<string, ProviderSpec> = {
   openai: { fetch: fetchChatgpt },
   anthropic: { fetch: fetchClaude },
-  "github-copilot": { fetch: fetchCopilot }
+  "github-copilot": { fetch: fetchCopilot },
+  "opencode-go": { fetch: fetchOpencodeGo }
 };
 
 export async function fetchProviderUsage(): Promise<ProviderUsageResult[]> {
