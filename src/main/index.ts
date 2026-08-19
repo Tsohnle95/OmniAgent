@@ -96,37 +96,42 @@ const DEVTOOLS_WATCHER = `
       window.__openshellKey = event.key;
     }
   }, true);
-  window.addEventListener("click", (event) => {
-    let file = null;
-    let line = null;
-    let title = "";
-    for (const el of event.composedPath ? event.composedPath() : []) {
-      if (el.nodeType !== 1) continue;
-      const elTitle = el.getAttribute ? el.getAttribute("title") : null;
-      if (elTitle) {
-        const m = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i.exec(elTitle);
-        if (m) {
-          file = m[1];
-          line = parseInt(m[2], 10);
-          title = elTitle;
-          break;
-        }
-      }
-      if (!file && el.textContent) {
-        const m = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i.exec(el.textContent.trim());
-        if (m) {
-          file = m[1];
-          line = parseInt(m[2], 10);
-          const titled = el.closest("[title]");
-          title = titled ? titled.getAttribute("title") || "" : "";
-          break;
-        }
-      }
+  const STRICT = /^(.*\.(?:css|scss|sass|less|styl|stylus|pcss)):(\d+)\s*$/i;
+  const LOOSE = /([^\s]*\.(?:css|scss|sass|less|styl|stylus|pcss)):(\d+)/i;
+  function attr(el, name) {
+    return el && el.getAttribute ? el.getAttribute(name) : null;
+  }
+  function candidate(el) {
+    if (!el || el.nodeType !== 1) return null;
+    const sources = [attr(el, "title"), attr(el, "href"), attr(el, "data-url"), attr(el, "data-source-url")];
+    for (const value of sources) {
+      if (!value) continue;
+      const clean = value.replace(/[?#].*$/, "");
+      let m = STRICT.exec(clean.trim());
+      if (m) return { file: m[1], line: parseInt(m[2], 10), title: value };
+      m = LOOSE.exec(clean);
+      if (m) return { file: m[1], line: parseInt(m[2], 10), title: value };
     }
-    if (file == null || line == null) return;
+    const text = el.textContent ? el.textContent.trim() : "";
+    if (text) {
+      let m = STRICT.exec(text);
+      if (m) return { file: m[1], line: parseInt(m[2], 10), title: "" };
+      m = LOOSE.exec(text);
+      if (m) return { file: m[1], line: parseInt(m[2], 10), title: "" };
+    }
+    return null;
+  }
+  window.addEventListener("click", (event) => {
+    const path = event.composedPath ? event.composedPath() : [];
+    let found = null;
+    for (const el of path) {
+      const c = candidate(el);
+      if (c) { found = c; break; }
+    }
+    if (!found) return;
     event.preventDefault();
     event.stopPropagation();
-    window.__openshellOpenSource = JSON.stringify({ file, line, title });
+    window.__openshellOpenSource = JSON.stringify({ file: found.file, line: found.line, title: found.title });
   }, true);
 })();
 `;
@@ -226,6 +231,10 @@ async function isFile(p: string): Promise<boolean> {
   }
 }
 
+function stripFragment(target: string): string {
+  return target.replace(/[?#].*$/, "");
+}
+
 function sourceTarget(title: string): string | null {
   const t = title.trim();
   return t ? t.replace(/:(\d+)\s*$/, "") : null;
@@ -255,13 +264,30 @@ function toAbsolute(root: string, target: string): string | null {
 }
 
 async function resolveInRoot(root: string, file: string, title: string): Promise<string | null> {
-  const target = sourceTarget(title) ?? (file.includes("/") || file.includes("\\") ? file : null);
-  if (target) {
-    const abs = toAbsolute(root, target);
+  const candidates: string[] = [];
+  if (file) candidates.push(stripFragment(file));
+  const titleTarget = sourceTarget(title);
+  if (titleTarget) candidates.push(stripFragment(titleTarget));
+  for (const candidate of candidates) {
+    const abs = toAbsolute(root, candidate);
     if (abs && (await isFile(abs))) return abs;
   }
-  if (!file.includes("/") && !file.includes("\\")) {
-    return findFileByBasename(root, file);
+  for (const candidate of candidates) {
+    if (!/^https?:\/\//i.test(candidate)) continue;
+    const mapped = stripFragment(candidate.replace(/^[a-z]+:\/\/[^/]+/i, ""));
+    if (mapped) {
+      const abs = path.join(root, mapped.replace(/^\/+/, ""));
+      if (await isFile(abs)) return abs;
+    }
+  }
+  const bases = new Set<string>();
+  for (const source of [file, titleTarget].filter((value): value is string => Boolean(value))) {
+    const last = stripFragment(source).split(/[\\/]/).pop();
+    if (last) bases.add(last);
+  }
+  for (const base of bases) {
+    const found = await findFileByBasename(root, base);
+    if (found) return found;
   }
   return null;
 }
@@ -369,11 +395,13 @@ function createWindow(show = true): BrowserWindow {
     stopInspectPicker(wc);
   });
 
-  const installDevToolsWatcher = (): void => {
+  const installDevToolsWatcher = (attempt = 0): void => {
     const dtc = wc.devToolsWebContents;
     if (!dtc || dtc.isDestroyed()) return;
     const run = (): void => {
-      void dtc.executeJavaScript(DEVTOOLS_WATCHER).catch(() => {});
+      void dtc.executeJavaScript(DEVTOOLS_WATCHER).catch(() => {
+        if (attempt < 5) setTimeout(() => installDevToolsWatcher(attempt + 1), 250);
+      });
     };
     if (dtc.isLoading()) dtc.once("dom-ready", run);
     else run();
@@ -384,6 +412,7 @@ function createWindow(show = true): BrowserWindow {
       await sleep(120);
       const dtc = wc.devToolsWebContents;
       if (!wc.isDevToolsOpened() || wc.isDestroyed() || !dtc || dtc.isDestroyed()) break;
+      void dtc.executeJavaScript(DEVTOOLS_WATCHER).catch(() => {});
       const payload = await dtc
         .executeJavaScript(`(() => {
           const k = window.__openshellKey;
