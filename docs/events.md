@@ -55,7 +55,8 @@ regressing longer live text.
 | `session.execution.failed` | Sets `busy = false`, completes the active assistant, clears retry state, and adds an error status line |
 | `session.execution.interrupted` | Sets `busy = false`, completes the active assistant, clears retry state, and adds an error status line |
 | `session.idle` | Sets `busy = false` and completes the active assistant |
-| `session.status` | Mirrors OpenCode `busy` / `idle` / `retry`; retry details attach to the latest assistant. A retry carrying a `free_tier_limit` or `account_rate_limit` action appends an error `status` transcript item (`buildRateLimitNotice` in `src/renderer/src/chat-store.ts`) on the first attempt so the user sees the rate-limit reason and resolution link inline |
+| `session.error` | Sets `busy = false` and completes the active assistant so a failed run cannot leave the composer stuck on the running/stop icon |
+| `session.status` | Mirrors OpenCode `busy` / `idle` / `retry` / `error`; an `error` status clears `busy` (and the chat store records a non-busy `error` status); retry details attach to the latest assistant. A retry carrying a `free_tier_limit` or `account_rate_limit` action appends an error `status` transcript item (`buildRateLimitNotice` in `src/renderer/src/chat-store.ts`) on the first attempt so the user sees the rate-limit reason and resolution link inline |
 | `session.step.started` | Creates or reopens the addressed assistant message in the authoritative chat store, clears its retry/error state, and completes a different unfinished assistant |
 | `session.step.ended` | Completes the addressed assistant message |
 | `session.step.failed` | Completes the assistant and records the structured failure |

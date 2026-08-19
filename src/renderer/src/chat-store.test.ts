@@ -79,6 +79,18 @@ describe("applyChatEvent", () => {
     expect(applyChatEvent(draft, "s", busy)).toBe(false);
   });
 
+  it("records an errored session status as not busy and stops treating the session as running", () => {
+    const draft = state();
+    expect(applyChatEvent(draft, "s", event("b", "session.status", { sessionID: "s", status: { type: "busy" } }))).toBe(true);
+    expect(draft.session_status.s).toEqual({ type: "busy" });
+
+    expect(applyChatEvent(draft, "s", event("e", "session.status", { sessionID: "s", status: { type: "error" } }))).toBe(true);
+    expect(draft.session_status.s).toEqual({ type: "error" });
+
+    const again = event("e2", "session.status", { sessionID: "s", status: { type: "error" } });
+    expect(applyChatEvent(draft, "s", again)).toBe(false);
+  });
+
   it("skips unchanged message updates", () => {
     const draft = state();
     draft.message.s = [{ id: "msg_1", sessionID: "s", role: "assistant", time: { created: 1, completed: 2 } }];

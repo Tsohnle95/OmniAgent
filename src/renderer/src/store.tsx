@@ -1987,6 +1987,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           break;
         }
+        case "session.error": {
+          if (targetSessionID) {
+            setSessionBusy(targetSessionID, false);
+            const draft = chatStateFor(targetSessionID);
+            const previous = snapshotChatState(draft);
+            const result = applyChatEvent(draft, targetSessionID, streamEvent);
+            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            syncStreaming(targetSessionID, previous);
+          }
+          break;
+        }
         case "todo.updated": {
           if (targetWorkspace) setTodosFor(targetWorkspace.id, normalizeTodos(data.todos));
           break;
@@ -2035,7 +2046,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         case "session.status": {
           const status = data.status as { type?: string; attempt?: number; message?: string; next?: number; action?: RateLimitAction } | undefined;
           if (status?.type === "busy" && targetSessionID) setSessionBusy(targetSessionID, true);
-          if (status?.type === "idle" && targetSessionID) setSessionBusy(targetSessionID, false);
+          if ((status?.type === "idle" || status?.type === "error") && targetSessionID) setSessionBusy(targetSessionID, false);
           if (status?.type === "retry" && targetSessionID) {
             setSessionBusy(targetSessionID, true);
             if (attachRetryToLatestAssistant(chatStateFor(targetSessionID), targetSessionID, {

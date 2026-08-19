@@ -31,6 +31,7 @@ export interface ChatPartRecord {
 export type ChatSessionStatus =
   | { type: "busy" }
   | { type: "idle" }
+  | { type: "error" }
   | { type: "retry"; attempt: number; message: string; next: number };
 
 export interface ChatDirectoryState {
@@ -401,7 +402,9 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
           ? { type: "idle" }
           : raw?.type === "retry"
             ? { type: "retry", attempt: Number(raw.attempt ?? 1), message: String(raw.message ?? "Retrying"), next: Number(raw.next ?? 0) }
-            : null;
+            : raw?.type === "error"
+              ? { type: "error" }
+              : null;
       if (!status) return false;
       if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
       draft.session_status = { ...draft.session_status, [sessionID]: status };
