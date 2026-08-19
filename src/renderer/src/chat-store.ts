@@ -84,6 +84,27 @@ function errorText(error: unknown): string {
   return error == null ? "" : String(error);
 }
 
+export interface RateLimitAction {
+  reason?: string;
+  message?: string;
+  link?: string;
+}
+
+export function buildRateLimitNotice(action: RateLimitAction | null | undefined, sessionID: string): TranscriptItem | null {
+  if (!action) return null;
+  const reason = action.reason;
+  if (reason !== "free_tier_limit" && reason !== "account_rate_limit") return null;
+  const base = String(
+    action.message ??
+      (reason === "free_tier_limit"
+        ? "OpenCode Go free usage limit reached."
+        : "OpenCode Go usage limit reached.")
+  );
+  const link = typeof action.link === "string" && action.link ? action.link : "";
+  const text = link && !base.includes(link) ? `${base} → ${link}` : base;
+  return { kind: "status", id: `${sessionID}-ratelimit-${reason}`, text, tone: "error" };
+}
+
 function appendNonOverlappingDelta(existingValue: string | undefined, delta: string): string {
   if (!existingValue || delta.length === 0) return (existingValue ?? "") + delta;
   if (existingValue.endsWith(delta)) return existingValue;

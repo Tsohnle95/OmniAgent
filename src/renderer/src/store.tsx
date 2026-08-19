@@ -36,8 +36,10 @@ import {
   insertUserMessage,
   projectAssistantItems,
   snapshotChatState,
+  buildRateLimitNotice,
   type ChatDirectoryState,
-  type ChatStateSnapshot
+  type ChatStateSnapshot,
+  type RateLimitAction
 } from "./chat-store";
 import {
   emptyStreamingStore,
@@ -2031,7 +2033,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
           break;
         }
         case "session.status": {
-          const status = data.status as { type?: string; attempt?: number; message?: string; next?: number } | undefined;
+          const status = data.status as { type?: string; attempt?: number; message?: string; next?: number; action?: RateLimitAction } | undefined;
           if (status?.type === "busy" && targetSessionID) setSessionBusy(targetSessionID, true);
           if (status?.type === "idle" && targetSessionID) setSessionBusy(targetSessionID, false);
           if (status?.type === "retry" && targetSessionID) {
@@ -2042,6 +2044,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
               next: status.next
             })) {
               applyProjection(targetSessionID);
+            }
+            if (status.action && Number(status.attempt ?? 1) === 1) {
+              const notice = buildRateLimitNotice(status.action, targetSessionID);
+              if (notice) {
+                updateSessionTranscript(targetSessionID, (prev) => {
+                  if (prev.some((item) => item.kind === "status" && item.id === notice.id)) return prev;
+                  return [...prev, notice];
+                });
+              }
             }
           }
           if (targetSessionID) {
