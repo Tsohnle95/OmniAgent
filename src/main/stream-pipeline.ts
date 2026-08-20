@@ -129,8 +129,15 @@ function snapshotBarrierPrefix(payload: RawStreamEvent): string | undefined {
 }
 
 function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError" ||
+  const direct =
+    error instanceof DOMException && error.name === "AbortError" ||
     (typeof error === "object" && error !== null && (error as { name?: string }).name === "AbortError");
+  if (direct) return true;
+  const cause = (error as { cause?: unknown }).cause;
+  return (
+    cause instanceof DOMException && cause.name === "AbortError" ||
+    (typeof cause === "object" && cause !== null && (cause as { name?: string }).name === "AbortError")
+  );
 }
 
 export function createStreamPipeline(options: StreamPipelineOptions): StreamPipeline {

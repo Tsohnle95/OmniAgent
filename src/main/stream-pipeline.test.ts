@@ -215,6 +215,49 @@ describe("createStreamPipeline", () => {
     expect(calls()).toBeGreaterThanOrEqual(2);
   });
 
+  it("reconnects silently when the client wraps the heartbeat abort as a transport error", async () => {
+    const onStreamError = vi.fn();
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    let calls = 0;
+    const subscribe = async (signal: AbortSignal): Promise<AsyncIterable<RawStreamEvent>> => {
+      calls += 1;
+      return {
+        [Symbol.asyncIterator](): AsyncIterator<RawStreamEvent> {
+          return {
+            next: async (): Promise<IteratorResult<RawStreamEvent>> => {
+              if (signal.aborted) throw wrappedTransportAbort();
+              await new Promise<void>((resolve) =>
+                signal.addEventListener("abort", () => resolve(), { once: true })
+              );
+              throw wrappedTransportAbort();
+            }
+          };
+        }
+      };
+    };
+    const wrappedTransportAbort = (): Error =>
+      Object.assign(new Error("Transport"), {
+        name: "ClientError",
+        cause: new DOMException("This operation was aborted", "AbortError")
+      });
+    const pipeline = createStreamPipeline({
+      subscribe,
+      onEvents: () => {},
+      onStreamError
+    });
+
+    const run = pipeline.run(new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(31_000);
+    await vi.advanceTimersByTimeAsync(31_000);
+    pipeline.cleanup();
+    await run;
+    errorLog.mockRestore();
+
+    expect(calls).toBeGreaterThanOrEqual(3);
+    expect(onStreamError).toHaveBeenCalledWith("sse_heartbeat_timeout");
+    expect(errorLog.mock.calls.some((args) => String(args[0]).includes("stream failed"))).toBe(false);
+  });
+
   it("backs off and retries after a stream failure", async () => {
     const onStreamError = vi.fn();
     const { subscribe, calls } = createSubscribe([], { failFirst: true });
