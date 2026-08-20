@@ -118,7 +118,7 @@ files open as editable standalone tabs saved back to their real path),
 `importPaths(destDir, sources)` (copy external files/folders into the workspace
 at `destDir`, seeding clean baselines so imports never show as changes),
 `dropIntoExplorer(paths)` (imports dropped files into the current workspace root
-and opens dropped folders as separate model panels),
+and imports dropped folders there without changing the active panels),
 `selectPanelDirectory(workspace)`
 (swap one panel to a folder picked in the native dialog) and
 `changePanelDirectory(workspace, dir)` (swap one panel to a directory without a
@@ -293,8 +293,8 @@ Key mechanisms:
   process, never interpreted as explorer moves. Dropping onto a folder row
   **imports** the items into that folder (`importPaths` →
   `shell:fs-import`, then the tree refreshes the destination); dropping
-  a file onto the empty explorer area imports it into the current workspace,
-  while a folder opens as a separate model panel. Dropping a file into the
+  files and folders onto the empty explorer area imports them into the current
+  workspace without changing the active panels. Dropping a file into the
   **editor pane** opens it as an editable standalone tab via
   `openExternalPath` → `shell:open-external`; outside files save back to their
   absolute path via `shell:fs-write-standalone`. Dragging files onto the

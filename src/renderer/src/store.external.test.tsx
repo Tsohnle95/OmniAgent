@@ -157,19 +157,17 @@ describe("store external files", () => {
     expect(listDir).toHaveBeenCalled();
   });
 
-  it("opens dropped folders as panels and imports dropped files", async () => {
-    const externalKind = vi.fn(async (p: string) => ({ kind: p.endsWith("folder") ? "directory" as const : "file" as const }));
-    const openSession = vi.fn(async (directory: string, generation: number) => info(directory, generation));
+  it("imports dropped files and folders into the workspace root", async () => {
     const importExternal = vi.fn(async () => [
+      { name: "folder", rel: "folder", imported: true },
       { name: "a.txt", rel: "a.txt", imported: true }
     ]);
     const listDir = vi.fn(async () => []);
-    window.openshell = api({ externalKind, openSession, importExternal, listDir });
+    window.openshell = api({ importExternal, listDir });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
     await act(async () => store.dropIntoExplorer(["/outside/folder", "/outside/a.txt"]));
 
-    expect(openSession).toHaveBeenCalledWith("/outside/folder", expect.any(Number));
-    expect(importExternal).toHaveBeenCalledWith(store.session!.workspace, "", ["/outside/a.txt"]);
+    expect(importExternal).toHaveBeenCalledWith(store.session!.workspace, "", ["/outside/folder", "/outside/a.txt"]);
   });
 });
