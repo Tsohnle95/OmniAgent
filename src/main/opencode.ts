@@ -451,6 +451,7 @@ interface WatchContext {
   hasGit: boolean | null;
   timers: Map<string, ReturnType<typeof setTimeout>>;
   importing?: number;
+  suppressedUntil?: Map<string, number>;
 }
 
 export interface SessionContext {
@@ -1020,6 +1021,13 @@ export class OpenShellBackend {
   }
 
   private scheduleWatch(context: WatchContext, abs: string, event: string): void {
+    if ((context.importing ?? 0) > 0) return;
+    const now = Date.now();
+    const suppressedUntil = context.suppressedUntil ?? (context.suppressedUntil = new Map());
+    for (const [prefix, until] of suppressedUntil) {
+      if (until <= now) suppressedUntil.delete(prefix);
+      else if (abs === prefix || abs.startsWith(`${prefix}${path.sep}`)) return;
+    }
     const existing = context.timers.get(abs);
     if (existing) clearTimeout(existing);
     context.timers.set(
@@ -1063,6 +1071,12 @@ export class OpenShellBackend {
   private async onFsChanged(context: WatchContext, abs: string, event: string): Promise<void> {
     if (!this.currentWatch(context)) return;
     if ((context.importing ?? 0) > 0) return;
+    const now = Date.now();
+    const suppressedUntil = context.suppressedUntil ?? (context.suppressedUntil = new Map());
+    for (const [prefix, until] of suppressedUntil) {
+      if (until <= now) suppressedUntil.delete(prefix);
+      else if (abs === prefix || abs.startsWith(`${prefix}${path.sep}`)) return;
+    }
     if (this.isGitMetadata(abs, context.root)) {
       await this.refreshGitBaselines(context);
       return;
@@ -1830,6 +1844,7 @@ export class OpenShellBackend {
           }
         }
         watchContext.importing = Math.max(0, (watchContext.importing ?? 1) - 1);
+        (watchContext.suppressedUntil ??= new Map()).set(destAbs, Date.now() + 10_000);
       }
     });
   }
