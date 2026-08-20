@@ -1452,7 +1452,7 @@ export class OpenShellBackend {
     return out.model || out.agent ? out : null;
   }
 
-  async prompt(workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<void> {
+  async prompt(workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<SessionTranscript> {
     if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
     const fileSpecs = await Promise.all(
@@ -1475,6 +1475,8 @@ export class OpenShellBackend {
       text,
       ...(fileSpecs.length > 0 ? { files: fileSpecs } : {})
     });
+    this.assertTarget(target);
+    return this.sessionTranscript(target.sessionID);
   }
 
   async listCommands(workspace: WorkspaceIdentity): Promise<CommandOption[]> {

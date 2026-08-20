@@ -114,7 +114,7 @@ export const sendQueuedAutoSendPayload = (
   workspace: WorkspaceIdentity,
   payload: NonNullable<QueuedAutoSendPayload>
 ): Promise<void> => {
-  return window.openshell.prompt(workspace, payload.primaryText, payload.primaryAttachments ?? []);
+  return window.openshell.prompt(workspace, payload.primaryText, payload.primaryAttachments ?? []).then(() => undefined);
 };
 
 export const shouldDispatchQueuedAutoSend = (

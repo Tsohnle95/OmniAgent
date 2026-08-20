@@ -1279,47 +1279,30 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       };
       updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
       setTodosFor(panel.workspace.id, []);
-      const existingRemoteUsers = transcript.filter((item) => item.kind === "user" && !item.id.startsWith("user-") && item.text === promptText).length;
-      const refreshTranscript = async (): Promise<void> => {
-        for (let attempt = 0; attempt < 120 && panelFor(target); attempt += 1) {
-          const refreshed = await window.openshell.sessionTranscript(panel.id).catch(() => null);
-          if (refreshed) {
-            const users = refreshed.transcript.filter((item) => item.kind === "user" && item.text === promptText);
-            const lastUser = users.at(-1);
-            const lastUserIndex = lastUser ? refreshed.transcript.lastIndexOf(lastUser) : -1;
-            const completed = lastUserIndex >= 0 && refreshed.transcript.slice(lastUserIndex + 1).some((item) => item.kind === "assistant" && item.completed);
-            if (users.length > existingRemoteUsers && completed) {
-              let merged: TranscriptItem[] | null = null;
-              updateSessionTranscript(panel.id, (current) => {
-                const remoteUsers = new Map<string, number>();
-                for (const item of refreshed.transcript) {
-                  if (item.kind === "user") remoteUsers.set(item.text, (remoteUsers.get(item.text) ?? 0) + 1);
-                }
-                const local = current.filter((item) => {
-                  if (item.kind !== "user" || !item.id.startsWith("user-")) return true;
-                  const count = remoteUsers.get(item.text) ?? 0;
-                  if (count === 0) return true;
-                  remoteUsers.set(item.text, count - 1);
-                  return false;
-                });
-                merged = mergeChatHistory(refreshed.transcript, local);
-                return merged;
-              });
-              if (merged) {
-                chatStatesRef.current.delete(panel.id);
-                hydrateChatState(chatStateFor(panel.id), panel.id, merged);
-                reconcileStreaming(panel.id);
-              }
-              setSessionBusy(panel.id, false);
-              return;
-            }
-          }
-          await new Promise((resolve) => setTimeout(resolve, 250));
+      const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): void => {
+        const current = transcriptsBySessionRef.current[panel.id] ?? [];
+        const withOptimistic = current.some((item) => item.id === userItem.id) ? current : [...current, userItem];
+        const remoteUsers = new Map<string, number>();
+        for (const item of refreshed.transcript) {
+          if (item.kind === "user") remoteUsers.set(item.text, (remoteUsers.get(item.text) ?? 0) + 1);
         }
+        const local = withOptimistic.filter((item) => {
+          if (item.kind !== "user" || !item.id.startsWith("user-")) return true;
+          const count = remoteUsers.get(item.text) ?? 0;
+          if (count === 0) return true;
+          remoteUsers.set(item.text, count - 1);
+          return false;
+        });
+        const merged = mergeChatHistory(refreshed.transcript, local);
+        updateSessionTranscript(panel.id, () => merged);
+        chatStatesRef.current.delete(panel.id);
+        hydrateChatState(chatStateFor(panel.id), panel.id, merged);
+        reconcileStreaming(panel.id);
+        setSessionBusy(panel.id, false);
       };
-      void refreshTranscript();
       try {
-        await window.openshell.prompt(target, promptText, files);
+        const refreshed = await window.openshell.prompt(target, promptText, files);
+        if (panelFor(target)) applyCanonicalTranscript(refreshed);
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }

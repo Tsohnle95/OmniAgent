@@ -165,7 +165,10 @@ describe("built-in commands and prompt files", () => {
     const file = path.join(directory, "src", "foo.ts");
     await mkdir(path.join(directory, "src"), { recursive: true });
     await writeFile(file, "export const foo = 1;\n");
-    const client = { session: { prompt: vi.fn(async () => ({ data: {} })) } };
+    const client = {
+      session: { prompt: vi.fn(async () => ({ data: {} })) },
+      message: { list: vi.fn(async () => []) }
+    };
     const backend = new OpenShellBackend();
     const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
     install(backend, workspace, directory, client);

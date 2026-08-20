@@ -42,6 +42,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 29. Current iteration: a stale renderer working state could block a new prompt behind the OpenCode interrupt request; interruption is now issued without delaying prompt submission.
 30. Current iteration: the default queue path treated a stale streaming marker as an active turn, so prompts were queued instead of submitted and the timeline continued showing Thinking; activity and rendering now require an incomplete canonical assistant message.
 31. Current iteration: the timeline still received raw `busyBySession` independently of canonical transcript state, so a completed answer could remain visually streaming; panel busy state now uses the reconciled activity result.
+32. Current iteration: SSE and renderer polling were both fallback paths for prompt completion and could leave the UI stale despite a completed server response; prompt IPC now returns the canonical completed transcript directly and the renderer applies that single result.
 
 ## Constraints
 
