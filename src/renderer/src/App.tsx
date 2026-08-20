@@ -410,7 +410,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           height: stored.height
         };
       }
-      if (open && stored?.left === 0 && stored.leftAnchored) {
+      if (open && sideOpen && stored?.left === 0 && stored.leftAnchored) {
         return { open: true, width: areaW > width + 1 ? areaW : width, left: 0, top: 0, height: 100 };
       }
       return { open, width, left: Math.max(0, areaW - width), top: 0, height: 100 };
@@ -569,20 +569,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (open) setSideW(SIDE_DEFAULT_W);
     setSideOpen(open);
   };
-
-  useEffect(() => {
-    setSlots((current) => {
-      let changed = false;
-      const next = Object.fromEntries(
-        Object.entries(current).map(([id, slot]) => {
-          if (!slot.leftAnchored) return [id, slot];
-          changed = true;
-          return [id, { ...slot, leftAnchored: false }];
-        })
-      );
-      return changed ? next : current;
-    });
-  }, [sideOpen, sideW]);
 
   const distributeEvenly = useCallback((sideShownAt: number, singleRestore: boolean): void => {
     setSlots((current) => {

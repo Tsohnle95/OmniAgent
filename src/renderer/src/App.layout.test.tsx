@@ -191,6 +191,33 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
+  it("restores a left-expanded panel against the open explorer after its compact tray is reopened", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    await act(async () => {
+      const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 0 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentLefts()[0]).toBe(236);
+    expect(agentWidths()[0]).toBeCloseTo(1199, 0);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('.sidebar.collapsed .activity-btn[title="Explorer"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(gridCols()[0]).toBe("280px");
+    expect(agentLefts()[0]).toBe(0);
+    expect(agentWidths()[0]).toBeCloseTo(1198, 0);
+    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
+  });
+
   it("closing the file explorer never inflates the anchored agent", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
