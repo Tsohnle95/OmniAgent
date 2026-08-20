@@ -646,13 +646,10 @@ export function FileSidebar({
           className={`section-toggle ${explorerOpen ? "open" : ""}`}
           aria-expanded={explorerOpen}
           onClick={() => setExplorerOpen((o) => !o)}
-        >
-          <span>EXPLORER</span>
-          <span className="section-chevron push">
-            <ChevronIcon open={explorerOpen} />
-          </span>
-        </button>
-        <span className="section-actions">
+         >
+           <span>EXPLORER</span>
+         </button>
+         <span className="section-actions">
           <button
             className="tree-row-action"
             title="New File"
@@ -664,11 +661,19 @@ export function FileSidebar({
             className="tree-row-action"
             title="New Folder"
             onClick={() => startCreate("", "dir")}
-          >
-            <FolderPlusIcon />
-          </button>
-        </span>
-      </div>
+           >
+             <FolderPlusIcon />
+           </button>
+         </span>
+         <button
+           className="section-chevron-button"
+           aria-label="Toggle Explorer"
+           aria-expanded={explorerOpen}
+           onClick={() => setExplorerOpen((o) => !o)}
+         >
+           <ChevronIcon open={explorerOpen} />
+         </button>
+       </div>
       {explorerOpen && (
         <div className="sidebar-section explorer">
           <div
