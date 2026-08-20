@@ -248,16 +248,16 @@ function ExplorerMenu(): ReactNode {
 
   useEffect(() => {
     if (!ctxMenu) return;
-    const onDown = (e: MouseEvent): void => {
+    const onDown = (e: PointerEvent): void => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeCtxMenu();
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") closeCtxMenu();
     };
-    window.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey);
     };
   }, [ctxMenu, closeCtxMenu]);
