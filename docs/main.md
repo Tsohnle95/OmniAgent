@@ -272,8 +272,8 @@ into the frontend page with `executeJavaScript` and polled from main —
 F12 closes DevTools, Esc stops the picker, whichever side has focus.
 The same watcher intercepts clicks on CSS rule source links (the
 `styles.css:12` links in the Styles panel): it prevents the frontend's
-own reveal, detects the link by its `title="<url>:<line>"` attribute
-(text matching is a fallback), and re-sends it as a `ui-command`
+own reveal, detects the clicked link by its source URL attributes
+(including `title="<url>:<line>"`), and re-sends it as a `ui-command`
 `open-source` with `{ path, line, root }` so the editor opens the file
 at the clicked rule — DevTools edits are ephemeral, the editor's are not.
 (The injected regexes are embedded in a template literal, so every

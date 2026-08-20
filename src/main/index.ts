@@ -114,13 +114,6 @@ const DEVTOOLS_WATCHER = `
       m = LOOSE.exec(clean);
       if (m) return { file: m[1], line: parseInt(m[2], 10), title: value };
     }
-    const text = el.textContent ? el.textContent.trim() : "";
-    if (text) {
-      let m = STRICT.exec(text);
-      if (m) return { file: m[1], line: parseInt(m[2], 10), title: "" };
-      m = LOOSE.exec(text);
-      if (m) return { file: m[1], line: parseInt(m[2], 10), title: "" };
-    }
     return null;
   }
   window.addEventListener("click", (event) => {
