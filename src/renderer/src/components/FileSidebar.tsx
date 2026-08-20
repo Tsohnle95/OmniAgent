@@ -372,7 +372,7 @@ export function FileSidebar({
     singleFile,
     importPaths,
     dropIntoExplorer,
-    openSession,
+    openWorkspacePanel,
     hiddenPaths = EMPTY_HIDDEN_PATHS
   } = useStore();
   const { openCtxMenu } = useCtxMenu();
@@ -480,7 +480,7 @@ export function FileSidebar({
     setExternalDrop(false);
     if (external.length > 0) {
       if (!expanded.has("")) {
-        void Promise.all(external.map((path) => openSession(path)));
+        void Promise.all(external.map((path) => openWorkspacePanel(path)));
         return;
       }
       void dropIntoExplorer(external);

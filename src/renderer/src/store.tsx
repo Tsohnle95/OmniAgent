@@ -182,12 +182,14 @@ interface Store {
   setFollowUpBehavior: (behavior: FollowUpBehavior) => void;
   sessions: SessionSummary[];
   panels: SessionInfo[];
+  workspaceOnlyPanelIDs: Set<string>;
   panelViews: Record<string, PanelView>;
   activeSessionID: string | null;
   focusSession: (sessionID: string) => void;
   closePanel: (sessionID: string) => void;
   openSession: (dir: string) => Promise<SessionInfo | null>;
   addModelPanel: (dir: string) => Promise<void>;
+  openWorkspacePanel: (dir: string) => Promise<void>;
   selectAddPanel: () => Promise<void>;
   selectFolder: () => Promise<void>;
   selectFile: () => Promise<void>;
@@ -396,6 +398,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
 const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children: ReactNode; closeCtxMenu: () => void }): ReactNode {
   const [panels, setPanels] = useState<SessionInfo[]>([]);
+  const [workspaceOnlyPanelIDs, setWorkspaceOnlyPanelIDs] = useState<Set<string>>(() => new Set());
   const [activeSessionID, setActiveSessionID] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [busyBySession, setBusyBySession] = useState<Record<string, boolean>>({});
@@ -801,6 +804,12 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     const closing = panelsRef.current.find((panel) => panel.id === sessionID);
     panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
     setPanels(panelsRef.current);
+    setWorkspaceOnlyPanelIDs((current) => {
+      if (!current.has(sessionID)) return current;
+      const next = new Set(current);
+      next.delete(sessionID);
+      return next;
+    });
     chatStatesRef.current.delete(sessionID);
     materializingRef.current.delete(sessionID);
     if (closing) {
@@ -1056,6 +1065,17 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     },
     [attachPanel, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript]
   );
+
+  const openWorkspacePanel = useCallback(async (dir: string): Promise<void> => {
+    await addModelPanel(dir);
+    const opened = sessionRef.current;
+    if (!opened) return;
+    setWorkspaceOnlyPanelIDs((current) => {
+      const next = new Set(current);
+      next.add(opened.id);
+      return next;
+    });
+  }, [addModelPanel]);
 
   const selectAddPanel = useCallback(async () => {
     const request = ++requestSeqRef.current;
@@ -2648,12 +2668,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       setFollowUpBehavior,
       sessions,
       panels,
+      workspaceOnlyPanelIDs,
       panelViews,
       activeSessionID,
       focusSession,
       closePanel,
       openSession,
       addModelPanel,
+      openWorkspacePanel,
       selectAddPanel,
       selectFolder,
       selectFile,
@@ -2705,8 +2727,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }),
     [
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, hiddenPaths, toasts, recoveryRecords,
-      models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
-      focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
+      models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, workspaceOnlyPanelIDs, panelViews, activeSessionID,
+      focusSession, closePanel, openSession, addModelPanel, openWorkspacePanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,

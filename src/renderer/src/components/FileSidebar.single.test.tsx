@@ -46,7 +46,8 @@ const store: Record<string, unknown> = {
   importPaths: vi.fn(),
   dropIntoExplorer: vi.fn(),
   addModelPanel: vi.fn(),
-  openSession: vi.fn()
+  openSession: vi.fn(),
+  openWorkspacePanel: vi.fn()
 };
 
 const ctxMenuApi = {
@@ -91,7 +92,7 @@ describe("FileSidebar single-file mode and external drops", () => {
     store.openExternalPath = vi.fn();
     store.importPaths = vi.fn();
     store.dropIntoExplorer = vi.fn();
-    store.openSession = vi.fn();
+    store.openWorkspacePanel = vi.fn();
     store.ensureRootOpen = vi.fn();
     container = document.createElement("div");
     document.body.append(container);
@@ -146,7 +147,7 @@ describe("FileSidebar single-file mode and external drops", () => {
       tree.dispatchEvent(dropEvent(["/outside/advanced-web-concepts"]));
     });
 
-    expect(store.openSession).toHaveBeenCalledWith("/outside/advanced-web-concepts");
+    expect(store.openWorkspacePanel).toHaveBeenCalledWith("/outside/advanced-web-concepts");
     expect(store.dropIntoExplorer).not.toHaveBeenCalled();
   });
 });

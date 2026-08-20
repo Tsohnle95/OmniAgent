@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, usePanel, useStore } from "./store";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
@@ -300,7 +300,11 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels, focusSession, closePanel, selectAddPanel, selectFolder, selectFile } = useStore();
+  const { panels: allPanels, workspaceOnlyPanelIDs, activeSessionID, focusSession, closePanel, selectAddPanel, selectFolder, selectFile } = useStore();
+  const panels = useMemo(
+    () => allPanels.filter((panel) => !workspaceOnlyPanelIDs.has(panel.id) || panel.id === activeSessionID),
+    [allPanels, workspaceOnlyPanelIDs, activeSessionID]
+  );
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(SIDE_DEFAULT_W);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
