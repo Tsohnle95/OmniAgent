@@ -250,7 +250,7 @@ function TreeNameInput({
 }
 
 function ExplorerMenu(): ReactNode {
-  const { startCreate, startRename, deleteEntry, removeFromWorkspace } = useStore();
+  const { session, startCreate, startRename, deleteEntry, removeFromWorkspace, closePanel } = useStore();
   const { ctxMenu, closeCtxMenu } = useCtxMenu();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -272,6 +272,7 @@ function ExplorerMenu(): ReactNode {
 
   if (!ctxMenu) return null;
   const target = ctxMenu.target;
+  const workspaceRoot = target?.type === "directory" && target.path === "";
   const parent = target
     ? target.type === "directory"
       ? target.path
@@ -292,7 +293,12 @@ function ExplorerMenu(): ReactNode {
         <FolderPlusIcon />
         New Folder…
       </button>
-      {target && (
+      {workspaceRoot && session && (
+        <button className="ctx-item" onClick={() => { closeCtxMenu(); closePanel(session.id); }}>
+          Remove Workspace
+        </button>
+      )}
+      {target && !workspaceRoot && (
         <>
           <div className="ctx-sep" />
           {target.type === "file" && (
@@ -366,7 +372,7 @@ export function FileSidebar({
     singleFile,
     importPaths,
     dropIntoExplorer,
-    addModelPanel,
+    openSession,
     hiddenPaths = EMPTY_HIDDEN_PATHS
   } = useStore();
   const { openCtxMenu } = useCtxMenu();
@@ -474,7 +480,7 @@ export function FileSidebar({
     setExternalDrop(false);
     if (external.length > 0) {
       if (!expanded.has("")) {
-        void Promise.all(external.map((path) => addModelPanel(path)));
+        void Promise.all(external.map((path) => openSession(path)));
         return;
       }
       void dropIntoExplorer(external);
@@ -693,7 +699,7 @@ export function FileSidebar({
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    openCtxMenu(e.clientX, e.clientY, null);
+                    openCtxMenu(e.clientX, e.clientY, { path: "", type: "directory" });
                   }}
                   onDragLeave={(e) => {
                     if (drag.isExternalDrop(e)) setDropDir(null);
