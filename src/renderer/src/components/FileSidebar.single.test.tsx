@@ -44,7 +44,8 @@ const store: Record<string, unknown> = {
   singleFile: null,
   openExternalPath: vi.fn(),
   importPaths: vi.fn(),
-  dropIntoExplorer: vi.fn()
+  dropIntoExplorer: vi.fn(),
+  addModelPanel: vi.fn()
 };
 
 const ctxMenuApi = {
@@ -89,6 +90,7 @@ describe("FileSidebar single-file mode and external drops", () => {
     store.openExternalPath = vi.fn();
     store.importPaths = vi.fn();
     store.dropIntoExplorer = vi.fn();
+    store.addModelPanel = vi.fn();
     store.ensureRootOpen = vi.fn();
     container = document.createElement("div");
     document.body.append(container);
@@ -133,5 +135,17 @@ describe("FileSidebar single-file mode and external drops", () => {
 
     expect(store.importPaths).toHaveBeenCalledWith("alpha", ["/outside/patch.ts"]);
     expect(store.openExternalPath).not.toHaveBeenCalled();
+  });
+
+  it("opens an external folder as another workspace when the root is collapsed", () => {
+    store.expanded = new Set(["alpha"]);
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const tree = container.querySelector<HTMLElement>(".tree")!;
+    act(() => {
+      tree.dispatchEvent(dropEvent(["/outside/advanced-web-concepts"]));
+    });
+
+    expect(store.addModelPanel).toHaveBeenCalledWith("/outside/advanced-web-concepts");
+    expect(store.dropIntoExplorer).not.toHaveBeenCalled();
   });
 });

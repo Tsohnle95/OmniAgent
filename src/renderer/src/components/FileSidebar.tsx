@@ -364,6 +364,7 @@ export function FileSidebar({
     singleFile,
     importPaths,
     dropIntoExplorer,
+    addModelPanel,
     hiddenPaths = EMPTY_HIDDEN_PATHS
   } = useStore();
   const { openCtxMenu } = useCtxMenu();
@@ -469,6 +470,10 @@ export function FileSidebar({
     setDropDir(null);
     setExternalDrop(false);
     if (external.length > 0) {
+      if (!expanded.has("")) {
+        void Promise.all(external.map((path) => addModelPanel(path)));
+        return;
+      }
       void dropIntoExplorer(external);
       return;
     }
