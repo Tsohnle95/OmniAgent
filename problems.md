@@ -32,6 +32,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 19. Current iteration: the default agent header now falls back to the active workspace directory name when the session has no title or agent name.
 20. Rejected approach: adding workspace context to ordinary prompt text and answering workspace questions locally. OpenCode should receive repository context from the session location, as it does when launched in a repository.
 21. Current iteration: OpenShell previously displayed the fallback `build` agent without applying it to sessions that had no recorded agent selection; new sessions now synchronize that real OpenCode agent selection.
+22. Current iteration: OpenCode completed workspace-identification prompts quickly, but the renderer could remain in thinking until delayed SSE events arrived; prompt completion now triggers an immediate transcript refresh fallback.
 
 ## Constraints
 
