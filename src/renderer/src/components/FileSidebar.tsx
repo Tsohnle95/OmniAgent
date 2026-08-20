@@ -250,7 +250,7 @@ function TreeNameInput({
 }
 
 function ExplorerMenu(): ReactNode {
-  const { startCreate, startRename, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, hiddenPaths } = useStore();
+  const { startCreate, startRename, deleteEntry, removeFromWorkspace } = useStore();
   const { ctxMenu, closeCtxMenu } = useCtxMenu();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -292,11 +292,6 @@ function ExplorerMenu(): ReactNode {
         <FolderPlusIcon />
         New Folder…
       </button>
-      {!target && (hiddenPaths?.size ?? 0) > 0 && (
-        <button className="ctx-item" onClick={restoreRemovedFromWorkspace}>
-          Restore Removed Items
-        </button>
-      )}
       {target && (
         <>
           <div className="ctx-sep" />

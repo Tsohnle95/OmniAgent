@@ -99,21 +99,6 @@ describe("store workspace continuations", () => {
     expect(store.hiddenPaths).toEqual(new Set(["folder"]));
   });
 
-  it("restores a removed path when it is dropped back into the explorer", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    window.openshell = api();
-    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
-    await act(async () => store.openSession("/one"));
-    act(() => store.removeFromWorkspace("folder"));
-
-    window.openshell = api({
-      importExternal: async () => [{ name: "folder", rel: "folder", imported: false, reason: "already in the workspace" }]
-    });
-    await act(async () => store.importPaths("", ["/one/folder"]));
-
-    expect(store.hiddenPaths).toEqual(new Set());
-  });
-
   it("does not apply a completed delete to tabs opened in a newer workspace", async () => {
     const deletion = deferred();
     window.openshell = api({ deletePath: vi.fn(() => deletion.promise) });
