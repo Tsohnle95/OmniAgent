@@ -419,7 +419,7 @@ export function FileSidebar({
         e.preventDefault();
         e.dataTransfer.dropEffect = "copy";
         setDropDir(dir);
-        setExternalDrop(true);
+        setExternalDrop(false);
         return;
       }
       if (!dragPath) return;
@@ -453,6 +453,10 @@ export function FileSidebar({
     if (drag.isExternalDrop(e)) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
+      if ((e.target as HTMLElement).closest(".tree-row")) {
+        setExternalDrop(false);
+        return;
+      }
       setDropDir(null);
       setExternalDrop(true);
       return;
@@ -492,7 +496,7 @@ export function FileSidebar({
   };
 
   const onTreeDragEnter = (e: React.DragEvent): void => {
-    if (drag.isExternalDrop(e)) setExternalDrop(true);
+    if (drag.isExternalDrop(e)) setExternalDrop(!(e.target as HTMLElement).closest(".tree-row"));
   };
 
   const onTreeDragLeave = (e: React.DragEvent): void => {
@@ -545,6 +549,7 @@ export function FileSidebar({
         <div className="sidebar-section explorer">
           <div
              className={`tree ${externalDrop ? "external-drop-active" : ""}`}
+             style={{ "--workspace-drop-top": `${orderedPanels.length * 26 + 2}px` } as CSSProperties}
              onDragEnter={onTreeDragEnter}
              onDragOver={onTreeDragOver}
              onDrop={onTreeDrop}
@@ -668,6 +673,7 @@ export function FileSidebar({
         <div className="sidebar-section explorer">
           <div
              className={`tree ${dropDir === "" && !externalDrop ? "drop-root" : ""} ${externalDrop ? "external-drop-active" : ""}`}
+             style={{ "--workspace-drop-top": `${orderedPanels.length * 26 + 2}px` } as CSSProperties}
              onDragEnter={onTreeDragEnter}
              onDragOver={onTreeDragOver}
              onDrop={onTreeDrop}
