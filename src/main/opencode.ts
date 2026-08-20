@@ -1791,9 +1791,11 @@ export class OpenShellBackend {
       const context = this.contextFor(workspace);
       const watchContext = context.watchContext;
       if (!this.currentWatch(watchContext)) throw new Error("stale workspace");
-      watchContext.importing = (watchContext.importing ?? 0) + 1;
       const cleanDest = relativePath(destDir, true);
       const destAbs = await confinedPath(root, cleanDest, true);
+      const restartWatcher = context.watcher !== null;
+      if (restartWatcher) this.stopWatcher(context);
+      watchContext.importing = (watchContext.importing ?? 0) + 1;
       try {
         await fsp.mkdir(destAbs, { recursive: true });
         await confinedPath(root, cleanDest, true);
@@ -1845,6 +1847,7 @@ export class OpenShellBackend {
         }
         watchContext.importing = Math.max(0, (watchContext.importing ?? 1) - 1);
         (watchContext.suppressedUntil ??= new Map()).set(destAbs, Date.now() + 10_000);
+        if (restartWatcher && this.currentWatch(watchContext)) this.startWatcher(context);
       }
     });
   }
