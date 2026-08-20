@@ -92,6 +92,13 @@ describe("provider usage from opencode store", () => {
     expect(entries["github-copilot"]?.access).toBe("c");
   });
 
+  it("maps the current OpenAI OAuth credential from the credential table", async () => {
+    mockDbRows([], [{ integration_id: "openai", value: JSON.stringify({ type: "oauth", access: "a", refresh: "r", expires: 0 }), active: 1 }]);
+
+    const entries = await readOAuthEntries();
+    expect(entries.openai).toEqual({ type: "oauth", access: "a", refresh: "r", expires: 0 });
+  });
+
   it("returns no provider usage when opencode.db has no credentials", async () => {
     mockDbRows([], []);
     const results = await fetchProviderUsage();

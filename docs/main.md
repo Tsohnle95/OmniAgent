@@ -89,7 +89,7 @@ provider plan/rate-limit API yet, so OpenShell reads the credentials
 opencode persists — OAuth entries from `~/.local/share/opencode/auth.json`
 (plus the desktop-app location) and JSON-encoded credentials from the
 `account` / `credential` tables of `opencode.db` (V2 rows carry
-`active = NULL`; API-key values are `{"type":"key","key":...}`) — and
+`active = NULL`; OAuth and API-key values use typed JSON credentials) — and
 calls each provider's usage endpoint directly — ChatGPT's
 `/backend-api/wham/usage` (weekly/monthly windows, spend control, plan
 type), Anthropic's `/api/oauth/usage` (5h + weekly utilization), GitHub

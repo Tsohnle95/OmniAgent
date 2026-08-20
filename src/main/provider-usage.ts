@@ -118,6 +118,12 @@ function providerKeyForAccountUrl(url: string | undefined): string | null {
   return null;
 }
 
+function providerKeyForCredentialId(id: string): string | null {
+  if (id === "openai") return "openai";
+  if (id === "opencode-go") return "opencode-go";
+  return null;
+}
+
 export function entriesFromDbRows(accounts: DbAccountRow[], credentials: DbCredentialRow[]): Record<string, OAuthEntry> {
   const out: Record<string, OAuthEntry> = {};
   for (const row of accounts) {
@@ -133,12 +139,13 @@ export function entriesFromDbRows(accounts: DbAccountRow[], credentials: DbCrede
     };
   }
   for (const row of credentials) {
-    if (String(row.integration_id ?? "") !== "opencode-go") continue;
+    const key = providerKeyForCredentialId(String(row.integration_id ?? ""));
+    if (!key) continue;
     const raw = row.value != null ? String(row.value) : undefined;
     if (!raw) continue;
     const parsed = parseCredentialValue(raw) ?? { access: raw };
     if (!parsed.access) continue;
-    out["opencode-go"] = { type: "oauth", access: parsed.access, refresh: parsed.refresh, expires: parsed.expires };
+    out[key] = { type: "oauth", access: parsed.access, refresh: parsed.refresh, expires: parsed.expires };
   }
   return out;
 }
