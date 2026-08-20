@@ -247,7 +247,7 @@ function TreeNameInput({
 }
 
 function ExplorerMenu(): ReactNode {
-  const { ctxMenu, closeCtxMenu, startCreate, startRename, deleteEntry, removeFromWorkspace } = useStore();
+  const { ctxMenu, closeCtxMenu, startCreate, startRename, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, hiddenPaths } = useStore();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -288,6 +288,11 @@ function ExplorerMenu(): ReactNode {
         <FolderPlusIcon />
         New Folder…
       </button>
+      {!target && (hiddenPaths?.size ?? 0) > 0 && (
+        <button className="ctx-item" onClick={restoreRemovedFromWorkspace}>
+          Restore Removed Items
+        </button>
+      )}
       {target && (
         <>
           <div className="ctx-sep" />
@@ -666,6 +671,11 @@ export function FileSidebar({
               onClick={() => void toggleDir("")}
               onDragOver={(e) => drag.onDirDragOver(e, "")}
               onDrop={(e) => drag.onDirDrop(e, "")}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openCtxMenu(e.clientX, e.clientY, null);
+              }}
               onDragLeave={(e) => {
                 if (drag.isExternalDrop(e)) setDropDir(null);
               }}

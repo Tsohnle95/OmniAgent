@@ -221,6 +221,7 @@ interface Store {
   commitName: (name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
   removeFromWorkspace: (path: string) => void;
+  restoreRemovedFromWorkspace: () => void;
   moveEntry: (path: string, destDir: string) => Promise<void>;
   openRecovery: (id: string) => Promise<void>;
   acknowledgeRecovery: (id: string) => Promise<void>;
@@ -1377,6 +1378,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       next.add(path);
       return { ...current, [target.id]: next };
     });
+  }, []);
+
+  const restoreRemovedFromWorkspace = useCallback(() => {
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    setCtxMenu(null);
+    setHiddenPathsByWorkspace((current) => ({ ...current, [target.id]: new Set() }));
   }, []);
 
   const startCreate = useCallback((parent: string, kind: "file" | "dir") => {
@@ -2635,6 +2643,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       commitName,
       deleteEntry,
       removeFromWorkspace,
+      restoreRemovedFromWorkspace,
       moveEntry,
       openRecovery,
       acknowledgeRecovery
@@ -2646,7 +2655,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
-      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
+      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
       removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage
     ]
   );
