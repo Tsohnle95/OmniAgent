@@ -166,6 +166,31 @@ describe("Layout panel sizing", () => {
     expect(agentWidths()[0]).toBeCloseTo(900 - 280 - 2, 0);
   });
 
+  it("keeps a left-expanded agent panel covering the editor when the window widens", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    await act(async () => {
+      const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 0 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentLefts()[0]).toBe(0);
+    expect(agentWidths()[0]).toBeCloseTo(1199, 0);
+
+    await act(async () => {
+      setWidth(1800);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(agentLefts()[0]).toBe(0);
+    expect(agentWidths()[0]).toBeCloseTo(1519, 0);
+    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
+  });
+
   it("closing the file explorer never inflates the anchored agent", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));

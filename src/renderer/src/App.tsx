@@ -172,6 +172,7 @@ interface PanelSlot {
   open: boolean;
   width: number;
   left: number;
+  leftAnchored?: boolean;
   top: number;
   height: number;
 }
@@ -274,7 +275,7 @@ function PanelColumn({
     open,
     collapse,
     slot.left,
-    (left) => onSlot((current) => ({ ...current, left })),
+    (left) => onSlot((current) => ({ ...current, left, leftAnchored: true })),
     settle
   );
   const slideBy = (delta: number): void => {
@@ -408,6 +409,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           top: stored.top,
           height: stored.height
         };
+      }
+      if (open && stored?.left === 0 && stored.leftAnchored) {
+        return { open: true, width: areaW > width + 1 ? areaW : width, left: 0, top: 0, height: 100 };
       }
       return { open, width, left: Math.max(0, areaW - width), top: 0, height: 100 };
     }
@@ -566,6 +570,20 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     setSideOpen(open);
   };
 
+  useEffect(() => {
+    setSlots((current) => {
+      let changed = false;
+      const next = Object.fromEntries(
+        Object.entries(current).map(([id, slot]) => {
+          if (!slot.leftAnchored) return [id, slot];
+          changed = true;
+          return [id, { ...slot, leftAnchored: false }];
+        })
+      );
+      return changed ? next : current;
+    });
+  }, [sideOpen, sideW]);
+
   const distributeEvenly = useCallback((sideShownAt: number, singleRestore: boolean): void => {
     setSlots((current) => {
       const anchorId = panels[0]?.workspace.id ?? null;
@@ -596,6 +614,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           open: true,
           width,
           left: grid ? (index % columns) * Math.floor(total / columns) : Math.max(0, boundary),
+          leftAnchored: false,
           top: grid ? Math.floor(index / columns) * (100 / rows) : 0,
           height: grid ? 100 / rows : 100
         };
@@ -606,6 +625,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           open: true,
           width: anchorW,
           left: grid ? (anchorIndex % columns) * Math.floor(total / columns) : Math.max(0, area - anchorW),
+          leftAnchored: false,
           top: grid ? Math.floor(anchorIndex / columns) * (100 / rows) : 0,
           height: grid ? 100 / rows : 100
         };
@@ -733,7 +753,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           className="workspace-area"
           style={
             {
-              "--editor-right": `${inAgentMode ? 0 : Math.max(0, areaW - (ordered.length > 0 ? slotFor(ordered[0]).left : areaW))}px`
+              "--editor-right": `${inAgentMode || (ordered.length > 0 && slotFor(ordered[0]).left === 0) ? 0 : Math.max(0, areaW - (ordered.length > 0 ? slotFor(ordered[0]).left : areaW))}px`
             } as CSSProperties
           }
         >
