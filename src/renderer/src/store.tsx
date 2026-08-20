@@ -1568,9 +1568,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     async (paths: string[]): Promise<void> => {
       if (paths.length === 0) return;
       await importPaths("", paths);
-      await ensureRootOpen();
     },
-    [ensureRootOpen, importPaths]
+    [importPaths]
   );
   const attachFileWorkspace = useCallback(
     async (result: OpenFileWorkspaceResult, activation: number): Promise<SessionInfo | null> => {
