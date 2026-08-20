@@ -66,7 +66,8 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
         type="button"
         className="tree-row-action"
         title="More actions…"
-        onPointerDown={(e) => {
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
           menu(e);
