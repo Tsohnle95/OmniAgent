@@ -1283,6 +1283,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         const refreshed = await window.openshell.sessionTranscript(panel.id);
         if (panelFor(target)) {
           const completed = [...refreshed.transcript].reverse().some((item) => item.kind === "assistant" && item.completed);
+          let merged: TranscriptItem[] | null = null;
           updateSessionTranscript(panel.id, (current) => {
             const remoteUsers = new Map<string, number>();
             for (const item of refreshed.transcript) {
@@ -1295,8 +1296,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
               remoteUsers.set(item.text, count - 1);
               return false;
             });
-            return mergeChatHistory(refreshed.transcript, local);
+            merged = mergeChatHistory(refreshed.transcript, local);
+            return merged;
           });
+          if (merged) {
+            chatStatesRef.current.delete(panel.id);
+            hydrateChatState(chatStateFor(panel.id), panel.id, merged);
+            reconcileStreaming(panel.id);
+          }
           if (completed) setSessionBusy(panel.id, false);
         }
       } catch (err) {

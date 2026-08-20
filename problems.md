@@ -37,6 +37,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 24. Current iteration: external drops directly on a collapsed workspace root were routed to import instead of the same workspace-opening path as background drops.
 25. Current iteration: the prompt transcript fallback could receive a completed answer while the renderer still showed the session as busy; completed fallback transcripts now clear that stale busy state.
 26. Current iteration: SSE heartbeat expiry was nulling the shared OpenCode HTTP client, causing prompt transcript refreshes to fail until the event stream reconnected. Event-stream reconnects must not invalidate the HTTP client.
+27. Current iteration: completed transcript fallback data could still leave `streamingStore` marking the assistant as active, so the timeline continued showing Thinking; canonical fallback hydration now reconciles streaming state.
 
 ## Constraints
 
