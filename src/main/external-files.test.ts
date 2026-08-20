@@ -152,10 +152,15 @@ describe("importExternal", () => {
     await mkdir(path.join(outside, "pkg"));
     await writeFile(path.join(outside, "pkg", "a.ts"), "aa");
     await writeFile(path.join(outside, "pkg", "b.ts"), "bb");
+    await writeFile(path.join(outside, "pkg", "empty.ts"), "");
     const results = await backend.importExternal(workspace, "vendor", [path.join(outside, "pkg")]);
     expect(results).toEqual([{ name: "pkg", rel: "vendor/pkg", imported: true }]);
     expect(await readFile(path.join(root, "vendor/pkg/a.ts"), "utf8")).toBe("aa");
     expect(await readFile(path.join(root, "vendor/pkg/b.ts"), "utf8")).toBe("bb");
+    const state = backend as unknown as { contexts: Map<string, SessionContext> };
+    const watchContext = state.contexts.get(workspace.id)!.watchContext;
+    expect(watchContext.snapshots.get(path.join(root, "vendor/pkg/empty.ts"))).toEqual({ kind: "known", content: "" });
+    expect(watchContext.lastKnown.get(path.join(root, "vendor/pkg/empty.ts"))).toBe("");
   });
 
   it("refuses destinations that already exist and in-workspace sources", async () => {

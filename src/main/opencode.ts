@@ -1807,7 +1807,7 @@ export class OpenShellBackend {
           const copied = await this.copyExternal(real, target, stat.isDirectory());
           for (const abs of copied) {
             const content = await fsp.readFile(abs, "utf8").catch(() => null);
-            if (content === null || content.length === 0) continue;
+            if (content === null) continue;
             watchContext.snapshots.set(abs, knownBaseline(content));
             watchContext.lastKnown.set(abs, content);
           }
