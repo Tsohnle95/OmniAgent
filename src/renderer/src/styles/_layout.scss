@@ -150,6 +150,10 @@
 }
 
 .agent-sliver {
+  background-color: var(--sidebar-surface-color);
+  background-image: var(--sidebar-surface-image);
+  background-size: var(--sidebar-surface-size);
+  background-repeat: var(--sidebar-surface-repeat);
   display: flex;
   flex-direction: column;
   align-items: center;

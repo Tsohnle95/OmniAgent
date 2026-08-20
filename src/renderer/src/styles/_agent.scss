@@ -1,6 +1,9 @@
 .agent-panel {
   position: relative;
-  background: var(--bg-panel);
+  background-color: var(--sidebar-surface-color);
+  background-image: var(--sidebar-surface-image);
+  background-size: var(--sidebar-surface-size);
+  background-repeat: var(--sidebar-surface-repeat);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -16,7 +19,7 @@
   min-width: 0;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  background: transparent;
 }
 
 .agent-dot {
@@ -489,7 +492,10 @@
 .usage-credits-value { color: var(--text); font-weight: 600; }
 
 .agent-tray {
-  background: transparent;
+  background-color: var(--sidebar-surface-color);
+  background-image: var(--sidebar-surface-image);
+  background-size: var(--sidebar-surface-size);
+  background-repeat: var(--sidebar-surface-repeat);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -541,7 +547,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--bg-panel);
+  background: transparent;
 }
 
 .agent-busy-line {

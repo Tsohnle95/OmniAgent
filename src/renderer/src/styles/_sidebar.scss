@@ -1,6 +1,8 @@
 .sidebar {
-  // background: var(--bg-panel);
-  background-color:  #131314;
+  background-color: var(--sidebar-surface-color);
+  background-image: var(--sidebar-surface-image);
+  background-size: var(--sidebar-surface-size);
+  background-repeat: var(--sidebar-surface-repeat);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -50,7 +52,10 @@
 }
 
 .sidebar.collapsed {
-  background: transparent;
+  background-color: var(--sidebar-surface-color);
+  background-image: var(--sidebar-surface-image);
+  background-size: var(--sidebar-surface-size);
+  background-repeat: var(--sidebar-surface-repeat);
   align-items: center;
   padding-top: 8px;
   gap: 4px;

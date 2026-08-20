@@ -24,13 +24,16 @@
   --font-weight-regular: 440;
   --font-weight-medium: 530;
   --line-height-large: 20px;
-  background: var(--v2-background-bg-base);
+  background-color: var(--sidebar-surface-color);
+  background-image: var(--sidebar-surface-image);
+  background-size: var(--sidebar-surface-size);
+  background-repeat: var(--sidebar-surface-repeat);
 }
 
 .agent-panel .agent-scroll {
   padding: 12px 0 24px;
   gap: 0;
-  background: var(--v2-background-bg-base);
+  background: transparent;
 }
 
 .agent-panel .agent-empty {

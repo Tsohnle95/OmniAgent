@@ -4,6 +4,10 @@
   --bg-elev: #17181d;
   --bg-hover: #1c1e24;
   --bg-active: #232630;
+  --sidebar-surface-color: #131314;
+  --sidebar-surface-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url("https://t3.chat/images/noise.png"), radial-gradient(closest-corner at 120px 36px, rgba(255, 1, 111, 0.19), rgba(255, 1, 111, 0.08)), linear-gradient(rgba(63, 51, 69, 0.4) 15%, rgba(7, 3, 9, 0.4));
+  --sidebar-surface-size: auto, 96px 96px, auto, auto;
+  --sidebar-surface-repeat: no-repeat, repeat, no-repeat, no-repeat;
 
   --text: #e8eaef;
   --text-dim: #9aa1ad;
