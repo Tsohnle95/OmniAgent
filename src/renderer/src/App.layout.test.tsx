@@ -191,7 +191,7 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
-  it("restores a left-expanded panel against the open explorer after its compact tray is reopened", async () => {
+  it("keeps a left-expanded panel against either explorer tray", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
@@ -204,7 +204,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentLefts()[0]).toBe(236);
+    expect(agentLefts()[0]).toBe(0);
     expect(agentWidths()[0]).toBeCloseTo(1199, 0);
 
     await act(async () => {
@@ -218,7 +218,7 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
-  it("closing the file explorer never inflates the anchored agent", async () => {
+  it("keeps the anchored agent against the compact explorer tray", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
@@ -239,7 +239,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(agentWidths()[0]).toBeCloseTo(1199, 0);
-    expect(agentLefts()[0]).toBeCloseTo(236, 0);
+    expect(agentLefts()[0]).toBeCloseTo(0, 0);
   });
 
   it("insets the editor area to the free space left of the agent panels", async () => {
