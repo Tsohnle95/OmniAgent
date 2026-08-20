@@ -78,7 +78,7 @@ describe("store workspace continuations", () => {
     vi.restoreAllMocks();
   });
 
-  it("persists removed paths by workspace directory across provider reloads", async () => {
+  it("keeps removed paths session-only so reloads enumerate the workspace again", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     window.openshell = api();
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
@@ -96,7 +96,7 @@ describe("store workspace continuations", () => {
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
 
-    expect(store.hiddenPaths).toEqual(new Set(["folder"]));
+    expect(store.hiddenPaths).toEqual(new Set());
   });
 
   it("silently unhides an exact existing path when it is dropped back", async () => {

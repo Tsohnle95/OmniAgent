@@ -376,34 +376,6 @@ const EMPTY_TABS: Tab[] = [];
 const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
 const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
-const HIDDEN_PATHS_STORAGE_KEY = "openshell.hidden-paths.v2";
-
-function readPersistedHiddenPaths(directory: string): Set<string> {
-  try {
-    const raw = window.localStorage.getItem(HIDDEN_PATHS_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return new Set();
-    const paths = (parsed as Record<string, unknown>)[directory];
-    return new Set(Array.isArray(paths) ? paths.filter((path): path is string => typeof path === "string") : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writePersistedHiddenPaths(directory: string, paths: Set<string>): void {
-  try {
-    const raw = window.localStorage.getItem(HIDDEN_PATHS_STORAGE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : {};
-    const records = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
-    if (paths.size === 0) delete records[directory];
-    else records[directory] = [...paths];
-    window.localStorage.setItem(HIDDEN_PATHS_STORAGE_KEY, JSON.stringify(records));
-  } catch {
-    return;
-  }
-}
-
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
@@ -468,8 +440,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
 
   useEffect(() => {
     if (!session) return;
-    const paths = readPersistedHiddenPaths(session.directory);
-    setHiddenPathsByWorkspace((current) => ({ ...current, [session.workspace.id]: paths }));
+    setHiddenPathsByWorkspace((current) => ({ ...current, [session.workspace.id]: new Set() }));
   }, [session?.directory, session?.workspace.id]);
   const busy = session ? Boolean(busyBySession[session.id]) : false;
   const todos = session ? (todosByWorkspace[session.workspace.id] ?? []) : [];
@@ -1429,12 +1400,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     const confirmed = window.confirm(`Remove "${path}" from OpenShell? The item will remain on disk.`);
     if (!confirmed) return;
     closeCtxMenu();
-    const directory = sessionRef.current?.directory;
-    if (directory) {
-      const paths = readPersistedHiddenPaths(directory);
-      paths.add(path);
-      writePersistedHiddenPaths(directory, paths);
-    }
     setHiddenPathsByWorkspace((current) => {
       const next = new Set(current[target.id] ?? []);
       next.add(path);
@@ -1464,9 +1429,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const unhidePath = useCallback((path: string): void => {
     const target = sessionRef.current;
     if (!target || !hiddenPathsByWorkspace[target.workspace.id]?.has(path)) return;
-    const paths = readPersistedHiddenPaths(target.directory);
-    paths.delete(path);
-    writePersistedHiddenPaths(target.directory, paths);
     setHiddenPathsByWorkspace((current) => {
       const next = new Set(current[target.workspace.id] ?? []);
       next.delete(path);
