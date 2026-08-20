@@ -43,7 +43,8 @@ const store: Record<string, unknown> = {
   moveEntry: vi.fn(),
   singleFile: null,
   openExternalPath: vi.fn(),
-  importPaths: vi.fn()
+  importPaths: vi.fn(),
+  dropIntoExplorer: vi.fn()
 };
 
 vi.mock("../store", () => ({ useStore: () => store }));
@@ -78,6 +79,7 @@ describe("FileSidebar single-file mode and external drops", () => {
     store.singleFile = null;
     store.openExternalPath = vi.fn();
     store.importPaths = vi.fn();
+    store.dropIntoExplorer = vi.fn();
     store.ensureRootOpen = vi.fn();
     container = document.createElement("div");
     document.body.append(container);
@@ -109,7 +111,7 @@ describe("FileSidebar single-file mode and external drops", () => {
       tree.dispatchEvent(dropEvent(["/outside/notes.txt"]));
     });
 
-    expect(store.openExternalPath).toHaveBeenCalledWith("/outside/notes.txt");
+    expect(store.dropIntoExplorer).toHaveBeenCalledWith(["/outside/notes.txt"]);
     expect(store.importPaths).not.toHaveBeenCalled();
   });
 

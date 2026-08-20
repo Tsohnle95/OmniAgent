@@ -1,8 +1,9 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   AgentOption,
   BackendMessage,
   CommandOption,
+  ExternalKind,
   ExternalOpenResult,
   FileWriteIdentity,
   ImportResult,
@@ -37,6 +38,9 @@ const api = {
     ipcRenderer.invoke("shell:open-file", file, generation),
   openExternal: (workspace: WorkspaceIdentity, file: string): Promise<ExternalOpenResult> =>
     ipcRenderer.invoke("shell:open-external", workspace, file),
+  externalKind: (file: string): Promise<ExternalKind> =>
+    ipcRenderer.invoke("shell:stat-external", file),
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   writeStandalone: (file: string, content: string, expectedContent: string, overwrite: boolean): Promise<void> =>
     ipcRenderer.invoke("shell:fs-write-standalone", file, content, expectedContent, overwrite),
   importExternal: (workspace: WorkspaceIdentity, destDir: string, sources: string[]): Promise<ImportResult[]> =>

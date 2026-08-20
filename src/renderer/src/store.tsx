@@ -178,6 +178,7 @@ interface Store {
   openFileWorkspace: (file: string) => Promise<SessionInfo | null>;
   openExternalPath: (absolutePath: string, workspace?: WorkspaceIdentity) => Promise<void>;
   importPaths: (destDir: string, sources: string[]) => Promise<void>;
+  dropIntoExplorer: (paths: string[]) => Promise<void>;
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
   changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<void>;
@@ -1548,6 +1549,26 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     },
     [toast, panelFor, refreshTree]
   );
+  const dropIntoExplorer = useCallback(
+    async (paths: string[]): Promise<void> => {
+      const target = sessionRef.current?.workspace;
+      if (!target || paths.length === 0) return;
+      const files: string[] = [];
+      const directories: string[] = [];
+      for (const path of paths) {
+        try {
+          const kind = await window.openshell.externalKind(path);
+          if (kind.kind === "directory") directories.push(path);
+          else if (kind.kind === "file") files.push(path);
+        } catch {
+          /* unreadable path: skip */
+        }
+      }
+      for (const file of files) void openExternalPath(file, target);
+      if (directories.length > 0) void importPaths("", directories);
+    },
+    [openExternalPath, importPaths]
+  );
   const attachFileWorkspace = useCallback(
     async (result: OpenFileWorkspaceResult, activation: number): Promise<SessionInfo | null> => {
       if (activation !== activationSeqRef.current) {
@@ -2567,6 +2588,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       openFileWorkspace,
       openExternalPath,
       importPaths,
+      dropIntoExplorer,
       selectPanelDirectory,
       changePanelDirectory,
       reopenSession,
@@ -2614,7 +2636,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [
       session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, toasts, recoveryRecords,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
-      focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
+      focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,

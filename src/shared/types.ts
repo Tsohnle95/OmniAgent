@@ -32,6 +32,10 @@ export type ExternalOpenResult =
   | { kind: "relative"; rel: string; content: string | null }
   | { kind: "standalone"; path: string; content: string | null };
 
+export interface ExternalKind {
+  kind: "file" | "directory" | "missing";
+}
+
 export interface OpenFileWorkspaceResult {
   session: SessionInfo;
   path: string;

@@ -629,6 +629,10 @@ function registerIpc(): void {
     return backend.resolveExternalOpen(workspace, absoluteFilePath(file));
   });
 
+  handleTrusted("shell:stat-external", async (_e, file: string) =>
+    backend.statExternal(absoluteFilePath(file))
+  );
+
   handleTrusted("shell:fs-write-standalone", async (
     _e,
     file: string,

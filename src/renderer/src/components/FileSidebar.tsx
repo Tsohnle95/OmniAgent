@@ -338,8 +338,8 @@ export function FileSidebar({
     moveEntry,
     startCreate,
     singleFile,
-    openExternalPath,
-    importPaths
+    importPaths,
+    dropIntoExplorer
   } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -442,7 +442,7 @@ export function FileSidebar({
     setDragPath(null);
     setDropDir(null);
     if (external.length > 0) {
-      for (const file of external) void openExternalPath(file);
+      void dropIntoExplorer(external);
       return;
     }
     const source = dragPath;

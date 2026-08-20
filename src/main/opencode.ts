@@ -13,6 +13,7 @@ import type {
   AssistantPartView,
   AgentOption,
   CommandOption,
+  ExternalKind,
   ExternalOpenResult,
   FileWriteIdentity,
   FileBaseline,
@@ -1701,6 +1702,17 @@ export class OpenShellBackend {
     return inside
       ? { kind: "relative", rel: rel.split(path.sep).join("/"), content }
       : { kind: "standalone", path: abs, content };
+  }
+
+  async statExternal(value: string): Promise<ExternalKind> {
+    const abs = absoluteFilePath(value);
+    const real = await fsp.realpath(abs).catch(() => null);
+    if (!real) return { kind: "missing" };
+    const stat = await fsp.stat(real).catch(() => null);
+    if (!stat) return { kind: "missing" };
+    if (stat.isDirectory()) return { kind: "directory" };
+    if (stat.isFile()) return { kind: "file" };
+    return { kind: "missing" };
   }
 
   async writeStandaloneFile(

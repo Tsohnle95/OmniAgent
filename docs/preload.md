@@ -33,6 +33,8 @@ automatically.
 | `listDir(workspace, rel)` | `Promise<TreeEntry[]>` |
 | `readFile(workspace, rel)` | `Promise<string \| null>` — workspace-relative only |
 | `openExternal(workspace, file)` | `Promise<ExternalOpenResult>` — resolves an absolute path against the workspace: `{kind:"relative", rel, content}` when the file lives under the workspace root (open it normally) or `{kind:"standalone", path, content}` when outside it (open as a standalone tab) |
+| `externalKind(file)` | `Promise<ExternalKind>` — probes an absolute path as `file`/`directory`/`missing` so explorer drops can route files to standalone tabs and folders to imports |
+| `getPathForFile(file)` | `string` — synchronous (not an invoke): `webUtils.getPathForFile` is the Electron 32+ replacement for the removed `File.path`, exposed so renderer drop handlers can recover absolute paths from dropped OS files |
 | `writeStandalone(file, content, expectedContent, overwrite)` | `Promise<void>` — atomic standalone-file write (conflict-checked unless `overwrite`) for external tabs outside the workspace root |
 | `importExternal(workspace, destDir, sources)` | `Promise<ImportResult[]>` — copies external files/folders into the workspace at `destDir`, seeding clean baselines so imports never show as changes |
 | `readSourceFile(absolutePath)` | `Promise<string \| null>` — privileged app-source read used only by DevTools source navigation |

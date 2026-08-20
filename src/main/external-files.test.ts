@@ -195,3 +195,14 @@ describe("openFileWorkspace", () => {
     expect(result.path).toBe("index.html");
   });
 });
+
+describe("statExternal", () => {
+  it("classifies files, directories, and missing paths", async () => {
+    const { backend, root } = await fixture();
+    await writeFile(path.join(root, "f.txt"), "x");
+    await mkdir(path.join(root, "d"));
+    expect((await backend.statExternal(path.join(root, "f.txt"))).kind).toBe("file");
+    expect((await backend.statExternal(path.join(root, "d"))).kind).toBe("directory");
+    expect((await backend.statExternal(path.join(root, "missing"))).kind).toBe("missing");
+  });
+});
