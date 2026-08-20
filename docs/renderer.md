@@ -324,7 +324,10 @@ released at that collapsed position.
 ## Monaco (`monaco.ts`)
 
 - Workers wired for editor/json/css/html/ts (`?worker` imports).
-- `openshell-dark` theme (diff insert/remove colors included).
+- `openshell-dark` theme (diff insert/remove colors included). Monaco
+  parses theme palette colors with `Color.fromHex`, which silently maps any
+  non-hex value to pure red — every palette color must be hex
+  (`#RRGGBB` or `#RRGGBBAA`), never `rgba()`.
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
 - CSS and HTML worker diagnostics are disabled so editor markers come only from
@@ -332,10 +335,12 @@ released at that collapsed position.
 
 ## W3C editor validation
 
-- `EditorPane` validates open HTML, CSS, SCSS, and LESS files after a 400 ms
-  debounce while in Edit mode.
+- `EditorPane` validates open HTML and CSS files after a 400 ms
+  debounce while in Edit mode. Preprocessor stylesheets (SCSS, LESS, Sass)
+  are not validated — the W3C CSS Validator cannot parse them and would
+  flag valid syntax as errors.
 - The main process calls the Nu Html Checker for HTML and the W3C CSS Validator
-  for stylesheets, then returns diagnostics that become Monaco markers.
+  for CSS, then returns diagnostics that become Monaco markers.
 - Network failures leave the editor unchanged; Vue and Svelte files are not
   sent to the validators.
 

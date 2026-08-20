@@ -61,8 +61,8 @@ async function request(url: string, init?: RequestInit): Promise<Response> {
 
 export async function validateWithW3c(path: string, content: string): Promise<W3cDiagnostic[]> {
   const lower = path.toLowerCase();
-  if (Buffer.byteLength(content, "utf8") > (lower.endsWith(".html") || lower.endsWith(".htm") ? MAX_HTML_BYTES : MAX_CSS_BYTES)) return [];
   if (lower.endsWith(".html") || lower.endsWith(".htm")) {
+    if (Buffer.byteLength(content, "utf8") > MAX_HTML_BYTES) return [];
     const response = await request(HTML_VALIDATOR_URL, {
       method: "POST",
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -71,6 +71,8 @@ export async function validateWithW3c(path: string, content: string): Promise<W3
     if (!response.ok) throw new Error(`W3C HTML validator returned ${response.status}`);
     return parseHtmlDiagnostics(await response.text());
   }
+  if (!lower.endsWith(".css")) return [];
+  if (Buffer.byteLength(content, "utf8") > MAX_CSS_BYTES) return [];
   const params = new URLSearchParams({ output: "gnu", profile: "css3", warning: "2", text: content });
   const response = await request(`${CSS_VALIDATOR_URL}?${params}`);
   if (!response.ok) throw new Error(`W3C CSS validator returned ${response.status}`);

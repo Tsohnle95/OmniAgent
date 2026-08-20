@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCssDiagnostics, parseHtmlDiagnostics } from "./w3c-validation";
+import { parseCssDiagnostics, parseHtmlDiagnostics, validateWithW3c } from "./w3c-validation";
 
 describe("W3C diagnostic parsing", () => {
   it("maps Nu checker messages to editor positions", () => {
@@ -19,5 +19,10 @@ describe("W3C diagnostic parsing", () => {
         { line: 4, column: 1, endLine: 4, endColumn: 2, message: ".foo:Parse Error", severity: "error", source: "w3c-css" },
         { line: 8, column: 1, endLine: 8, endColumn: 2, message: "A warning", severity: "warning", source: "w3c-css" }
       ]);
+  });
+
+  it("skips preprocessor sources without contacting the validators", async () => {
+    await expect(validateWithW3c("src/styles/_welcome.scss", ".a { .b { color: red; } }")).resolves.toEqual([]);
+    await expect(validateWithW3c("src/styles/main.less", "@x: 1;")).resolves.toEqual([]);
   });
 });

@@ -95,7 +95,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   }, [saveTab, tab.path]);
 
   const language = useMemo(() => languageForPath(tab.path), [tab.path]);
-  const w3cFile = useMemo(() => /\.(?:html?|css|scss|less)$/i.test(tab.path), [tab.path]);
+  const w3cFile = useMemo(() => /\.(?:html?|css)$/i.test(tab.path), [tab.path]);
   const diffAvailable = tab.baseline?.kind === "known";
   const diffUnknown = tab.baseline?.kind === "unknown";
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;

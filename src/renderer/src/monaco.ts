@@ -55,8 +55,8 @@ monaco.editor.defineTheme("openshell-dark", {
     "diffEditor.insertedLineBackground": "#11301f",
     "diffEditor.removedLineBackground": "#3a1b1d",
     "diffEditor.diagonalFill": "#17181d",
-    "scrollbarSlider.background": "rgba(255, 255, 255, 0.14)",
-    "scrollbarSlider.hoverBackground": "rgba(255, 255, 255, 0.24)",
+    "scrollbarSlider.background": "#ffffff24",
+    "scrollbarSlider.hoverBackground": "#ffffff3d",
     "minimap.background": "#17181d"
   }
 });
