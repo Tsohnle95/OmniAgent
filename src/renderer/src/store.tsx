@@ -1265,7 +1265,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           return;
         }
         setSessionBusy(panel.id, false);
-        await window.openshell.interrupt(target).catch(() => {});
+        void window.openshell.interrupt(target).catch(() => {});
       }
       const attachments: UserAttachment[] = files.map((file) => ({
         name: file.path.split(/[\\/]/).pop() ?? file.path
