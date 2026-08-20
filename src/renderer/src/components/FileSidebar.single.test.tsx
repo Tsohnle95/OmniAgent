@@ -150,4 +150,16 @@ describe("FileSidebar single-file mode and external drops", () => {
     expect(store.openWorkspacePanel).toHaveBeenCalledWith("/outside/advanced-web-concepts");
     expect(store.dropIntoExplorer).not.toHaveBeenCalled();
   });
+
+  it("opens an external folder dropped directly on the collapsed root", () => {
+    store.expanded = new Set(["alpha"]);
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const workspace = row(container, "workspace")!;
+    act(() => {
+      workspace.dispatchEvent(dropEvent(["/outside/advanced-web-concepts"]));
+    });
+
+    expect(store.openWorkspacePanel).toHaveBeenCalledWith("/outside/advanced-web-concepts");
+    expect(store.dropIntoExplorer).not.toHaveBeenCalled();
+  });
 });

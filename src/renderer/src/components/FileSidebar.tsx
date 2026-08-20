@@ -695,7 +695,7 @@ export function FileSidebar({
                   className={`tree-row dir workspace-root ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
                   onClick={() => void toggleDir("")}
                   onDragOver={(e) => drag.onDirDragOver(e, "")}
-                  onDrop={(e) => drag.onDirDrop(e, "")}
+                   onDrop={onTreeDrop}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

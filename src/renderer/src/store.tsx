@@ -1280,6 +1280,23 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       setTodosFor(panel.workspace.id, []);
       try {
         await window.openshell.prompt(target, promptText, files);
+        const refreshed = await window.openshell.sessionTranscript(panel.id);
+        if (panelFor(target)) {
+          updateSessionTranscript(panel.id, (current) => {
+            const remoteUsers = new Map<string, number>();
+            for (const item of refreshed.transcript) {
+              if (item.kind === "user") remoteUsers.set(item.text, (remoteUsers.get(item.text) ?? 0) + 1);
+            }
+            const local = current.filter((item) => {
+              if (item.kind !== "user" || !item.id.startsWith("user-")) return true;
+              const count = remoteUsers.get(item.text) ?? 0;
+              if (count === 0) return true;
+              remoteUsers.set(item.text, count - 1);
+              return false;
+            });
+            return mergeChatHistory(refreshed.transcript, local);
+          });
+        }
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
