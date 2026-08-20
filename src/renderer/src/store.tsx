@@ -1280,12 +1280,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       setTodosFor(panel.workspace.id, []);
       try {
         await window.openshell.prompt(target, promptText, files);
-        void hydrateTranscript(panel.id);
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast, panelFor, setTodosFor, updateSessionTranscript, setSessionBusy, commitQueue, hydrateTranscript]
+    [toast, panelFor, setTodosFor, updateSessionTranscript, setSessionBusy, commitQueue]
   );
 
   const runCommand = useCallback(async (name: string, args = "", workspace?: WorkspaceIdentity) => {
