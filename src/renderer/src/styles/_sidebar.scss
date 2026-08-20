@@ -125,11 +125,17 @@
   flex-shrink: 0;
 }
 
+.section-trigger.with-actions { position: relative; }
+
+.section-trigger.with-actions .section-toggle { padding-right: 64px; }
+
 .section-actions {
+  position: absolute;
+  right: 30px;
+  top: 4px;
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-left: 2px;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 100ms var(--ease);
@@ -138,6 +144,12 @@
 .section-trigger.with-actions:hover .section-actions,
 .section-trigger.with-actions:focus-within .section-actions {
   opacity: 1;
+}
+
+.sidebar-count.changes-count {
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .section-toggle {

@@ -600,7 +600,7 @@ export function FileSidebar({
           onClick={() => setChangesOpen((o) => !o)}
         >
           <span>CHANGES</span>
-          <span className="sidebar-count push">{changes.length}</span>
+          <span className="sidebar-count changes-count push">{changes.length}</span>
           <span className="section-chevron">
             <ChevronIcon open={changesOpen} />
           </span>
