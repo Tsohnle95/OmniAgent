@@ -52,7 +52,12 @@ const store = {
   toggleWordWrap: vi.fn()
 };
 
-vi.mock("../store", () => ({ useStore: () => store }));
+const ctxMenuApi = { ctxMenu: null, openCtxMenu: vi.fn(), closeCtxMenu: vi.fn() };
+
+vi.mock("../store", () => ({
+  useStore: () => store,
+  useCtxMenu: () => ctxMenuApi
+}));
 vi.mock("../emmet-keys", () => ({ wireEmmetKeys: vi.fn() }));
 vi.mock("@monaco-editor/react", () => ({
   default: () => <div data-testid="editor" />,

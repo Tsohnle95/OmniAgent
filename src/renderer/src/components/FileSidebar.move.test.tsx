@@ -40,15 +40,22 @@ const store = {
   pendingCreate: null,
   commitName: vi.fn(),
   cancelPending: vi.fn(),
-  ctxMenu: null,
-  closeCtxMenu: vi.fn(),
   startCreate: vi.fn(),
   startRename: vi.fn(),
   deleteEntry: vi.fn(),
   moveEntry: vi.fn()
 };
 
-vi.mock("../store", () => ({ useStore: () => store }));
+const ctxMenuApi = {
+  ctxMenu: null as { x: number; y: number; target: TreeEntry | null } | null,
+  openCtxMenu: vi.fn(),
+  closeCtxMenu: vi.fn()
+};
+
+vi.mock("../store", () => ({
+  useStore: () => store,
+  useCtxMenu: () => ctxMenuApi
+}));
 
 function dragEvent(type: string): Event {
   const event = new Event(type, { bubbles: true, cancelable: true });

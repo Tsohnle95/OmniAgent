@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useStore } from "../store";
+import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { ShellMark } from "./ShellMark";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
@@ -25,7 +25,8 @@ interface DragHandlers {
 }
 
 function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
-  const { startCreate, openCtxMenu } = useStore();
+  const { startCreate } = useStore();
+  const { openCtxMenu } = useCtxMenu();
   const parent =
     entry.type === "directory"
       ? entry.path
@@ -96,12 +97,12 @@ function DirNode({
     tree,
     toggleDir,
     agentFiles,
-    openCtxMenu,
     pendingRename,
     pendingCreate,
     commitName,
     cancelPending
   } = useStore();
+  const { openCtxMenu } = useCtxMenu();
   const isOpen = expanded.has(entry.path);
   const hasChanges = entry.path.split("/").some((_, i) => {
     const prefix = entry.path.split("/").slice(0, i + 1).join("/");
@@ -171,8 +172,9 @@ function FileNode({
   depth: number;
   drag: DragHandlers;
 }): ReactNode {
-  const { openFile, activePath, agentFiles, openCtxMenu, pendingRename, commitName, cancelPending } =
+  const { openFile, activePath, agentFiles, pendingRename, commitName, cancelPending } =
     useStore();
+  const { openCtxMenu } = useCtxMenu();
   const name = entry.path.split("/").pop() ?? entry.path;
   const changed = agentFiles.has(entry.path);
   const active = activePath === entry.path;
@@ -248,7 +250,8 @@ function TreeNameInput({
 }
 
 function ExplorerMenu(): ReactNode {
-  const { ctxMenu, closeCtxMenu, startCreate, startRename, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, hiddenPaths } = useStore();
+  const { startCreate, startRename, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, hiddenPaths } = useStore();
+  const { ctxMenu, closeCtxMenu } = useCtxMenu();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -358,7 +361,6 @@ export function FileSidebar({
     agentFiles,
     openFile,
     expanded,
-    openCtxMenu,
     pendingCreate,
     commitName,
     cancelPending,
@@ -369,6 +371,7 @@ export function FileSidebar({
     dropIntoExplorer,
     hiddenPaths = EMPTY_HIDDEN_PATHS
   } = useStore();
+  const { openCtxMenu } = useCtxMenu();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [changesH, changesDrag] = useChangesDrag(200);

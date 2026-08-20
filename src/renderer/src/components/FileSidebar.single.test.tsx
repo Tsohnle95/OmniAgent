@@ -47,7 +47,16 @@ const store: Record<string, unknown> = {
   dropIntoExplorer: vi.fn()
 };
 
-vi.mock("../store", () => ({ useStore: () => store }));
+const ctxMenuApi = {
+  ctxMenu: null,
+  openCtxMenu: vi.fn(),
+  closeCtxMenu: vi.fn()
+};
+
+vi.mock("../store", () => ({
+  useStore: () => store,
+  useCtxMenu: () => ctxMenuApi
+}));
 
 function dropEvent(files: string[]): Event {
   const event = new Event("drop", { bubbles: true, cancelable: true });

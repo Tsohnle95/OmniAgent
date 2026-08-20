@@ -13,12 +13,9 @@ const store = {
   openFile: vi.fn(),
   expanded: new Set([""]),
   hiddenPaths: new Set<string>(),
-  openCtxMenu: vi.fn(),
   pendingCreate: null,
   commitName: vi.fn(),
   cancelPending: vi.fn(),
-  ctxMenu: null,
-  closeCtxMenu: vi.fn(),
   startCreate: vi.fn(),
   startRename: vi.fn(),
   deleteEntry: vi.fn(),
@@ -26,7 +23,16 @@ const store = {
   restoreRemovedFromWorkspace: vi.fn()
 };
 
-vi.mock("../store", () => ({ useStore: () => store }));
+const ctxMenuApi = {
+  ctxMenu: null as { x: number; y: number; target: { path: string; type: "file" | "directory" } | null } | null,
+  openCtxMenu: vi.fn(),
+  closeCtxMenu: vi.fn()
+};
+
+vi.mock("../store", () => ({
+  useStore: () => store,
+  useCtxMenu: () => ctxMenuApi
+}));
 
 describe("FileSidebar context menu open/close", () => {
   let container: HTMLDivElement;
@@ -34,7 +40,7 @@ describe("FileSidebar context menu open/close", () => {
 
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    store.ctxMenu = null;
+    ctxMenuApi.ctxMenu = null;
     vi.clearAllMocks();
     container = document.createElement("div");
     document.body.append(container);
@@ -56,17 +62,17 @@ describe("FileSidebar context menu open/close", () => {
     act(() => {
       button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 50, clientY: 60 }));
     });
-    expect(store.openCtxMenu).toHaveBeenCalledTimes(1);
-    expect(store.openCtxMenu.mock.calls[0][2]).toEqual({ path: "dir", type: "directory" });
+    expect(ctxMenuApi.openCtxMenu).toHaveBeenCalledTimes(1);
+    expect(ctxMenuApi.openCtxMenu.mock.calls[0][2]).toEqual({ path: "dir", type: "directory" });
   });
 
   it("closes the menu when clicking outside", () => {
-    store.ctxMenu = { x: 50, y: 60, target: { path: "a.txt", type: "file" as const } };
+    ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "a.txt", type: "file" as const } };
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    expect(store.closeCtxMenu).not.toHaveBeenCalled();
+    expect(ctxMenuApi.closeCtxMenu).not.toHaveBeenCalled();
     act(() => {
       document.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     });
-    expect(store.closeCtxMenu).toHaveBeenCalledTimes(1);
+    expect(ctxMenuApi.closeCtxMenu).toHaveBeenCalledTimes(1);
   });
 });

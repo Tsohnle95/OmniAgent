@@ -16,14 +16,21 @@ const store = {
   pendingCreate: null,
   commitName: vi.fn(),
   cancelPending: vi.fn(),
-  ctxMenu: { x: 10, y: 10, target: { path: "folder", type: "directory" as const } },
-  closeCtxMenu: vi.fn(),
   startCreate: vi.fn(),
   startRename: vi.fn(),
   deleteEntry: vi.fn()
 };
 
-vi.mock("../store", () => ({ useStore: () => store }));
+const ctxMenuApi = {
+  ctxMenu: { x: 10, y: 10, target: { path: "folder", type: "directory" as const } },
+  openCtxMenu: vi.fn(),
+  closeCtxMenu: vi.fn()
+};
+
+vi.mock("../store", () => ({
+  useStore: () => store,
+  useCtxMenu: () => ctxMenuApi
+}));
 
 describe("FileSidebar rename actions", () => {
   let container: HTMLDivElement;

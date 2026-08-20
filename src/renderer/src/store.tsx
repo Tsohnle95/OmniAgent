@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  memo,
   useMemo,
   useRef,
   useState,
@@ -108,6 +109,20 @@ export interface CtxMenuState {
   target: TreeEntry | null;
 }
 
+export interface CtxMenuApi {
+  ctxMenu: CtxMenuState | null;
+  openCtxMenu: (x: number, y: number, target: TreeEntry | null) => void;
+  closeCtxMenu: () => void;
+}
+
+const CtxMenuContext = createContext<CtxMenuApi | null>(null);
+
+export function useCtxMenu(): CtxMenuApi {
+  const ctx = useContext(CtxMenuContext);
+  if (!ctx) throw new Error("useCtxMenu must be used within StoreProvider");
+  return ctx;
+}
+
 export interface PendingCreate {
   parent: string;
   kind: "file" | "dir";
@@ -210,11 +225,8 @@ interface Store {
   popQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => QueuedMessage | null;
   sendQueuedNow: (workspace: WorkspaceIdentity, messageID: string) => Promise<void>;
   reorderQueuedMessage: (workspace: WorkspaceIdentity, fromID: string, toID: string) => void;
-  ctxMenu: CtxMenuState | null;
   pendingCreate: PendingCreate | null;
   pendingRename: { path: string } | null;
-  openCtxMenu: (x: number, y: number, target: TreeEntry | null) => void;
-  closeCtxMenu: () => void;
   startCreate: (parent: string, kind: "file" | "dir") => void;
   startRename: (path: string) => void;
   cancelPending: () => void;
@@ -367,6 +379,24 @@ const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
 
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
+  const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
+    setCtxMenu({ x, y, target });
+  }, []);
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
+  const ctxMenuApi = useMemo<CtxMenuApi>(
+    () => ({ ctxMenu, openCtxMenu, closeCtxMenu }),
+    [ctxMenu, openCtxMenu, closeCtxMenu]
+  );
+  const body = useMemo(() => <StoreBody closeCtxMenu={closeCtxMenu}>{children}</StoreBody>, [children, closeCtxMenu]);
+  return (
+    <CtxMenuContext.Provider value={ctxMenuApi}>
+      {body}
+    </CtxMenuContext.Provider>
+  );
+}
+
+const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children: ReactNode; closeCtxMenu: () => void }): ReactNode {
   const [panels, setPanels] = useState<SessionInfo[]>([]);
   const [activeSessionID, setActiveSessionID] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -396,7 +426,6 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [usageBySession, setUsageBySession] = useState<Record<string, SessionUsage>>({});
   const [providerUsage, setProviderUsage] = useState<ProviderUsageResult[]>([]);
   const [providerUsageLoading, setProviderUsageLoading] = useState(false);
-  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
   const [streamingStore, setStreamingStore] = useState<StreamingStore>(() => emptyStreamingStore());
@@ -759,11 +788,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     focusSeqRef.current += 1;
     sessionRef.current = panel;
     setActiveSessionID(sessionID);
-    setCtxMenu(null);
+    closeCtxMenu();
     setPendingCreate(null);
     setPendingRename(null);
     if (!transcriptsBySessionRef.current[sessionID]) void hydrateTranscript(sessionID);
-  }, [hydrateTranscript]);
+  }, [hydrateTranscript, closeCtxMenu]);
 
   const closePanel = useCallback((sessionID: string): void => {
     const closing = panelsRef.current.find((panel) => panel.id === sessionID);
@@ -1362,34 +1391,28 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     );
   }, [panelFor, setTreeFor]);
 
-  const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
-    setCtxMenu({ x, y, target });
-  }, []);
-
-  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
-
   const removeFromWorkspace = useCallback((path: string) => {
     const target = sessionRef.current?.workspace;
     if (!target) return;
     const confirmed = window.confirm(`Remove "${path}" from OpenShell? The item will remain on disk.`);
     if (!confirmed) return;
-    setCtxMenu(null);
+    closeCtxMenu();
     setHiddenPathsByWorkspace((current) => {
       const next = new Set(current[target.id] ?? []);
       next.add(path);
       return { ...current, [target.id]: next };
     });
-  }, []);
+  }, [closeCtxMenu]);
 
   const restoreRemovedFromWorkspace = useCallback(() => {
     const target = sessionRef.current?.workspace;
     if (!target) return;
-    setCtxMenu(null);
+    closeCtxMenu();
     setHiddenPathsByWorkspace((current) => ({ ...current, [target.id]: new Set() }));
-  }, []);
+  }, [closeCtxMenu]);
 
   const startCreate = useCallback((parent: string, kind: "file" | "dir") => {
-    setCtxMenu(null);
+    closeCtxMenu();
     setPendingRename(null);
     setPendingCreate({ parent, kind });
     const target = sessionRef.current?.workspace;
@@ -1399,13 +1422,13 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     const next = new Set(current);
     next.add(parent);
     setExpandedFor(target.id, next);
-  }, [setExpandedFor]);
+  }, [setExpandedFor, closeCtxMenu]);
 
   const startRename = useCallback((path: string) => {
-    setCtxMenu(null);
+    closeCtxMenu();
     setPendingCreate(null);
     setPendingRename({ path });
-  }, []);
+  }, [closeCtxMenu]);
 
   const cancelPending = useCallback(() => {
     setPendingCreate(null);
@@ -1414,7 +1437,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
   const deleteEntry = useCallback(
     async (path: string) => {
-      setCtxMenu(null);
+      closeCtxMenu();
       const target = sessionRef.current?.workspace;
       if (!target) return;
       persistence.cancelPrefix(target, path);
@@ -1444,7 +1467,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
       void refreshTree(ancestorDirs(parent));
     },
-    [toast, refreshTree, persistence, panelFor, setTabsFor, setActivePathFor, activePathByWorkspace]
+    [toast, refreshTree, persistence, panelFor, setTabsFor, setActivePathFor, activePathByWorkspace, closeCtxMenu]
   );
 
   const openFile = useCallback(
@@ -2639,11 +2662,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       popQueuedMessage,
       sendQueuedNow,
       reorderQueuedMessage,
-      ctxMenu,
       pendingCreate,
       pendingRename,
-      openCtxMenu,
-      closeCtxMenu,
       startCreate,
       startRename,
       cancelPending,
@@ -2662,13 +2682,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
-      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
-      removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage
+      startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, restoreRemovedFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
+      removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage,
+      pendingCreate, pendingRename
     ]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
+});
 
 export function useStore(): Store {
   const ctx = useContext(Ctx);
