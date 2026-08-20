@@ -1461,6 +1461,20 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setPendingRename({ path });
   }, [closeCtxMenu]);
 
+  const restoreHiddenPath = useCallback((path: string): boolean => {
+    const target = sessionRef.current;
+    if (!target || !hiddenPathsByWorkspace[target.workspace.id]?.has(path)) return false;
+    const paths = readPersistedHiddenPaths(target.directory);
+    paths.delete(path);
+    writePersistedHiddenPaths(target.directory, paths);
+    setHiddenPathsByWorkspace((current) => {
+      const next = new Set(current[target.workspace.id] ?? []);
+      next.delete(path);
+      return { ...current, [target.workspace.id]: next };
+    });
+    return true;
+  }, [hiddenPathsByWorkspace]);
+
   const cancelPending = useCallback(() => {
     setPendingCreate(null);
     setPendingRename(null);
@@ -1618,8 +1632,15 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       try {
         const results = await window.openshell.importExternal(target, destDir, sources);
         if (!panelFor(target)) return;
-        for (const result of results) {
+        for (const [index, result] of results.entries()) {
           if (result.imported) toast(`Imported ${result.rel}`);
+          else if (
+            hiddenPathsByWorkspace[target.id]?.has(result.rel) &&
+            sources[index]?.replace(/[\\/]+$/, "").split(/[\\/]/).pop() === result.name &&
+            restoreHiddenPath(result.rel)
+          ) {
+            toast(`Restored ${result.rel}`);
+          }
           else toast(`Could not import ${result.name}: ${result.reason ?? "unknown"}`, "error");
         }
         void refreshTree([...ancestorDirs(destDir)]);
@@ -1627,7 +1648,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast, panelFor, refreshTree]
+    [toast, panelFor, refreshTree, hiddenPathsByWorkspace, restoreHiddenPath]
   );
   const dropIntoExplorer = useCallback(
     async (paths: string[]): Promise<void> => {
