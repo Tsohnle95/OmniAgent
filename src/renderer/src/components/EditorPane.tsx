@@ -20,7 +20,7 @@ const EDITOR_OPTIONS = {
   cursorBlinking: "smooth" as const,
   padding: { top: 10, bottom: 10 },
   renderWhitespace: "none" as const,
-  scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 }
+  scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 }
 };
 
 function TabBar(): ReactNode {
@@ -198,8 +198,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
             ignoreTrimWhitespace: false,
             enableSplitViewResizing: false,
             renderOverviewRuler: false,
-            overviewRulerBorder: false,
-            scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 }
+            overviewRulerBorder: false
           }}
         />
       ) : (
