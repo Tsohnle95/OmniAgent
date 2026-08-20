@@ -1597,17 +1597,16 @@ export class OpenShellBackend {
     if (!this.client) throw new Error("no active session");
     const root = this.workspaceRoot(workspace);
     const clean = relativePath(rel, true);
-    await confinedPath(root, clean, true);
+    const abs = await confinedPath(root, clean, true);
     this.contextFor(workspace);
-    const body = await this.client.file.list({
-      location: { directory: root },
-      path: clean
-    });
+    const entries = await fsp.readdir(abs, { withFileTypes: true });
     this.contextFor(workspace);
-    const arr = Array.isArray(body) ? body : (body as { data?: TreeEntry[] }).data ?? [];
-    return arr
-      .map((e) => ({ ...e, path: e.path.replace(/\/+$/, "") }))
-      .filter((e) => e.path !== RECOVERY_DIR && !e.path.startsWith(`${RECOVERY_DIR}/`));
+    return entries
+      .filter((e) => !(clean === "" && e.name === RECOVERY_DIR))
+      .map((e) => ({
+        path: clean ? `${clean}/${e.name}` : e.name,
+        type: e.isDirectory() ? "directory" : "file"
+      }));
   }
 
   async readFile(workspace: WorkspaceIdentity, rel: string): Promise<string | null> {

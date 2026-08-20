@@ -127,6 +127,24 @@ describe("FileSidebar drag-and-drop moves", () => {
     expect(row(container, "alpha")).toBeTruthy();
   });
 
+  it("creates a root file from the explorer header action", () => {
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const actions = container.querySelector<HTMLElement>(".section-actions")!;
+    expect(actions).toBeTruthy();
+    const buttons = actions.querySelectorAll<HTMLButtonElement>("button");
+    expect(buttons).toHaveLength(2);
+    act(() => buttons[0].click());
+    expect(store.startCreate).toHaveBeenCalledWith("", "file");
+  });
+
+  it("creates a root folder from the explorer header action", () => {
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const actions = container.querySelector<HTMLElement>(".section-actions")!;
+    const buttons = actions.querySelectorAll<HTMLButtonElement>("button");
+    act(() => buttons[1].click());
+    expect(store.startCreate).toHaveBeenCalledWith("", "dir");
+  });
+
   it("moves a file into a folder on drop", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
     const source = row(container, "note.txt");

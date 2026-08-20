@@ -1510,8 +1510,34 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
             ? window.openshell.createFile(target, targetPath)
             : window.openshell.createDir(target, targetPath));
           if (!panelFor(target)) return;
+          setTreeFor(target.id, (prev) => {
+            const current = prev[create.parent] ?? [];
+            if (current.some((e) => e.path === targetPath)) return prev;
+            const entry: TreeEntry = { path: targetPath, type: create.kind === "file" ? "file" : "directory" };
+            return { ...prev, [create.parent]: sortEntries(filterEntries([...current, entry])) };
+          });
+          if (create.kind === "file") {
+            if (!(tabsByWorkspaceRef.current[target.id] ?? []).some((t) => t.path === targetPath)) {
+              const name = targetPath.split("/").pop() ?? targetPath;
+              const tab: Tab = {
+                path: targetPath,
+                name,
+                content: "",
+                saved: "",
+                baseline: null,
+                deleted: false,
+                dirty: false,
+                stale: false,
+                revision: 0,
+                conflict: null,
+                mode: "edit",
+                binary: false
+              };
+              setTabsFor(target.id, (prev) => [...prev, tab]);
+              setActivePathFor(target.id, targetPath);
+            }
+          }
           void refreshTree(ancestorDirs(create.parent));
-          if (create.kind === "file") void openFile(targetPath, undefined, target);
         } else if (rename) {
           const parent = rename.path.includes("/")
             ? rename.path.slice(0, rename.path.lastIndexOf("/"))
@@ -1558,7 +1584,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         }
       }
     },
-    [toast, openFile, refreshTree, cancelPending, persistence, panelFor, setTabsFor, setActivePathFor, setAgentFilesFor, activePathByWorkspace]
+    [toast, refreshTree, cancelPending, persistence, panelFor, setTabsFor, setActivePathFor, setAgentFilesFor, setTreeFor, activePathByWorkspace]
   );
 
   const moveEntry = useCallback(

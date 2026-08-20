@@ -333,7 +333,8 @@ export function FileSidebar({
     pendingCreate,
     commitName,
     cancelPending,
-    moveEntry
+    moveEntry,
+    startCreate
   } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -476,7 +477,7 @@ export function FileSidebar({
         </>
       )}
 
-      <div className="section-trigger">
+      <div className="section-trigger with-actions">
         <button
           className={`section-toggle ${explorerOpen ? "open" : ""}`}
           aria-expanded={explorerOpen}
@@ -487,6 +488,22 @@ export function FileSidebar({
             <ChevronIcon open={explorerOpen} />
           </span>
         </button>
+        <span className="section-actions">
+          <button
+            className="tree-row-action"
+            title="New File"
+            onClick={() => startCreate("", "file")}
+          >
+            <PlusIcon />
+          </button>
+          <button
+            className="tree-row-action"
+            title="New Folder"
+            onClick={() => startCreate("", "dir")}
+          >
+            <FolderPlusIcon />
+          </button>
+        </span>
       </div>
       {explorerOpen && (
         <div className="sidebar-section explorer">

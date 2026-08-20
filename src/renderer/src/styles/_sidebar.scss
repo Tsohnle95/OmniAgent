@@ -113,8 +113,25 @@
 }
 
 .section-trigger {
+  display: flex;
+  align-items: center;
   padding: 4px 8px 0;
   flex-shrink: 0;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 100ms var(--ease);
+}
+
+.section-trigger.with-actions:hover .section-actions,
+.section-trigger.with-actions:focus-within .section-actions {
+  opacity: 1;
 }
 
 .section-toggle {

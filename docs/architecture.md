@@ -289,8 +289,8 @@ shows a card with the action and resources and three buttons; the reply
 - The renderer never touches Node APIs (contextIsolation + no
   nodeIntegration); everything goes through `window.openshell`.
 - `SKIP_DIRS` (main) and `HIDDEN_DIRS` (renderer) filter tree noise
-  (`node_modules`, `.git`, build dirs). Directory entries from the
-  filesystem API arrive with trailing slashes and are normalized in
-  `listDir`.
+  (`node_modules`, `.git`, build dirs). `listDir` reads directories
+  directly with `fs.readdir` (no opencode round trip), so explorer
+  refreshes never depend on service latency.
 - `MAX_EDITABLE_BYTES` (4 MiB) and a NUL-byte check keep binary/huge
   files out of the editor.
