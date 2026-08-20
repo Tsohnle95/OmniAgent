@@ -916,6 +916,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         const next = list.find((agent) => agent.id === id) ?? selection?.agent ?? { id, name: id };
         return prev[target.id] === next ? prev : { ...prev, [target.id]: next };
       });
+      const panel = panelFor(target);
+      const id = selection?.agent?.id ?? panel?.agent ?? "build";
+      if (!selection?.agent && list.some((agent) => agent.id === id) && panel?.agent !== id) {
+        await window.openshell.switchAgent(target, id);
+      }
     } catch (err) {
       if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
     }
