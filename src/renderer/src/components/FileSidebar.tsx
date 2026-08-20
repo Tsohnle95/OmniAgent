@@ -641,7 +641,7 @@ export function FileSidebar({
         </>
       )}
 
-      <div className="section-trigger with-actions">
+       <div className={`section-trigger with-actions ${explorerOpen ? "open" : ""}`}>
         <button
           className={`section-toggle ${explorerOpen ? "open" : ""}`}
           aria-expanded={explorerOpen}

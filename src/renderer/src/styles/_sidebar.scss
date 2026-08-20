@@ -127,6 +127,17 @@
 
 .section-trigger.with-actions .section-toggle { width: auto; flex: 1; }
 
+.section-trigger.with-actions.open,
+.section-trigger.with-actions:hover {
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+}
+
+.section-trigger.with-actions .section-toggle,
+.section-trigger.with-actions .section-toggle.open {
+  background: transparent;
+}
+
 .section-actions {
   display: flex;
   align-items: center;
