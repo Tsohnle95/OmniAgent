@@ -1247,12 +1247,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const promptText = t || "Review the attached files.";
       const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
       const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
+      const trailingAssistantIncomplete = trailingAssistant?.kind === "assistant" && !trailingAssistant.completed;
       const activity = resolveSessionActivity({
         sessionId: panel.id,
-        statusType: streamingRef.current.streamingMessageIds.get(panel.id)
+        statusType: trailingAssistantIncomplete && streamingRef.current.streamingMessageIds.get(panel.id)
           ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
           : undefined,
-        trailingAssistantIncomplete: trailingAssistant?.kind === "assistant" && !trailingAssistant.completed,
+        trailingAssistantIncomplete,
         pendingPermissions: transcript.filter((item) => item.kind === "permission" && item.pending).length
       });
       if (activity.isWorking) {
@@ -2628,7 +2629,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         trailingAssistantIncomplete,
         pendingPermissions
       });
-      const streamingID = streamingStore.streamingMessageIds.get(panel.id);
+       const streamingID = trailingAssistantIncomplete ? streamingStore.streamingMessageIds.get(panel.id) : null;
       const streaming = streamingID ? streamingStore.messageStreamStates.get(streamingID) ?? null : null;
       const chatState = chatStatesRef.current.get(panel.id);
       const rawMessages = chatState?.message[panel.id] ?? [];

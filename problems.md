@@ -40,6 +40,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 27. Current iteration: completed transcript fallback data could still leave `streamingStore` marking the assistant as active, so the timeline continued showing Thinking; canonical fallback hydration now reconciles streaming state.
 28. Current iteration: the renderer must not wait for the prompt IPC promise before reading completed session history; canonical transcript polling now runs concurrently and requires the new user message plus a completed assistant response.
 29. Current iteration: a stale renderer working state could block a new prompt behind the OpenCode interrupt request; interruption is now issued without delaying prompt submission.
+30. Current iteration: the default queue path treated a stale streaming marker as an active turn, so prompts were queued instead of submitted and the timeline continued showing Thinking; activity and rendering now require an incomplete canonical assistant message.
 
 ## Constraints
 
