@@ -32,7 +32,7 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
       : entry.path.includes("/")
         ? entry.path.slice(0, entry.path.lastIndexOf("/"))
         : "";
-  const menu = (e: React.MouseEvent): void => {
+  const menu = (e: Pick<React.MouseEvent, "clientX" | "clientY" | "stopPropagation">): void => {
     e.stopPropagation();
     openCtxMenu(e.clientX, e.clientY, entry);
   };
@@ -66,8 +66,12 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
         type="button"
         className="tree-row-action"
         title="More actions…"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={menu}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          menu(e);
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
         <EllipsisIcon />
       </button>

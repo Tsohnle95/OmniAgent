@@ -1369,6 +1369,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const removeFromWorkspace = useCallback((path: string) => {
     const target = sessionRef.current?.workspace;
     if (!target) return;
+    const confirmed = window.confirm(`Remove "${path}" from OpenShell? The item will remain on disk.`);
+    if (!confirmed) return;
     setCtxMenu(null);
     setHiddenPathsByWorkspace((current) => {
       const next = new Set(current[target.id] ?? []);
