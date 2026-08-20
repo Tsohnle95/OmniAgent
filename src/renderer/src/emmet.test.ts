@@ -37,6 +37,17 @@ describe("emmetSnippetAt", () => {
     expect(emmetSnippetAt("xdiv", "html")).toBeNull();
   });
 
+  it("does not expand the caret right after a closing bracket of an existing tag", () => {
+    expect(emmetSnippetAt("<main>", "html")).toBeNull();
+    expect(emmetSnippetAt("<div>", "html")).toBeNull();
+    expect(emmetSnippetAt("  <section>", "html")).toBeNull();
+  });
+
+  it("still expands multi-level abbreviations that end in a child selector", () => {
+    expect(emmetSnippetAt("div>p", "html")!.snippet).toBe("<div>\n\t<p></p>\n</div>${0}");
+    expect(emmetSnippetAt("ul>li", "html")!.snippet).toBe("<ul>\n\t<li></li>\n</ul>${0}");
+  });
+
   it("expands css abbreviations but not css noise", () => {
     expect(emmetSnippetAt("m10", "css")!.snippet).toBe("margin: 10px;${0}");
     expect(emmetSnippetAt("p10", "scss")!.snippet).toBe("padding: 10px;${0}");

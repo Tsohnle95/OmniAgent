@@ -62,6 +62,7 @@ function isNoise(abbr: string, expanded: string, stylesheet: boolean): boolean {
   }
   const lower = abbr.toLowerCase();
   if (abbr === ".") return false;
+  if (abbr.endsWith(">") || abbr.startsWith(">")) return true;
   if (COMMON_TAGS.has(lower)) return false;
   if (/[-,:]/.test(abbr) && !/--|::/.test(abbr) && !abbr.endsWith(":")) return false;
   if (/^\w+\.$/.test(abbr) && !COMMON_TAGS.has(abbr.slice(0, -1).toLowerCase())) return true;
