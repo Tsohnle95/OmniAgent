@@ -1104,8 +1104,8 @@ export function AgentPanel({
         )}
         <span className="agent-title">
           {activeSession?.parentID
-            ? activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? (parent ? `${parent.title} subagent` : "Subagent session")
-            : "Agent"}
+            ? activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? activeSession.directory?.split("/").filter(Boolean).pop() ?? (parent ? `${parent.title} subagent` : "Subagent session")
+            : activeSession?.directory?.split("/").filter(Boolean).pop() ?? "Agent"}
           {activeSession?.parentID && activeSession.agent && activeSession.agent !== activeSession.title && (
             <span className="agent-subagent">@{activeSession.agent}</span>
           )}

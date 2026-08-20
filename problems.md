@@ -29,6 +29,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 16. Current iteration: opening a nested folder as a second workspace must also hide that nested path from the parent workspace for the lifetime of both panels; otherwise the same physical directory correctly appears in both trees.
 17. New requested behavior: right-clicking a workspace root must remove that workspace from the app without touching disk. Dropping a folder onto Explorer must switch the current workspace, not create an agent panel; agent panels are explicit UI actions only.
 18. Current iteration: duplicate import outcomes are expected when a destination already exists, and the active workspace-only panel must replace the default agent tray rather than render beside it. Explicit agent-mode panels remain additional trays.
+19. Current iteration: the default agent header now falls back to the active workspace directory name when the session has no title or agent name.
 
 ## Constraints
 
