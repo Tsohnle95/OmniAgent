@@ -31,6 +31,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 18. Current iteration: duplicate import outcomes are expected when a destination already exists, and the active workspace-only panel must replace the default agent tray rather than render beside it. Explicit agent-mode panels remain additional trays.
 19. Current iteration: the default agent header now falls back to the active workspace directory name when the session has no title or agent name.
 20. Current iteration: every prompt now includes the active workspace name and absolute working directory so the agent receives workspace context immediately.
+21. Current iteration: workspace identity questions are answered locally from the active session path instead of invoking the model.
 
 ## Constraints
 
