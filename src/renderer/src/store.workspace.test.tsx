@@ -109,7 +109,7 @@ describe("store workspace continuations", () => {
     window.openshell = api({
       importExternal: async () => [{ name: "folder", rel: "folder", imported: false, reason: "already in the workspace" }]
     });
-    await act(async () => store.importPaths("", ["/external/folder"]));
+    await act(async () => store.importPaths("", ["/one/folder"]));
 
     expect(store.hiddenPaths).toEqual(new Set());
   });

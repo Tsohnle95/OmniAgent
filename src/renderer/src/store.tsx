@@ -1636,7 +1636,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           if (result.imported) toast(`Imported ${result.rel}`);
           else if (
             hiddenPathsByWorkspace[target.id]?.has(result.rel) &&
-            sources[index]?.replace(/[\\/]+$/, "").split(/[\\/]/).pop() === result.name &&
+            sources[index]?.replaceAll("\\", "/").replace(/\/+$/, "") ===
+              `${sessionRef.current?.directory.replaceAll("\\", "/").replace(/\/+$/, "")}/${result.rel}` &&
             restoreHiddenPath(result.rel)
           ) {
             toast(`Restored ${result.rel}`);
