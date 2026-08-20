@@ -31,4 +31,14 @@ describe("droppedFilePaths", () => {
     const e = dragEventWith([{ name: "no-path.txt" } as unknown as File]);
     expect(droppedFilePaths(e as never)).toEqual([]);
   });
+
+  it("reads Finder URI-list drops when no File objects are exposed", () => {
+    const e = {
+      dataTransfer: {
+        files: [],
+        getData: (type: string) => type === "text/uri-list" ? "file:///Users/ty/advanced%20web-concepts\n" : ""
+      }
+    };
+    expect(droppedFilePaths(e as never)).toEqual(["/Users/ty/advanced web-concepts"]);
+  });
 });
