@@ -301,10 +301,12 @@ function PanelColumn({
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
   const { panels: allPanels, workspaceOnlyPanelIDs, activeSessionID, focusSession, closePanel, selectAddPanel, selectFolder, selectFile } = useStore();
-  const panels = useMemo(
-    () => allPanels.filter((panel) => !workspaceOnlyPanelIDs.has(panel.id) || panel.id === activeSessionID),
-    [allPanels, workspaceOnlyPanelIDs, activeSessionID]
-  );
+  const panels = useMemo(() => {
+    const agentPanels = allPanels.filter((panel) => !workspaceOnlyPanelIDs.has(panel.id));
+    const active = allPanels.find((panel) => panel.id === activeSessionID);
+    if (!active || !workspaceOnlyPanelIDs.has(active.id)) return agentPanels;
+    return [active, ...agentPanels.slice(1)];
+  }, [allPanels, workspaceOnlyPanelIDs, activeSessionID]);
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(SIDE_DEFAULT_W);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});

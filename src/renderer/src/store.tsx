@@ -1632,12 +1632,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       try {
         const results = await window.openshell.importExternal(target, destDir, sources);
         if (!panelFor(target)) return;
-        for (const [index, result] of results.entries()) {
+        for (const result of results) {
           if (result.imported) toast(`Imported ${result.rel}`);
           else if (hiddenPathsByWorkspace[target.id]?.has(result.rel)) {
             unhidePath(result.rel);
             continue;
           }
+          else if (result.reason === "already exists" || result.reason === "already in the workspace") continue;
           else toast(`Could not import ${result.name}: ${result.reason ?? "unknown"}`, "error");
         }
         void refreshTree([...ancestorDirs(destDir)]);
