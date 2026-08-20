@@ -376,7 +376,7 @@ const EMPTY_TABS: Tab[] = [];
 const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
 const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
-const HIDDEN_PATHS_STORAGE_KEY = "openshell.hidden-paths";
+const HIDDEN_PATHS_STORAGE_KEY = "openshell.hidden-paths.v2";
 
 function readPersistedHiddenPaths(directory: string): Set<string> {
   try {
