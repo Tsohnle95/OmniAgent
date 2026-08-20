@@ -163,6 +163,35 @@ function expired(entry: OAuthEntry): boolean {
   return typeof entry.expires === "number" && entry.expires > 0 && Date.now() >= entry.expires;
 }
 
+function jwtClaim(token: string, claim: string): string | null {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<string, unknown>;
+    const value = decoded[claim];
+    return typeof value === "string" && value ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function chatgptAccountId(entry: OAuthEntry): string | null {
+  if (entry.accountId) return entry.accountId;
+  const authClaim = jwtClaim(entry.access ?? "", "https://api.openai.com/auth");
+  if (authClaim) return authClaim;
+  const payload = entry.access?.split(".")[1];
+  if (payload) {
+    try {
+      const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<string, unknown>;
+      const auth = asRecord(decoded["https://api.openai.com/auth"]);
+      const nested = auth?.chatgpt_account_id ?? auth?.account_id;
+      if (typeof nested === "string" && nested) return nested;
+    } catch {
+    }
+  }
+  return jwtClaim(entry.access ?? "", "account_id");
+}
+
 function errorResult(
   provider: string,
   displayName: string,
@@ -242,7 +271,8 @@ async function fetchChatgpt(entry: OAuthEntry): Promise<ProviderUsageResult> {
     Authorization: `Bearer ${entry.access}`,
     Accept: "application/json"
   };
-  if (entry.accountId) headers["ChatGPT-Account-Id"] = entry.accountId;
+  const accountId = chatgptAccountId(entry);
+  if (accountId) headers["ChatGPT-Account-Id"] = accountId;
 
   const response = await fetchJson("https://chatgpt.com/backend-api/wham/usage", headers);
   if (!response) return errorResult("openai", displayName, "fetch_failed", `${displayName} usage request failed (network)`, true);
@@ -666,17 +696,43 @@ async function fetchOpencodeGo(entry: OAuthEntry): Promise<ProviderUsageResult> 
   if (!entry.access) {
     return errorResult("opencode-go", displayName, "missing_oauth", `${displayName} is not authenticated. Run: opencode auth login`);
   }
+  const response = await fetchJson("https://opencode.ai/zen/go/v1/usage", {
+    Authorization: `Bearer ${entry.access}`,
+    Accept: "application/json"
+  });
+  if (!response) return errorResult("opencode-go", displayName, "fetch_failed", `${displayName} usage request failed (network)`, true);
+  if (response.status === 401 || response.status === 403) {
+    return errorResult("opencode-go", displayName, "reauth_required", `${displayName} subscription could not be verified.`);
+  }
+  if (!response.ok) return errorResult("opencode-go", displayName, "fetch_failed", `${displayName} usage request failed (${response.status})`, true);
+
+  const usage = asRecord(asRecord(response.body)?.usage);
+  if (!usage) return errorResult("opencode-go", displayName, "fetch_failed", `${displayName} usage request failed (empty response)`, true);
+  const windows = [
+    goUsageWindow("rolling", "Rolling", usage.rolling),
+    goUsageWindow("weekly", "Weekly", usage.weekly),
+    goUsageWindow("monthly", "Monthly", usage.monthly)
+  ].filter((window): window is UsageWindow => window !== null);
   return {
     provider: "opencode-go",
     displayName,
     status: "ok",
     snapshot: {
-      windows: [],
-      credits: { hasCredits: true, unlimited: false, balance: "Active", label: "GO Subscription" },
+      windows,
+      credits: null,
       planType: "go",
       updatedAt: Date.now()
     }
   };
+}
+
+function goUsageWindow(id: string, label: string, raw: unknown): UsageWindow | null {
+  const record = asRecord(raw);
+  if (!record) return null;
+  const percent = Number(record.percent ?? record.usagePercent);
+  if (!Number.isFinite(percent)) return null;
+  const resetsAt = typeof record.resetsAt === "string" ? parseResetsAt(record.resetsAt) : Number(record.resetsAt);
+  return { id, label, usedPercent: Math.min(100, Math.max(0, percent)), windowMinutes: null, resetsAt: Number.isFinite(resetsAt) ? resetsAt : null };
 }
 
 interface ProviderSpec {
