@@ -194,9 +194,10 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           options={{
             ...options,
             readOnly: true,
-            renderSideBySide: true,
+            renderSideBySide: false,
             ignoreTrimWhitespace: false,
-            enableSplitViewResizing: true
+            enableSplitViewResizing: false,
+            scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 }
           }}
         />
       ) : (
