@@ -477,6 +477,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const activationSeqRef = useRef(0);
   const userActivatedRef = useRef(false);
   const focusSeqRef = useRef(0);
+  const treeRefreshTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const panelFor = useCallback(
     (workspace: WorkspaceIdentity): SessionInfo | null =>
@@ -2042,13 +2043,19 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         const workspaceExpanded = expandedByWorkspaceRef.current[f.workspace.id] ?? new Set<string>();
         if (parent !== f.path && workspaceExpanded.has(parent)) {
           const expected = f.workspace;
-          void window.openshell
-            .listDir(expected, parent)
-            .then((entries) =>
-              panelFor(expected) &&
+          const key = `${expected.id}:${parent}`;
+          const existing = treeRefreshTimersRef.current.get(key);
+          if (existing) clearTimeout(existing);
+          treeRefreshTimersRef.current.set(key, setTimeout(() => {
+            treeRefreshTimersRef.current.delete(key);
+            void window.openshell
+              .listDir(expected, parent)
+              .then((entries) =>
+                panelFor(expected) &&
                 setTreeFor(expected.id, (prev) => ({ ...prev, [parent]: sortEntries(filterEntries(entries)) }))
-            )
-            .catch(() => {});
+              )
+              .catch(() => {});
+          }, 50));
         }
         return;
       }
