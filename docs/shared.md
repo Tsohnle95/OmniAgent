@@ -84,7 +84,9 @@ blocks, and provider metadata is retained instead of flattened away.
   (`BackendMessageBase`): `{ kind, type?, data?, file?, session? }` plus
   `{ kind: "ui-command", command }` (main→renderer requests, e.g.
   `toggle-word-wrap` when ⌘W is pressed, or `open-source` with
-  `{ path, line }` when a DevTools CSS source link is clicked).
+  `{ path, line, root }` when a DevTools CSS source link is clicked —
+  `path` is workspace-relative and `root` is the resolution root, so the
+  renderer can open the file inside a session on that root).
   Recovery messages carry `{ workspace, records }` so renderer state rejects
   records emitted for a closed or replaced workspace.
 - `{ kind: "terminal-data", terminal: TerminalData }`

@@ -278,8 +278,11 @@ links back to the parent session.
   element picking — CDP `Overlay.setInspectMode` for the Firefox-style
   hover highlight, with the click routed through `inspectElement` so the
   Elements panel selects the node. Clicking a rule's source link in the
-  Styles panel (`styles.css:12`) sends an `open-source` `ui-command` so
-  the file opens in the editor at that exact line.
+  Styles panel (`styles.scss:12`) sends an `open-source` `ui-command` so
+  the file opens in the editor at that exact line — when the resolved
+  file belongs to the app itself, the app directory becomes the session
+  (either by matching the active session or opening it fresh), so the
+  stylesheet is editable and saveable from the explorer.
 - ⌥O toggles the terminal tray; drag dividers resize the sidebar, each
   session panel, and the tray (dragging the tray to the bottom closes it on
   release).

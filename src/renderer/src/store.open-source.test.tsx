@@ -170,4 +170,70 @@ describe("store open-source ui-command", () => {
     expect(readSourceFile).toHaveBeenCalledWith("/work/src/main.css");
     expect(store.tabs.map((tab) => tab.path)).toEqual(["/work/src/main.css"]);
   });
+
+  it("opens a session on the command root when none is active", async () => {
+    const openSession = vi.fn(async (directory: string, generation: number) => info(directory, generation));
+    const readFile = vi.fn(async () => "content");
+    window.openshell = api({ openSession, readFile });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    expect(store.session).toBeNull();
+
+    await act(async () => messageHandler!({
+      kind: "ui-command",
+      command: "open-source",
+      path: "src/renderer/src/styles/main.scss",
+      line: 24,
+      root: "/openshell"
+    }));
+
+    expect(openSession).toHaveBeenCalledWith("/openshell", expect.any(Number));
+    expect(store.session?.directory).toBe("/openshell");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["src/renderer/src/styles/main.scss"]);
+    expect(store.activePath).toBe("src/renderer/src/styles/main.scss");
+    expect(readFile).toHaveBeenCalledWith(store.session!.workspace, "src/renderer/src/styles/main.scss");
+  });
+
+  it("switches to the command root when the active session differs", async () => {
+    const openSession = vi.fn(async (directory: string, generation: number) => info(directory, generation));
+    const readFile = vi.fn(async () => "content");
+    window.openshell = api({ openSession, readFile });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/work"));
+    openSession.mockClear();
+
+    await act(async () => messageHandler!({
+      kind: "ui-command",
+      command: "open-source",
+      path: "src/renderer/src/styles/main.scss",
+      line: 9,
+      root: "/openshell"
+    }));
+
+    expect(openSession).toHaveBeenCalledWith("/openshell", expect.any(Number));
+    expect(store.session?.directory).toBe("/openshell");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["src/renderer/src/styles/main.scss"]);
+    expect(readFile).toHaveBeenCalledWith(store.session!.workspace, "src/renderer/src/styles/main.scss");
+  });
+
+  it("opens in the active session when the command root matches", async () => {
+    const openSession = vi.fn(async (directory: string, generation: number) => info(directory, generation));
+    const readFile = vi.fn(async () => "content");
+    window.openshell = api({ openSession, readFile });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/openshell"));
+    openSession.mockClear();
+
+    await act(async () => messageHandler!({
+      kind: "ui-command",
+      command: "open-source",
+      path: "src/renderer/src/styles/main.scss",
+      line: 12,
+      root: "/openshell"
+    }));
+
+    expect(openSession).toHaveBeenCalledTimes(0);
+    expect(store.session?.directory).toBe("/openshell");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["src/renderer/src/styles/main.scss"]);
+    expect(readFile).toHaveBeenCalledWith(store.session!.workspace, "src/renderer/src/styles/main.scss");
+  });
 });

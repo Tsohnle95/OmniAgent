@@ -333,6 +333,7 @@ export interface BackendMessageBase {
   command?: string;
   path?: string;
   line?: number;
+  root?: string;
   recovery?: RecoveryState;
 }
 

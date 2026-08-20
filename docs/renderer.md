@@ -142,8 +142,11 @@ so a moved folder never reappears in Changes as deleted at its new path.
 Filesystem and terminal calls carry the addressed panel's `session.workspace`,
 the immutable identity for that activation. Main resolves each identity against
 its open context map and rejects unknown or replaced identities. `open-source`
-uses the separate privileged source-view read only for absolute app paths;
-normal editor reads are workspace-relative.
+carries a workspace-relative `path` plus the `root` it resolved against: when
+the root differs from (or there is no) active session, the renderer opens that
+root as the session and opens the file inside it, so DevTools stylesheet links
+land as editable, saveable workspace tabs rather than the privileged
+source-view read (which `open-source` falls back to only for absolute paths).
 
 Sessions activate concurrently only when explicitly restored or added in model
 mode: workspace opening replaces the displayed panels, while every async

@@ -96,8 +96,8 @@ const DEVTOOLS_WATCHER = `
       window.__openshellKey = event.key;
     }
   }, true);
-  const STRICT = /^(.*\.(?:css|scss|sass|less|styl|stylus|pcss)):(\d+)\s*$/i;
-  const LOOSE = /([^\s]*\.(?:css|scss|sass|less|styl|stylus|pcss)):(\d+)/i;
+  const STRICT = /^(.*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)\\s*$/i;
+  const LOOSE = /([^\\s]*\\.(?:css|scss|sass|less|styl|stylus|pcss)):(\\d+)/i;
   function attr(el, name) {
     return el && el.getAttribute ? el.getAttribute(name) : null;
   }
@@ -254,7 +254,9 @@ function toAbsolute(root: string, target: string): string | null {
   if (/^https?:\/\//i.test(target)) {
     try {
       const u = new URL(target);
-      return path.join(root, decodeURIComponent(u.pathname).replace(/^\/+/, ""));
+      const decoded = decodeURIComponent(u.pathname);
+      if (path.isAbsolute(decoded)) return decoded;
+      return path.join(root, decoded.replace(/^\/+/, ""));
     } catch {
       return null;
     }
@@ -270,14 +272,14 @@ async function resolveInRoot(root: string, file: string, title: string): Promise
   if (titleTarget) candidates.push(stripFragment(titleTarget));
   for (const candidate of candidates) {
     const abs = toAbsolute(root, candidate);
-    if (abs && (await isFile(abs))) return abs;
+    if (abs && !isUnderSkippedDir(root, abs) && (await isFile(abs))) return abs;
   }
   for (const candidate of candidates) {
     if (!/^https?:\/\//i.test(candidate)) continue;
     const mapped = stripFragment(candidate.replace(/^[a-z]+:\/\/[^/]+/i, ""));
     if (mapped) {
       const abs = path.join(root, mapped.replace(/^\/+/, ""));
-      if (await isFile(abs)) return abs;
+      if (!isUnderSkippedDir(root, abs) && (await isFile(abs))) return abs;
     }
   }
   const bases = new Set<string>();
@@ -292,17 +294,20 @@ async function resolveInRoot(root: string, file: string, title: string): Promise
   return null;
 }
 
-async function resolveSourcePath(file: string, title: string): Promise<string | null> {
+function isUnderSkippedDir(root: string, abs: string): boolean {
+  const rel = path.relative(root, abs);
+  return rel.split(path.sep).some((segment) => SKIP_DIRS.has(segment));
+}
+
+async function resolveOpenSource(file: string, title: string): Promise<{ root: string; rel: string } | null> {
   const session = await backend.getState();
-  const roots: string[] = [];
-  if (session?.directory) roots.push(session.directory);
-  const appRoot = app.getAppPath();
-  if (appRoot !== session?.directory) roots.push(appRoot);
-  for (const root of roots) {
-    const resolved = await resolveInRoot(root, file, title);
-    if (!resolved) continue;
-    return root === session?.directory ? path.relative(root, resolved) : resolved;
+  if (session?.directory) {
+    const resolved = await resolveInRoot(session.directory, file, title);
+    if (resolved) return { root: session.directory, rel: path.relative(session.directory, resolved) };
   }
+  const appRoot = app.getAppPath();
+  const resolved = await resolveInRoot(appRoot, file, title);
+  if (resolved) return { root: appRoot, rel: path.relative(appRoot, resolved) };
   return null;
 }
 
@@ -438,9 +443,15 @@ function createWindow(show = true): BrowserWindow {
         try {
           const src = JSON.parse(parsed.source) as { file?: string; line?: number; title?: string };
           if (typeof src.file === "string" && typeof src.line === "number") {
-            const rel = await resolveSourcePath(src.file, src.title ?? "");
-            if (rel) {
-              wc.send("shell:message", { kind: "ui-command", command: "open-source", path: rel, line: src.line });
+            const resolved = await resolveOpenSource(src.file, src.title ?? "");
+            if (resolved) {
+              wc.send("shell:message", {
+                kind: "ui-command",
+                command: "open-source",
+                path: resolved.rel,
+                line: src.line,
+                root: resolved.root
+              });
             } else {
               console.warn("open-source: no local file for", src.file, src.title ?? "");
             }

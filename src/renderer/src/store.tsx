@@ -1460,7 +1460,15 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     [toast, panelFor, setTabsFor, setActivePathFor]
   );
   const openSourceTarget = useCallback(
-    async (path: string, line: number): Promise<void> => {
+    async (path: string, line: number, root?: string): Promise<void> => {
+      const currentDir = sessionRef.current?.directory ?? null;
+      if (root && root !== currentDir) {
+        const opened = await openSession(root);
+        if (!opened) return;
+        await openFile(path, { mode: "edit" }, opened.workspace);
+        requestReveal(path, line);
+        return;
+      }
       const active = sessionRef.current?.workspace ?? null;
       if (active) {
         await openFile(path, { mode: "edit", source: path.startsWith("/") }, active);
@@ -1774,7 +1782,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         if (msg.command === "toggle-word-wrap") {
           toggleWordWrap();
         } else if (msg.command === "open-source" && typeof msg.path === "string" && typeof msg.line === "number") {
-          void openSourceTarget(msg.path, msg.line);
+          void openSourceTarget(msg.path, msg.line, typeof msg.root === "string" ? msg.root : undefined);
         }
         return;
       }

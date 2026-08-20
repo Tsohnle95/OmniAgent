@@ -64,8 +64,9 @@ All backend→renderer message kinds are defined in
   exit from the terminal tray (`src/main/terminal.ts`).
 - `{ kind: "ui-command", command }` — main-process requests to the
   renderer (`toggle-word-wrap` when ⌘W / Ctrl+W is pressed;
-  `open-source` with `{ path, line }` when a CSS rule's source link is
-  clicked in DevTools — the editor opens that file at that line).
+  `open-source` with `{ path, line, root }` when a CSS rule's source link
+  is clicked in DevTools — the editor opens that file at that line, in
+  the session rooted at `root` when the active session differs).
 
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.

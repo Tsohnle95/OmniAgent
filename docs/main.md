@@ -263,15 +263,27 @@ The same watcher intercepts clicks on CSS rule source links (the
 `styles.css:12` links in the Styles panel): it prevents the frontend's
 own reveal, detects the link by its `title="<url>:<line>"` attribute
 (text matching is a fallback), and re-sends it as a `ui-command`
-`open-source` with `{ path, line }` so the editor opens the file at
-the clicked rule — DevTools edits are ephemeral, the editor's are not.
-Path resolution strips the `:line` suffix and accepts `file://` and
-dev-server `http(s)://` URLs (mapping the URL path onto the session
-directory), falling back to a basename search that skips `node_modules`
-etc. If the file isn't in the session — DevTools always inspects
+`open-source` with `{ path, line, root }` so the editor opens the file
+at the clicked rule — DevTools edits are ephemeral, the editor's are not.
+(The injected regexes are embedded in a template literal, so every
+backslash is doubled to survive string-escape cooking.) Path resolution
+strips the `:line` suffix and accepts `file://` and dev-server
+`http(s)://` URLs (mapping the URL path onto the session directory or
+using an absolute pathname verbatim, e.g. Vite's absolute served paths),
+falling back to a basename search that skips `node_modules`, `out`,
+`dist`, etc. — both the direct and the searched resolution skip known
+build-output directories so a hashed bundle is never opened as if it
+were source. If the file isn't in the session — DevTools always inspects
 OpenShell's own renderer, so the inspected stylesheets are the app's —
-resolution falls back to the app directory and the file is opened by
-absolute path.
+resolution falls back to the app directory. The command then carries the
+resolution root plus a workspace-relative path, so the renderer opens
+the file inside an app-root session instead of a read-only absolute
+source tab; in dev mode (where Vite serves the real `.scss` sources and
+`css.devSourcemap` is on) the links in the Styles panel are the actual
+source files with accurate line numbers, so clicking one opens the
+editable stylesheet. In the compiled app the links point at the hashed
+bundle and Vite's build emits no CSS maps (a Vite 6 limitation), so
+bundle links are skipped and DevTools keeps its normal behavior.
 
 Workspace paths are strict `/`-separated relative paths: absolute paths,
 empty file paths, traversal, backslashes, NULs, duplicate separators, and
@@ -281,8 +293,9 @@ targets. This stable-topology policy means Explorer capabilities do not follow
 symlinks, but Node pathname APIs cannot eliminate an external symlink swap
 between validation and use. File content and every `expectedContent` value are
 capped at 8 MiB, including explicit overwrites. The separate `source-read` channel
-accepts only absolute descendants of the canonical application root and exists
-solely to preserve DevTools source navigation. Terminal ids use `term-N`, input
+accepts only absolute descendants of the canonical application root; it backs the
+renderer's absolute-path fallback for `open-source` (main normally sends a
+workspace-relative path plus its resolution root). Terminal ids use `term-N`, input
 is capped at 1 MiB per invoke, dimensions are positive integers bounded to
 1000 columns by 500 rows, unknown PTYs fail, and every PTY is owned by the
 workspace identity that created it.
