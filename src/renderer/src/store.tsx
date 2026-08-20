@@ -1282,6 +1282,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         await window.openshell.prompt(target, promptText, files);
         const refreshed = await window.openshell.sessionTranscript(panel.id);
         if (panelFor(target)) {
+          const completed = [...refreshed.transcript].reverse().some((item) => item.kind === "assistant" && item.completed);
           updateSessionTranscript(panel.id, (current) => {
             const remoteUsers = new Map<string, number>();
             for (const item of refreshed.transcript) {
@@ -1296,6 +1297,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             });
             return mergeChatHistory(refreshed.transcript, local);
           });
+          if (completed) setSessionBusy(panel.id, false);
         }
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");

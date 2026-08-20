@@ -35,6 +35,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 22. Rejected approach: refreshing the transcript after prompt completion caused the optimistic user message to merge with the server user message, producing duplicate prompts. Do not use transcript refresh as the SSE fallback without an explicit deduplication strategy.
 23. Current iteration: the transcript fallback now uses the session transcript endpoint directly and removes only matching optimistic user rows before merging canonical history; it must not reopen or activate the session.
 24. Current iteration: external drops directly on a collapsed workspace root were routed to import instead of the same workspace-opening path as background drops.
+25. Current iteration: the prompt transcript fallback could receive a completed answer while the renderer still showed the session as busy; completed fallback transcripts now clear that stale busy state.
 
 ## Constraints
 
