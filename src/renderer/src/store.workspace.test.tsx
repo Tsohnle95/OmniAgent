@@ -78,6 +78,27 @@ describe("store workspace continuations", () => {
     vi.restoreAllMocks();
   });
 
+  it("persists removed paths by workspace directory across provider reloads", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    act(() => store.removeFromWorkspace("folder"));
+
+    expect(store.hiddenPaths).toEqual(new Set(["folder"]));
+
+    await act(async () => root.unmount());
+    container.remove();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+
+    expect(store.hiddenPaths).toEqual(new Set(["folder"]));
+  });
+
   it("does not apply a completed delete to tabs opened in a newer workspace", async () => {
     const deletion = deferred();
     window.openshell = api({ deletePath: vi.fn(() => deletion.promise) });
