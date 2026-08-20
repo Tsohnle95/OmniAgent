@@ -26,6 +26,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 13. Follow-up: exact existing-path drops now silently unhide the path when necessary, with no `restored` status or toast. Non-existing external imports still follow normal import handling.
 14. Current iteration: a hidden target collision during an active-workspace import will silently reveal the existing target instead of reporting a duplicate. Collapsed-background drops remain separate workspace creation.
 15. Current iteration: filesystem inspection confirmed `advanced-web-concepts` exists under the OpenShell root while persisted hidden-path state hid it. Persisted removal tracking is removed; Explorer state is now session-only and reloads enumerate the physical workspace again.
+16. Current iteration: opening a nested folder as a second workspace must also hide that nested path from the parent workspace for the lifetime of both panels; otherwise the same physical directory correctly appears in both trees.
 
 ## Constraints
 

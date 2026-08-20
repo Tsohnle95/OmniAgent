@@ -1029,6 +1029,17 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           await window.openshell.closeSession(info.workspace).catch(() => {});
           return;
         }
+        const source = dir.replaceAll("\\", "/").replace(/\/+$/, "");
+        for (const panel of panelsRef.current) {
+          const parent = panel.directory.replaceAll("\\", "/").replace(/\/+$/, "");
+          if (!source.startsWith(`${parent}/`)) continue;
+          const relative = source.slice(parent.length + 1);
+          setHiddenPathsByWorkspace((current) => {
+            const next = new Set(current[panel.workspace.id] ?? []);
+            next.add(relative);
+            return { ...current, [panel.workspace.id]: next };
+          });
+        }
         attachPanel(info);
         userActivatedRef.current = true;
         focusSeqRef.current += 1;
