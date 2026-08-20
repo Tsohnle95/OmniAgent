@@ -38,6 +38,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 25. Current iteration: the prompt transcript fallback could receive a completed answer while the renderer still showed the session as busy; completed fallback transcripts now clear that stale busy state.
 26. Current iteration: SSE heartbeat expiry was nulling the shared OpenCode HTTP client, causing prompt transcript refreshes to fail until the event stream reconnected. Event-stream reconnects must not invalidate the HTTP client.
 27. Current iteration: completed transcript fallback data could still leave `streamingStore` marking the assistant as active, so the timeline continued showing Thinking; canonical fallback hydration now reconciles streaming state.
+28. Current iteration: the renderer must not wait for the prompt IPC promise before reading completed session history; canonical transcript polling now runs concurrently and requires the new user message plus a completed assistant response.
 
 ## Constraints
 
