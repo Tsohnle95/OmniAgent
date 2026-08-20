@@ -747,6 +747,10 @@ function registerIpc(): void {
     backend.deletePath(workspace, rel)
   );
 
+  handleTrusted("shell:fs-detach", async (_e, workspace: WorkspaceIdentity, rel: string) =>
+    backend.detachPath(workspace, rel)
+  );
+
   handleTrusted("shell:fs-rename", async (_e, workspace: WorkspaceIdentity, rel: string, newName: string) =>
     backend.renamePath(workspace, rel, newName)
   );

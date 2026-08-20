@@ -1416,7 +1416,15 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       next.add(path);
       return { ...current, [target.id]: next };
     });
-  }, [closeCtxMenu]);
+    void window.openshell.detachPath(target, path).then(() => {
+      setHiddenPathsByWorkspace((current) => {
+        const next = new Set(current[target.id] ?? []);
+        next.delete(path);
+        return { ...current, [target.id]: next };
+      });
+      void refreshTree(ancestorDirs(path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""));
+    }).catch((error) => toast(error instanceof Error ? error.message : String(error), "error"));
+  }, [closeCtxMenu, refreshTree, toast]);
 
   const startCreate = useCallback((parent: string, kind: "file" | "dir") => {
     closeCtxMenu();

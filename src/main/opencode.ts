@@ -2008,6 +2008,24 @@ export class OpenShellBackend {
     });
   }
 
+  async detachPath(workspace: WorkspaceIdentity, rel: string): Promise<void> {
+    await this.mutations.run(workspace, async () => {
+      const root = this.workspaceRoot(workspace);
+      const context = this.contextFor(workspace);
+      const watchContext = context.watchContext;
+      if (!this.currentWatch(watchContext)) throw new Error("stale workspace");
+      const abs = await confinedPath(root, relativePath(rel));
+      const detachedRoot = path.join(homedir(), ".openshell-detached");
+      await fsp.mkdir(detachedRoot, { recursive: true });
+      const target = path.join(detachedRoot, `${randomUUID()}-${path.basename(abs)}`);
+      await fsp.rename(abs, target);
+      this.contextFor(workspace);
+      watchContext.snapshots.delete(abs);
+      watchContext.lastKnown.delete(abs);
+      this.emitFileUpdate(watchContext, abs, null, unknownBaseline);
+    });
+  }
+
   async renamePath(workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> {
     await this.mutations.run(workspace, async () => {
       const root = this.workspaceRoot(workspace);

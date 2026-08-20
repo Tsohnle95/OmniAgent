@@ -68,6 +68,7 @@ Public methods (all used by IPC):
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
 | `createDir(workspace, rel)` | Confined `mkdir` (fails if exists); renderer re-lists after the call |
 | `deletePath(workspace, rel)` | Confined `shell.trashItem`; emits tracked deletion only after success and preserves Trash failures for the renderer |
+| `detachPath(workspace, rel)` | Confined move to the user-level detached store; removes the entry from the workspace without deleting its contents |
 | `renamePath(workspace, rel, newName)` | Confined same-folder no-replace file rename; rejects occupied destinations and directory renames where portable no-replace semantics are unavailable |
 | `movePath(workspace, rel, newParent)` | Confined cross-folder move for files and directories via one atomic `fs.rename` (no recovery hold — see architecture); rejects self/descendant, missing, occupied, cross-filesystem, and `.openshell-recovery` source/destination paths; emits a tracked deletion at the source and, for files, an addition at the target |
 | `listRecovery(workspace)` | Lists validated durable recovery artifacts under the addressed workspace's `.openshell-recovery` directory |
@@ -182,6 +183,7 @@ Internals:
 | `shell:fs-create-file` | `(workspace, rel) → void` |
 | `shell:fs-create-dir` | `(workspace, rel) → void` |
 | `shell:fs-delete` | `(workspace, rel) → void` |
+| `shell:fs-detach` | `(workspace, rel) → void` |
 | `shell:fs-rename` | `(workspace, rel, newName) → void` |
 | `shell:fs-move` | `(workspace, rel, newParent) → void`; `newParent` empty means the workspace root |
 | `shell:recovery-list` | `(workspace) → RecoveryRecord[]` |

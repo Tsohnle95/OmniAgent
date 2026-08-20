@@ -80,6 +80,8 @@ const api = {
     ipcRenderer.invoke("shell:fs-create-dir", workspace, rel),
   deletePath: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-delete", workspace, rel),
+  detachPath: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-detach", workspace, rel),
   renamePath: (workspace: WorkspaceIdentity, rel: string, newName: string): Promise<void> =>
     ipcRenderer.invoke("shell:fs-rename", workspace, rel, newName),
   movePath: (workspace: WorkspaceIdentity, rel: string, newParent: string): Promise<void> =>

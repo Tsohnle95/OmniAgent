@@ -42,6 +42,7 @@ automatically.
 | `createFile(workspace, rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
 | `createDir(workspace, rel)` | `Promise<void>` — creates a folder, erroring if it exists |
 | `deletePath(workspace, rel)` | `Promise<void>` — moves to Trash and preserves failures without permanent deletion |
+| `detachPath(workspace, rel)` | `Promise<void>` — moves an entry outside the workspace while preserving its contents |
 | `renamePath(workspace, rel, newName)` | `Promise<void>` — renames within the same folder |
 | `movePath(workspace, rel, newParent)` | `Promise<void>` — moves a file or folder into another folder; empty `newParent` is the workspace root |
 | `recoveryRecords(workspace)` | `Promise<RecoveryRecord[]>` — persistent durable artifacts for the addressed workspace |

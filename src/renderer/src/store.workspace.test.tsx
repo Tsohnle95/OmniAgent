@@ -54,6 +54,7 @@ function api(overrides: Partial<OpenShellApi> = {}): OpenShellApi {
     closeSession: async () => {},
     readFile: async () => "content",
     listDir: async () => [],
+    detachPath: async () => {},
     ...overrides
   } as OpenShellApi;
 }
