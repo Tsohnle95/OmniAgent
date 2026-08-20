@@ -1566,9 +1566,11 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
   const dropIntoExplorer = useCallback(
     async (paths: string[]): Promise<void> => {
-      if (paths.length > 0) await importPaths("", paths);
+      if (paths.length === 0) return;
+      await importPaths("", paths);
+      await ensureRootOpen();
     },
-    [importPaths]
+    [ensureRootOpen, importPaths]
   );
   const attachFileWorkspace = useCallback(
     async (result: OpenFileWorkspaceResult, activation: number): Promise<SessionInfo | null> => {

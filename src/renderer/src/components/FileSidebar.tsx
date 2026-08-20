@@ -411,7 +411,7 @@ export function FileSidebar({
       setDropDir(null);
       setExternalDrop(false);
       if (external.length > 0) {
-        void importPaths(dir, external);
+        void (dir === "" ? dropIntoExplorer(external) : importPaths(dir, external));
         return;
       }
       const source = dragPath;
