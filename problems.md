@@ -20,6 +20,9 @@ This file records the Explorer and workspace bugs investigated across iterations
 8. `b03d769`: added Finder `text/uri-list` drag support because some macOS folder drags did not expose `File` objects.
 9. Current iteration: invalidated the old hidden-path storage namespace because stale prior removals made physically present folders invisible. Also verified that collapsed-root background drops use workspace-panel opening rather than import validation.
 
+10. `59c0216` improved stale metadata and Finder drag detection, but did not solve the active-panel-only Explorer design. Importing a folder already physically inside the active root can still emit a misleading duplicate error, and opening a second panel changes the sidebar to that panel instead of showing both collapsible workspace roots.
+11. Current iteration: stopped reporting an error when the dropped source is already the exact active workspace path, and added inactive workspace root rows beneath the active tree so multiple open workspace panels remain visible and selectable.
+
 ## Constraints
 
 - Removing an item must not silently delete the user's source files.

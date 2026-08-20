@@ -349,6 +349,8 @@ export function FileSidebar({
 }): ReactNode {
   const {
     session,
+    panels = [],
+    focusSession,
     selectFolder,
     tree,
     toggleDir,
@@ -703,6 +705,17 @@ export function FileSidebar({
                 onCancel={cancelPending}
               />
             )}
+            {panels.filter((panel) => panel.id !== session?.id).map((panel) => (
+              <div
+                key={panel.id}
+                className="tree-row dir workspace-root"
+                onClick={() => focusSession(panel.id)}
+                title={panel.directory}
+              >
+                <FileIcon name={panel.directory} isDir />
+                <span className="tree-name">{panel.directory.split("/").filter(Boolean).pop() ?? "workspace"}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
