@@ -24,6 +24,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 11. Current iteration: stopped reporting an error when the dropped source is already the exact active workspace path, and added inactive workspace root rows beneath the active tree so multiple open workspace panels remain visible and selectable.
 12. Current iteration: remove all user-facing `restored` behavior. Workspace roots must render in panel creation order, not active-panel order, with a visual separator between roots.
 13. Follow-up: exact existing-path drops now silently unhide the path when necessary, with no `restored` status or toast. Non-existing external imports still follow normal import handling.
+14. Current iteration: a hidden target collision during an active-workspace import will silently reveal the existing target instead of reporting a duplicate. Collapsed-background drops remain separate workspace creation.
 
 ## Constraints
 

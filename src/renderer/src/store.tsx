@@ -1632,11 +1632,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         const results = await window.openshell.importExternal(target, destDir, sources);
         if (!panelFor(target)) return;
         for (const [index, result] of results.entries()) {
-          const source = sources[index]?.replaceAll("\\", "/").replace(/\/+$/, "");
-          const currentRoot = sessionRef.current?.directory.replaceAll("\\", "/").replace(/\/+$/, "");
-          const isExistingWorkspacePath = source === `${currentRoot}/${result.rel}`;
           if (result.imported) toast(`Imported ${result.rel}`);
-          else if (isExistingWorkspacePath) {
+          else if (hiddenPathsByWorkspace[target.id]?.has(result.rel)) {
             unhidePath(result.rel);
             continue;
           }
