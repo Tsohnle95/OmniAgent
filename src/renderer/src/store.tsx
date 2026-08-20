@@ -2623,7 +2623,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const pendingPermissions = transcript.filter((item) => item.kind === "permission" && item.pending).length;
       const activity = resolveSessionActivity({
         sessionId: panel.id,
-        statusType: busyBySession[panel.id]
+        statusType: busyBySession[panel.id] && trailingAssistantIncomplete
           ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
           : undefined,
         trailingAssistantIncomplete,
@@ -2652,7 +2652,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const queuedMessages = queueTarget ? getQueueForTarget(messageQueue, queueTarget) : [];
       views[panel.workspace.id] = {
         session: panel,
-        busy: Boolean(busyBySession[panel.id]),
+        busy: activity.isWorking,
         transcript,
         todos: todosByWorkspace[panel.workspace.id] ?? [],
         sessionUsage: usageBySession[panel.id] ?? null,

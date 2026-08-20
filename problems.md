@@ -41,6 +41,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 28. Current iteration: the renderer must not wait for the prompt IPC promise before reading completed session history; canonical transcript polling now runs concurrently and requires the new user message plus a completed assistant response.
 29. Current iteration: a stale renderer working state could block a new prompt behind the OpenCode interrupt request; interruption is now issued without delaying prompt submission.
 30. Current iteration: the default queue path treated a stale streaming marker as an active turn, so prompts were queued instead of submitted and the timeline continued showing Thinking; activity and rendering now require an incomplete canonical assistant message.
+31. Current iteration: the timeline still received raw `busyBySession` independently of canonical transcript state, so a completed answer could remain visually streaming; panel busy state now uses the reconciled activity result.
 
 ## Constraints
 
