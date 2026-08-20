@@ -450,6 +450,7 @@ interface WatchContext {
   lastKnown: Map<string, string>;
   hasGit: boolean | null;
   timers: Map<string, ReturnType<typeof setTimeout>>;
+  importing?: number;
 }
 
 export interface SessionContext {
@@ -1061,6 +1062,7 @@ export class OpenShellBackend {
 
   private async onFsChanged(context: WatchContext, abs: string, event: string): Promise<void> {
     if (!this.currentWatch(context)) return;
+    if ((context.importing ?? 0) > 0) return;
     if (this.isGitMetadata(abs, context.root)) {
       await this.refreshGitBaselines(context);
       return;
@@ -1189,8 +1191,7 @@ export class OpenShellBackend {
         await fsp.mkdir(to, { recursive: true });
         const entries = await fsp.readdir(from, { withFileTypes: true });
         for (const entry of entries) {
-          files += 1;
-          if (files > MAX_FILES) throw new Error("too many files to import");
+          if (entry.isDirectory() && SKIP_DIRS.has(entry.name)) continue;
           await walk(path.join(from, entry.name), path.join(to, entry.name));
         }
         return;
@@ -1776,13 +1777,15 @@ export class OpenShellBackend {
       const context = this.contextFor(workspace);
       const watchContext = context.watchContext;
       if (!this.currentWatch(watchContext)) throw new Error("stale workspace");
+      watchContext.importing = (watchContext.importing ?? 0) + 1;
       const cleanDest = relativePath(destDir, true);
       const destAbs = await confinedPath(root, cleanDest, true);
-      await fsp.mkdir(destAbs, { recursive: true });
-      await confinedPath(root, cleanDest, true);
-      this.contextFor(workspace);
-      const results: ImportResult[] = [];
-      for (const source of sources) {
+      try {
+        await fsp.mkdir(destAbs, { recursive: true });
+        await confinedPath(root, cleanDest, true);
+        this.contextFor(workspace);
+        const results: ImportResult[] = [];
+        for (const source of sources) {
         const real = await fsp.realpath(source).catch(() => null);
         const name = path.basename(source);
         const rel = cleanDest ? `${cleanDest}/${name}` : name;
@@ -1816,8 +1819,18 @@ export class OpenShellBackend {
           await fsp.rm(target, { recursive: true, force: true }).catch(() => {});
           results.push({ name, rel, imported: false, reason: error instanceof Error ? error.message : String(error) });
         }
+        }
+        return results;
+      } finally {
+        const prefix = `${destAbs}${path.sep}`;
+        for (const [abs, timer] of watchContext.timers) {
+          if (abs === destAbs || abs.startsWith(prefix)) {
+            clearTimeout(timer);
+            watchContext.timers.delete(abs);
+          }
+        }
+        watchContext.importing = Math.max(0, (watchContext.importing ?? 1) - 1);
       }
-      return results;
     });
   }
 
