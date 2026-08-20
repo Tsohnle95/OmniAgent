@@ -363,8 +363,7 @@
   gap: 2px;
 }
 
-.tree-row:hover .tree-row-actions,
-.tree-row:focus-within .tree-row-actions { display: inline-flex; }
+.tree-row:hover .tree-row-actions { display: inline-flex; }
 
 .tree-row-action {
   display: inline-flex;
