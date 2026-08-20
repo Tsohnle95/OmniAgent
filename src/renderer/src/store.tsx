@@ -1279,7 +1279,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       };
       updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
       setTodosFor(panel.workspace.id, []);
-      const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): void => {
+      const existingRemoteUsers = transcript.filter((item) => item.kind === "user" && !item.id.startsWith("user-") && item.text === promptText).length;
+      const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): boolean => {
         const current = transcriptsBySessionRef.current[panel.id] ?? [];
         const withOptimistic = current.some((item) => item.id === userItem.id) ? current : [...current, userItem];
         const remoteUsers = new Map<string, number>();
@@ -1298,11 +1299,22 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         chatStatesRef.current.delete(panel.id);
         hydrateChatState(chatStateFor(panel.id), panel.id, merged);
         reconcileStreaming(panel.id);
-        setSessionBusy(panel.id, false);
+        const users = refreshed.transcript.filter((item) => item.kind === "user" && item.text === promptText);
+        const lastUser = users.at(-1);
+        const lastUserIndex = lastUser ? refreshed.transcript.lastIndexOf(lastUser) : -1;
+        const completed = users.length > existingRemoteUsers
+          && lastUserIndex >= 0
+          && refreshed.transcript.slice(lastUserIndex + 1).some((item) => item.kind === "assistant" && item.completed);
+        setSessionBusy(panel.id, !completed);
+        return completed;
       };
       try {
-        const refreshed = await window.openshell.prompt(target, promptText, files);
-        if (panelFor(target)) applyCanonicalTranscript(refreshed);
+        let refreshed = await window.openshell.prompt(target, promptText, files);
+        for (let attempt = 0; attempt < 1200 && panelFor(target); attempt += 1) {
+          if (applyCanonicalTranscript(refreshed)) break;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          refreshed = await window.openshell.sessionTranscript(panel.id);
+        }
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }

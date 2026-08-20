@@ -186,5 +186,6 @@ describe("built-in commands and prompt files", () => {
         mention: { start: 8, end: 19, text: "@src/foo.ts" }
       }]
     });
+    expect(client.message.list).toHaveBeenCalledWith({ sessionID: "session-1", order: "asc" });
   });
 });

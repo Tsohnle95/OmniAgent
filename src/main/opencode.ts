@@ -1376,7 +1376,7 @@ export class OpenShellBackend {
         }
       };
     })();
-    const messagesRes = await this.client.message.list({ sessionID: id }).catch(() => null);
+    const messagesRes = await this.client.message.list({ sessionID: id, order: "asc" }).catch(() => null);
     const session = await this.activateSession({
       id,
       directory,
@@ -1393,7 +1393,7 @@ export class OpenShellBackend {
 
   async sessionTranscript(sessionID: string): Promise<SessionTranscript> {
     if (!this.client) throw new Error("not connected to opencode service");
-    const messagesRes = await this.client.message.list({ sessionID }).catch(() => null);
+    const messagesRes = await this.client.message.list({ sessionID, order: "asc" }).catch(() => null);
     const messages = messagesRes
       ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
       : [];

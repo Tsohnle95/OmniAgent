@@ -43,6 +43,7 @@ This file records the Explorer and workspace bugs investigated across iterations
 30. Current iteration: the default queue path treated a stale streaming marker as an active turn, so prompts were queued instead of submitted and the timeline continued showing Thinking; activity and rendering now require an incomplete canonical assistant message.
 31. Current iteration: the timeline still received raw `busyBySession` independently of canonical transcript state, so a completed answer could remain visually streaming; panel busy state now uses the reconciled activity result.
 32. Current iteration: SSE and renderer polling were both fallback paths for prompt completion and could leave the UI stale despite a completed server response; prompt IPC now returns the canonical completed transcript directly and the renderer applies that single result.
+33. Root cause: the 30-second transcript loop requested default descending message history but searched for a completed assistant after the matching user, so it could never recognize fast completions. Canonical history is now explicitly ascending, and the renderer applies each 250ms snapshot so tools and text progress without relying on SSE.
 
 ## Constraints
 
