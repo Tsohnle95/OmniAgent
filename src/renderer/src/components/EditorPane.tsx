@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { languageForPath } from "../monaco";
+import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { registerEditor, unregisterEditor } from "../reveal";
@@ -206,6 +207,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           onMount={(ed) => {
             editorRef.current = ed;
             registerEditor(tab.path, ed);
+            wireEmmetKeys(ed);
           }}
           options={options}
           onChange={(value) => {

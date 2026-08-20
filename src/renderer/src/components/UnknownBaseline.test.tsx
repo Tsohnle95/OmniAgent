@@ -53,6 +53,7 @@ const store = {
 };
 
 vi.mock("../store", () => ({ useStore: () => store }));
+vi.mock("../emmet-keys", () => ({ wireEmmetKeys: vi.fn() }));
 vi.mock("@monaco-editor/react", () => ({
   default: () => <div data-testid="editor" />,
   DiffEditor: () => <div data-testid="diff-editor" />

@@ -340,10 +340,19 @@ released at that collapsed position.
   working `doValidation`), so CSS files lint inline exactly like VS Code.
   The HTML worker ships no `doValidation`, so HTML files have no built-in
   structural markers — which also matches VS Code.
-- Emmet is registered through `emmet-monaco-es` for HTML and CSS/SCSS/LESS:
-  an abbreviation typed in the editor (including `!` at the top of an HTML
-  file) shows up as a snippet completion whose Tab/Enter accept expands it,
-  as in VS Code.
+- Emmet is registered through `emmet-monaco-es` for HTML and CSS/SCSS/LESS.
+  Typing an abbreviation shows up as a snippet completion (as in VS Code),
+  and `emmet.ts` makes expansion deterministic: pressing **Enter** (or Tab)
+  at the end of a recognized abbreviation — including `!` at the top of an
+  HTML file — replaces it with the expanded markup through Monaco's snippet
+  controller, so the caret lands on the first tab stop (the `<title>` text
+  for `!`) without depending on the suggestion widget having finished
+  opening. The key handling lives in `emmet-keys.ts` (`wireEmmetKeys`,
+  called from the `EditorPane` edit editor's `onMount`) and is skipped
+  while the suggestion widget is visible, while inside a `<script>` block,
+  or while a snippet session is already active. `emmet.ts` mirrors the
+  provider's noise checks (unknown tags, unresolved CSS values, unknown
+  `.class` fragments) so Enter/Tab only expands genuine abbreviations.
 
 ## W3C editor validation
 
