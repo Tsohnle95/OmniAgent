@@ -8,6 +8,11 @@ vi.mock("./components/EditorPane", () => ({
   EditorPane: () => null
 }));
 
+vi.mock("./monaco", () => ({
+  languageForPath: () => "plaintext",
+  monaco: { editor: { setModelMarkers: vi.fn() } }
+}));
+
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     loadAddon() {}

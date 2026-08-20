@@ -24,6 +24,10 @@ export function unregisterEditor(path: string): void {
   editors.delete(path);
 }
 
+export function getEditor(path: string): editor.IStandaloneCodeEditor | null {
+  return editors.get(path) ?? null;
+}
+
 export function requestReveal(path: string, line: number): void {
   const ed = editors.get(path);
   if (ed) {

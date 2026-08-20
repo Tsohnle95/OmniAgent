@@ -1,5 +1,6 @@
 import * as monaco from "monaco-editor";
 import { loader } from "@monaco-editor/react";
+import { emmetCSS, emmetHTML } from "emmet-monaco-es";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
@@ -26,11 +27,8 @@ window.MonacoEnvironment = {
 
 loader.config({ monaco });
 
-monaco.languages.css.cssDefaults.setDiagnosticsOptions({ validate: false });
-monaco.languages.html.htmlDefaults.setModeConfiguration({
-  ...monaco.languages.html.htmlDefaults.modeConfiguration,
-  diagnostics: false
-});
+emmetHTML(monaco, ["html"]);
+emmetCSS(monaco, ["css", "scss", "less"]);
 
 monaco.editor.defineTheme("openshell-dark", {
   base: "vs-dark",

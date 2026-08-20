@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { languageForPath, monaco } from "../monaco";
-import type { W3cDiagnostic } from "@shared/types";
+import { languageForPath } from "../monaco";
+import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { registerEditor, unregisterEditor } from "../reveal";
 import type { Tab } from "@shared/types";
@@ -105,29 +105,12 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   );
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const validationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const validationGeneration = useRef(0);
 
   useEffect(() => {
-    if (!w3cFile || mode !== "edit") return;
-    if (validationTimer.current !== null) clearTimeout(validationTimer.current);
-    const generation = ++validationGeneration.current;
-    const model = editorRef.current?.getModel();
-    if (model && !model.isDisposed()) monaco.editor.setModelMarkers(model, "w3c", []);
-    validationTimer.current = setTimeout(() => {
-      void window.openshell.validateW3c(tab.path, tab.content).then((diagnostics) => {
-        if (generation !== validationGeneration.current) return;
-        const model = editorRef.current?.getModel();
-        if (!model || model.isDisposed()) return;
-        monaco.editor.setModelMarkers(model, "w3c", diagnostics.map(toMarker));
-      }).catch(() => {});
-    }, 400);
-    return () => {
-      if (validationTimer.current !== null) clearTimeout(validationTimer.current);
-      validationTimer.current = null;
-      validationGeneration.current++;
-    };
-  }, [mode, tab.content, tab.path, w3cFile]);
+    if (!w3cFile) return;
+    clearW3cMarkers(tab.path);
+    return () => clearW3cMarkers(tab.path);
+  }, [tab.content, tab.path, w3cFile]);
 
   useEffect(() => () => unregisterEditor(tab.path), [tab.path]);
 
@@ -232,18 +215,6 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
       )}
     </div>
   );
-}
-
-function toMarker(diagnostic: W3cDiagnostic): editor.IMarkerData {
-  return {
-    startLineNumber: diagnostic.line,
-    startColumn: diagnostic.column,
-    endLineNumber: diagnostic.endLine,
-    endColumn: diagnostic.endColumn,
-    message: diagnostic.message,
-    severity: diagnostic.severity === "warning" ? 4 : 8,
-    source: diagnostic.source
-  };
 }
 
 export function EditorPane(): ReactNode {

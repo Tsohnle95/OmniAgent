@@ -330,19 +330,31 @@ released at that collapsed position.
   (`#RRGGBB` or `#RRGGBBAA`), never `rgba()`.
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
-- CSS and HTML worker diagnostics are disabled so editor markers come only from
-  the W3C validation service.
+- CSS worker diagnostics stay enabled (the only language worker with a
+  working `doValidation`), so CSS files lint inline exactly like VS Code.
+  The HTML worker ships no `doValidation`, so HTML files have no built-in
+  structural markers — which also matches VS Code.
+- Emmet is registered through `emmet-monaco-es` for HTML and CSS/SCSS/LESS:
+  an abbreviation typed in the editor (including `!` at the top of an HTML
+  file) shows up as a snippet completion whose Tab/Enter accept expands it,
+  as in VS Code.
 
 ## W3C editor validation
 
-- `EditorPane` validates open HTML and CSS files after a 400 ms
-  debounce while in Edit mode. Preprocessor stylesheets (SCSS, LESS, Sass)
-  are not validated — the W3C CSS Validator cannot parse them and would
-  flag valid syntax as errors.
-- The main process calls the Nu Html Checker for HTML and the W3C CSS Validator
-  for CSS, then returns diagnostics that become Monaco markers.
-- Network failures leave the editor unchanged; Vue and Svelte files are not
-  sent to the validators.
+- The W3C checkers never run automatically. The **Validate** button in the
+  bottom-left status bar (`StatusBar`) runs them on demand for the open
+  HTML or CSS file. Preprocessor stylesheets (SCSS, LESS, Sass) are not
+  validated — the W3C CSS Validator cannot parse them and would flag valid
+  syntax as errors.
+- `StatusBar` sends the active tab's content through
+  `window.openshell.validateW3c`, applies the returned diagnostics as
+  `w3c`-owner Monaco markers via `w3c-validation.ts`, and shows error and
+  warning counts (or a failure state) beside the button.
+- W3C markers are cleared whenever the file content changes or the tab
+  closes, so stale line numbers never linger while editing.
+- The main process calls the Nu Html Checker for HTML and the W3C CSS
+  Validator for CSS, then returns diagnostics. Network failures leave the
+  editor unchanged; Vue and Svelte files are not sent to the validators.
 
 ## Entry
 

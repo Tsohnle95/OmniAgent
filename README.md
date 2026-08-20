@@ -13,7 +13,11 @@ red/green diff.
 - **Editor (center)** — Monaco, fully editable like VS Code, with autosave
   (debounced) and ⌘S/Ctrl+S. Every tab has an **Edit / Diff** toggle: the diff
   view compares workspace changes observed during the active session against
-  their first known content, updating in real time as files change.
+  their first known content, updating in real time as files change. CSS files
+  lint inline like they do in VS Code, Emmet expands abbreviations (type `!`
+  in an HTML file and press Tab or Enter for the HTML5 skeleton), and a
+  **Validate** button in the bottom-left status bar runs the W3C HTML/CSS
+  checkers on demand.
 - **Agent panel (right)** — OpenCode's web timeline presentation: flat
   streaming markdown and collapsible reasoning, grouped Exploring/Explored
   context activity, navigable subagent task cards, semantic shell/skill/

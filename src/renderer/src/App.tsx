@@ -9,6 +9,7 @@ import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 import { RecoveryNotice } from "./components/RecoveryNotice";
 import { SessionsTab } from "./components/SessionsTab";
+import { StatusBar } from "./components/StatusBar";
 
 const COLLAPSED_PANEL_W = 44;
 const SIDE_MIN_W = 280;
@@ -768,6 +769,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </div>
       </div>
 
+      <StatusBar />
       <SessionsTab open={sessionsOpen} onClose={() => setSessionsOpen(false)} />
       <Toasts />
       <RecoveryNotice />
