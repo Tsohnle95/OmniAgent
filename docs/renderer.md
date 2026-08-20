@@ -117,6 +117,8 @@ path against the current session: in-workspace files open normally, outside
 files open as editable standalone tabs saved back to their real path),
 `importPaths(destDir, sources)` (copy external files/folders into the workspace
 at `destDir`, seeding clean baselines so imports never show as changes),
+`dropIntoExplorer(paths)` (imports dropped files into the current workspace root
+and opens dropped folders as separate model panels),
 `selectPanelDirectory(workspace)`
 (swap one panel to a folder picked in the native dialog) and
 `changePanelDirectory(workspace, dir)` (swap one panel to a directory without a
@@ -287,14 +289,14 @@ Key mechanisms:
   drop calls `moveEntry`, which performs the `shell:fs-move` invoke and
   remaps `tabs`, `activePath`, and `agentFiles` on success.
 - **External drag-and-drop** — OS file/folder drops are accepted with
-  `e.dataTransfer.types` containing `"Files"` and routed through the main
+  a file item/type in `DataTransfer` and routed through the main
   process, never interpreted as explorer moves. Dropping onto a folder row
   **imports** the items into that folder (`importPaths` →
   `shell:fs-import`, then the tree refreshes the destination); dropping
-  onto the empty explorer area or into the **editor pane** opens each file
-  as a **standalone tab** in the current workspace (`openExternalPath` →
-  `shell:open-external`): in-workspace files open as ordinary relative
-  tabs, outside files open with `standalone: true` and save back to their
+  a file onto the empty explorer area imports it into the current workspace,
+  while a folder opens as a separate model panel. Dropping a file into the
+  **editor pane** opens it as an editable standalone tab via
+  `openExternalPath` → `shell:open-external`; outside files save back to their
   absolute path via `shell:fs-write-standalone`. Dragging files onto the
   Welcome screen (no session yet) opens them as single-file workspaces
   (`openFileWorkspace`).
