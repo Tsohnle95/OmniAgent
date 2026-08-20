@@ -887,8 +887,25 @@ if (!app.requestSingleInstanceLock()) {
     }
     const trustSmoke = process.env["OPENSHELL_TRUST_SMOKE"] === "1";
     if (!trustSmoke) backend.start();
+    const pendingFileUpdates = new Map<string, unknown>();
+    let fileUpdateFlush: ReturnType<typeof setTimeout> | null = null;
+    const flushFileUpdates = (): void => {
+      fileUpdateFlush = null;
+      const updates = [...pendingFileUpdates.values()];
+      pendingFileUpdates.clear();
+      for (const update of updates) {
+        if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send("shell:message", update);
+      }
+    };
     const fwd = (msg: unknown): void => {
       if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+      if (typeof msg === "object" && msg !== null && (msg as { kind?: string }).kind === "file-update") {
+        const file = (msg as { file?: { workspace?: { id?: string }; path?: string } }).file;
+        const key = `${file?.workspace?.id ?? ""}:${file?.path ?? ""}`;
+        pendingFileUpdates.set(key, msg);
+        if (!fileUpdateFlush) fileUpdateFlush = setTimeout(flushFileUpdates, 16);
+        return;
+      }
       win.webContents.send("shell:message", msg);
     };
     backend.onMessage(fwd);
