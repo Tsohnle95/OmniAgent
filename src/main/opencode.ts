@@ -597,9 +597,6 @@ export class OpenShellBackend {
     const pipeline = createStreamPipeline({
       subscribe: (attemptSignal) => this.subscribeEvents(attemptSignal, generation),
       onEvents: (directory, events) => this.deliverEvents(directory, events, generation),
-      onStreamError: () => {
-        this.client = null;
-      },
       onReconnect: () => {
         if (!this.streamConnectedOnce) {
           this.streamConnectedOnce = true;
