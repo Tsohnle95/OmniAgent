@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { languageForPath } from "../monaco";
@@ -6,7 +6,7 @@ import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { registerEditor, unregisterEditor } from "../reveal";
-import { droppedFilePaths } from "../drop";
+import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { Tab } from "@shared/types";
 
 const EDITOR_OPTIONS = {
@@ -223,31 +223,33 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 export function EditorPane(): ReactNode {
   const { tabs, activePath, openExternalPath } = useStore();
   const activeTab = tabs.find((t) => t.path === activePath);
-
-  const hasFiles = (e: React.DragEvent): boolean => {
-    const types = e.dataTransfer?.types;
-    if (!types) return false;
-    return Array.from(types as ArrayLike<string>).includes("Files");
-  };
+  const [externalDrag, setExternalDrag] = useState(false);
 
   const onDragOver = (e: React.DragEvent): void => {
-    if (!hasFiles(e)) return;
+    if (!isExternalFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
+    setExternalDrag(true);
     e.dataTransfer.dropEffect = "copy";
   };
   const onDrop = (e: React.DragEvent): void => {
-    if (!hasFiles(e)) return;
+    if (!isExternalFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
+    setExternalDrag(false);
     for (const file of droppedFilePaths(e)) void openExternalPath(file);
+  };
+  const onDragLeave = (e: React.DragEvent): void => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setExternalDrag(false);
   };
 
   return (
     <div
-      className="editor-pane"
+      className={`editor-pane ${externalDrag ? "external-drop-active" : ""}`}
       onDragOverCapture={onDragOver}
       onDropCapture={onDrop}
+      onDragEnterCapture={onDragOver}
+      onDragLeaveCapture={onDragLeave}
     >
       {tabs.length === 0 ? (
         <div className="editor-empty">

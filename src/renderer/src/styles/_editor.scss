@@ -8,6 +8,10 @@
   margin-right: var(--editor-right, 0px);
 }
 
+.editor-pane.external-drop-active {
+  box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 28px var(--accent-tint);
+}
+
 .tabbar {
   display: flex;
   overflow-x: auto;

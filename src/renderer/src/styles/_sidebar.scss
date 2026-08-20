@@ -221,6 +221,11 @@
   box-shadow: inset 0 0 0 1px rgba(94, 155, 255, 0.35);
 }
 
+.tree.external-drop-active {
+  background: color-mix(in srgb, var(--accent-tint) 72%, var(--bg-panel));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .tree-row.file.active {
   background: var(--accent-tint);
   box-shadow: inset 2px 0 0 var(--accent);

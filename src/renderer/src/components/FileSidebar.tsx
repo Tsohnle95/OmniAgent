@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { ShellMark } from "./ShellMark";
-import { droppedFilePaths } from "../drop";
+import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 
 function canDrop(source: string, target: string): boolean {
@@ -346,6 +346,7 @@ export function FileSidebar({
   const [changesH, changesDrag] = useChangesDrag(200);
   const [dragPath, setDragPath] = useState<string | null>(null);
   const [dropDir, setDropDir] = useState<string | null>(null);
+  const [externalDrop, setExternalDrop] = useState(false);
   const root = tree[""] ?? [];
   const loadedSessionKey = useRef<string | null>(null);
 
@@ -362,11 +363,7 @@ export function FileSidebar({
   const drag: DragHandlers = {
     dragPath,
     dropDir,
-    isExternalDrop: (e) => {
-      const types = e.dataTransfer?.types;
-      if (!types) return false;
-      return Array.from(types as ArrayLike<string>).includes("Files");
-    },
+    isExternalDrop: isExternalFileDrag,
     onDragStart: (e, path) => {
       if ((e.target as HTMLElement).closest("button")) {
         e.preventDefault();
@@ -386,6 +383,7 @@ export function FileSidebar({
         e.preventDefault();
         e.dataTransfer.dropEffect = "copy";
         setDropDir(dir);
+        setExternalDrop(true);
         return;
       }
       if (!dragPath) return;
@@ -403,6 +401,7 @@ export function FileSidebar({
       const external = droppedFilePaths(e);
       setDragPath(null);
       setDropDir(null);
+      setExternalDrop(false);
       if (external.length > 0) {
         void importPaths(dir, external);
         return;
@@ -415,13 +414,14 @@ export function FileSidebar({
 
   const onTreeDragOver = (e: React.DragEvent): void => {
     if (!dragPath && !drag.isExternalDrop(e)) return;
-    if ((e.target as HTMLElement).closest(".tree-row")) {
-      setDropDir(null);
-      return;
-    }
     if (drag.isExternalDrop(e)) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
+      setDropDir(null);
+      setExternalDrop(true);
+      return;
+    }
+    if ((e.target as HTMLElement).closest(".tree-row")) {
       setDropDir(null);
       return;
     }
@@ -437,10 +437,11 @@ export function FileSidebar({
 
   const onTreeDrop = (e: React.DragEvent): void => {
     e.preventDefault();
-    if ((e.target as HTMLElement).closest(".tree-row")) return;
     const external = droppedFilePaths(e);
+    if (external.length === 0 && (e.target as HTMLElement).closest(".tree-row")) return;
     setDragPath(null);
     setDropDir(null);
+    setExternalDrop(false);
     if (external.length > 0) {
       void dropIntoExplorer(external);
       return;
@@ -448,6 +449,17 @@ export function FileSidebar({
     const source = dragPath;
     if (!source || !canDrop(source, "")) return;
     void moveEntry(source, "");
+  };
+
+  const onTreeDragEnter = (e: React.DragEvent): void => {
+    if (drag.isExternalDrop(e)) setExternalDrop(true);
+  };
+
+  const onTreeDragLeave = (e: React.DragEvent): void => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+      setExternalDrop(false);
+      setDropDir(null);
+    }
   };
 
   const changes = [...agentFiles.entries()];
@@ -492,9 +504,11 @@ export function FileSidebar({
         </div>
         <div className="sidebar-section explorer">
           <div
-            className="tree"
-            onDragOver={onTreeDragOver}
-            onDrop={onTreeDrop}
+             className={`tree ${externalDrop ? "external-drop-active" : ""}`}
+             onDragEnter={onTreeDragEnter}
+             onDragOver={onTreeDragOver}
+             onDrop={onTreeDrop}
+             onDragLeave={onTreeDragLeave}
             onContextMenu={(e) => {
               e.preventDefault();
               openCtxMenu(e.clientX, e.clientY, null);
@@ -613,9 +627,11 @@ export function FileSidebar({
       {explorerOpen && (
         <div className="sidebar-section explorer">
           <div
-            className={`tree ${dropDir === "" ? "drop-root" : ""}`}
-            onDragOver={onTreeDragOver}
-            onDrop={onTreeDrop}
+             className={`tree ${dropDir === "" ? "drop-root" : ""} ${externalDrop ? "external-drop-active" : ""}`}
+             onDragEnter={onTreeDragEnter}
+             onDragOver={onTreeDragOver}
+             onDrop={onTreeDrop}
+             onDragLeave={onTreeDragLeave}
             onContextMenu={(e) => {
               if ((e.target as HTMLElement).closest(".tree-row")) return;
               e.preventDefault();

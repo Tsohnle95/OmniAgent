@@ -1551,23 +1551,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   );
   const dropIntoExplorer = useCallback(
     async (paths: string[]): Promise<void> => {
-      const target = sessionRef.current?.workspace;
-      if (!target || paths.length === 0) return;
-      const files: string[] = [];
-      const directories: string[] = [];
-      for (const path of paths) {
-        try {
-          const kind = await window.openshell.externalKind(path);
-          if (kind.kind === "directory") directories.push(path);
-          else if (kind.kind === "file") files.push(path);
-        } catch {
-          /* unreadable path: skip */
-        }
-      }
-      for (const file of files) void openExternalPath(file, target);
-      if (directories.length > 0) void importPaths("", directories);
+      if (paths.length > 0) await importPaths("", paths);
     },
-    [openExternalPath, importPaths]
+    [importPaths]
   );
   const attachFileWorkspace = useCallback(
     async (result: OpenFileWorkspaceResult, activation: number): Promise<SessionInfo | null> => {

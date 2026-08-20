@@ -2,7 +2,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenShellApi } from "../../preload";
-import type { BackendMessage, ExternalKind, ExternalOpenResult, SessionInfo } from "@shared/types";
+import type { BackendMessage, ExternalOpenResult, SessionInfo } from "@shared/types";
 import { StoreProvider, useStore } from "./store";
 
 type Store = ReturnType<typeof useStore>;
@@ -157,19 +157,17 @@ describe("store external files", () => {
     expect(listDir).toHaveBeenCalled();
   });
 
-  it("routes explorer drops: files open as standalone tabs, folders import into the root", async () => {
-    const externalKind = vi.fn(async (p: string): Promise<ExternalKind> => ({ kind: p.endsWith("folder") ? "directory" : "file" }));
-    const openExternal = vi.fn(async (): Promise<ExternalOpenResult> => ({
-      kind: "standalone", path: "/outside/a.txt", content: "a"
-    }));
-    const importExternal = vi.fn(async () => []);
+  it("imports explorer drops into the workspace root", async () => {
+    const importExternal = vi.fn(async () => [
+      { name: "folder", rel: "folder", imported: true },
+      { name: "a.txt", rel: "a.txt", imported: true }
+    ]);
     const listDir = vi.fn(async () => []);
-    window.openshell = api({ externalKind, openExternal, importExternal, listDir });
+    window.openshell = api({ importExternal, listDir });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
     await act(async () => store.dropIntoExplorer(["/outside/folder", "/outside/a.txt"]));
 
-    expect(openExternal).toHaveBeenCalledWith(store.session!.workspace, "/outside/a.txt");
-    expect(importExternal).toHaveBeenCalledWith(store.session!.workspace, "", ["/outside/folder"]);
+    expect(importExternal).toHaveBeenCalledWith(store.session!.workspace, "", ["/outside/folder", "/outside/a.txt"]);
   });
 });
