@@ -163,7 +163,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(Number.parseFloat(gridCols()[0] ?? "0")).toBeCloseTo(280, 0);
-    expect(agentWidths()[0]).toBeCloseTo(900 - 280 - 2, 0);
+    expect(agentWidths()[0]).toBeCloseTo(900 - 280 - 1, 0);
   });
 
   it("keeps a left-expanded agent panel covering the editor when the window widens", async () => {
@@ -205,7 +205,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(agentLefts()[0]).toBe(0);
-    expect(agentWidths()[0]).toBeCloseTo(1199, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1435, 0);
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>('.sidebar.collapsed .activity-btn[title="Explorer"]')!.click();
@@ -214,7 +214,7 @@ describe("Layout panel sizing", () => {
 
     expect(gridCols()[0]).toBe("280px");
     expect(agentLefts()[0]).toBe(0);
-    expect(agentWidths()[0]).toBeCloseTo(1198, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1199, 0);
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
@@ -238,7 +238,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()[0]).toBeCloseTo(1199, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1435, 0);
     expect(agentLefts()[0]).toBeCloseTo(0, 0);
   });
 

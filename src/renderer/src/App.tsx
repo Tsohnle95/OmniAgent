@@ -173,7 +173,6 @@ interface PanelSlot {
   width: number;
   left: number;
   leftAnchored?: boolean;
-  leftAnchorWindowWidth?: number;
   top: number;
   height: number;
 }
@@ -276,7 +275,7 @@ function PanelColumn({
     open,
     collapse,
     slot.left,
-    (left) => onSlot((current) => ({ ...current, left, leftAnchored: true, leftAnchorWindowWidth: window.innerWidth })),
+    (left) => onSlot((current) => ({ ...current, left, leftAnchored: true })),
     settle
   );
   const slideBy = (delta: number): void => {
@@ -412,8 +411,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         };
       }
       if (open && stored?.left === 0 && stored.leftAnchored) {
-        const grewWithWindow = winW > (stored.leftAnchorWindowWidth ?? winW);
-        return { open: true, width: grewWithWindow ? Math.max(width, areaW) : width, left: 0, top: 0, height: 100 };
+        return { open: true, width: areaW, left: 0, top: 0, height: 100 };
       }
       return { open, width, left: Math.max(0, areaW - width), top: 0, height: 100 };
     }
