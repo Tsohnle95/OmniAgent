@@ -1452,6 +1452,20 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setHiddenPathsByWorkspace((current) => ({ ...current, [target.id]: new Set() }));
   }, [closeCtxMenu]);
 
+  const restoreHiddenPath = useCallback((path: string): boolean => {
+    const target = sessionRef.current;
+    if (!target || !hiddenPathsByWorkspace[target.workspace.id]?.has(path)) return false;
+    const directoryPaths = readPersistedHiddenPaths(target.directory);
+    directoryPaths.delete(path);
+    writePersistedHiddenPaths(target.directory, directoryPaths);
+    setHiddenPathsByWorkspace((current) => {
+      const next = new Set(current[target.workspace.id] ?? []);
+      next.delete(path);
+      return { ...current, [target.workspace.id]: next };
+    });
+    return true;
+  }, [hiddenPathsByWorkspace]);
+
   const startCreate = useCallback((parent: string, kind: "file" | "dir") => {
     closeCtxMenu();
     setPendingRename(null);
@@ -1630,6 +1644,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         if (!panelFor(target)) return;
         for (const result of results) {
           if (result.imported) toast(`Imported ${result.rel}`);
+          else if (hiddenPathsByWorkspace[target.id]?.has(result.rel) && restoreHiddenPath(result.rel)) {
+            toast(`Restored ${result.rel}`);
+          }
           else toast(`Could not import ${result.name}: ${result.reason ?? "unknown"}`, "error");
         }
         void refreshTree([...ancestorDirs(destDir)]);
@@ -1637,7 +1654,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [toast, panelFor, refreshTree]
+    [toast, panelFor, refreshTree, hiddenPathsByWorkspace, restoreHiddenPath]
   );
   const dropIntoExplorer = useCallback(
     async (paths: string[]): Promise<void> => {
