@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { ShellMark } from "./ShellMark";
@@ -377,6 +377,7 @@ export function FileSidebar({
   const [dropDir, setDropDir] = useState<string | null>(null);
   const [externalDrop, setExternalDrop] = useState(false);
   const root = tree[""] ?? [];
+  const orderedPanels = panels.length > 0 ? panels : session ? [session] : [];
   const loadedSessionKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -671,41 +672,7 @@ export function FileSidebar({
               openCtxMenu(e.clientX, e.clientY, null);
             }}
           >
-            {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
-            <div
-              className={`tree-row dir workspace-root ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
-              onClick={() => void toggleDir("")}
-              onDragOver={(e) => drag.onDirDragOver(e, "")}
-              onDrop={(e) => drag.onDirDrop(e, "")}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openCtxMenu(e.clientX, e.clientY, null);
-              }}
-              onDragLeave={(e) => {
-                if (drag.isExternalDrop(e)) setDropDir(null);
-              }}
-              title={session?.directory}
-            >
-              <FileIcon name={session?.directory ?? "workspace"} isDir open={expanded.has("")} />
-              <span className="tree-name">{session?.directory.split("/").filter(Boolean).pop() ?? "workspace"}</span>
-            </div>
-            {expanded.has("") && root.filter((child) => !hiddenPaths.has(child.path)).map((child) =>
-              child.type === "directory" ? (
-                <DirNode key={child.path} entry={child} depth={0} drag={drag} hiddenPaths={hiddenPaths} />
-              ) : (
-                <FileNode key={child.path} entry={child} depth={0} drag={drag} />
-              )
-            )}
-            {pendingCreate?.parent === "" && (
-              <TreeNameInput
-                initial={pendingCreate.kind === "file" ? "untitled.txt" : "untitled folder"}
-                isDir={pendingCreate.kind === "dir"}
-                onCommit={(v) => void commitName(v)}
-                onCancel={cancelPending}
-              />
-            )}
-            {panels.filter((panel) => panel.id !== session?.id).map((panel) => (
+            {orderedPanels.map((panel) => panel.id !== session?.id ? (
               <div
                 key={panel.id}
                 className="tree-row dir workspace-root"
@@ -715,6 +682,43 @@ export function FileSidebar({
                 <FileIcon name={panel.directory} isDir />
                 <span className="tree-name">{panel.directory.split("/").filter(Boolean).pop() ?? "workspace"}</span>
               </div>
+            ) : (
+              <Fragment key={panel.id}>
+                {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
+                <div
+                  className={`tree-row dir workspace-root ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
+                  onClick={() => void toggleDir("")}
+                  onDragOver={(e) => drag.onDirDragOver(e, "")}
+                  onDrop={(e) => drag.onDirDrop(e, "")}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openCtxMenu(e.clientX, e.clientY, null);
+                  }}
+                  onDragLeave={(e) => {
+                    if (drag.isExternalDrop(e)) setDropDir(null);
+                  }}
+                  title={panel.directory}
+                >
+                  <FileIcon name={panel.directory} isDir open={expanded.has("")} />
+                  <span className="tree-name">{panel.directory.split("/").filter(Boolean).pop() ?? "workspace"}</span>
+                </div>
+                {expanded.has("") && root.filter((child) => !hiddenPaths.has(child.path)).map((child) =>
+                  child.type === "directory" ? (
+                    <DirNode key={child.path} entry={child} depth={0} drag={drag} hiddenPaths={hiddenPaths} />
+                  ) : (
+                    <FileNode key={child.path} entry={child} depth={0} drag={drag} />
+                  )
+                )}
+                {pendingCreate?.parent === "" && (
+                  <TreeNameInput
+                    initial={pendingCreate.kind === "file" ? "untitled.txt" : "untitled folder"}
+                    isDir={pendingCreate.kind === "dir"}
+                    onCommit={(v) => void commitName(v)}
+                    onCancel={cancelPending}
+                  />
+                )}
+              </Fragment>
             ))}
           </div>
         </div>
