@@ -1458,8 +1458,6 @@ export class OpenShellBackend {
   async prompt(workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<void> {
     if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
-    const workspaceName = path.basename(target.directory) || target.directory;
-    const promptText = `Workspace context: ${workspaceName}\nWorking directory: ${target.directory}\n\n${text}`;
     const fileSpecs = await Promise.all(
       files.map(async (file) => {
         const stat = await fsp.stat(file.path);
@@ -1477,7 +1475,7 @@ export class OpenShellBackend {
     this.assertTarget(target);
     await this.client.session.prompt({
       sessionID: target.sessionID,
-      text: promptText,
+      text,
       ...(fileSpecs.length > 0 ? { files: fileSpecs } : {})
     });
   }

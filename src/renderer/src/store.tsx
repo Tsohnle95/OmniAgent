@@ -97,12 +97,6 @@ import { sameWorkspace } from "@shared/generation";
 import { retainSessionRecord } from "@shared/retention";
 import { createChatStreamPipeline } from "./chat-stream-pipeline";
 
-const isWorkspaceQuestion = (text: string): boolean => {
-  const normalized = text.trim().toLowerCase().replace(/[?!.,]+$/g, "");
-  return /^(what|which) (workspace|folder|directory) (is this|am i in|are we in)$/.test(normalized)
-    || /^(where am i|what workspace am i working in)$/.test(normalized);
-};
-
 export interface Toast {
   id: number;
   text: string;
@@ -1247,23 +1241,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       if (!t && files.length === 0) return;
       const promptText = t || "Review the attached files.";
       const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
-      if (files.length === 0 && isWorkspaceQuestion(promptText)) {
-        const workspaceName = panel.directory.split(/[\\/]/).filter(Boolean).pop() ?? panel.directory;
-        const answer = `You are working in ${workspaceName}.\n\nWorking directory: ${panel.directory}`;
-        const timestamp = Date.now();
-        updateSessionTranscript(panel.id, (prev) => [
-          ...prev,
-          { kind: "user", id: `user-${timestamp}`, text: promptText },
-          {
-            kind: "assistant",
-            id: `assistant-local-${timestamp}`,
-            messageID: `assistant-local-${timestamp}`,
-            parts: [{ kind: "text", id: `part-local-${timestamp}`, text: answer, complete: true }],
-            completed: true
-          }
-        ]);
-        return;
-      }
       const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
       const activity = resolveSessionActivity({
         sessionId: panel.id,
