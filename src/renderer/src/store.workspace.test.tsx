@@ -535,4 +535,17 @@ describe("store workspace continuations", () => {
     expect(listDir).toHaveBeenCalledTimes(1);
     expect(store.tree[""]).toHaveLength(1);
   });
+
+  it("restores a nested workspace path when its workspace panel closes", async () => {
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/parent"));
+    await act(async () => store.addModelPanel("/parent/child"));
+
+    const child = store.panels.find((panel) => panel.directory === "/parent/child")!;
+    await act(async () => store.closePanel(child.id));
+
+    expect(store.session?.directory).toBe("/parent");
+    expect(store.hiddenPaths).toEqual(new Set());
+  });
 });

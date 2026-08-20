@@ -804,6 +804,25 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     const closing = panelsRef.current.find((panel) => panel.id === sessionID);
     panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
     setPanels(panelsRef.current);
+    if (closing) {
+      const childDirectory = closing.directory.replaceAll("\\", "/").replace(/\/+$/, "");
+      setHiddenPathsByWorkspace((current) => {
+        let changed = false;
+        const next = { ...current };
+        for (const panel of panelsRef.current) {
+          const parentDirectory = panel.directory.replaceAll("\\", "/").replace(/\/+$/, "");
+          if (!childDirectory.startsWith(`${parentDirectory}/`)) continue;
+          const relative = childDirectory.slice(parentDirectory.length + 1);
+          const paths = current[panel.workspace.id];
+          if (!paths?.has(relative)) continue;
+          const restored = new Set(paths);
+          restored.delete(relative);
+          next[panel.workspace.id] = restored;
+          changed = true;
+        }
+        return changed ? next : current;
+      });
+    }
     setWorkspaceOnlyPanelIDs((current) => {
       if (!current.has(sessionID)) return current;
       const next = new Set(current);

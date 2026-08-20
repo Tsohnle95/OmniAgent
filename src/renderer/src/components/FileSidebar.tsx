@@ -678,6 +678,7 @@ export function FileSidebar({
               openCtxMenu(e.clientX, e.clientY, null);
             }}
           >
+            {orderedPanels.length === 0 && <div className="tree-empty">Loading…</div>}
             {orderedPanels.map((panel) => panel.id !== session?.id ? (
               <div
                 key={panel.id}
@@ -690,7 +691,7 @@ export function FileSidebar({
               </div>
             ) : (
               <Fragment key={panel.id}>
-                {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
+                {(!session || (root.length === 0 && !expanded.has(""))) && <div className="tree-empty">Loading…</div>}
                 <div
                   className={`tree-row dir workspace-root ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
                   onClick={() => void toggleDir("")}
