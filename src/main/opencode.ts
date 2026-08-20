@@ -1174,8 +1174,8 @@ export class OpenShellBackend {
     const copied: string[] = [];
     let files = 0;
     let bytes = 0;
-    const MAX_FILES = 2000;
-    const MAX_BYTES = 512 * 1024 * 1024;
+    const MAX_FILES = 10000;
+    const MAX_BYTES = 2 * 1024 * 1024 * 1024;
     const copyFile = async (from: string, to: string): Promise<void> => {
       const stat = await fsp.stat(from);
       bytes += stat.size;

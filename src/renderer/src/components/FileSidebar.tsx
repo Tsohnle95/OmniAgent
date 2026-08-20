@@ -635,7 +635,7 @@ export function FileSidebar({
       {explorerOpen && (
         <div className="sidebar-section explorer">
           <div
-             className={`tree ${dropDir === "" ? "drop-root" : ""} ${externalDrop ? "external-drop-active" : ""}`}
+             className={`tree ${dropDir === "" && !externalDrop ? "drop-root" : ""} ${externalDrop ? "external-drop-active" : ""}`}
              onDragEnter={onTreeDragEnter}
              onDragOver={onTreeDragOver}
              onDrop={onTreeDrop}
@@ -652,6 +652,9 @@ export function FileSidebar({
               onClick={() => void toggleDir("")}
               onDragOver={(e) => drag.onDirDragOver(e, "")}
               onDrop={(e) => drag.onDirDrop(e, "")}
+              onDragLeave={(e) => {
+                if (drag.isExternalDrop(e)) setDropDir(null);
+              }}
               title={session?.directory}
             >
               <FileIcon name={session?.directory ?? "workspace"} isDir open={expanded.has("")} />
