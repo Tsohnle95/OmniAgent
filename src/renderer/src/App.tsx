@@ -300,7 +300,7 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels, focusSession, closePanel, selectAddPanel, selectFolder } = useStore();
+  const { panels, focusSession, closePanel, selectAddPanel, selectFolder, selectFile } = useStore();
   const [sideOpen, setSideOpen] = useState(true);
   const [sideW, setSideW] = useState(SIDE_DEFAULT_W);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
@@ -672,6 +672,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             onClick={() => void selectFolder()}
           >
             <span className="codicon codicon-folder-opened" />
+          </button>
+          <button
+            className="icon-btn"
+            title="Open a single file"
+            onClick={() => void selectFile()}
+          >
+            <span className="codicon codicon-file" />
           </button>
           {inAgentMode && (
             <button

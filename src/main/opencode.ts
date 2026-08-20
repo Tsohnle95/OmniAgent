@@ -13,8 +13,11 @@ import type {
   AssistantPartView,
   AgentOption,
   CommandOption,
+  ExternalOpenResult,
   FileWriteIdentity,
   FileBaseline,
+  ImportResult,
+  OpenFileWorkspaceResult,
   PermissionReply,
   ProjectInfo,
   PromptFile,
@@ -49,11 +52,14 @@ import {
   type ActiveWorkspaceTarget
 } from "./workspace-target";
 import {
+  absoluteFilePath,
+  absoluteFilePaths,
   assertWorkspace,
   canonicalWorkspaceRoot,
   confinedPath,
   fileContent,
   fileName,
+  MAX_WORKSPACE_FILE_BYTES,
   relativePath
 } from "./workspace-security";
 
@@ -1143,6 +1149,67 @@ export class OpenShellBackend {
     }
   }
 
+  private async canonicalExternalFile(value: string): Promise<string> {
+    const original = absoluteFilePath(value);
+    return fsp.realpath(original).then((real) => {
+      return fsp.stat(real).then((stat) => {
+        if (!stat.isFile()) throw new Error("not a file");
+        return real;
+      });
+    }).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return path.resolve(original);
+      throw error;
+    });
+  }
+
+  private async readExternalText(abs: string): Promise<string | null> {
+    const stat = await fsp.stat(abs).catch(() => null);
+    if (!stat) throw new Error("file does not exist");
+    if (stat.size > MAX_WORKSPACE_FILE_BYTES) throw new Error("file is too large to open");
+    return fsp.readFile(abs, "utf8").catch(() => null);
+  }
+
+  private async copyExternal(source: string, target: string, isDir: boolean): Promise<string[]> {
+    const copied: string[] = [];
+    let files = 0;
+    let bytes = 0;
+    const MAX_FILES = 2000;
+    const MAX_BYTES = 512 * 1024 * 1024;
+    const copyFile = async (from: string, to: string): Promise<void> => {
+      const stat = await fsp.stat(from);
+      bytes += stat.size;
+      if (bytes > MAX_BYTES) throw new Error("import is too large");
+      await fsp.copyFile(from, to);
+    };
+    const walk = async (from: string, to: string): Promise<void> => {
+      const stat = await fsp.lstat(from);
+      if (stat.isSymbolicLink()) return;
+      if (stat.isDirectory()) {
+        await fsp.mkdir(to, { recursive: true });
+        const entries = await fsp.readdir(from, { withFileTypes: true });
+        for (const entry of entries) {
+          files += 1;
+          if (files > MAX_FILES) throw new Error("too many files to import");
+          await walk(path.join(from, entry.name), path.join(to, entry.name));
+        }
+        return;
+      }
+      if (stat.isFile()) {
+        files += 1;
+        if (files > MAX_FILES) throw new Error("too many files to import");
+        await copyFile(from, to);
+        copied.push(to);
+      }
+    };
+    if (isDir) {
+      await walk(source, target);
+    } else {
+      await copyFile(source, target);
+      copied.push(target);
+    }
+    return copied;
+  }
+
   // ---------- session + API ----------
 
   private async activateSession(info: Omit<SessionInfo, "workspace">): Promise<SessionInfo> {
@@ -1621,6 +1688,125 @@ export class OpenShellBackend {
     });
     this.contextFor(workspace);
     return toText(res);
+  }
+
+  async resolveExternalOpen(workspace: WorkspaceIdentity, value: string): Promise<ExternalOpenResult> {
+    if (!this.client) throw new Error("no active session");
+    const abs = await this.canonicalExternalFile(value);
+    const root = this.workspaceRoot(workspace);
+    this.contextFor(workspace);
+    const content = await this.readExternalText(abs);
+    const rel = path.relative(root, abs);
+    const inside = rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+    return inside
+      ? { kind: "relative", rel: rel.split(path.sep).join("/"), content }
+      : { kind: "standalone", path: abs, content };
+  }
+
+  async writeStandaloneFile(
+    value: string,
+    content: string,
+    expectedContent: string,
+    overwrite: boolean
+  ): Promise<void> {
+    const abs = await this.canonicalExternalFile(value);
+    const cleanContent = fileContent(content);
+    const expected = fileContent(expectedContent);
+    const dir = path.dirname(abs);
+    await fsp.mkdir(dir, { recursive: true });
+    const temporary = path.join(dir, `.openshell-${randomUUID()}.tmp`);
+    try {
+      const handle = await fsp.open(temporary, "wx", 0o600);
+      try {
+        await handle.writeFile(cleanContent, "utf8");
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      const current = await fsp.readFile(abs, "utf8").catch(() => null);
+      if (!overwrite && current !== null && current !== expected) throw new Error("file changed on disk");
+      try {
+        await fsp.rename(temporary, abs);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "EEXIST" || code === "EPERM") {
+          await fsp.rm(abs, { force: true });
+          await fsp.rename(temporary, abs);
+        } else {
+          throw error;
+        }
+      }
+    } finally {
+      await fsp.rm(temporary, { force: true }).catch(() => {});
+    }
+  }
+
+  async openFileWorkspace(value: string, acceptedGeneration?: number): Promise<OpenFileWorkspaceResult> {
+    if (acceptedGeneration !== undefined && !Number.isSafeInteger(acceptedGeneration)) {
+      throw new Error("invalid activation generation");
+    }
+    const abs = absoluteFilePath(value);
+    const real = await fsp.realpath(abs);
+    const stat = await fsp.stat(real);
+    if (!stat.isFile()) throw new Error("workspace file is not a file");
+    const parent = path.dirname(real);
+    const session = await this.openSession(parent, acceptedGeneration);
+    return { session, path: path.relative(parent, real).split(path.sep).join("/") };
+  }
+
+  async importExternal(
+    workspace: WorkspaceIdentity,
+    destDir: string,
+    sources: string[]
+  ): Promise<ImportResult[]> {
+    return this.mutations.run(workspace, async () => {
+      const root = this.workspaceRoot(workspace);
+      const context = this.contextFor(workspace);
+      const watchContext = context.watchContext;
+      if (!this.currentWatch(watchContext)) throw new Error("stale workspace");
+      const cleanDest = relativePath(destDir, true);
+      const destAbs = await confinedPath(root, cleanDest, true);
+      await fsp.mkdir(destAbs, { recursive: true });
+      await confinedPath(root, cleanDest, true);
+      this.contextFor(workspace);
+      const results: ImportResult[] = [];
+      for (const source of sources) {
+        const real = await fsp.realpath(source).catch(() => null);
+        const name = path.basename(source);
+        const rel = cleanDest ? `${cleanDest}/${name}` : name;
+        if (!real) {
+          results.push({ name, rel, imported: false, reason: "not found" });
+          continue;
+        }
+        const relToRoot = path.relative(root, real);
+        const underRoot = relToRoot !== "" && !relToRoot.startsWith("..") && !path.isAbsolute(relToRoot);
+        const target = path.join(destAbs, name);
+        if (underRoot) {
+          results.push({ name, rel, imported: false, reason: "already in the workspace" });
+          continue;
+        }
+        const occupied = await fsp.lstat(target).then(() => true).catch(() => false);
+        if (occupied) {
+          results.push({ name, rel, imported: false, reason: "already exists" });
+          continue;
+        }
+        try {
+          const stat = await fsp.stat(real);
+          const copied = await this.copyExternal(real, target, stat.isDirectory());
+          for (const abs of copied) {
+            const content = await fsp.readFile(abs, "utf8").catch(() => null);
+            if (content === null || content.length === 0) continue;
+            watchContext.snapshots.set(abs, knownBaseline(content));
+            watchContext.lastKnown.set(abs, content);
+          }
+          results.push({ name, rel, imported: true });
+        } catch (error) {
+          await fsp.rm(target, { recursive: true, force: true }).catch(() => {});
+          results.push({ name, rel, imported: false, reason: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      return results;
+    });
   }
 
   async writeFile(

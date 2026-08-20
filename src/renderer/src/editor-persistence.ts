@@ -7,6 +7,7 @@ export interface SaveSnapshot {
   expectedContent: string;
   revision: number;
   overwrite?: boolean;
+  standalone?: boolean;
 }
 
 export type SaveResult = "saved" | "cancelled";

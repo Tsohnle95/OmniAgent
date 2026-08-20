@@ -18,6 +18,14 @@ red/green diff.
   in an HTML file and press Tab or Enter for the HTML5 skeleton), and a
   **Validate** button in the bottom-left status bar runs the W3C HTML/CSS
   checkers on demand.
+- **Single-file workspaces & standalone tabs** — **Open a file…** (titlebar or
+  Welcome) opens any file on disk as a true single-file workspace: a session
+  on the file's folder with the sidebar collapsed to just that file, saved
+  back to its real path. Dragging a file from Finder into the editor (or onto
+  the empty explorer area) opens it as a writable standalone tab in the
+  current workspace without changing it; dragging onto a folder row imports a
+  copy into that folder. Dragging onto the Welcome screen opens the file as a
+  single-file workspace.
 - **Agent panel (right)** — OpenCode's web timeline presentation: flat
   streaming markdown and collapsible reasoning, grouped Exploring/Explored
   context activity, navigable subagent task cards, semantic shell/skill/

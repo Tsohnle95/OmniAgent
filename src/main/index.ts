@@ -22,6 +22,8 @@ import type {
   WorkspaceIdentity
 } from "@shared/types";
 import {
+  absoluteFilePath,
+  absoluteFilePaths,
   confinedAbsolutePath,
   fileContent,
   terminalDimensions,
@@ -606,6 +608,45 @@ function registerIpc(): void {
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     return backend.openSession(result.filePaths[0], generation);
+  });
+
+  handleTrusted("shell:select-file", async (e, requestGeneration: number) => {
+    const generation = backend.beginActivation(activationGeneration(requestGeneration));
+    const parent = BrowserWindow.fromWebContents(e.sender);
+    const result = await dialog.showOpenDialog(parent ?? win!, {
+      title: "Open a file",
+      properties: ["openFile"]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return backend.openFileWorkspace(result.filePaths[0], generation);
+  });
+
+  handleTrusted("shell:open-file", async (_e, file: string, requestGeneration: number) =>
+    backend.openFileWorkspace(absoluteFilePath(file), backend.beginActivation(activationGeneration(requestGeneration))));
+
+  handleTrusted("shell:open-external", async (_e, workspace: WorkspaceIdentity, file: string) => {
+    workspaceId(workspace);
+    return backend.resolveExternalOpen(workspace, absoluteFilePath(file));
+  });
+
+  handleTrusted("shell:fs-write-standalone", async (
+    _e,
+    file: string,
+    content: string,
+    expectedContent: string,
+    overwrite: boolean
+  ) =>
+    backend.writeStandaloneFile(absoluteFilePath(file), fileContent(content), fileContent(expectedContent), overwrite)
+  );
+
+  handleTrusted("shell:fs-import", async (
+    _e,
+    workspace: WorkspaceIdentity,
+    destDir: string,
+    sources: string[]
+  ) => {
+    workspaceId(workspace);
+    return backend.importExternal(workspace, workspacePath(workspace, destDir, true).rel, absoluteFilePaths(sources));
   });
 
   handleTrusted("shell:open-session", async (_e, dir: string, requestGeneration: number) =>

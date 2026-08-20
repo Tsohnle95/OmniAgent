@@ -16,6 +16,8 @@ automatically.
 | `isPackaged()` | `boolean` — true when main added the `--openshell-packaged` flag; the renderer hides install affordances in packaged builds |
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
 | `selectFolder(generation)` | `Promise<SessionInfo \| null>` — native dialog; the caller decides mounting (replace panels, add a model panel, or swap an existing panel's directory) |
+| `selectFile(generation)` | `Promise<OpenFileWorkspaceResult \| null>` — native single-file dialog; opens the file's parent folder as a new single-file workspace and reports which file to open |
+| `openFileWorkspace(file, generation)` | `Promise<OpenFileWorkspaceResult>` — opens an absolute path as a single-file workspace (parent folder session + the file to open), no dialog |
 | `openSession(dir, generation)` | `Promise<SessionInfo>` — creates an opencode session for `dir` as the replacement view; model mode uses the renderer's explicit additive action |
 | `sessions()` | `Promise<SessionSummary[]>` — recent session list |
 | `activeSessions()` | `Promise<SessionInfo[]>` — currently open backend sessions in activation order; the last element is the most recently activated (used for startup restore) |
@@ -30,6 +32,9 @@ automatically.
 | `interrupt(workspace)` | `Promise<void>` |
 | `listDir(workspace, rel)` | `Promise<TreeEntry[]>` |
 | `readFile(workspace, rel)` | `Promise<string \| null>` — workspace-relative only |
+| `openExternal(workspace, file)` | `Promise<ExternalOpenResult>` — resolves an absolute path against the workspace: `{kind:"relative", rel, content}` when the file lives under the workspace root (open it normally) or `{kind:"standalone", path, content}` when outside it (open as a standalone tab) |
+| `writeStandalone(file, content, expectedContent, overwrite)` | `Promise<void>` — atomic standalone-file write (conflict-checked unless `overwrite`) for external tabs outside the workspace root |
+| `importExternal(workspace, destDir, sources)` | `Promise<ImportResult[]>` — copies external files/folders into the workspace at `destDir`, seeding clean baselines so imports never show as changes |
 | `readSourceFile(absolutePath)` | `Promise<string \| null>` — privileged app-source read used only by DevTools source navigation |
 | `writeFile(workspace, rel, content, write)` | `Promise<void>` |
 | `createFile(workspace, rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
@@ -72,4 +77,9 @@ also require a live `WorkspaceIdentity` matching an open backend session
 context; stale or unknown identities are rejected in main. Main validates
 bounded runtime schemas for activation and session IDs, prompts and
 attachments, command/search payloads, model/agent selection, permission
-replies, filesystem writes, and terminal arguments.
+replies, filesystem writes, and terminal arguments. The standalone-file channels
+(`openExternal`, `writeStandalone`) are the one bridge surface that accepts
+arbitrary absolute paths; main bounds them (length/NUL/size caps) and `realpath`s
+them to a regular file before reading or wiring an atomic write, so they behave
+like the workspace channels but without a recovery store (standalone files always
+live outside the watched workspace root).

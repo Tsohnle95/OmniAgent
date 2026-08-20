@@ -82,6 +82,25 @@ export function terminalDimensions(cols: unknown, rows: unknown): { cols: number
   return { cols: cols as number, rows: rows as number };
 }
 
+export function absoluteFilePath(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.length > MAX_WORKSPACE_PATH_LENGTH ||
+    value.includes("\0") ||
+    !path.isAbsolute(value)
+  ) {
+    throw new Error("invalid absolute file path");
+  }
+  return value;
+}
+
+export function absoluteFilePaths(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 2000) {
+    throw new Error("invalid absolute file path list");
+  }
+  return value.map(absoluteFilePath);
+}
+
 export async function canonicalWorkspaceRoot(directory: string): Promise<string> {
   const root = await fsp.realpath(directory);
   const stat = await fsp.stat(root);

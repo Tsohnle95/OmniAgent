@@ -45,6 +45,10 @@ Public methods (all used by IPC):
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
 | `beginActivation(requestGeneration)` | Accept a renderer user action before native dialog/backend awaits and return a fresh backend generation token |
 | `openSession(directory)` | Accepts a generation, calls `session.create`, and activates a new context (a new concurrent panel); starts the context watcher and emits `{kind:"session"}` |
+| `openFileWorkspace(absolutePath, generation?)` | Validates the path is a regular file, opens a session on its parent directory (via `openSession`), and returns `{session, path}` so the renderer opens the file inside a true single-file workspace |
+| `resolveExternalOpen(workspace, absolutePath)` | Resolves a dragged/dropped absolute path against the workspace root: inside-repo files come back as `{kind:"relative", rel, content}`, outside-repo files as a writable `{kind:"standalone", path, content}` (content size-capped, atomically readable) |
+| `writeStandaloneFile(absolutePath, content, expectedContent, overwrite)` | Bounded atomic write (temp-file + rename in the file's own directory) for standalone tabs; rejects mismatched `expectedContent` unless `overwrite` |
+| `importExternal(workspace, destDir, sources)` | Copies external files/folders into the workspace at `destDir` (per-workspace serialized, symbolically linked entries skipped, file/byte caps), seeding the watcher's known baselines so imported files never surface in Changes |
 | `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
 | `activeSessions()` | The open contexts' `SessionInfo` in activation order, primary last (startup restore) |
 | `closeSession(workspace)` | Tears down the addressed context (stops its watcher, removes it from the context map) when its panel closes; the opencode session itself stays alive so recents can reopen it |
@@ -153,6 +157,11 @@ Internals:
 |---|---|
 | `shell:select-folder` | `(generation) → SessionInfo \| null` (generation accepted before native dialog); the returned session is mounted by the caller — replacing the displayed panels, added as a new panel, or swapped into an existing panel — depending on the store action that opened the dialog |
 | `shell:open-session` | `(dir, generation) → SessionInfo` — creates a session for `dir`; used for the app-wide replacement view, model-mode additions, and per-panel workspace swaps |
+| `shell:select-file` | `(generation) → OpenFileWorkspaceResult \| null` (generation accepted before native `openFile` dialog); opens the folder containing the chosen file as a single-file workspace |
+| `shell:open-file` | `(file, generation) → OpenFileWorkspaceResult` — programmatic single-file workspace open for an absolute path (parent-folder session + the file to open) |
+| `shell:open-external` | `(workspace, file) → ExternalOpenResult` — resolves a dropped absolute path: in-repo files become `{kind:"relative", rel, content}`, outside-repo files a writable `{kind:"standalone", path, content}` |
+| `shell:fs-write-standalone` | `(file, content, expectedContent, overwrite) → void` — atomic standalone-file write for external tabs |
+| `shell:fs-import` | `(workspace, destDir, sources) → ImportResult[]` — copies external files/folders into the workspace at `destDir` (empty `destDir` is the workspace root) |
 | `shell:sessions` | `() → SessionSummary[]` |
 | `shell:active-sessions` | `() → SessionInfo[]` — open backend sessions, most recently activated last |
 | `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |

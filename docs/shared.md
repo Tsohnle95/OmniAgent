@@ -29,6 +29,9 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `PermissionReply` | `"once" \| "always" \| "reject"` | Permission card buttons |
 | `ProviderUsageResult` | `{ provider, displayName, status, snapshot, error? }` | Per-provider usage snapshot for the composer usage indicator (`fetchProviderUsage` in `src/main/provider-usage.ts`); `status` is `"ok" \| "stale" \| "unavailable" \| "unauthenticated" \| "unsupported"` |
 | `ReopenedSession` | `{ session, transcript, todos, usage: SessionUsage \| null }` | `openSessionById` result; `usage` is the cumulative `{ cost, tokens }` from `session.get`, also streamed live via `session.usage.updated` |
+| `ExternalOpenResult` | `{ kind: "relative", rel, content } \| { kind: "standalone", path, content }` | `openExternal` result: relative resolves to an in-workspace file (open normally), standalone to an absolute writable file outside the workspace root |
+| `OpenFileWorkspaceResult` | `{ session, path }` | `selectFile` / `openFileWorkspace` result: the opened single-file workspace session plus the workspace-relative file to open |
+| `ImportResult` | `{ name, rel, imported, reason? }` | Per-source `importExternal` outcome; `imported: false` with a `reason` (not found, already in the workspace, already exists, size caps) |
 | `SessionUsage` | `{ cost, tokens: { input, output, reasoning, cache: { read, write } } }` | Cumulative session token usage/cost shown in the agent header usage popup; the popup derives context-window fill from `tokens.input` vs the active model's `limit.context` |
 | `ProviderUsageSnapshot` | `{ windows: UsageWindow[], credits, planType, updatedAt }` | Usage windows (`{ id, label, usedPercent, windowMinutes, resetsAt }`) plus credits (`{ hasCredits, unlimited, balance, ... }`) or an `error: { code, message, retryable }` |
 
@@ -67,9 +70,13 @@ blocks, and provider metadata is retained instead of flattened away.
 ## UI state
 
 - `Tab` — `{ path, name, content, saved, baseline, deleted, dirty, stale,
-  revision, conflict, mode: "edit" \| "diff", binary }`; `saved` is the last
+  revision, conflict, mode: "edit" \| "diff", binary, standalone? }`; `saved` is the last
   persisted content, `revision` increases on every edit, and `conflict`
-  retains external content while normal saving is blocked.
+  retains external content while normal saving is blocked. `standalone: true`
+  marks a tab whose `path` is an absolute filesystem path outside the
+  workspace root (a dragged/dropped or standalone file): its content is read
+  and saved at that real path instead of through the workspace-relative read/write
+  channels.
 - `FileWriteIdentity` — `{ id, workspaceID, revision, expectedContent,
   overwrite }`; binds a write and its `file-update` echo to the exact revision
   and provides the normal-save disk precondition.

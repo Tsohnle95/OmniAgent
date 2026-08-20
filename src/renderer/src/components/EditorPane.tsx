@@ -6,6 +6,7 @@ import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { registerEditor, unregisterEditor } from "../reveal";
+import { droppedFilePaths } from "../drop";
 import type { Tab } from "@shared/types";
 
 const EDITOR_OPTIONS = {
@@ -220,11 +221,34 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 }
 
 export function EditorPane(): ReactNode {
-  const { tabs, activePath } = useStore();
+  const { tabs, activePath, openExternalPath } = useStore();
   const activeTab = tabs.find((t) => t.path === activePath);
 
+  const hasFiles = (e: React.DragEvent): boolean => {
+    const types = e.dataTransfer?.types;
+    if (!types) return false;
+    return Array.from(types as ArrayLike<string>).includes("Files");
+  };
+
+  const onDragOver = (e: React.DragEvent): void => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDrop = (e: React.DragEvent): void => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    for (const file of droppedFilePaths(e)) void openExternalPath(file);
+  };
+
   return (
-    <div className="editor-pane">
+    <div
+      className="editor-pane"
+      onDragOverCapture={onDragOver}
+      onDropCapture={onDrop}
+    >
       {tabs.length === 0 ? (
         <div className="editor-empty">
           <div className="editor-empty-icon">⌘</div>

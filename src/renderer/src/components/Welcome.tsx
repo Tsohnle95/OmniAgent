@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { ShellMark } from "./ShellMark";
+import { droppedFilePaths } from "../drop";
 import type { ProjectInfo, SessionSummary } from "@shared/types";
 
 function formatWhen(ts: number): string {
@@ -22,7 +23,7 @@ type InstallToast = { id: number; text: string; tone: "info" | "error" };
 let installToastId = 0;
 
 export function Welcome(): ReactNode {
-  const { selectFolder, openSession, reopenSession, connected } = useStore();
+  const { selectFolder, selectFile, openFileWorkspace, openSession, reopenSession, connected } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,21 @@ export function Welcome(): ReactNode {
 
   return (
     <>
-      <div className="welcome" data-drag-region>
+      <div
+        className="welcome"
+        data-drag-region
+        onDragOver={(e) => {
+          const types = e.dataTransfer?.types;
+          if (!types || !Array.from(types as ArrayLike<string>).includes("Files")) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const files = droppedFilePaths(e);
+          if (files.length > 0) void openFileWorkspace(files[0]);
+        }}
+      >
         <div className="welcome-inner">
           <section className="welcome-hero">
             <div className="welcome-mark" aria-hidden>
@@ -88,6 +103,10 @@ export function Welcome(): ReactNode {
               <button className="welcome-cta" onClick={() => void selectFolder()}>
                 <span className="codicon codicon-folder-opened" aria-hidden />
                 Open a folder
+              </button>
+              <button className="welcome-cta welcome-cta-secondary" onClick={() => void selectFile()}>
+                <span className="codicon codicon-file" aria-hidden />
+                Open a file…
               </button>
               {canInstall && (
                 <button

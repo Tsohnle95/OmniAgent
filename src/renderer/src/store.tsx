@@ -14,6 +14,7 @@ import type {
   ApprovalMode,
   BackendMessage,
   ModelOption,
+  OpenFileWorkspaceResult,
   PermissionReply,
   PromptFile,
   ProviderUsageResult,
@@ -149,6 +150,7 @@ interface Store {
   providerUsageLoading: boolean;
   tabs: Tab[];
   activePath: string | null;
+  singleFile: string | null;
   agentFiles: Map<string, AgentFileState>;
   tree: Record<string, TreeEntry[]>;
   expanded: Set<string>;
@@ -172,6 +174,10 @@ interface Store {
   addModelPanel: (dir: string) => Promise<void>;
   selectAddPanel: () => Promise<void>;
   selectFolder: () => Promise<void>;
+  selectFile: () => Promise<void>;
+  openFileWorkspace: (file: string) => Promise<SessionInfo | null>;
+  openExternalPath: (absolutePath: string, workspace?: WorkspaceIdentity) => Promise<void>;
+  importPaths: (destDir: string, sources: string[]) => Promise<void>;
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
   changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<void>;
@@ -365,6 +371,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [transcriptsBySession, setTranscriptsBySession] = useState<Record<string, TranscriptItem[]>>({});
   const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
   const [activePathByWorkspace, setActivePathByWorkspace] = useState<Record<string, string | null>>({});
+  const [singleFileByWorkspace, setSingleFileByWorkspace] = useState<Record<string, string>>({});
   const [agentFilesByWorkspace, setAgentFilesByWorkspace] = useState<Record<string, Map<string, AgentFileState>>>({});
   const [treeByWorkspace, setTreeByWorkspace] = useState<Record<string, Record<string, TreeEntry[]>>>({});
   const [expandedByWorkspace, setExpandedByWorkspace] = useState<Record<string, Set<string>>>({});
@@ -404,6 +411,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const sessionUsage = session ? usageBySession[session.id] ?? null : null;
   const tabs = session ? tabsByWorkspace[session.workspace.id] ?? EMPTY_TABS : EMPTY_TABS;
   const activePath = session ? activePathByWorkspace[session.workspace.id] ?? null : null;
+  const singleFile = session ? singleFileByWorkspace[session.workspace.id] ?? null : null;
   const agentFiles = session ? agentFilesByWorkspace[session.workspace.id] ?? EMPTY_AGENT_FILES : EMPTY_AGENT_FILES;
   const tree = session ? treeByWorkspace[session.workspace.id] ?? EMPTY_TREE : EMPTY_TREE;
   const expanded = session ? expandedByWorkspace[session.workspace.id] ?? EMPTY_EXPANDED : EMPTY_EXPANDED;
@@ -442,9 +450,12 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   tabsByWorkspaceRef.current = tabsByWorkspace;
   const persistenceRef = useRef<EditorPersistence | null>(null);
   if (!persistenceRef.current) {
-    persistenceRef.current = new EditorPersistence((snapshot, write) =>
-      window.openshell.writeFile(snapshot.workspace, snapshot.path, snapshot.content, write)
-    );
+    persistenceRef.current = new EditorPersistence((snapshot, write) => {
+      if (snapshot.standalone) {
+        return window.openshell.writeStandalone(snapshot.path, snapshot.content, write.expectedContent, write.overwrite ?? false);
+      }
+      return window.openshell.writeFile(snapshot.workspace, snapshot.path, snapshot.content, write);
+    });
   }
   const persistence = persistenceRef.current;
   const modelsByWorkspaceRef = useRef(modelsByWorkspace);
@@ -494,6 +505,14 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const setActivePathFor = useCallback((workspaceID: string, path: string | null) => {
     setActivePathByWorkspace((current) =>
       current[workspaceID] === path ? current : { ...current, [workspaceID]: path });
+  }, []);
+
+  const setSingleFileFor = useCallback((workspaceID: string, path: string | null) => {
+    setSingleFileByWorkspace((current) =>
+      current[workspaceID] === path ? current
+        : path === null
+          ? dropKey(current, workspaceID)
+          : { ...current, [workspaceID]: path });
   }, []);
 
   const setAgentFilesFor = useCallback((workspaceID: string, next: Map<string, AgentFileState>) => {
@@ -905,6 +924,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     setTodosByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setTabsByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setActivePathByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    setSingleFileByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setAgentFilesByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setTreeByWorkspace((current) => dropKey(current, oldWorkspaceID));
     setExpandedByWorkspace((current) => dropKey(current, oldWorkspaceID));
@@ -1459,6 +1479,128 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
     },
     [toast, panelFor, setTabsFor, setActivePathFor]
   );
+  const openExternalPath = useCallback(
+    async (absolutePath: string, workspace?: WorkspaceIdentity): Promise<void> => {
+      const target = workspace ?? sessionRef.current?.workspace;
+      if (!target) return;
+      try {
+        const result = await window.openshell.openExternal(target, absolutePath);
+        if (result.kind === "relative") {
+          void openFile(result.rel, {}, target);
+          return;
+        }
+        const path = result.path;
+        if ((tabsByWorkspaceRef.current[target.id] ?? []).some((t) => t.path === path)) {
+          setActivePathFor(target.id, path);
+          return;
+        }
+        if (result.content === null) {
+          toast(`Could not read ${path}`, "error");
+          return;
+        }
+        if (result.content.length > MAX_EDITABLE_BYTES) {
+          toast(`${path} is too large to open in the editor`, "error");
+          return;
+        }
+        if (result.content.includes("\u0000")) {
+          toast(`${path} is a binary file`, "error");
+          return;
+        }
+        const name = path.split(/[\\/]/).pop() ?? path;
+        const tab: Tab = {
+          path,
+          name,
+          content: result.content,
+          saved: result.content,
+          baseline: null,
+          deleted: false,
+          dirty: false,
+          stale: false,
+          revision: 0,
+          conflict: null,
+          mode: "edit",
+          binary: false,
+          standalone: true
+        };
+        setTabsFor(target.id, (prev) => [...prev, tab]);
+        setActivePathFor(target.id, path);
+      } catch (err) {
+        if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [openFile, toast, panelFor, setTabsFor, setActivePathFor]
+  );
+  const importPaths = useCallback(
+    async (destDir: string, sources: string[]): Promise<void> => {
+      const target = sessionRef.current?.workspace;
+      if (!target || sources.length === 0) return;
+      try {
+        const results = await window.openshell.importExternal(target, destDir, sources);
+        if (!panelFor(target)) return;
+        for (const result of results) {
+          if (result.imported) toast(`Imported ${result.rel}`);
+          else toast(`Could not import ${result.name}: ${result.reason ?? "unknown"}`, "error");
+        }
+        void refreshTree([...ancestorDirs(destDir)]);
+      } catch (err) {
+        if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [toast, panelFor, refreshTree]
+  );
+  const attachFileWorkspace = useCallback(
+    async (result: OpenFileWorkspaceResult, activation: number): Promise<SessionInfo | null> => {
+      if (activation !== activationSeqRef.current) {
+        await window.openshell.closeSession(result.session.workspace).catch(() => {});
+        return null;
+      }
+      userActivatedRef.current = true;
+      replacePanels(result.session);
+      focusSeqRef.current += 1;
+      sessionRef.current = result.session;
+      setActiveSessionID(result.session.id);
+      setSingleFileFor(result.session.workspace.id, result.path);
+      void hydrateTranscript(result.session.id);
+      void loadRecovery(result.session.workspace);
+      void loadModels(result.session.workspace);
+      void loadAgents(result.session.workspace);
+      void loadSessions();
+      await openFile(result.path, { mode: "edit" }, result.session.workspace);
+      return result.session;
+    },
+    [replacePanels, setSingleFileFor, hydrateTranscript, loadRecovery, loadModels, loadAgents, loadSessions, openFile]
+  );
+  const selectFile = useCallback(
+    async (): Promise<void> => {
+      const request = ++requestSeqRef.current;
+      const activation = ++activationSeqRef.current;
+      try {
+        const result = await window.openshell.selectFile(request);
+        if (!result) return;
+        const info = await attachFileWorkspace(result, activation);
+        if (info) toast(`Opened ${result.path}`);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [attachFileWorkspace, toast]
+  );
+  const openFileWorkspace = useCallback(
+    async (file: string): Promise<SessionInfo | null> => {
+      const request = ++requestSeqRef.current;
+      const activation = ++activationSeqRef.current;
+      try {
+        const result = await window.openshell.openFileWorkspace(file, request);
+        const info = await attachFileWorkspace(result, activation);
+        if (info) toast(`Opened ${result.path}`);
+        return info;
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+        return null;
+      }
+    },
+    [attachFileWorkspace, toast]
+  );
   const openSourceTarget = useCallback(
     async (path: string, line: number, root?: string): Promise<void> => {
       const currentDir = sessionRef.current?.directory ?? null;
@@ -1679,7 +1821,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
                   dirty: false,
                   stale: false,
                   conflict: null,
-                  baseline: t.baseline ?? { kind: "known", content: snapshot.expectedContent },
+                  baseline: t.standalone ? t.baseline : (t.baseline ?? { kind: "known", content: snapshot.expectedContent }),
                   deleted: false
                 }
               : t
@@ -1705,7 +1847,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         path,
         content: tab.content,
         expectedContent: tab.saved,
-        revision: tab.revision
+        revision: tab.revision,
+        standalone: tab.standalone
       });
     },
     [doSave, persistence]
@@ -1723,7 +1866,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
         path,
         content,
         expectedContent: tab.saved,
-        revision: tab.revision + 1
+        revision: tab.revision + 1,
+        standalone: tab.standalone
       };
       setTabsFor(target.id, (prev) => prev.map((candidate) => candidate.path === path
         ? { ...candidate, content, revision: snapshot.revision, dirty: true }
@@ -1766,7 +1910,8 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       content: tab.content,
       expectedContent: tab.saved,
       revision: tab.revision,
-      overwrite: true
+      overwrite: true,
+      standalone: tab.standalone
     }, true);
   }, [doSave, persistence]);
 
@@ -2394,6 +2539,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       providerUsageLoading,
       tabs,
       activePath,
+      singleFile,
       agentFiles,
       tree,
       expanded,
@@ -2417,6 +2563,10 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       addModelPanel,
       selectAddPanel,
       selectFolder,
+      selectFile,
+      openFileWorkspace,
+      openExternalPath,
+      importPaths,
       selectPanelDirectory,
       changePanelDirectory,
       reopenSession,
@@ -2462,9 +2612,9 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       acknowledgeRecovery
     }),
     [
-      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, agentFiles, tree, expanded, toasts, recoveryRecords,
+      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, toasts, recoveryRecords,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
-      focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
+      focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,

@@ -3,8 +3,11 @@ import type {
   AgentOption,
   BackendMessage,
   CommandOption,
+  ExternalOpenResult,
   FileWriteIdentity,
+  ImportResult,
   ModelOption,
+  OpenFileWorkspaceResult,
   PermissionReply,
   ProjectInfo,
   PromptFile,
@@ -29,6 +32,15 @@ const api = {
     return () => ipcRenderer.removeListener("shell:message", listener);
   },
   selectFolder: (generation: number): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder", generation),
+  selectFile: (generation: number): Promise<OpenFileWorkspaceResult | null> => ipcRenderer.invoke("shell:select-file", generation),
+  openFileWorkspace: (file: string, generation: number): Promise<OpenFileWorkspaceResult> =>
+    ipcRenderer.invoke("shell:open-file", file, generation),
+  openExternal: (workspace: WorkspaceIdentity, file: string): Promise<ExternalOpenResult> =>
+    ipcRenderer.invoke("shell:open-external", workspace, file),
+  writeStandalone: (file: string, content: string, expectedContent: string, overwrite: boolean): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-write-standalone", file, content, expectedContent, overwrite),
+  importExternal: (workspace: WorkspaceIdentity, destDir: string, sources: string[]): Promise<ImportResult[]> =>
+    ipcRenderer.invoke("shell:fs-import", workspace, destDir, sources),
   openSession: (dir: string, generation: number): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir, generation),
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
   activeSessions: (): Promise<SessionInfo[]> => ipcRenderer.invoke("shell:active-sessions"),

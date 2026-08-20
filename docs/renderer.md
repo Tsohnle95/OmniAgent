@@ -23,6 +23,7 @@ Exposed via `useStore()` (context). State:
 | `providerUsageLoading` | `boolean` | true while `refreshProviderUsage()` is in flight (refetch happens each time the usage popup opens) |
 | `tabs` | `Tab[]` | open editor tabs for the focused workspace (per-workspace record; each session restores its own tabs on focus) |
 | `activePath` | `string \| null` | active tab path for the focused workspace |
+| `singleFile` | `string \| null` | the active workspace's single-file path (set when a file was opened as the workspace via `selectFile`/`openFileWorkspace`); non-null makes the sidebar render true single-file mode (file name, one file row, no folder tree) |
 | `agentFiles` | `Map<path, AgentFileState>` | `{baseline, content, deleted}` for observed files still differing from their effective baseline; drives Changes and known/unknown diff state; per workspace |
 | `tree` | `Record<relPath, TreeEntry[]>` | lazy-loaded explorer cache; per workspace |
 | `expanded` | `Set<relPath>` | open tree directories; per workspace |
@@ -108,7 +109,15 @@ OpenShell equivalent and is wired as a no-op parameter.
 Actions: `openSession` / `selectFolder` (replace the current panels with one fresh
 panel), `addModelPanel(dir)` (explicit model-mode addition to a directory),
 `selectAddPanel` (model-mode addition from the native folder picker, so each
-new panel can target a different project), `selectPanelDirectory(workspace)`
+new panel can target a different project), `selectFile` / `openFileWorkspace`
+(open a single file as a true single-file workspace: replace the panels with a
+session on the file's parent folder, mark the sidebar single-file, and open the
+file as the active tab), `openExternalPath(abs)` (resolve a dragged/dropped
+path against the current session: in-workspace files open normally, outside
+files open as editable standalone tabs saved back to their real path),
+`importPaths(destDir, sources)` (copy external files/folders into the workspace
+at `destDir`, seeding clean baselines so imports never show as changes),
+`selectPanelDirectory(workspace)`
 (swap one panel to a folder picked in the native dialog) and
 `changePanelDirectory(workspace, dir)` (swap one panel to a directory without a
 dialog), `reopenSession(id, silent)`
@@ -277,6 +286,18 @@ Key mechanisms:
   again in main. The hovered destination gets a drop indicator; a valid
   drop calls `moveEntry`, which performs the `shell:fs-move` invoke and
   remaps `tabs`, `activePath`, and `agentFiles` on success.
+- **External drag-and-drop** — OS file/folder drops are accepted with
+  `e.dataTransfer.types` containing `"Files"` and routed through the main
+  process, never interpreted as explorer moves. Dropping onto a folder row
+  **imports** the items into that folder (`importPaths` →
+  `shell:fs-import`, then the tree refreshes the destination); dropping
+  onto the empty explorer area or into the **editor pane** opens each file
+  as a **standalone tab** in the current workspace (`openExternalPath` →
+  `shell:open-external`): in-workspace files open as ordinary relative
+  tabs, outside files open with `standalone: true` and save back to their
+  absolute path via `shell:fs-write-standalone`. Dragging files onto the
+  Welcome screen (no session yet) opens them as single-file workspaces
+  (`openFileWorkspace`).
 - **Recovery notice** — unacknowledged records are shown persistently with
   Open and Acknowledge actions. Acknowledge updates manifest metadata and hides
   the record without deleting bytes. Directories never offer Rename because

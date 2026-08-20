@@ -28,6 +28,22 @@ export interface ReopenedSession {
   usage: SessionUsage | null;
 }
 
+export type ExternalOpenResult =
+  | { kind: "relative"; rel: string; content: string | null }
+  | { kind: "standalone"; path: string; content: string | null };
+
+export interface OpenFileWorkspaceResult {
+  session: SessionInfo;
+  path: string;
+}
+
+export interface ImportResult {
+  name: string;
+  rel: string;
+  imported: boolean;
+  reason?: string;
+}
+
 export interface SessionTranscript {
   transcript: TranscriptItem[];
   todos: TodoItem[];
@@ -310,6 +326,7 @@ export interface Tab {
   conflict: FileConflict | null;
   mode: "edit" | "diff";
   binary: boolean;
+  standalone?: boolean;
 }
 
 export interface FileConflict {
