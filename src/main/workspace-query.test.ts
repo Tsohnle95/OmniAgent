@@ -176,7 +176,7 @@ describe("built-in commands and prompt files", () => {
 
     expect(client.session.prompt).toHaveBeenCalledWith({
       sessionID: "session-1",
-      text: "explain @src/foo.ts",
+      text: `Workspace context: ${path.basename(directory)}\nWorking directory: ${directory}\n\nexplain @src/foo.ts`,
       files: [{
         uri: pathToFileURL(file).toString(),
         name: "foo.ts",
