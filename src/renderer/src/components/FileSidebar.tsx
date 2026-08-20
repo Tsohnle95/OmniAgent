@@ -39,8 +39,10 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
   return (
     <span className="tree-row-actions">
       <button
+        type="button"
         className="tree-row-action"
         title="New File"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
           startCreate(parent, "file");
@@ -49,8 +51,10 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
         <PlusIcon />
       </button>
       <button
+        type="button"
         className="tree-row-action"
         title="New Folder"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
           startCreate(parent, "dir");
@@ -58,7 +62,13 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
       >
         <FolderPlusIcon />
       </button>
-      <button className="tree-row-action" title="More actions…" onClick={menu}>
+      <button
+        type="button"
+        className="tree-row-action"
+        title="More actions…"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={menu}
+      >
         <EllipsisIcon />
       </button>
     </span>
