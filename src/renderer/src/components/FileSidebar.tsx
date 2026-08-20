@@ -5,6 +5,8 @@ import { ShellMark } from "./ShellMark";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 
+const EMPTY_HIDDEN_PATHS = new Set<string>();
+
 function canDrop(source: string, target: string): boolean {
   if (!source || source === target) return false;
   const parent = source.includes("/") ? source.slice(0, source.lastIndexOf("/")) : "";
@@ -66,11 +68,13 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
 function DirNode({
   entry,
   depth,
-  drag
+  drag,
+  hiddenPaths
 }: {
   entry: TreeEntry;
   depth: number;
   drag: DragHandlers;
+  hiddenPaths: Set<string>;
 }): ReactNode {
   const {
     expanded,
@@ -122,9 +126,9 @@ function DirNode({
       </div>
       {isOpen && (
         <div className="tree-children">
-          {(tree[entry.path] ?? []).map((child) =>
+          {(tree[entry.path] ?? []).filter((child) => !hiddenPaths.has(child.path)).map((child) =>
             child.type === "directory" ? (
-              <DirNode key={child.path} entry={child} depth={depth + 1} drag={drag} />
+              <DirNode key={child.path} entry={child} depth={depth + 1} drag={drag} hiddenPaths={hiddenPaths} />
             ) : (
               <FileNode key={child.path} entry={child} depth={depth + 1} drag={drag} />
             )
@@ -229,7 +233,7 @@ function TreeNameInput({
 }
 
 function ExplorerMenu(): ReactNode {
-  const { ctxMenu, closeCtxMenu, startCreate, startRename, deleteEntry } = useStore();
+  const { ctxMenu, closeCtxMenu, startCreate, startRename, deleteEntry, removeFromWorkspace } = useStore();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -279,6 +283,9 @@ function ExplorerMenu(): ReactNode {
               Rename…
             </button>
           )}
+          <button className="ctx-item" onClick={() => removeFromWorkspace(target.path)}>
+            Remove from Workspace
+          </button>
           <button className="ctx-item danger" onClick={() => void deleteEntry(target.path)}>
             <TrashIcon />
             Delete
@@ -339,7 +346,8 @@ export function FileSidebar({
     startCreate,
     singleFile,
     importPaths,
-    dropIntoExplorer
+    dropIntoExplorer,
+    hiddenPaths = EMPTY_HIDDEN_PATHS
   } = useStore();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -639,9 +647,19 @@ export function FileSidebar({
             }}
           >
             {root.length === 0 && !expanded.has("") && <div className="tree-empty">Loading…</div>}
-            {root.map((child) =>
+            <div
+              className={`tree-row dir workspace-root ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
+              onClick={() => void toggleDir("")}
+              onDragOver={(e) => drag.onDirDragOver(e, "")}
+              onDrop={(e) => drag.onDirDrop(e, "")}
+              title={session?.directory}
+            >
+              <FileIcon name={session?.directory ?? "workspace"} isDir open={expanded.has("")} />
+              <span className="tree-name">{session?.directory.split("/").filter(Boolean).pop() ?? "workspace"}</span>
+            </div>
+            {expanded.has("") && root.filter((child) => !hiddenPaths.has(child.path)).map((child) =>
               child.type === "directory" ? (
-                <DirNode key={child.path} entry={child} depth={0} drag={drag} />
+                <DirNode key={child.path} entry={child} depth={0} drag={drag} hiddenPaths={hiddenPaths} />
               ) : (
                 <FileNode key={child.path} entry={child} depth={0} drag={drag} />
               )

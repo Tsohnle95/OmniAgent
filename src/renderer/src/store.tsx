@@ -154,6 +154,7 @@ interface Store {
   agentFiles: Map<string, AgentFileState>;
   tree: Record<string, TreeEntry[]>;
   expanded: Set<string>;
+  hiddenPaths: Set<string>;
   toasts: Toast[];
   recoveryRecords: RecoveryRecord[];
   models: ModelOption[];
@@ -219,6 +220,7 @@ interface Store {
   cancelPending: () => void;
   commitName: (name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
+  removeFromWorkspace: (path: string) => void;
   moveEntry: (path: string, destDir: string) => Promise<void>;
   openRecovery: (id: string) => Promise<void>;
   acknowledgeRecovery: (id: string) => Promise<void>;
@@ -376,6 +378,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const [agentFilesByWorkspace, setAgentFilesByWorkspace] = useState<Record<string, Map<string, AgentFileState>>>({});
   const [treeByWorkspace, setTreeByWorkspace] = useState<Record<string, Record<string, TreeEntry[]>>>({});
   const [expandedByWorkspace, setExpandedByWorkspace] = useState<Record<string, Set<string>>>({});
+  const [hiddenPathsByWorkspace, setHiddenPathsByWorkspace] = useState<Record<string, Set<string>>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [recoveryByWorkspace, setRecoveryByWorkspace] = useState<Record<string, RecoveryRecord[]>>({});
   const [modelsByWorkspace, setModelsByWorkspace] = useState<Record<string, ModelOption[]>>({});
@@ -416,6 +419,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   const agentFiles = session ? agentFilesByWorkspace[session.workspace.id] ?? EMPTY_AGENT_FILES : EMPTY_AGENT_FILES;
   const tree = session ? treeByWorkspace[session.workspace.id] ?? EMPTY_TREE : EMPTY_TREE;
   const expanded = session ? expandedByWorkspace[session.workspace.id] ?? EMPTY_EXPANDED : EMPTY_EXPANDED;
+  const hiddenPaths = session ? hiddenPathsByWorkspace[session.workspace.id] ?? EMPTY_EXPANDED : EMPTY_EXPANDED;
   const recoveryRecords = session ? recoveryByWorkspace[session.workspace.id] ?? [] : [];
   const models = session ? modelsByWorkspace[session.workspace.id] ?? [] : [];
   const currentModel = session ? currentModelByWorkspace[session.workspace.id] ?? null : null;
@@ -1361,6 +1365,17 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
   }, []);
 
   const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
+
+  const removeFromWorkspace = useCallback((path: string) => {
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    setCtxMenu(null);
+    setHiddenPathsByWorkspace((current) => {
+      const next = new Set(current[target.id] ?? []);
+      next.add(path);
+      return { ...current, [target.id]: next };
+    });
+  }, []);
 
   const startCreate = useCallback((parent: string, kind: "file" | "dir") => {
     setCtxMenu(null);
@@ -2550,6 +2565,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       agentFiles,
       tree,
       expanded,
+      hiddenPaths,
       toasts,
       recoveryRecords,
       models,
@@ -2615,18 +2631,19 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
       cancelPending,
       commitName,
       deleteEntry,
+      removeFromWorkspace,
       moveEntry,
       openRecovery,
       acknowledgeRecovery
     }),
     [
-      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, toasts, recoveryRecords,
+      session, connected, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, hiddenPaths, toasts, recoveryRecords,
       models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, panelViews, activeSessionID,
       focusSession, closePanel, openSession, addModelPanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
-      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, moveEntry, openRecovery, acknowledgeRecovery,
+      openCtxMenu, closeCtxMenu, startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
       removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage
     ]
   );

@@ -253,6 +253,13 @@
 
 .tree-row.dir.open .si-icon { color: var(--accent); }
 
+.tree-row.workspace-root {
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
 .tree-row.file .si-icon { color: var(--text-faint); }
 
 .tree-name {
