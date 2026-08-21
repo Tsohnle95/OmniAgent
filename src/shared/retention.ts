@@ -2,6 +2,28 @@ import type { ToolContentView } from "./types";
 
 export const MAX_RETAINED_OUTPUT_CHARS = 8 * 1024;
 export const MAX_INACTIVE_SESSION_RECORDS = 4;
+export const SESSION_RETENTION_DAYS = 30;
+export const SESSION_RETENTION_MS = SESSION_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+export function expiredSession(time: { updated?: number; created?: number } | undefined, now: number): boolean {
+  const lastActivity = Math.max(time?.updated ?? 0, time?.created ?? 0);
+  return lastActivity > 0 && now - lastActivity >= SESSION_RETENTION_MS;
+}
+
+export function hasConversation(
+  title: string | undefined,
+  tokens: {
+    input?: number;
+    output?: number;
+    reasoning?: number;
+    cache?: { read?: number; write?: number };
+  }
+  | undefined
+): boolean {
+  if (typeof title === "string" && title.trim()) return true;
+  if (!tokens) return false;
+  return Boolean(tokens.input || tokens.output || tokens.reasoning || tokens.cache?.read || tokens.cache?.write);
+}
 
 export function retainOutput(value: string): string {
   if (value.length <= MAX_RETAINED_OUTPUT_CHARS) return value;

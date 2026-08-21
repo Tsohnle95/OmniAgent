@@ -38,7 +38,7 @@ import type {
   TreeEntry,
   ModelOption
 } from "@shared/types";
-import { retainOutput, retainToolContent } from "@shared/retention";
+import { expiredSession, hasConversation, retainOutput, retainToolContent, SESSION_RETENTION_MS } from "@shared/retention";
 import type { WorkspaceIdentity } from "@shared/types";
 import { fetchProviderUsage } from "./provider-usage";
 import { WorkspaceOperationCoordinator } from "./operation-coordinator";
@@ -486,6 +486,9 @@ export class OpenShellBackend {
   private readonly mutations = new WorkspaceOperationCoordinator();
   private lastEnsureAt = 0;
   private readonly ensureCooldownMs = 30_000;
+  private lastPruneAt = 0;
+  private pruning = false;
+  private readonly pruneCooldownMs = 24 * 60 * 60 * 1000;
   private streamConnectedOnce = false;
 
   constructor(private readonly mutationPhase: MutationPhaseHandler = () => {}) {}
@@ -575,7 +578,46 @@ export class OpenShellBackend {
       baseUrl: endpoint.url,
       headers: Service.headers(endpoint)
     });
+    this.scheduleRetentionPrune();
     return true;
+  }
+
+  private scheduleRetentionPrune(): void {
+    if (this.pruning || Date.now() - this.lastPruneAt < this.pruneCooldownMs) return;
+    this.lastPruneAt = Date.now();
+    this.pruning = true;
+    void this.pruneExpiredSessions()
+      .catch(() => {})
+      .finally(() => {
+        this.pruning = false;
+      });
+  }
+
+  private async pruneExpiredSessions(): Promise<number> {
+    if (!this.client) return 0;
+    const cutoff = Date.now() - SESSION_RETENTION_MS;
+    let removed = 0;
+    let cursor: string | undefined;
+    for (let page = 0; page < 100; page += 1) {
+      const res = await this.client.session.list({ limit: 100, order: "asc", ...(cursor ? { cursor } : {}) });
+      const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+      for (const s of arr as Array<{
+        id?: string;
+        time?: { updated?: number; created?: number };
+      }>) {
+        if (!s.id || this.contextBySessionID(s.id)) continue;
+        const lastActivity = Math.max(s.time?.updated ?? 0, s.time?.created ?? 0);
+        if (lastActivity > 0 && lastActivity < cutoff) {
+          await this.client.session.remove({ sessionID: s.id }).then(() => {
+            removed += 1;
+          }).catch(() => {});
+        }
+      }
+      const next = Array.isArray(res) ? undefined : (res as { cursor?: { next?: string | null } }).cursor?.next;
+      if (!next) break;
+      cursor = next;
+    }
+    return removed;
   }
 
   private async ensureBounded(): Promise<Endpoint | null> {
@@ -1293,31 +1335,55 @@ export class OpenShellBackend {
 
   async listSessions(): Promise<SessionSummary[]> {
     if (!this.client) return [];
-    const res = await this.client.session.list({ limit: 30, order: "desc" });
-    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as {
-      id?: string;
-      modelID?: string;
-      title?: string;
-      parentID?: string;
-      agent?: string;
-      location?: { directory?: string };
-      time?: { updated?: number; created?: number };
-    }[])
-      .map((s) => {
+    const summaries: SessionSummary[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 10 && summaries.length < 30; page += 1) {
+      const res = await this.client.session.list({ limit: 50, order: "desc", ...(cursor ? { cursor } : {}) });
+      const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+      for (const s of arr as Array<{
+        id?: string;
+        title?: string;
+        parentID?: string;
+        agent?: string;
+        tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } };
+        location?: { directory?: string };
+        time?: { updated?: number; created?: number };
+      }>) {
         const directory = s.location?.directory;
-        if (!s.id || !directory) return null;
+        if (!s.id || !directory) continue;
         const updated = s.time?.updated ?? s.time?.created ?? 0;
-        return {
+        if (expiredSession(s.time, Date.now())) continue;
+        if (!hasConversation(s.title, s.tokens)) continue;
+        summaries.push({
           id: s.id,
           title: s.title?.trim() ? s.title : path.basename(directory),
           directory,
           updatedAt: updated,
           ...(s.parentID ? { parentID: s.parentID } : {}),
           ...(s.agent ? { agent: s.agent } : {})
-        };
-      })
-      .filter((s): s is SessionSummary => s !== null);
+        });
+        if (summaries.length >= 30) break;
+      }
+      const next = Array.isArray(res) ? undefined : (res as { cursor?: { next?: string | null } }).cursor?.next;
+      if (!next) break;
+      cursor = next;
+    }
+    return summaries;
+  }
+
+  private async loadSessionMessages(sessionID: string): Promise<unknown[]> {
+    if (!this.client) throw new Error("not connected to opencode service");
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const messagesRes = await this.client.message.list({ sessionID, order: "asc" });
+        return (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? []) as unknown[];
+      } catch (err) {
+        lastError = err;
+        if (attempt === 0) await sleep(400);
+      }
+    }
+    throw new Error(`could not load conversation history (${lastError instanceof Error ? lastError.message : String(lastError)})`);
   }
 
   async openSessionById(sessionID: string, acceptedGeneration?: number): Promise<ReopenedSession> {
@@ -1376,7 +1442,7 @@ export class OpenShellBackend {
         }
       };
     })();
-    const messagesRes = await this.client.message.list({ sessionID: id, order: "asc" }).catch(() => null);
+    const history = await this.loadSessionMessages(id);
     const session = await this.activateSession({
       id,
       directory,
@@ -1384,20 +1450,12 @@ export class OpenShellBackend {
       ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
       ...(info.agent ?? info.data?.agent ? { agent: info.agent ?? info.data?.agent } : {})
     });
-    const messages = messagesRes
-      ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
-      : [];
-    const history = messages as unknown[];
     return { session, transcript: replayTranscript(history), todos: replayTodos(history), usage };
   }
 
   async sessionTranscript(sessionID: string): Promise<SessionTranscript> {
     if (!this.client) throw new Error("not connected to opencode service");
-    const messagesRes = await this.client.message.list({ sessionID, order: "asc" }).catch(() => null);
-    const messages = messagesRes
-      ? (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? [])
-      : [];
-    const history = messages as unknown[];
+    const history = await this.loadSessionMessages(sessionID);
     return { transcript: replayTranscript(history), todos: replayTodos(history) };
   }
 

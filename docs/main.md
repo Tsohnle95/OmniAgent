@@ -50,7 +50,7 @@ Public methods (all used by IPC):
 | `statExternal(absolutePath)` | Probes an absolute path (`file` / `directory` / `missing`) so a mixed file/folder drop can be routed: files open as standalone tabs, folders import into the workspace |
 | `writeStandaloneFile(absolutePath, content, expectedContent, overwrite)` | Bounded atomic write (temp-file + rename in the file's own directory) for standalone tabs; rejects mismatched `expectedContent` unless `overwrite` |
 | `importExternal(workspace, destDir, sources)` | Copies external files/folders into the workspace at `destDir` (per-workspace serialized, symbolically linked entries skipped, file/byte caps), seeding the watcher's known baselines so imported files never surface in Changes |
-| `listSessions()` | `session.list({limit:30, order:"desc"})` → `{id, title, directory, updatedAt, parentID?, agent?}` |
+| `listSessions()` | `session.list` (paged, newest first) → `{id, title, directory, updatedAt, parentID?, agent?}`; hides sessions older than 30 days and sessions with no conversation (no title and zero token usage) |
 | `activeSessions()` | The open contexts' `SessionInfo` in activation order, primary last (startup restore) |
 | `closeSession(workspace)` | Tears down the addressed context (stops its watcher, removes it from the context map) when its panel closes; the opencode session itself stays alive so recents can reopen it |
 | `openSessionById(sessionID)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one |
@@ -124,6 +124,17 @@ Internals:
   from the visible chat. Tool status comes
   from streaming/running/completed/error; parsed input, text/file content,
   metadata, provider state, duration, retry, error, and completion are restored.
+- `loadSessionMessages(sessionID)` — `message.list` with one retry; a persistent
+  failure throws so reopen surfaces an error instead of materializing an empty
+  conversation (which would block later rehydration).
+- Session retention (`scheduleRetentionPrune` / `pruneExpiredSessions`) — after
+  every successful connect (throttled to once per 24h), pages through all
+  sessions and permanently deletes those whose last activity is older than 30
+  days (`SESSION_RETENTION_MS` in `@shared/retention`). Sessions currently open
+  in OpenShell and sessions with unknown timestamps are never deleted; per-session
+  removal failures are skipped. `listSessions` applies the same 30-day window and
+  additionally hides never-prompted sessions (no title and zero token usage), so
+  auto-created empty sessions cannot crowd real history out of recents.
 - `snapshotInputs(context, input)` — recursively walks the tool-call input for
   `filePath`/`file_path`/`path` keys and snapshots those files
   (skips http URLs, dedupes) into the addressed context.
