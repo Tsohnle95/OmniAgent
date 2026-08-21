@@ -165,12 +165,13 @@ describe("edit tool diff cards", () => {
       .toEqual(["modified", "added"]);
   });
 
-  it("keeps the generic tool card for edit parts without file metadata", () => {
+  it("delegates to the generic tool card for edit parts without file metadata", () => {
     act(() => root.render(
       <OpenCodeTimeline transcript={[editTool("assistant-1", undefined)]} busy={false} lastAssistantId={null} />
     ));
 
-    expect(container.querySelector("[data-component='edit-tool-card']")).toBeNull();
     expect(container.querySelector("[data-component='tool-part-wrapper']")).not.toBeNull();
+    expect(container.querySelector("[data-slot='edit-tool-stats']")).toBeNull();
+    expect(container.querySelector("[data-component='patch-diff']")).toBeNull();
   });
 });

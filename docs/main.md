@@ -62,6 +62,7 @@ Public methods (all used by IPC):
 | `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
 | `interrupt(workspace)` | Interrupts the captured session and rejects stale completion |
 | `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured context session |
+| `listPermissions(workspace)` | `permission.request.list()` → `PendingPermissionRequest[]` (`id`, `sessionID`, `action`, `resources`) for every pending request on the service |
 | `listDir(workspace, rel)` | Validates the context and confinement, then reads the directory directly from the filesystem (`fs.readdir`) with trailing slashes stripped |
 | `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
 | `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; holds and validates the expected disk version, installs by no-replace link, preserves recovery files on concurrent recreation, and emits an identified `file-update` |
@@ -214,6 +215,7 @@ Internals:
 | `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |
 | `shell:terminal-stop` | `(workspace, id) → void` |
 | `shell:permission-reply` | `(workspace, requestID, reply, sessionID) → void` |
+| `shell:list-permissions` | `(workspace) → PendingPermissionRequest[]`; pending permission requests across the service's sessions |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `(workspace) → SessionSelection \| null` |
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |

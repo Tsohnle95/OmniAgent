@@ -818,6 +818,11 @@ function registerIpc(): void {
     return backend.replyPermission(workspace, permission.requestID, permission.reply, permission.sessionID);
   });
 
+  handleTrusted("shell:list-permissions", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listPermissions(workspace);
+  });
+
   handleTrusted("shell:agents", async (_e, workspace: WorkspaceIdentity) => {
     workspaceId(workspace);
     return backend.listAgents(workspace);

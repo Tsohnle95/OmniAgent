@@ -9,6 +9,7 @@ import type {
   ImportResult,
   ModelOption,
   OpenFileWorkspaceResult,
+  PendingPermissionRequest,
   PermissionReply,
   ProjectInfo,
   PromptFile,
@@ -111,6 +112,8 @@ const api = {
     ipcRenderer.invoke("shell:terminal-stop", workspace, id),
   permissionReply: (workspace: WorkspaceIdentity, requestID: string, reply: PermissionReply, sessionID: string): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", workspace, requestID, reply, sessionID),
+  listPermissions: (workspace: WorkspaceIdentity): Promise<PendingPermissionRequest[]> =>
+    ipcRenderer.invoke("shell:list-permissions", workspace),
   state: (): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:state"),
   sessionSelection: (workspace: WorkspaceIdentity): Promise<SessionSelection | null> =>
     ipcRenderer.invoke("shell:session-selection", workspace),

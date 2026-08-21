@@ -130,6 +130,9 @@ dialog), `reopenSession(id, silent)`
 `openFile(path, {mode}, workspace?)`, `closeTab`, `setActive`, `setTabMode`, `editContent`, `saveTab`,
 `reloadTab`, `overwriteTab`, `mergeTab`, `toggleDir`, `ensureRootOpen`,
 `replyPermission(requestID, reply, sessionID?)`,
+`reconcilePermissions` (polls `shell:list-permissions` per open panel workspace on a 3s interval, on
+`server.connected`, and after each `permission.asked`; appends missing pending cards, resolves cards whose
+requests vanished — e.g. answered in an attached TUI),
 `openCtxMenu`, `closeCtxMenu`, `startCreate(parent, kind)`, `startRename(path)`, `cancelPending`,
 `commitName(name)`, `deleteEntry(path)`, `moveEntry(path, destDir)`,
 `openRecovery(id)`, `acknowledgeRecovery(id)`. `closePanel` invokes

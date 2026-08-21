@@ -220,6 +220,13 @@ export interface UserAttachment {
 
 export type PermissionReply = "once" | "always" | "reject";
 
+export interface PendingPermissionRequest {
+  id: string;
+  sessionID: string;
+  action: string;
+  resources: string[];
+}
+
 export interface TerminalData {
   id: string;
   data: string;

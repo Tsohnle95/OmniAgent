@@ -61,6 +61,7 @@ automatically.
 | `terminalResize(workspace, id, cols, rows)` | `Promise<void>` |
 | `terminalStop(workspace, id)` | `Promise<void>` |
 | `permissionReply(workspace, requestID, reply, sessionID)` | `Promise<void>` |
+| `listPermissions(workspace)` | `Promise<PendingPermissionRequest[]>` — pending permission requests across the service's sessions |
 | `state()` | `Promise<SessionInfo \| null>` — the most recently activated session |
 | `sessionSelection(workspace)` | `Promise<SessionSelection \| null>` |
 | `providerUsage()` | `Promise<ProviderUsageResult[]>` |

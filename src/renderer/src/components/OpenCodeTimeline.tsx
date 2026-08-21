@@ -467,7 +467,7 @@ function PatchDiff({ patch }: { patch: string }): ReactNode {
 }
 
 function isEditCardTool(tool: ToolCallView): boolean {
-  return ["edit", "patch", "apply_patch"].includes(toolKey(tool.title)) && editFileEntries(tool).length > 0;
+  return ["edit", "patch", "apply_patch"].includes(toolKey(tool.title));
 }
 
 function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {
@@ -478,6 +478,7 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
   const deletions = files.reduce((sum, file) => sum + (file.deletions ?? 0), 0);
   const path = files[0]?.file ?? tool.paths?.[0];
   const expandable = files.some((file) => file.patch);
+  if (files.length === 0) return <ToolPart tool={tool} session={session} />;
   const activatePath = (): void => {
     if (!path) return;
     if (session) focusSession?.(session.id);
@@ -1117,7 +1118,7 @@ function TimelineEvent({
   );
 }
 
-function PermissionPrompt({ item, session }: { item: Extract<TranscriptItem, { kind: "permission" }>; session: SessionInfo | null }): ReactNode {
+export function PermissionPrompt({ item, session }: { item: Extract<TranscriptItem, { kind: "permission" }>; session: SessionInfo | null }): ReactNode {
   const { replyPermission } = useStore();
   if (!item.pending) return null;
   return (
@@ -1156,31 +1157,25 @@ export function OpenCodeTimeline({
     [transcript]
   );
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
-  const pendingPermission = [...transcript]
-    .reverse()
-    .find((item): item is Extract<TranscriptItem, { kind: "permission" }> => item.kind === "permission" && item.pending);
 
   return (
-    <>
-      <div data-slot="session-turn-list" className="opencode-timeline">
-        {turns.map((turn, index) => {
-          return (
-            <div data-component="session-turn-group" key={turn.id}>
-              {turn.user && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
-              {turn.user && <UserMessage item={turn.user} />}
-              {contiguousBodyRuns(turn.body).map((run) => Array.isArray(run)
-                ? <AssistantTurn
-                    items={run}
-                    streaming={busy && run.some((item) => item.id === lastAssistantId)}
-                    session={activeSession}
-                    key={`assistant:${run[0].id}`}
-                  />
-                : <TimelineEvent item={run} session={activeSession} key={run.id} />)}
-            </div>
-          );
-        })}
-      </div>
-      {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
-    </>
+    <div data-slot="session-turn-list" className="opencode-timeline">
+      {turns.map((turn, index) => {
+        return (
+          <div data-component="session-turn-group" key={turn.id}>
+            {turn.user && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
+            {turn.user && <UserMessage item={turn.user} />}
+            {contiguousBodyRuns(turn.body).map((run) => Array.isArray(run)
+              ? <AssistantTurn
+                  items={run}
+                  streaming={busy && run.some((item) => item.id === lastAssistantId)}
+                  session={activeSession}
+                  key={`assistant:${run[0].id}`}
+                />
+              : <TimelineEvent item={run} session={activeSession} key={run.id} />)}
+          </div>
+        );
+      })}
+    </div>
   );
 }

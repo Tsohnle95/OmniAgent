@@ -19,6 +19,7 @@ import type {
   FileBaseline,
   ImportResult,
   OpenFileWorkspaceResult,
+  PendingPermissionRequest,
   PermissionReply,
   ProjectInfo,
   PromptFile,
@@ -1739,6 +1740,27 @@ export class OpenShellBackend {
       reply
     });
     this.assertTarget(target);
+  }
+
+  async listPermissions(workspace: WorkspaceIdentity): Promise<PendingPermissionRequest[]> {
+    if (!this.client) throw new Error("no active session");
+    this.activeTarget(workspace);
+    const res = await this.client.permission.request.list().catch(() => null);
+    const rows = Array.isArray(res) ? res : ((res as { data?: unknown } | null)?.data ?? []);
+    if (!Array.isArray(rows)) return [];
+    return rows.flatMap((row): PendingPermissionRequest[] => {
+      if (!row || typeof row !== "object") return [];
+      const record = row as Record<string, unknown>;
+      const id = typeof record.id === "string" ? record.id : "";
+      const sessionID = typeof record.sessionID === "string" ? record.sessionID : "";
+      if (!id || !sessionID) return [];
+      return [{
+        id,
+        sessionID,
+        action: typeof record.action === "string" && record.action ? record.action : "unknown",
+        resources: Array.isArray(record.resources) ? record.resources.map(String) : []
+      }];
+    });
   }
 
   async listDir(workspace: WorkspaceIdentity, rel: string): Promise<TreeEntry[]> {

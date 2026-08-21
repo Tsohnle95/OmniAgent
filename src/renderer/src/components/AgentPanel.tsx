@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePanel, useStore } from "../store";
-import { OpenCodeTimeline } from "./OpenCodeTimeline";
+import { OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
 import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
-import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, WorkspaceIdentity } from "@shared/types";
+import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, TranscriptItem, WorkspaceIdentity } from "@shared/types";
 import { sameWorkspace } from "@shared/generation";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import {
@@ -1210,6 +1210,13 @@ export function AgentPanel({
     return null;
   }, [transcript]);
 
+  const pendingPermission = useMemo(
+    () => [...transcript]
+      .reverse()
+      .find((item): item is Extract<TranscriptItem, { kind: "permission" }> => item.kind === "permission" && item.pending),
+    [transcript]
+  );
+
   const scheduleScrollToBottom = (): void => {
     if (!stickRef.current || scrollFrameRef.current !== null) return;
     scrollFrameRef.current = requestAnimationFrame(() => {
@@ -1456,6 +1463,7 @@ export function AgentPanel({
       </div>
 
       <div data-component="session-prompt-dock">
+        {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
         <OpenCodeTodoDock todos={busy ? todos : []} />
         <Composer session={activeSession} />
       </div>

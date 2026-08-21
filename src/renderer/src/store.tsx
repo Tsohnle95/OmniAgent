@@ -16,6 +16,7 @@ import type {
   BackendMessage,
   ModelOption,
   OpenFileWorkspaceResult,
+  PendingPermissionRequest,
   PermissionReply,
   PromptFile,
   ProviderUsageResult,
@@ -604,6 +605,54 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       ? current
       : { ...current, [sessionID]: value });
   }, []);
+
+  const reconcilePermissions = useCallback(async (): Promise<void> => {
+    const panels = panelsRef.current;
+    if (panels.length === 0) return;
+    const workspaces = new Map<string, WorkspaceIdentity>();
+    for (const panel of panels) workspaces.set(panel.workspace.id, panel.workspace);
+    const fetched = new Map<string, PendingPermissionRequest[]>();
+    await Promise.all([...workspaces.values()].map(async (workspace) => {
+      const requests = await window.openshell.listPermissions(workspace).catch(() => []);
+      for (const request of requests) {
+        const list = fetched.get(request.sessionID) ?? [];
+        list.push(request);
+        fetched.set(request.sessionID, list);
+      }
+    }));
+    for (const panel of panels) {
+      const requests = fetched.get(panel.id) ?? [];
+      const liveIDs = new Set(requests.map((request) => request.id));
+      updateSessionTranscript(panel.id, (prev) => {
+        let changed = false;
+        let next = prev;
+        for (const request of requests) {
+          if (next.some((item) => item.kind === "permission" && item.requestID === request.id)) continue;
+          changed = true;
+          next = [
+            ...next,
+            {
+              kind: "permission",
+              id: request.id,
+              requestID: request.id,
+              action: request.action,
+              resources: request.resources,
+              pending: true
+            }
+          ];
+        }
+        if (next.some((item) => item.kind === "permission" && item.pending && !liveIDs.has(item.requestID))) {
+          changed = true;
+          next = next.map((item) =>
+            item.kind === "permission" && item.pending && !liveIDs.has(item.requestID)
+              ? { ...item, pending: false }
+              : item
+          );
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, [updateSessionTranscript]);
 
   const chatStatesRef = useRef(new Map<string, ChatDirectoryState>());
   const materializingRef = useRef(new Set<string>());
@@ -2261,6 +2310,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         case "server.connected":
         case "global.disposed": {
           for (const panel of panelsRef.current) void materializeSession(panel.id);
+          void reconcilePermissions();
           break;
         }
         case "session.created": {
@@ -2469,6 +2519,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           if (automatic && panel) {
             void window.openshell.permissionReply(panel.workspace, requestID, "once", panel.id);
           }
+          void reconcilePermissions();
           break;
         }
         case "permission.replied": {
@@ -2504,6 +2555,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       healthTimer = setTimeout(() => void tryConnect(), 2000);
     };
     void tryConnect();
+    const permissionTimer = setInterval(() => void reconcilePermissions(), 3000);
     void window.openshell.activeSessions().then((list) => {
       void Promise.all(list.map((session) => reopenSession(session.id, true))).then(() => {
         if (!userActivatedRef.current && list.length > 0) {
@@ -2514,6 +2566,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     });
     return () => {
       cancelled = true;
+      clearInterval(permissionTimer);
       if (healthTimer !== null) clearTimeout(healthTimer);
       off();
       persistence.cancelAll();
@@ -2541,6 +2594,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     chatStateFor,
     applyProjection,
     materializeSession,
+    reconcilePermissions,
     persistence
   ]);
 
