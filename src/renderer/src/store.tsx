@@ -143,6 +143,7 @@ export interface PanelView {
   forming: FormingSummary | null;
   activeModel: ActiveAssistantModel | null;
   streaming: MessageStreamState | null;
+  turnStartedAt: number | null;
   queuedCount: number;
   queuedMessages: QueuedMessage[];
 }
@@ -2650,6 +2651,20 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const rawParts = trailingAssistant?.kind === "assistant"
         ? chatState?.part[trailingAssistant.id] ?? []
         : [];
+      let turnStartedAt: number | null = null;
+      if (activity.isWorking) {
+        for (let i = rawMessages.length - 1; i >= 0; i -= 1) {
+          const record = rawMessages[i];
+          if (record.role === "user") {
+            turnStartedAt = typeof record.time.created === "number" ? record.time.created : null;
+            break;
+          }
+        }
+        if (turnStartedAt === null && trailingAssistant?.kind === "assistant") {
+          const assistantRecord = rawMessages.find((record) => record.id === trailingAssistant.messageID);
+          turnStartedAt = typeof assistantRecord?.time.created === "number" ? assistantRecord.time.created : null;
+        }
+      }
       const activeContext = getActiveAssistantContext(rawMessages);
       const statusSnapshot = resolveAssistantStatus({
         assistantId: activeContext.assistantId,
@@ -2679,6 +2694,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         forming: statusSnapshot?.forming ?? null,
         activeModel: statusSnapshot?.activeModel ?? null,
         streaming,
+        turnStartedAt,
         queuedCount: queuedMessages.length,
         queuedMessages
       };
@@ -2822,6 +2838,7 @@ const EMPTY_VIEW: PanelView = {
   forming: null,
   activeModel: null,
   streaming: null,
+  turnStartedAt: null,
   queuedCount: 0,
   queuedMessages: []
 };

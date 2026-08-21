@@ -196,6 +196,32 @@ function formatCredits(credits: ProviderUsageCredits): string {
   return credits.balance ?? "";
 }
 
+function formatTurnElapsed(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  return `${seconds}s`;
+}
+
+function TurnTimer({ startedAt }: { startedAt: number | null }): ReactNode {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (startedAt === null) return;
+    const timer = setInterval(() => setTick((tick) => tick + 1), 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+  if (startedAt === null) return null;
+  return (
+    <span className="agent-turn-timer" title="Time since the current turn's prompt was sent">
+      <span className="agent-turn-timer-dot" />
+      {formatTurnElapsed(Date.now() - startedAt)}
+    </span>
+  );
+}
+
 function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNode {
   const snapshot = result.snapshot;
   return (
@@ -972,7 +998,7 @@ export function AgentPanel({
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
-  const { busy, todos, transcript, sessionUsage, currentModel } = view;
+  const { busy, todos, transcript, sessionUsage, currentModel, turnStartedAt } = view;
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
@@ -1121,6 +1147,7 @@ export function AgentPanel({
             </button>
           )}
         </span>
+        <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">
           {activeSession && !activeSession.parentID && (
             <button
