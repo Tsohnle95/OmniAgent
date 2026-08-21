@@ -147,6 +147,27 @@ describe("session retention", () => {
     expect(failingRemove).not.toHaveBeenCalledWith({ sessionID: "ses_undated" });
   });
 
+  it("prunes conversation-less sessions after a day while keeping real conversations for 30 days", async () => {
+    const removed: string[] = [];
+    const staleEmpty = session({ id: "ses_stale-empty", location: { directory: "/w/e" }, time: { updated: Date.now() - 25 * 60 * 60 * 1000, created: Date.now() - 25 * 60 * 60 * 1000 } });
+    const freshEmpty = session({ id: "ses_fresh-empty", location: { directory: "/w/f" }, time: recent() });
+    const staleTitled = session({ id: "ses_stale-titled", title: "Still young", tokens: usedTokens(), location: { directory: "/w/g" }, time: { updated: Date.now() - 25 * 60 * 60 * 1000, created: Date.now() - 25 * 60 * 60 * 1000 } });
+    const backend = await fixture({
+      session: {
+        list: vi.fn(async () => ({ data: [staleEmpty, freshEmpty, staleTitled], cursor: { next: null } })),
+        remove: vi.fn(async ({ sessionID }: { sessionID: string }) => {
+          removed.push(sessionID);
+        })
+      },
+      message: { list: vi.fn(async () => []) }
+    });
+
+    const pruned = await (backend as unknown as { pruneExpiredSessions: () => Promise<number> }).pruneExpiredSessions();
+
+    expect(pruned).toBe(1);
+    expect(removed).toEqual(["ses_stale-empty"]);
+  });
+
   it("retries a failed history fetch once and throws instead of returning an empty transcript", async () => {
     const transient = { session: { list: vi.fn(async () => ({ data: [], cursor: {} })) }, message: { list: vi.fn()
       .mockRejectedValueOnce(new Error("boom"))

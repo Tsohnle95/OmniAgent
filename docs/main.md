@@ -130,11 +130,14 @@ Internals:
 - Session retention (`scheduleRetentionPrune` / `pruneExpiredSessions`) — after
   every successful connect (throttled to once per 24h), pages through all
   sessions and permanently deletes those whose last activity is older than 30
-  days (`SESSION_RETENTION_MS` in `@shared/retention`). Sessions currently open
-  in OpenShell and sessions with unknown timestamps are never deleted; per-session
-  removal failures are skipped. `listSessions` applies the same 30-day window and
-  additionally hides never-prompted sessions (no title and zero token usage), so
-  auto-created empty sessions cannot crowd real history out of recents.
+  days (`SESSION_RETENTION_MS` in `@shared/retention`). Conversation-less
+  sessions (no title and zero token usage — e.g. workspaces opened but never
+  prompted) are deleted after only 24 hours (`EMPTY_SESSION_RETENTION_MS`) so
+  auto-created empties never accumulate. Sessions currently open in OpenShell
+  and sessions with unknown timestamps are never deleted; per-session removal
+  failures are skipped. `listSessions` applies the same 30-day window and
+  additionally hides never-prompted sessions, so they cannot crowd real history
+  out of recents.
 - `snapshotInputs(context, input)` — recursively walks the tool-call input for
   `filePath`/`file_path`/`path` keys and snapshots those files
   (skips http URLs, dedupes) into the addressed context.

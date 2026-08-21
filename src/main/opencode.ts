@@ -38,7 +38,15 @@ import type {
   TreeEntry,
   ModelOption
 } from "@shared/types";
-import { expiredSession, hasConversation, retainOutput, retainToolContent, SESSION_RETENTION_MS } from "@shared/retention";
+import {
+  disposableSession,
+  expiredSession,
+  hasConversation,
+  retainOutput,
+  retainToolContent,
+  SESSION_RETENTION_MS,
+  type SessionTokenUsage
+} from "@shared/retention";
 import type { WorkspaceIdentity } from "@shared/types";
 import { fetchProviderUsage } from "./provider-usage";
 import { WorkspaceOperationCoordinator } from "./operation-coordinator";
@@ -595,7 +603,7 @@ export class OpenShellBackend {
 
   private async pruneExpiredSessions(): Promise<number> {
     if (!this.client) return 0;
-    const cutoff = Date.now() - SESSION_RETENTION_MS;
+    const now = Date.now();
     let removed = 0;
     let cursor: string | undefined;
     for (let page = 0; page < 100; page += 1) {
@@ -603,15 +611,15 @@ export class OpenShellBackend {
       const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
       for (const s of arr as Array<{
         id?: string;
+        title?: string;
+        tokens?: SessionTokenUsage;
         time?: { updated?: number; created?: number };
       }>) {
         if (!s.id || this.contextBySessionID(s.id)) continue;
-        const lastActivity = Math.max(s.time?.updated ?? 0, s.time?.created ?? 0);
-        if (lastActivity > 0 && lastActivity < cutoff) {
-          await this.client.session.remove({ sessionID: s.id }).then(() => {
-            removed += 1;
-          }).catch(() => {});
-        }
+        if (!expiredSession(s.time, now) && !disposableSession(s.time, s.title, s.tokens, now)) continue;
+        await this.client.session.remove({ sessionID: s.id }).then(() => {
+          removed += 1;
+        }).catch(() => {});
       }
       const next = Array.isArray(res) ? undefined : (res as { cursor?: { next?: string | null } }).cursor?.next;
       if (!next) break;
@@ -1345,7 +1353,7 @@ export class OpenShellBackend {
         title?: string;
         parentID?: string;
         agent?: string;
-        tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } };
+        tokens?: SessionTokenUsage;
         location?: { directory?: string };
         time?: { updated?: number; created?: number };
       }>) {
