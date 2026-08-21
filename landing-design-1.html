@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenShell — A workspace for the opencode2 agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#161410;
+  --ink:#ece4d4;
+  --ink-soft:#b5aa93;
+  --ink-faint:#7e7563;
+  --hairline:#2e2a21;
+  --hairline-strong:#403a2c;
+  --clay:#d97757;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{color-scheme:dark}
+body{
+  background:var(--canvas);
+  color:var(--ink);
+  font-family:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  font-size:19px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+::selection{background:rgba(217,119,87,.32)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--clay);outline-offset:3px;border-radius:2px}
+.page{max-width:1340px;margin:0 auto;padding:0 clamp(24px,5vw,72px)}
+.label{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint)}
+.masthead{
+  display:flex;align-items:center;justify-content:space-between;gap:28px;
+  padding:30px 0 20px;
+  border-bottom:1px solid var(--hairline-strong);
+  position:relative;
+}
+.masthead::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:1px;background:var(--hairline)}
+.wordmark{display:inline-flex;align-items:baseline;gap:11px;text-decoration:none;color:var(--ink);font-size:25px;font-weight:600;letter-spacing:.005em}
+.wordmark .mark{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--clay)}
+.issue{font-family:var(--sans);font-size:11px;font-weight:500;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint)}
+.masthead nav{display:flex;gap:30px}
+.masthead nav a{
+  font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-soft);text-decoration:none;padding:6px 0;border-bottom:1px solid transparent;
+  transition:color .16s ease,border-color .16s ease;
+}
+.masthead nav a:hover{color:var(--ink);border-color:var(--clay)}
+.spread{
+  display:grid;
+  grid-template-columns:minmax(0,54fr) 1px minmax(0,46fr);
+  gap:clamp(36px,4.5vw,76px);
+  padding:clamp(52px,8vh,100px) 0 clamp(60px,9vh,110px);
+}
+.vrule{width:1px;background:var(--hairline)}
+.kicker{display:flex;align-items:center;gap:16px;margin-bottom:38px}
+.kicker::before{content:"";width:46px;height:1px;background:var(--clay)}
+.kicker .label{color:var(--clay)}
+h1{
+  font-size:clamp(54px,6vw,80px);
+  font-weight:500;
+  line-height:1.03;
+  letter-spacing:-.015em;
+  margin-bottom:36px;
+  text-wrap:balance;
+}
+h1 em{font-style:italic;color:var(--clay)}
+.lede{
+  font-size:clamp(20px,1.7vw,23px);
+  line-height:1.62;
+  color:var(--ink-soft);
+  max-width:32em;
+  margin-bottom:46px;
+}
+.lede::first-letter{float:left;font-size:76px;line-height:.78;padding:9px 14px 0 0;color:var(--ink);font-weight:500}
+.actions{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:56px}
+.btn{
+  font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  padding:17px 32px;border-radius:2px;border:1px solid transparent;cursor:pointer;
+  transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease;
+}
+.btn-primary{background:var(--clay);color:#201209}
+.btn-primary:hover{background:#e28a68;transform:translateY(-1px)}
+.btn-ghost{background:transparent;border-color:var(--hairline-strong);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--clay);color:var(--clay)}
+.facts{display:flex;flex-wrap:wrap;gap:20px 44px;border-top:1px solid var(--hairline);padding-top:24px}
+.facts dt{font-family:var(--sans);font-size:10.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint)}
+.facts dd{font-size:19px;margin-top:7px;color:var(--ink)}
+.index-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  padding-bottom:18px;border-bottom:1px solid var(--hairline-strong);
+}
+.index-head .count{font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+.sessions{list-style:none}
+.sessions li{border-bottom:1px solid var(--hairline)}
+.sessions a{
+  display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:baseline;
+  padding:21px 8px;text-decoration:none;color:inherit;
+  transition:background .16s ease;
+}
+.sessions a:hover{background:rgba(217,119,87,.055)}
+.s-no{font-family:var(--mono);font-size:12px;color:var(--ink-faint);transition:color .16s ease}
+.sessions a:hover .s-no{color:var(--clay)}
+.s-name{display:block;font-size:22px;font-weight:500;line-height:1.22}
+.s-proj{display:block;font-family:var(--sans);font-size:10.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);margin-top:7px}
+.s-time{font-family:var(--mono);font-size:12px;color:var(--ink-faint);white-space:nowrap}
+.index-foot{padding-top:20px;font-style:italic;font-size:17.5px;color:var(--ink-faint)}
+.colophon{
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px 28px;
+  border-top:1px solid var(--hairline-strong);
+  padding:26px 0 44px;
+}
+.colophon p{font-family:var(--sans);font-size:10.5px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+.hint{color:var(--ink-soft)}
+.hint::before{content:"❯ ";font-family:var(--mono);color:var(--clay)}
+@media (max-width:980px){
+  .spread{grid-template-columns:1fr;gap:56px}
+  .vrule{display:none}
+  .masthead{flex-wrap:wrap;gap:14px 24px}
+  .issue{display:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark" href="#"><span class="mark">❯</span>OpenShell</a>
+    <p class="issue">Vol. II · The Agent Issue · MMXXVI</p>
+    <nav aria-label="Site">
+      <a href="#">Manual</a>
+      <a href="#">Changelog</a>
+      <a href="#">Download</a>
+    </nav>
+  </header>
+  <main class="spread">
+    <section class="hero" aria-labelledby="hero-h">
+      <p class="kicker"><span class="label">A workspace for the opencode2 agent</span></p>
+      <h1 id="hero-h">Open a repository. <em>Tell it what to build.</em> Watch the files change.</h1>
+      <p class="lede">OpenShell is a quiet desktop companion for the opencode2 agent. Point it at a working tree, describe the work in plain language, and read the results as they arrive — every edited file streamed into the editor and diffed against the baseline it started from.</p>
+      <div class="actions">
+        <button class="btn btn-primary" type="button">Open a folder</button>
+        <button class="btn btn-ghost" type="button">Open a file…</button>
+      </div>
+      <dl class="facts">
+        <div><dt>Stream cadence</dt><dd>33&nbsp;ms batches</dd></div>
+        <div><dt>Diff baseline</dt><dd>Per file, git-aware</dd></div>
+        <div><dt>Sessions</dt><dd>Concurrent, resumable</dd></div>
+      </dl>
+    </section>
+    <div class="vrule" aria-hidden="true"></div>
+    <aside class="index" aria-labelledby="index-h">
+      <div class="index-head">
+        <h2 id="index-h" class="label">Recent sessions</h2>
+        <span class="count">06 entries</span>
+      </div>
+      <ol class="sessions">
+        <li><a href="#">
+          <span class="s-no">01</span>
+          <span><span class="s-name">Refactor auth middleware</span><span class="s-proj">openshell</span></span>
+          <time class="s-time">12m ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="s-no">02</span>
+          <span><span class="s-name">Stream diffs into the timeline</span><span class="s-proj">acme-api</span></span>
+          <time class="s-time">1h ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="s-no">03</span>
+          <span><span class="s-name">Calm the flaky snapshot tests</span><span class="s-proj">portfolio-site</span></span>
+          <time class="s-time">3h ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="s-no">04</span>
+          <span><span class="s-name">Move the build to electron-vite</span><span class="s-proj">openshell</span></span>
+          <time class="s-time">yesterday</time>
+        </a></li>
+        <li><a href="#">
+          <span class="s-no">05</span>
+          <span><span class="s-name">Retire the legacy design tokens</span><span class="s-proj">atlas-ui</span></span>
+          <time class="s-time">2d ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="s-no">06</span>
+          <span><span class="s-name">Chart provider usage per plan</span><span class="s-proj">acme-api</span></span>
+          <time class="s-time">3d ago</time>
+        </a></li>
+      </ol>
+      <p class="index-foot">Each session resumes exactly where the agent left off — transcript, baselines and all.</p>
+    </aside>
+  </main>
+  <footer class="colophon">
+    <p class="hint">opencode2 must be on PATH</p>
+    <p>OpenShell · Set in Cormorant Garamond · A design exploration</p>
+  </footer>
+</div>
+</body>
+</html>

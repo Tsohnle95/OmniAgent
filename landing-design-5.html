@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenShell — Watch your agent work</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#161410;
+  --panel:#1d1a14;
+  --well:#12100c;
+  --edge:#2d2820;
+  --edge-soft:#241f18;
+  --ink:#ede5d5;
+  --dim:#a89d88;
+  --faint:#79705e;
+  --clay:#d97757;
+  --green:#5cb372;
+  --red:#e0564a;
+  --amber:#e5b566;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+body::before{
+  content:"";position:fixed;inset:0;z-index:-1;
+  background:radial-gradient(900px 420px at 50% -8%,rgba(217,119,87,.08),transparent 70%);
+  pointer-events:none;
+}
+::selection{background:rgba(217,119,87,.35)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--clay);outline-offset:3px;border-radius:8px}
+.wrap{max-width:1220px;margin:0 auto;padding:0 clamp(22px,4.5vw,56px)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:26px 0}
+.brand{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.brand .mark{
+  display:grid;place-items:center;width:26px;height:26px;border-radius:7px;
+  background:linear-gradient(135deg,#e08a63,#bc5c39);
+  color:#1c110a;font-family:ui-monospace,Menlo,monospace;font-weight:700;font-size:14px;
+}
+.top nav{display:flex;gap:26px}
+.top nav a{color:var(--dim);font-size:13.5px;font-weight:500;text-decoration:none;transition:color .16s ease}
+.top nav a:hover{color:var(--ink)}
+.hero{text-align:center;padding:clamp(56px,10vh,116px) 0 68px}
+.eyebrow{
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  font-size:11.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--clay);
+  margin-bottom:26px;
+}
+.eyebrow::before,.eyebrow::after{content:"";width:34px;height:1px;background:rgba(217,119,87,.45)}
+h1{font-size:clamp(38px,4.9vw,64px);line-height:1.07;letter-spacing:-.028em;font-weight:700;max-width:840px;margin:0 auto 24px;text-wrap:balance}
+.warm{background:linear-gradient(92deg,#eda277,var(--clay));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:clamp(15.5px,1.5vw,17.5px);line-height:1.68;color:var(--dim);max-width:600px;margin:0 auto 38px}
+.ctas{display:flex;justify-content:center;flex-wrap:wrap;gap:14px}
+.btn{
+  font-family:inherit;font-size:14.5px;font-weight:600;padding:14px 27px;border-radius:10px;cursor:pointer;
+  border:1px solid transparent;
+  transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.btn-primary{background:var(--clay);color:#1d110a;box-shadow:0 14px 34px rgba(217,119,87,.22)}
+.btn-primary:hover{background:#e28a69;transform:translateY(-1px);box-shadow:0 18px 40px rgba(217,119,87,.3)}
+.btn-ghost{background:transparent;border-color:var(--edge);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--faint);background:rgba(255,255,255,.03);transform:translateY(-1px)}
+.micro{margin-top:20px;font-size:12.5px;color:var(--faint)}
+.tour{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;padding:8px 0 12px}
+.vig{
+  background:var(--panel);border:1px solid var(--edge);border-radius:18px;padding:18px 20px 26px;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.vig:hover{transform:translateY(-4px);border-color:#3e372b;box-shadow:0 26px 54px rgba(0,0,0,.35)}
+.ix{font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:.2em;color:var(--clay)}
+.vig h2{font-size:17px;font-weight:600;letter-spacing:-.01em;margin:14px 0 8px}
+.vig>p{font-size:13.5px;line-height:1.62;color:var(--dim)}
+.stage{
+  height:196px;background:var(--well);border:1px solid var(--edge-soft);border-radius:12px;
+  padding:14px;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+}
+.mini{height:100%}
+.chrome{display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.chrome i{width:8px;height:8px;border-radius:50%;background:#3a342a}
+.chrome .tab{
+  margin-left:10px;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--faint);
+  background:#1a1712;border:1px solid var(--edge-soft);border-radius:4px;padding:2px 9px;
+}
+.lrow{display:flex;align-items:center;gap:8px;padding:3.5px 7px;border-radius:4px;margin-bottom:3px}
+.lnum{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;color:var(--faint);width:14px;text-align:right;flex:none}
+.lsign{font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;width:8px;flex:none}
+.lbar{height:6px;border-radius:3px;background:#373126}
+.del{background:rgba(224,86,74,.09)}
+.del .lsign{color:var(--red)}
+.del .lbar{background:rgba(224,86,74,.5)}
+.add{background:rgba(92,179,114,.09)}
+.add .lsign{color:var(--green)}
+.add .lbar{background:rgba(92,179,114,.48)}
+.lcur{width:7px;height:11px;background:var(--clay);border-radius:1px;flex:none;animation:blink 1.1s steps(1,start) infinite}
+@keyframes blink{50%{opacity:0}}
+.chat{display:flex;flex-direction:column;gap:8px;justify-content:flex-end}
+.msg{max-width:85%;padding:8px 12px;border-radius:12px;font-size:11.5px;line-height:1.5}
+.msg-user{align-self:flex-end;background:rgba(217,119,87,.15);border:1px solid rgba(217,119,87,.35);color:#f2ddd0;border-bottom-right-radius:4px}
+.msg-agent{align-self:flex-start;background:#221e17;border:1px solid var(--edge-soft);color:var(--dim);border-bottom-left-radius:4px}
+.toolcall{
+  align-self:flex-start;display:flex;align-items:center;gap:7px;
+  font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--faint);
+  border:1px dashed var(--edge);border-radius:7px;padding:5px 10px;
+}
+.spark{color:var(--clay)}
+.tick{color:var(--green)}
+.dots{
+  display:flex;gap:4px;align-self:flex-start;padding:11px 13px;
+  background:#221e17;border:1px solid var(--edge-soft);border-radius:12px;border-bottom-left-radius:4px;
+}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--faint);animation:bounce 1.2s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.15s}
+.dots i:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:none;opacity:.35}30%{transform:translateY(-3px);opacity:1}}
+.tree{display:flex;flex-direction:column;gap:2px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--dim)}
+.trow{display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:6px}
+.caret-glyph{color:var(--faint);width:10px;flex:none}
+.d1{margin-left:20px}
+.badge{
+  margin-left:auto;font-size:9px;font-weight:700;color:var(--amber);
+  background:rgba(229,181,102,.12);border:1px solid rgba(229,181,102,.3);border-radius:4px;padding:1px 5px;
+}
+.trow.active{background:rgba(217,119,87,.1);color:var(--ink)}
+.live{margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-dot 2.2s ease-out infinite}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(92,179,114,.5)}70%{box-shadow:0 0 0 6px rgba(92,179,114,0)}100%{box-shadow:0 0 0 0 rgba(92,179,114,0)}}
+.closing{text-align:center;border-top:1px solid var(--edge-soft);margin-top:56px;padding:72px 0 40px}
+.closing h2{font-size:clamp(26px,3vw,36px);letter-spacing:-.02em;font-weight:700;margin-bottom:14px}
+.closing p{color:var(--dim);font-size:15.5px;margin-bottom:32px}
+.site-foot{padding:10px 0 44px;text-align:center;font-size:12.5px;color:var(--faint)}
+.site-foot .k{font-family:ui-monospace,Menlo,monospace;color:var(--clay)}
+@media (max-width:980px){
+  .tour{grid-template-columns:1fr;max-width:540px;margin:0 auto}
+}
+@media (prefers-reduced-motion:reduce){
+  .lcur,.dots i,.live{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#"><span class="mark">❯</span>OpenShell</a>
+    <nav aria-label="Primary">
+      <a href="#">Docs</a>
+      <a href="#">Changelog</a>
+      <a href="#">GitHub</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">A workspace for the opencode2 agent</p>
+      <h1>Open a repository. Tell it what to build. <span class="warm">Watch the files change.</span></h1>
+      <p class="sub">OpenShell pairs your code with a live agent in one calm desktop app — prompts stream in, edits stream out, and every change is diffed against where you began.</p>
+      <div class="ctas">
+        <button class="btn btn-primary" type="button">Open a folder</button>
+        <button class="btn btn-ghost" type="button">Open a file…</button>
+      </div>
+      <p class="micro">Free during beta · Your code stays on your machine</p>
+    </section>
+    <section class="tour" aria-label="What working with OpenShell looks like">
+      <article class="vig">
+        <div class="stage">
+          <div class="mini" role="img" aria-label="An editor filling with added and removed lines as the agent works">
+            <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="tab">src/auth.ts</span></div>
+            <div class="lrow ctx" aria-hidden="true"><span class="lnum">41</span><span class="lsign"></span><span class="lbar" style="width:56%"></span></div>
+            <div class="lrow del" aria-hidden="true"><span class="lnum">42</span><span class="lsign">−</span><span class="lbar" style="width:42%"></span></div>
+            <div class="lrow add" aria-hidden="true"><span class="lnum">42</span><span class="lsign">+</span><span class="lbar" style="width:64%"></span></div>
+            <div class="lrow add" aria-hidden="true"><span class="lnum">43</span><span class="lsign">+</span><span class="lbar" style="width:30%"></span></div>
+            <div class="lrow add" aria-hidden="true"><span class="lnum">44</span><span class="lsign">+</span><span class="lbar" style="width:47%"></span><span class="lcur"></span></div>
+            <div class="lrow ctx" aria-hidden="true"><span class="lnum">45</span><span class="lsign"></span><span class="lbar" style="width:24%"></span></div>
+          </div>
+        </div>
+        <p class="ix">01</p>
+        <h2>Diffs as it works</h2>
+        <p>Changed files stream straight into the editor. Additions and deletions render inline against the baseline each file started from — no stale overlays, no guessing what moved.</p>
+      </article>
+      <article class="vig">
+        <div class="stage">
+          <div class="mini chat" role="img" aria-label="A conversation with the agent, ending in a streaming reply">
+            <div class="msg msg-user" aria-hidden="true">Add rate limiting to the login route</div>
+            <div class="toolcall" aria-hidden="true"><span class="spark">✦</span>edit src/middleware/rate-limit.ts<span class="tick">✓</span></div>
+            <div class="msg msg-agent" aria-hidden="true">Done — 24 req/min per IP, sliding window. Tests updated.</div>
+            <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <p class="ix">02</p>
+        <h2>A panel that thinks out loud</h2>
+        <p>The agent narrates in a streaming panel: plans, tool calls, finished edits. Queue a follow-up or steer it mid-run without breaking stride.</p>
+      </article>
+      <article class="vig">
+        <div class="stage">
+          <div class="mini tree" role="img" aria-label="A file tree with a modified file and a watched file">
+            <div class="trow" aria-hidden="true"><span class="caret-glyph">▾</span>src</div>
+            <div class="trow d1" aria-hidden="true">server.ts</div>
+            <div class="trow d1" aria-hidden="true">middleware.ts<span class="badge">M</span></div>
+            <div class="trow d1 active" aria-hidden="true">auth.ts<span class="live"></span></div>
+            <div class="trow" aria-hidden="true"><span class="caret-glyph">▸</span>tests</div>
+            <div class="trow" aria-hidden="true">README.md</div>
+          </div>
+        </div>
+        <p class="ix">03</p>
+        <h2>Your tree, quietly watched</h2>
+        <p>OpenShell watches the workspace and keeps Changes honest — files stay listed while they differ from their effective baseline, and settle away once they match again.</p>
+      </article>
+    </section>
+    <section class="closing">
+      <h2>Ready when your repo is.</h2>
+      <p>Grab the desktop build, point it at a folder, and send your first prompt.</p>
+      <div class="ctas">
+        <button class="btn btn-primary" type="button">Open a folder</button>
+        <button class="btn btn-ghost" type="button">Open a file…</button>
+      </div>
+    </section>
+  </main>
+  <footer class="site-foot">
+    <p><span class="k">❯</span> opencode2 must be on PATH — OpenShell connects to a running service or spawns one for you.</p>
+  </footer>
+</div>
+</body>
+</html>

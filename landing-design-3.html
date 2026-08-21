@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenShell — Your repository, with an agent inside</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0c12;
+  --ink:#f3f1ec;
+  --dim:rgba(243,241,236,.64);
+  --faint:rgba(243,241,236,.42);
+  --line:rgba(255,255,255,.09);
+  --glass:rgba(255,255,255,.055);
+  --clay:#d97757;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{color-scheme:dark}
+body{
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:rgba(217,119,87,.4)}
+a:focus-visible,button:focus-visible{outline:2px solid rgba(217,119,87,.9);outline-offset:3px;border-radius:10px}
+.aurora{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(90px)}
+.b1{width:640px;height:640px;left:-180px;top:-240px;background:radial-gradient(circle at 35% 35%,rgba(217,119,87,.6),transparent 65%);animation:drift-a 26s ease-in-out infinite alternate}
+.b2{width:760px;height:760px;right:-240px;top:-160px;background:radial-gradient(circle at 55% 45%,rgba(77,108,255,.5),transparent 65%);animation:drift-b 34s ease-in-out infinite alternate}
+.b3{width:600px;height:600px;left:32%;bottom:-320px;background:radial-gradient(circle at 50% 50%,rgba(146,88,222,.42),transparent 65%);animation:drift-c 40s ease-in-out infinite alternate}
+@keyframes drift-a{to{transform:translate(80px,60px) scale(1.1)}}
+@keyframes drift-b{to{transform:translate(-70px,80px) scale(1.06)}}
+@keyframes drift-c{to{transform:translate(60px,-70px) scale(1.12)}}
+@media (prefers-reduced-motion:reduce){.blob{animation:none}}
+.shell{
+  position:relative;z-index:1;
+  max-width:1140px;margin:0 auto;
+  padding:26px clamp(20px,4vw,48px) 44px;
+  display:flex;flex-direction:column;min-height:100vh;
+}
+.dock{
+  display:flex;align-items:center;gap:26px;
+  padding:11px 12px 11px 22px;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.05);
+  backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
+  box-shadow:0 14px 44px rgba(0,0,0,.28);
+}
+.brand{display:inline-flex;align-items:center;gap:9px;color:var(--ink);text-decoration:none;font-size:16px;font-weight:600;letter-spacing:-.01em}
+.brand .mark{color:var(--clay);font-weight:800}
+.links{margin-left:auto;display:flex;gap:24px}
+.links a{color:var(--dim);font-size:13.5px;font-weight:500;text-decoration:none;transition:color .16s ease}
+.links a:hover{color:var(--ink)}
+.dock-cta{
+  font-size:13px;font-weight:600;color:#181410;background:#f2eee4;
+  padding:9px 18px;border-radius:999px;text-decoration:none;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);
+  transition:transform .16s ease,box-shadow .16s ease;
+}
+.dock-cta:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(0,0,0,.32)}
+.hero{text-align:center;max-width:840px;margin:0 auto;padding:clamp(72px,12vh,136px) 0 60px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12.5px;font-weight:500;color:var(--dim);
+  border:1px solid var(--line);background:rgba(255,255,255,.045);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:8px 16px;border-radius:999px;margin-bottom:32px;
+}
+.pulse{width:7px;height:7px;border-radius:50%;background:#6cc98d;animation:pulse 2.6s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(108,201,141,.5)}70%{box-shadow:0 0 0 9px rgba(108,201,141,0)}100%{box-shadow:0 0 0 0 rgba(108,201,141,0)}}
+h1{font-size:clamp(46px,6.6vw,80px);line-height:1.02;letter-spacing:-.035em;font-weight:700;margin-bottom:26px}
+.grad{background:linear-gradient(94deg,#f0b28e 0%,var(--clay) 55%,#c05a3c 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:clamp(16px,1.6vw,19px);line-height:1.66;color:var(--dim);max-width:620px;margin:0 auto 42px}
+.ctas{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+.pill{
+  font-family:inherit;font-size:15px;font-weight:600;padding:15px 28px;border-radius:999px;cursor:pointer;
+  border:1px solid transparent;
+  transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease;
+}
+.pill-primary{
+  background:linear-gradient(180deg,#f7f4ed,#e8e3d6);color:#171310;
+  box-shadow:0 16px 38px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.85);
+}
+.pill-primary:hover{transform:translateY(-2px);box-shadow:0 22px 48px rgba(0,0,0,.45)}
+.pill-primary .arrow{display:inline-block;margin-left:7px;transition:transform .18s ease}
+.pill-primary:hover .arrow{transform:translateX(3px)}
+.pill-ghost{background:rgba(255,255,255,.06);border-color:var(--line);color:var(--ink);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.pill-ghost:hover{background:rgba(255,255,255,.1);transform:translateY(-2px)}
+.board{
+  width:min(780px,100%);margin:0 auto;padding:8px;border-radius:22px;
+  border:1px solid var(--line);background:var(--glass);
+  backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);
+  box-shadow:0 30px 80px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.board-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px}
+.board-head h2{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.view-all{font-size:13px;font-weight:500;color:var(--faint);text-decoration:none;transition:color .16s ease}
+.view-all:hover{color:var(--ink)}
+.rows{list-style:none;display:flex;flex-direction:column;gap:2px}
+.rows a{
+  display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;
+  padding:12px 14px;border-radius:14px;color:inherit;text-decoration:none;
+  transition:background .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+.rows a:hover{background:rgba(255,255,255,.06);transform:translateY(-1px);box-shadow:0 12px 30px rgba(0,0,0,.28)}
+.tile{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:15px;color:rgba(255,255,255,.94);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.t-clay{background:linear-gradient(135deg,#e08a63,#b0532e)}
+.t-indigo{background:linear-gradient(135deg,#8b97f5,#4353c8)}
+.t-teal{background:linear-gradient(135deg,#5fc7a8,#2f8f74)}
+.t-violet{background:linear-gradient(135deg,#b184ea,#7a4fc0)}
+.t-rose{background:linear-gradient(135deg,#ef8fa3,#c25a76)}
+.t-amber{background:linear-gradient(135deg,#eab563,#bd8430)}
+.row-txt strong{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.005em}
+.row-txt em{display:block;font-style:normal;font-size:12.5px;color:var(--faint);margin-top:3px}
+.rows time{font-size:12.5px;color:var(--faint);white-space:nowrap}
+.chips{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;list-style:none;margin:36px auto 0;padding:0}
+.chips li{
+  font-size:12.5px;font-weight:500;color:var(--dim);
+  border:1px solid var(--line);background:rgba(255,255,255,.04);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  padding:9px 16px;border-radius:999px;
+}
+.site-foot{margin-top:auto;padding-top:72px;text-align:center;font-size:12.5px;line-height:1.7;color:var(--faint)}
+.site-foot .k{color:var(--dim)}
+@media (max-width:760px){
+  .links{display:none}
+  .hero{padding-top:64px}
+}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
+<div class="shell">
+  <nav class="dock" aria-label="Primary">
+    <a class="brand" href="#"><span class="mark">❯</span>OpenShell</a>
+    <div class="links">
+      <a href="#">Product</a>
+      <a href="#">Docs</a>
+      <a href="#">Changelog</a>
+    </div>
+    <a class="dock-cta" href="#">Download</a>
+  </nav>
+  <main>
+    <section class="hero">
+      <p class="eyebrow"><span class="pulse" aria-hidden="true"></span>Public beta · macOS · Apple silicon</p>
+      <h1>Your repository,<br><span class="grad">with an agent inside.</span></h1>
+      <p class="sub">A workspace for the opencode2 agent — open a repository, tell it what to build, and watch the files change live. Every edit arrives diffed against its baseline, so review is a glance.</p>
+      <div class="ctas">
+        <button class="pill pill-primary" type="button">Open a folder<span class="arrow">→</span></button>
+        <button class="pill pill-ghost" type="button">Open a file…</button>
+      </div>
+    </section>
+    <section class="board" aria-labelledby="recent-h">
+      <div class="board-head">
+        <h2 id="recent-h">Recent sessions</h2>
+        <a class="view-all" href="#">View all →</a>
+      </div>
+      <ul class="rows">
+        <li><a href="#">
+          <span class="tile t-clay" aria-hidden="true">❯</span>
+          <span class="row-txt"><strong>Refactor auth middleware</strong><em>openshell · main</em></span>
+          <time>12m ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="tile t-indigo" aria-hidden="true">◆</span>
+          <span class="row-txt"><strong>Stream diffs into the timeline</strong><em>acme-api · feat/diff-timeline</em></span>
+          <time>1h ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="tile t-teal" aria-hidden="true">▲</span>
+          <span class="row-txt"><strong>Calm the flaky snapshot tests</strong><em>portfolio-site · main</em></span>
+          <time>3h ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="tile t-violet" aria-hidden="true">✦</span>
+          <span class="row-txt"><strong>Move the build to electron-vite</strong><em>openshell · build/vite</em></span>
+          <time>yesterday</time>
+        </a></li>
+        <li><a href="#">
+          <span class="tile t-rose" aria-hidden="true">●</span>
+          <span class="row-txt"><strong>Retire the legacy design tokens</strong><em>atlas-ui · main</em></span>
+          <time>2d ago</time>
+        </a></li>
+        <li><a href="#">
+          <span class="tile t-amber" aria-hidden="true">■</span>
+          <span class="row-txt"><strong>Chart provider usage per plan</strong><em>acme-api · main</em></span>
+          <time>3d ago</time>
+        </a></li>
+      </ul>
+    </section>
+    <ul class="chips" aria-label="Highlights">
+      <li>Live per-file diffs</li>
+      <li>Streaming agent panel</li>
+      <li>Git-aware baselines</li>
+      <li>Concurrent sessions</li>
+    </ul>
+  </main>
+  <footer class="site-foot">
+    <p><span class="k">opencode2 must be on PATH</span> — OpenShell connects to a running opencode service, or spawns one for you.</p>
+  </footer>
+</div>
+</body>
+</html>
