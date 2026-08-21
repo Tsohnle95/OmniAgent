@@ -9,3 +9,4 @@ release/
 .DS_Store
 .openshell-recovery/
 package-lock.json
+TODO.md
