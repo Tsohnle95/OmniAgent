@@ -1,6 +1,6 @@
 .agent-panel {
   position: relative;
-  background-color: var(--sidebar-surface-color);
+  background-color: rgba(18, 16, 20, 0.66);
   background-image: var(--sidebar-surface-image);
   background-size: var(--sidebar-surface-size);
   background-repeat: var(--sidebar-surface-repeat);
@@ -19,7 +19,8 @@
   min-width: 0;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.018);
+  backdrop-filter: blur(14px);
 }
 
 .agent-dot {
@@ -129,7 +130,7 @@
   justify-content: center;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: var(--bg-elev);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--text-dim);
   cursor: pointer;
   transition: background 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease), box-shadow 120ms var(--ease);

@@ -42,20 +42,20 @@ monaco.editor.defineTheme("openshell-dark", {
     { token: "function", foreground: "DCDCAA" }
   ],
   colors: {
-    "editor.background": "#17181d",
-    "editor.lineHighlightBackground": "#1b1d23",
-    "editorLineNumber.foreground": "#4a515e",
-    "editorCursor.foreground": "#b9c6dc",
-    "editor.selectionBackground": "#2e4d78",
-    "editorGutter.background": "#17181d",
-    "diffEditor.insertedTextBackground": "#11301f",
+    "editor.background": "#17171b",
+    "editor.lineHighlightBackground": "#1e1e23",
+    "editorLineNumber.foreground": "#433d31",
+    "editorCursor.foreground": "#d97757",
+    "editor.selectionBackground": "#4b3028",
+    "editorGutter.background": "#17171b",
+    "diffEditor.insertedTextBackground": "#17351f",
     "diffEditor.removedTextBackground": "#3a1b1d",
-    "diffEditor.insertedLineBackground": "#11301f",
+    "diffEditor.insertedLineBackground": "#17351f",
     "diffEditor.removedLineBackground": "#3a1b1d",
-    "diffEditor.diagonalFill": "#17181d",
+    "diffEditor.diagonalFill": "#17171b",
     "scrollbarSlider.background": "#ffffff24",
     "scrollbarSlider.hoverBackground": "#ffffff3d",
-    "minimap.background": "#17181d"
+    "minimap.background": "#17171b"
   }
 });
 

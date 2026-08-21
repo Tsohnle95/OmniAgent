@@ -35,7 +35,7 @@
   height: var(--terminal-height);
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: rgba(16, 14, 11, 0.86);
   border-top: 1px solid var(--border);
   min-height: 0;
   position: relative;
@@ -47,7 +47,8 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: var(--bg-panel);
+  background: rgba(255, 255, 255, 0.018);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
 

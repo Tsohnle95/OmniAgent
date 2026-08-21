@@ -1,6 +1,6 @@
 .editor-pane {
   position: relative;
-  background: var(--bg-elev);
+  background: rgba(23, 23, 27, 0.72);
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -27,7 +27,7 @@
 .tabbar {
   display: flex;
   overflow-x: auto;
-  background: var(--bg-panel);
+  background: rgba(255, 255, 255, 0.018);
   border-bottom: 1px solid var(--border);
   scrollbar-width: none;
 }
@@ -52,7 +52,7 @@
 .tab:hover { background: var(--bg-hover); color: var(--text); }
 
 .tab.active {
-  background: var(--bg-elev);
+  background: rgba(23, 23, 27, 0.9);
   color: var(--text);
 }
 
@@ -62,8 +62,8 @@
   left: 0;
   right: 0;
   bottom: -1px;
-  height: 2px;
-  background: var(--accent);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
   border-radius: 2px 2px 0 0;
 }
 
@@ -112,7 +112,7 @@
   border-bottom: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-dim);
-  background: var(--bg-panel);
+  background: rgba(255, 255, 255, 0.012);
 }
 
 .editor-toolbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -189,9 +189,7 @@
 .conflict-actions button.danger { color: var(--red); }
 
 .editor-empty {
-  // background-color: #1f1a24;
-  background-color: #211d24;
-  // background-color: red;
+  background: radial-gradient(520px 360px at 50% 44%, rgba(217, 119, 87, 0.07), transparent 70%), rgba(23, 23, 27, 0.72);
   flex: 1;
   display: flex;
   flex-direction: column;
