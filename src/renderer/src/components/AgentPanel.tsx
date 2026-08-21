@@ -707,6 +707,24 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             <span className="codicon codicon-shield" />
           </button>
           <button
+            className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
+            title={voiceActive ? "Stop voice input" : "Use voice input"}
+            aria-pressed={voiceActive}
+            onClick={toggleVoice}
+          >
+            <span className="codicon codicon-mic" />
+          </button>
+          <button
+            className={`composer-send ${busy ? "stop" : ""}`}
+            title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
+            disabled={!busy && !canSend}
+            onClick={busy ? () => void stop(workspace ?? undefined) : send}
+          >
+            <span className={`codicon ${busy ? "codicon-stop" : "codicon-arrow-up"}`} />
+          </button>
+        </div>
+        <div className="composer-chips">
+          <button
             className={`composer-selector ${menu === "agent" ? "open" : ""}`}
             title="Change agent"
             onClick={() => {
@@ -751,22 +769,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
               <span className="codicon codicon-chevron-down" />
             </button>
           )}
-          <button
-            className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
-            title={voiceActive ? "Stop voice input" : "Use voice input"}
-            aria-pressed={voiceActive}
-            onClick={toggleVoice}
-          >
-            <span className="codicon codicon-mic" />
-          </button>
-          <button
-            className={`composer-send ${busy ? "stop" : ""}`}
-            title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
-            disabled={!busy && !canSend}
-            onClick={busy ? () => void stop(workspace ?? undefined) : send}
-          >
-            <span className={`codicon ${busy ? "codicon-stop" : "codicon-arrow-up"}`} />
-          </button>
         </div>
       </div>
 
