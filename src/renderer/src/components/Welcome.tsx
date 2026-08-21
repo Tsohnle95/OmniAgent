@@ -95,9 +95,10 @@ export function Welcome(): ReactNode {
               <ShellMark />
             </div>
             <h1 className="welcome-title">OpenShell</h1>
+            <p className="welcome-eyebrow">A workbench for the opencode2 agent</p>
             <p className="welcome-sub">
-              A workspace for the opencode2 agent — open a repository, tell it what to build,
-              and watch the files change in real time.
+              Open a repository, tell the agent what to build, and watch every file change
+              stream in live — diffs, turns, and terminals on one calm surface.
             </p>
             <div className="welcome-actions">
               <button className="welcome-cta" onClick={() => void selectFolder()}>
@@ -119,6 +120,12 @@ export function Welcome(): ReactNode {
                 </button>
               )}
             </div>
+            <ul className="welcome-traits">
+              <li>Live per-file diffs</li>
+              <li>Streaming agent turns</li>
+              <li>Parallel session panels</li>
+            </ul>
+            <p className="welcome-drop-hint">…or drop a folder anywhere in this window.</p>
             {!connected && (
               <p className="welcome-warn">
                 opencode service not reachable — it will be started automatically.
@@ -161,13 +168,12 @@ export function Welcome(): ReactNode {
                     onClick={() => void reopenSession(s.id)}
                     title={s.directory}
                   >
-                    <span className="welcome-row-icon codicon codicon-history" aria-hidden />
+                    <span className="welcome-row-tile codicon codicon-history" aria-hidden />
                     <span className="welcome-row-main">
                       <span className="welcome-row-title">{s.title}</span>
-                      <span className="welcome-row-meta">
-                        {formatWhen(s.updatedAt)} · {s.directory}
-                      </span>
+                      <span className="welcome-row-meta">{s.directory}</span>
                     </span>
+                    <span className="welcome-row-when">{formatWhen(s.updatedAt)}</span>
                     <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
                   </button>
                 ))}
@@ -184,11 +190,12 @@ export function Welcome(): ReactNode {
                     onClick={() => void openSession(p.directory)}
                     title={p.directory}
                   >
-                    <span className="welcome-row-icon codicon codicon-folder" aria-hidden />
+                    <span className="welcome-row-tile codicon codicon-folder" aria-hidden />
                     <span className="welcome-row-main">
                       <span className="welcome-row-title">{p.name}</span>
                       <span className="welcome-row-meta">{p.directory}</span>
                     </span>
+                    <span className="welcome-row-when" />
                     <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
                   </button>
                 ))}
