@@ -15,10 +15,10 @@
   --text-base: #e8eaef;
   --text-weak: #626b78;
 
-  --accent: #5e9bff;
-  --accent-hover: #7db0ff;
-  --accent-dim: rgba(94, 155, 255, 0.15);
-  --accent-tint: rgba(94, 155, 255, 0.08);
+  --accent: #d97757;
+  --accent-hover: #e68a68;
+  --accent-dim: rgba(217, 119, 87, 0.15);
+  --accent-tint: rgba(217, 119, 87, 0.08);
 
   --green: #4cc38a;
   --red: #f16d6b;
@@ -63,7 +63,7 @@ body {
 }
 
 ::selection {
-  background: rgba(94, 155, 255, 0.32);
+  background: rgba(217, 119, 87, 0.32);
 }
 
 :focus-visible {

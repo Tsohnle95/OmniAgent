@@ -27,7 +27,7 @@
 
 .composer-body:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(94, 155, 255, 0.16);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.16);
 }
 
 .composer-prompt {
@@ -296,7 +296,7 @@
 
 .composer-send:hover:not(:disabled) {
   background: var(--accent-hover);
-  box-shadow: 0 0 0 3px rgba(94, 155, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.22);
 }
 
 .composer-send:disabled {

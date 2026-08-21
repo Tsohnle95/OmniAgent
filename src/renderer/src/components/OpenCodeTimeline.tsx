@@ -28,15 +28,15 @@ const AGENT_TONES: Record<string, string> = {
 };
 
 const AGENT_PALETTE = [
-  "#5e9bff", "#8db4ff", "#e0af68", "#e49ac7", "#6fc3df", "#4cc38a",
+  "#d97757", "#e68a68", "#e0af68", "#e49ac7", "#6fc3df", "#4cc38a",
   "#f0b14f", "#ff9ae2", "#7fd9e8", "#9bcd97", "#ff8b85", "#e0af68"
 ];
 
 function agentTone(name: string, configured?: string): string {
   const aliases: Record<string, string> = {
-    primary: "#8db4ff",
+    primary: "#e68a68",
     secondary: "#9aa1ad",
-    accent: "#8db4ff",
+    accent: "#e68a68",
     success: "#4cc38a",
     warning: "#e0af68",
     error: "#f16d6b",

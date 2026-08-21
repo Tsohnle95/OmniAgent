@@ -7,8 +7,8 @@
   --v2-text-text-base: #e8eaef;
   --v2-text-text-muted: #aab1bd;
   --v2-text-text-faint: #626b78;
-  --v2-text-text-accent: #8db4ff;
-  --v2-text-text-code-accent: #8db4ff;
+  --v2-text-text-accent: #e68a68;
+  --v2-text-text-code-accent: #e68a68;
   --v2-icon-icon-base: #cfd4de;
   --v2-icon-icon-muted: #626b78;
   --v2-border-border-muted: rgba(255, 255, 255, 0.06);
@@ -341,7 +341,7 @@
 }
 [data-component="text-part"] [data-component="markdown"][data-streaming="true"] strong,
 [data-component="text-part"] [data-component="markdown"][data-streaming="true"] b { color: #eef2ff; }
-[data-component="text-part"] [data-component="markdown"][data-streaming="true"] a { color: #8db4ff; }
+[data-component="text-part"] [data-component="markdown"][data-streaming="true"] a { color: #e68a68; }
 [data-component="markdown"] pre [data-code-token="comment"] { color: #8291a3; font-style: italic; }
 [data-component="markdown"] pre [data-code-token="string"] { color: #9ecbff; }
 [data-component="markdown"] pre [data-code-token="number"] { color: #79b8ff; }
@@ -372,8 +372,8 @@
 
 [data-component="text-shimmer"][data-tone="thinking"] {
   --text-shimmer-base-color: #8b93a7;
-  --text-shimmer-peak-color: #7db0ff;
-  --text-shimmer-sweep: linear-gradient(var(--text-shimmer-angle), transparent calc(50% - var(--text-shimmer-spread)), #5e9bff 40%, #8db4ff 50%, #c4d8ff 60%, transparent calc(50% + var(--text-shimmer-spread)));
+  --text-shimmer-peak-color: #e68a68;
+  --text-shimmer-sweep: linear-gradient(var(--text-shimmer-angle), transparent calc(50% - var(--text-shimmer-spread)), #d97757 40%, #e68a68 50%, #f2b09a 60%, transparent calc(50% + var(--text-shimmer-spread)));
   color: #aab6d6;
 }
 
