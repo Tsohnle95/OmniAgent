@@ -8,10 +8,10 @@
   flex-direction: column;
   gap: 10px;
   padding: 10px;
-  background: rgba(27, 25, 21, 0.88);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  background: var(--panel-float-color);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
   backdrop-filter: blur(18px);
   overflow-y: auto;
   z-index: 300;

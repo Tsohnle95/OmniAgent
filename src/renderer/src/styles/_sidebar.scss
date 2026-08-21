@@ -35,7 +35,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(217, 119, 87, 0.5);
+  box-shadow: 0 0 10px rgba(232, 135, 95, 0.5);
   flex-shrink: 0;
 }
 
@@ -92,8 +92,8 @@
   color: var(--text-dim);
   font-size: 15px;
   cursor: pointer;
-  padding: 3px 7px;
-  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
   transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
@@ -112,12 +112,12 @@
 
 .sidebar-count {
   background: var(--bg-active);
-  border: 1px solid var(--border-subtle);
+  border: none;
   border-radius: var(--radius-full);
-  padding: 0 8px;
+  padding: 1px 8px;
   font-size: 10px;
-  font-weight: 600;
-  color: var(--text-dim);
+  font-weight: 700;
+  color: var(--accent-hover);
 }
 
 .section-trigger {
@@ -132,7 +132,7 @@
 .section-trigger.with-actions.open,
 .section-trigger.with-actions:hover {
   background: var(--bg-hover);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
 }
 
 .section-trigger.with-actions .section-toggle,
@@ -237,7 +237,7 @@
   position: relative;
   flex: 1;
   overflow-y: auto;
-  padding: 2px 6px 12px;
+  padding: 2px 8px 14px;
 }
 
 .tree-empty {
@@ -251,9 +251,10 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 4px 8px;
-  height: 26px;
-  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  height: 28px;
+  margin: 1px 2px;
+  border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
   min-width: 0;
@@ -269,7 +270,7 @@
 
 .tree.drop-root {
   background: var(--accent-tint);
-  box-shadow: inset 0 0 0 1px rgba(217, 119, 87, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(232, 135, 95, 0.35);
 }
 
 .tree.external-drop-active {
@@ -292,8 +293,8 @@
 }
 
 .tree-row.file.active {
-  background: var(--accent-tint);
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: var(--bg-active);
+  color: var(--text);
 }
 
 .tree-row.file.active .si-icon { color: var(--accent); }
@@ -355,7 +356,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 6px rgba(217, 119, 87, 0.5);
+  box-shadow: 0 0 6px rgba(232, 135, 95, 0.5);
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -368,7 +369,7 @@
   min-width: 176px;
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 5px;
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -417,10 +418,10 @@
   border: 1px solid var(--accent);
   color: var(--text);
   font-size: 12.5px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   outline: none;
-  border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.14);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 3px rgba(232, 135, 95, 0.14);
 }
 
 .tree-row-actions {

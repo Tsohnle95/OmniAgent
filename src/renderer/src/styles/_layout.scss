@@ -18,7 +18,7 @@
 .workspace-area {
   position: relative;
   display: flex;
-  background: rgba(18, 16, 20, 0.76);
+  background: transparent;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -54,9 +54,8 @@
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  background: rgba(22, 20, 16, 0.76);
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-bottom: none;
   z-index: 50;
   -webkit-app-region: drag;
 }
@@ -139,7 +138,7 @@
   width: 24px;
   height: 24px;
   border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
@@ -154,10 +153,13 @@
 
 .agent-sliver {
   --panel-aura-x: 50%;
+  margin: 8px 6px;
+  border-radius: 14px;
   background-color: var(--panel-surface-color);
   background-image: var(--panel-surface-image);
   background-size: var(--panel-surface-size);
   background-repeat: var(--panel-surface-repeat);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;

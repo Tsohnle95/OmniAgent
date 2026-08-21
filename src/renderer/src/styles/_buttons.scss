@@ -22,8 +22,8 @@
 
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 
-.btn-danger { background: rgba(241, 109, 107, 0.14); border-color: var(--red); color: #ffb4b0; }
+.btn-danger { background: rgba(226, 152, 138, 0.14); border-color: var(--red); color: #e2988a; }
 
-.btn-danger:hover:not(:disabled) { background: rgba(241, 109, 107, 0.22); border-color: #ffb4b0; }
+.btn-danger:hover:not(:disabled) { background: rgba(226, 152, 138, 0.22); border-color: #e2988a; }
 
 .btn-lg { padding: 10px 28px; font-size: 14px; border-radius: var(--radius-lg); }

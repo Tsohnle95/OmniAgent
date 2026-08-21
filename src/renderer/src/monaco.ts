@@ -34,28 +34,28 @@ monaco.editor.defineTheme("openshell-dark", {
   base: "vs-dark",
   inherit: true,
   rules: [
-    { token: "comment", foreground: "6A9955" },
-    { token: "keyword", foreground: "569CD6" },
-    { token: "string", foreground: "CE9178" },
-    { token: "number", foreground: "B5CEA8" },
-    { token: "type", foreground: "4EC9B0" },
-    { token: "function", foreground: "DCDCAA" }
+    { token: "comment", foreground: "78716C", fontStyle: "italic" },
+    { token: "keyword", foreground: "E8875F" },
+    { token: "string", foreground: "A8C69A" },
+    { token: "number", foreground: "E5B567" },
+    { token: "type", foreground: "8FBCD9" },
+    { token: "function", foreground: "EAD9C8" }
   ],
   colors: {
-    "editor.background": "#17171b",
-    "editor.lineHighlightBackground": "#1e1e23",
-    "editorLineNumber.foreground": "#433d31",
-    "editorCursor.foreground": "#d97757",
-    "editor.selectionBackground": "#4b3028",
-    "editorGutter.background": "#17171b",
-    "diffEditor.insertedTextBackground": "#17351f",
-    "diffEditor.removedTextBackground": "#3a1b1d",
-    "diffEditor.insertedLineBackground": "#17351f",
-    "diffEditor.removedLineBackground": "#3a1b1d",
-    "diffEditor.diagonalFill": "#17171b",
-    "scrollbarSlider.background": "#ffffff24",
-    "scrollbarSlider.hoverBackground": "#ffffff3d",
-    "minimap.background": "#17171b"
+    "editor.background": "#262220",
+    "editor.lineHighlightBackground": "#2d2926",
+    "editorLineNumber.foreground": "#57534e",
+    "editorCursor.foreground": "#e8875f",
+    "editor.selectionBackground": "#4a352c",
+    "editorGutter.background": "#262220",
+    "diffEditor.insertedTextBackground": "#9dc2a11f",
+    "diffEditor.removedTextBackground": "#e2988a1f",
+    "diffEditor.insertedLineBackground": "#9dc2a117",
+    "diffEditor.removedLineBackground": "#e2988a17",
+    "diffEditor.diagonalFill": "#262220",
+    "scrollbarSlider.background": "#ffffff17",
+    "scrollbarSlider.hoverBackground": "#ffffff26",
+    "minimap.background": "#262220"
   }
 });
 
