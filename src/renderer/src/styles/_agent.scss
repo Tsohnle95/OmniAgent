@@ -1,10 +1,11 @@
 .agent-panel {
   position: relative;
   --panel-aura-x: 100%;
-  background-color: var(--panel-surface-color);
+  background-color: var(--panel-float-color);
   background-image: var(--panel-surface-image);
   background-size: var(--panel-surface-size);
   background-repeat: var(--panel-surface-repeat);
+  backdrop-filter: blur(18px);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
