@@ -8,3 +8,4 @@ release/
 *.tsbuildinfo
 .DS_Store
 .openshell-recovery/
+package-lock.json
