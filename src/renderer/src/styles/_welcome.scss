@@ -1,13 +1,13 @@
 .welcome {
-  --canvas: #1c1917;
-  --surface: #262220;
-  --surface-hover: #2f2b28;
-  --hairline: rgba(255, 255, 255, 0.06);
-  --ink: #e8e3dd;
-  --ink-dim: #a8a29e;
-  --ink-faint: #8f8880;
-  --clay: #e8875f;
-  --cream: #ece7dc;
+  --canvas: var(--bg);
+  --surface: var(--bg-panel);
+  --surface-hover: var(--bg-elev);
+  --hairline: var(--border);
+  --ink: var(--text);
+  --ink-dim: var(--text-dim);
+  --ink-faint: var(--text-faint);
+  --clay: var(--accent);
+  --cream: var(--text);
   --serif: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 
   position: relative;
@@ -25,14 +25,16 @@
 }
 
 .welcome::after {
-  content: "❯";
+  content: "";
   position: absolute;
   left: -70px;
   bottom: -190px;
-  font-family: var(--serif);
-  font-size: 560px;
-  line-height: 1;
-  color: rgba(232, 135, 95, 0.045);
+  width: 580px;
+  height: 430px;
+  border: 24px solid var(--accent);
+  border-radius: 72px;
+  color: var(--accent);
+  opacity: 0.035;
   pointer-events: none;
   user-select: none;
 }
@@ -67,7 +69,8 @@
   height: 58px;
   margin-bottom: 6px;
   color: var(--clay);
-  --shell-prompt: var(--cream);
+  --omni-prompt: var(--cream);
+  --omni-ground: var(--ink-dim);
   line-height: 0;
   user-select: none;
   border: 1px solid rgba(232, 135, 95, 0.28);
@@ -78,7 +81,7 @@
     0 0 44px rgba(232, 135, 95, 0.14);
 }
 
-.welcome-mark .shell-mark {
+.welcome-mark .omni-mark {
   filter: drop-shadow(0 0 14px rgba(232, 135, 95, 0.35));
 }
 

@@ -5,7 +5,8 @@ import { languageForPath } from "../monaco";
 import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
-import { ShellMark } from "./ShellMark";
+import { OmniMark } from "./OmniMark";
+import { useTheme } from "../theme";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { Tab } from "@shared/types";
@@ -79,6 +80,7 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
+  const { theme } = useTheme();
   const {
     editContent,
     setTabMode,
@@ -174,8 +176,8 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         <div className="conflict-banner">
           <span>
             {tab.conflict.deleted
-              ? "This file was deleted outside OpenShell. Your edits are safe and saving is paused."
-              : "This file changed outside OpenShell. Your edits are safe and saving is paused."}
+              ? "This file was deleted outside OmniAgent. Your edits are safe and saving is paused."
+              : "This file changed outside OmniAgent. Your edits are safe and saving is paused."}
           </span>
           <div className="conflict-actions">
             <button onClick={() => reloadTab(tab.path)}>Reload disk version</button>
@@ -191,7 +193,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 
       {mode === "diff" ? (
         <DiffEditor
-          theme="openshell-dark"
+          theme={theme === "paper" ? "omniagent-paper" : "openshell-dark"}
           language={language}
           original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
@@ -208,7 +210,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         />
       ) : (
         <Editor
-          theme="openshell-dark"
+          theme={theme === "paper" ? "omniagent-paper" : "openshell-dark"}
           language={language}
           path={tab.path}
           value={tab.content}
@@ -261,7 +263,7 @@ export function EditorPane(): ReactNode {
       {tabs.length === 0 ? (
         <div className="editor-empty">
           <div className="editor-empty-icon">
-          <ShellMark size={40} />
+          <OmniMark size={40} />
         </div>
           <p>Select a file from the explorer to view or edit it.</p>
           <p className="editor-empty-sub">

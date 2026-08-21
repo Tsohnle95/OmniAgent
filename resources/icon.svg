@@ -1,17 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <radialGradient id="glow" cx="0.5" cy="0.46" r="0.55">
-      <stop offset="0" stop-color="#d97757" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#d97757" stop-opacity="0"/>
+    <linearGradient id="paper" x1="180" y1="140" x2="850" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffaf0"/>
+      <stop offset="1" stop-color="#eee5d4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
+      <stop stop-color="#c25f3c" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#c25f3c" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <rect x="100" y="100" width="824" height="824" rx="184" fill="#1b1915"/>
-  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#glow)"/>
-  <g transform="translate(16 -81.8) scale(15.5)">
-    <path d="M32 51 L7.75 37 A 28 28 0 0 1 20.17 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M32 51 L56.25 37 A 28 28 0 0 0 43.83 25.62" fill="none" stroke="#d97757" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M32 51 L10.55 33 M32 51 L14.92 28.77" fill="none" stroke="#d97757" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
-    <path d="M32 51 L49.08 28.77 M32 51 L53.45 33" fill="none" stroke="#d97757" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
-    <path d="M26 25 L32 30.5 L26 36" fill="none" stroke="#ece7dc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="88" y="88" width="848" height="848" rx="194" fill="url(#paper)"/>
+  <rect x="88" y="88" width="848" height="848" rx="194" fill="url(#glow)"/>
+  <rect x="88.5" y="88.5" width="847" height="847" rx="193.5" fill="none" stroke="#2b2119" stroke-opacity="0.12"/>
+  <g transform="translate(0 4) scale(13.1) translate(7.1 5.1)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="14" y="18" width="36" height="24" rx="4" stroke="#c25f3c" stroke-width="3.2"/>
+    <path d="M22 48h20" stroke="#6b5f50" stroke-width="3"/>
+    <path d="m22 26 5 4-5 4m9 0h8" stroke="#2b2119" stroke-width="3.2"/>
   </g>
 </svg>

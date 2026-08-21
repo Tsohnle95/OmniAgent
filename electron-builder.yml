@@ -1,5 +1,5 @@
 appId: dev.openshell.app
-productName: OpenShell
+productName: OmniAgent
 directories:
   output: release
 files:

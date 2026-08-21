@@ -26,7 +26,7 @@ describe("portable Electron launcher", () => {
     expect(invocations).toHaveLength(2);
     expect(invocations[0].args[0].endsWith(path.join("scripts", "make-dev-app.mjs"))).toBe(true);
     expect(invocations[1].options.env?.ELECTRON_EXEC_PATH?.endsWith(
-      path.join("dev", "OpenShell.app", "Contents", "MacOS", "Electron")
+      path.join("dev", "OmniAgent.app", "Contents", "MacOS", "Electron")
     )).toBe(true);
   });
 

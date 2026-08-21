@@ -1538,7 +1538,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const removeFromWorkspace = useCallback((path: string) => {
     const target = sessionRef.current?.workspace;
     if (!target) return;
-    const confirmed = window.confirm(`Remove "${path}" from OpenShell? The item will remain on disk.`);
+    const confirmed = window.confirm(`Remove "${path}" from OmniAgent? The item will remain on disk.`);
     if (!confirmed) return;
     closeCtxMenu();
     setHiddenPathsByWorkspace((current) => {

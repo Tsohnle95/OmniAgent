@@ -315,7 +315,7 @@ function createWindow(show = true): BrowserWindow {
     height: 920,
     minWidth: 200,
     minHeight: 640,
-    title: "OpenShell",
+    title: "OmniAgent",
     icon: appIconPath,
     backgroundColor: "#161410",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
@@ -549,7 +549,7 @@ async function runTrustBoundarySmoke(): Promise<void> {
 
 async function installApplication(): Promise<{ ok: boolean; message: string }> {
   if (process.platform !== "darwin") return { ok: false, message: "Install app is macOS-only" };
-  if (app.isPackaged) return { ok: false, message: "OpenShell is already running as a packaged app" };
+  if (app.isPackaged) return { ok: false, message: "OmniAgent is already running as a packaged app" };
   const script = path.join(app.getAppPath(), "scripts", "install-app.mjs");
   const run = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(process.execPath, [script], {
@@ -900,7 +900,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    app.setName("OpenShell");
+    app.setName("OmniAgent");
     if (process.platform === "darwin") {
       try {
         app.dock?.setIcon(appIconPath);

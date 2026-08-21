@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentFileState, SessionInfo, Tab } from "@shared/types";
 import { FileSidebar } from "./FileSidebar";
 import { EditorPane } from "./EditorPane";
+import { ThemeProvider } from "../theme";
 
 const unknownFile: AgentFileState = { baseline: { kind: "unknown" }, content: "after", deleted: false };
 const tab: Tab = {
@@ -99,7 +100,7 @@ describe("unknown baseline presentation", () => {
   });
 
   it("shows Diff unavailable and does not mount a diff editor", () => {
-    act(() => root.render(<EditorPane />));
+    act(() => root.render(<ThemeProvider><EditorPane /></ThemeProvider>));
 
     const unavailable = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Diff unavailable"));
     expect(unavailable).toBeTruthy();

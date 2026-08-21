@@ -244,18 +244,14 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(titles.some((t) => t?.includes("Alpha"))).toBe(true);
   });
 
-  it("opens the settings popover from the footer cog and toggles word wrap", async () => {
-    await render();
+  it("opens the settings page from the footer cog", async () => {
+    const onOpenSettings = vi.fn();
+    act(() => {
+      root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} initialTab="sessions" onOpenSettings={onOpenSettings} />);
+    });
     await settle();
 
-    expect(container.querySelector(".sidebar-settings")).toBeNull();
     await act(async () => container.querySelector<HTMLButtonElement>(".sidebar-cog")!.click());
-
-    const popover = container.querySelector<HTMLElement>(".sidebar-settings")!;
-    expect(popover.textContent).toContain("Permissions");
-    expect(popover.textContent).toContain("Follow-ups");
-
-    await act(async () => popover.querySelector<HTMLButtonElement>(".sidebar-settings-switch")!.click());
-    expect(store.toggleWordWrap).toHaveBeenCalled();
+    expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 });

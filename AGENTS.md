@@ -1,6 +1,6 @@
-# OpenShell — Agent Guide
+# OmniAgent — Agent Guide
 
-OpenShell is a VS Code-style desktop GUI for the opencode2 agent: an
+OmniAgent is a VS Code-style desktop GUI for coding agents, currently powered by opencode2: an
 Electron + React + Monaco app that opens a repository, sends prompts to
 opencode2, streams the agent's progress, and shows live per-file diffs of
 workspace file changes observed during the active session.
@@ -17,7 +17,7 @@ npm run typecheck  # tsc --noEmit for node + web configs
 npm test           # Vitest unit/component tests in jsdom
 npm run build      # compile then launch the production app (one command)
 npm run build:compile  # compile only -> out/
-npm run pack       # build + package installable OpenShell.app (macOS) -> release/
+npm run pack       # build + package installable OmniAgent.app (macOS) -> release/
 npm run check      # canonical verification gate
 npm start          # run the existing production build without rebuilding
 ```

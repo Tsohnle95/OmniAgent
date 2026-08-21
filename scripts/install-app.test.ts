@@ -12,8 +12,8 @@ interface Invocation {
 const root = path.resolve("fixture-root");
 const builderCli = path.join(root, "node_modules", "electron-builder", "cli.js");
 const viteBin = path.join(root, "node_modules", "electron-vite", "bin", "electron-vite.js");
-const builtApp = path.join(root, "release", "mac-arm64", "OpenShell.app");
-const destination = path.join("/Applications", "OpenShell.app");
+const builtApp = path.join(root, "release", "mac-arm64", "OmniAgent.app");
+const destination = path.join("/Applications", "OmniAgent.app");
 
 function harness(platform: NodeJS.Platform, existing: Record<string, boolean> = {}) {
   const invocations: Invocation[] = [];
@@ -44,7 +44,7 @@ describe("pack and install app script", () => {
     const { run, invocations, removed } = harness("darwin", { [builderCli]: true, [builtApp]: true, [destination]: true });
     const result = run();
 
-    expect(result).toEqual({ ok: true, message: `Installed OpenShell to ${destination}` });
+    expect(result).toEqual({ ok: true, message: `Installed OmniAgent to ${destination}` });
     expect(invocations).toHaveLength(4);
     expect(invocations[0].file).toBe(process.execPath);
     expect(invocations[0].args).toEqual([viteBin, "build"]);
@@ -95,7 +95,7 @@ describe("pack and install app script", () => {
 
   it("reports when packaging produced no bundle and never signs or copies", () => {
     const { run, invocations } = harness("darwin", { [builderCli]: true });
-    expect(run()).toEqual({ ok: false, message: "Packaging did not produce an OpenShell.app bundle under release/" });
+    expect(run()).toEqual({ ok: false, message: "Packaging did not produce an OmniAgent.app bundle under release/" });
     expect(invocations).toHaveLength(2);
   });
 

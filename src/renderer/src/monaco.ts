@@ -59,6 +59,36 @@ monaco.editor.defineTheme("openshell-dark", {
   }
 });
 
+monaco.editor.defineTheme("omniagent-paper", {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "948571", fontStyle: "italic" },
+    { token: "keyword", foreground: "C25F3C" },
+    { token: "string", foreground: "587657" },
+    { token: "number", foreground: "9C742F" },
+    { token: "type", foreground: "49708F" },
+    { token: "function", foreground: "5B4030" }
+  ],
+  colors: {
+    "editor.background": "#fbf7ec",
+    "editor.foreground": "#2b2119",
+    "editor.lineHighlightBackground": "#eee5d4",
+    "editorLineNumber.foreground": "#a69883",
+    "editorCursor.foreground": "#c25f3c",
+    "editor.selectionBackground": "#dfc8b7",
+    "editorGutter.background": "#fbf7ec",
+    "diffEditor.insertedTextBackground": "#58765720",
+    "diffEditor.removedTextBackground": "#aa624f20",
+    "diffEditor.insertedLineBackground": "#58765714",
+    "diffEditor.removedLineBackground": "#aa624f14",
+    "diffEditor.diagonalFill": "#eee5d4",
+    "scrollbarSlider.background": "#2b21191a",
+    "scrollbarSlider.hoverBackground": "#2b21192b",
+    "minimap.background": "#fbf7ec"
+  }
+});
+
 export { monaco };
 
 const LANGUAGE_BY_EXT: Record<string, string> = {

@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.error) {
       return (
         <div className="error-boundary">
-          <h1 className="error-boundary-title">OpenShell hit a rendering error</h1>
+          <h1 className="error-boundary-title">OmniAgent hit a rendering error</h1>
           <p className="error-boundary-detail">
             {this.state.error.message || String(this.state.error)}
           </p>

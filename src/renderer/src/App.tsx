@@ -10,6 +10,9 @@ import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 import { RecoveryNotice } from "./components/RecoveryNotice";
 import { StatusBar } from "./components/StatusBar";
+import { OmniMark } from "./components/OmniMark";
+import { SettingsPage } from "./components/SettingsPage";
+import { ThemeProvider } from "./theme";
 
 const COLLAPSED_PANEL_W = 44;
 const SIDE_MIN_W = 280;
@@ -315,6 +318,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sideTab, setSideTab] = useState<SidebarTab>("sessions");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = prevSidebarRef.current !== null;
 
@@ -669,12 +673,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   return (
     <div className="app">
       <div className="titlebar">
-        <span className="titlebar-title">OpenShell</span>
+        <span className="titlebar-title"><OmniMark size={16} />OmniAgent</span>
         <span className="titlebar-actions">
           <button
             className={`icon-btn ${sideOpen && sideTab === "sessions" ? "on" : ""}`}
             title="Sessions — pinned sessions, projects, and recents"
             onClick={() => {
+              setSettingsOpen(false);
               setSideTab("sessions");
               if (!sideOpen) setSidebarOpen(true);
             }}
@@ -736,9 +741,20 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
-        <FileSidebar collapsed={!sideOpen} onCollapse={setSidebarOpen} onDrag={sideDrag} />
+        <FileSidebar
+          collapsed={!sideOpen}
+          onCollapse={setSidebarOpen}
+          onDrag={sideDrag}
+          tab={sideTab}
+          onTabChange={(tab) => {
+            setSideTab(tab);
+            setSettingsOpen(false);
+          }}
+          onOpenSettings={() => setSettingsOpen(true)}
+          settingsOpen={settingsOpen}
+        />
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
-        <div
+        {settingsOpen ? <SettingsPage onClose={() => setSettingsOpen(false)} /> : <div
           className="workspace-area"
           style={
             {
@@ -778,10 +794,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               />
             );
           })}
-        </div>
+        </div>}
       </div>
 
-      <div
+      {!settingsOpen && <div
         className={`tray-area ${trayOpen ? "open" : ""} ${trayDragging ? "dragging" : ""}`}
         style={{ "--tray-height": `${trayH}px` } as CSSProperties}
       >
@@ -789,9 +805,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
           <TerminalTray height={trayH} snapped={traySnapped} onClose={closeTray} onExpand={expandTray} />
         </div>
-      </div>
+      </div>}
 
-      <StatusBar />
+      {!settingsOpen && <StatusBar />}
       <Toasts />
       <RecoveryNotice />
     </div>
@@ -820,9 +836,11 @@ export default function App(): ReactNode {
   }, []);
 
   return (
-    <StoreProvider>
-      <Root />
-    </StoreProvider>
+    <ThemeProvider>
+      <StoreProvider>
+        <Root />
+      </StoreProvider>
+    </ThemeProvider>
   );
 }
 

@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const APP_NAME = "OpenShell.app";
+const APP_NAME = "OmniAgent.app";
 
 function findBuiltApp(projectRoot, exists, readdir) {
   const release = path.join(projectRoot, "release");
@@ -46,7 +46,7 @@ export function installApp(options = {}) {
 
   const built = findBuiltApp(projectRoot, exists, readdir);
   if (!built) {
-    return { ok: false, message: "Packaging did not produce an OpenShell.app bundle under release/" };
+    return { ok: false, message: "Packaging did not produce an OmniAgent.app bundle under release/" };
   }
 
   run("codesign", ["--force", "--deep", "--sign", "-", built]);
@@ -59,7 +59,7 @@ export function installApp(options = {}) {
   if (exists(destination)) rm(destination, { recursive: true, force: true });
   run("cp", ["-R", built, destination]);
 
-  return { ok: true, message: `Installed OpenShell to ${destination}` };
+  return { ok: true, message: `Installed OmniAgent to ${destination}` };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

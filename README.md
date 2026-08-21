@@ -1,7 +1,7 @@
-# OpenShell
+# OmniAgent
 
-OpenShell is a desktop workspace for the [OpenCode](https://opencode.ai/v2)
-coding agent. Open a project, describe what you want to build, and watch the
+OmniAgent is a native desktop cockpit for coding agents. Open a project,
+connect the harness you trust, describe what you want to build, and watch the
 agent work while you review the files it changes.
 
 ## What You Get
@@ -37,7 +37,7 @@ agent work while you review the files it changes.
 
 ## Platform Status
 
-OpenShell is currently **most functional and validated on macOS**. macOS has
+OmniAgent is currently **most functional and validated on macOS**. macOS has
 the primary development workflow, packaged `.app` support, Dock installation,
 and additional Electron and GUI smoke coverage.
 
@@ -56,7 +56,7 @@ npm install
 npm run dev
 ```
 
-OpenShell discovers the OpenCode service and starts it automatically when
+OmniAgent discovers the OpenCode service and starts it automatically when
 needed. Select **Open a folder** when the app opens.
 
 ## Build And Install
@@ -65,7 +65,7 @@ needed. Select **Open a folder** when the app opens.
 npm run build          # compile and launch
 npm run build:compile  # compile only
 npm start              # launch the existing build
-npm run pack           # package OpenShell.app on macOS
+npm run pack           # package OmniAgent.app on macOS
 ```
 
 On macOS, the Welcome screen also includes **Install app**, which installs the

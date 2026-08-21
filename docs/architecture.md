@@ -1,6 +1,6 @@
 # Architecture
 
-OpenShell is an Electron app built with **electron-vite** (three build
+OmniAgent is an Electron app built with **electron-vite** (three build
 targets: `main`, `preload`, `renderer`). It is a GUI for the opencode2
 agent: you open a repository, send a prompt, and watch the agent stream
 its work while live diffs of changed files appear in the editor.
@@ -136,7 +136,7 @@ metadata changes, then refreshes the effective Git baseline:
   content, represents an existing file.
 - **unknown fallback**: first-observed non-git changes have an explicit unknown
   baseline because the watcher only has post-change bytes.
-- **OpenShell mutations**: saves and creates establish a known baseline only
+- **OmniAgent mutations**: saves and creates establish a known baseline only
   when none exists. Delete and rename preserve the established baseline.
 - **Live watching**: one recursive `fs.watch(directory, { recursive: true })`
   per open context captures the activation root/session/identity and
@@ -247,7 +247,7 @@ Agents come from `client.agent.list()`; the selection is updated live by
 `session.agent.selected` and switched via
 `client.session.switchAgent({ sessionID, agent })`. Both choices are
 session-scoped only: a new session starts on opencode's configured defaults
-(`default_agent` / default model), and OpenShell never writes preferences of
+(`default_agent` / default model), and OmniAgent never writes preferences of
 its own. The composer
 also opens a native multi-file picker; the main process converts selected
 files to `file://` URIs for the prompt API. Its approval toggle is local UI

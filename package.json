@@ -1,8 +1,8 @@
 {
-  "name": "openshell",
+  "name": "omniagent",
   "version": "0.1.0",
   "private": true,
-  "description": "A VS Code-style GUI for the opencode2 agent",
+  "description": "A native desktop cockpit for coding agents",
   "main": "./out/main/index.js",
   "engines": {
     "node": ">=22.23.2 <23"

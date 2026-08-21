@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import { ShellMark } from "./ShellMark";
+import { OmniMark } from "./OmniMark";
 import { IconArrowRight, IconCloudDownload, IconFile, IconFolder, IconFolderOpen, IconHistory } from "./icons";
 import { droppedFilePaths } from "../drop";
 import type { ProjectInfo, SessionSummary } from "@shared/types";
@@ -93,12 +93,12 @@ export function Welcome(): ReactNode {
         <div className="welcome-inner">
           <section className="welcome-hero">
             <div className="welcome-mark" aria-hidden>
-              <ShellMark />
+              <OmniMark />
             </div>
-            <h1 className="welcome-title">OpenShell</h1>
-            <p className="welcome-eyebrow">A workbench for the opencode2 agent</p>
+            <h1 className="welcome-title">OmniAgent</h1>
+            <p className="welcome-eyebrow">Every agent. One surface.</p>
             <p className="welcome-sub">
-              Open a repository, tell the agent what to build, and watch every file change
+              Open a repository, connect the agent you trust, and watch every file change
               stream in live — diffs, turns, and terminals on one calm surface.
             </p>
             <div className="welcome-actions">

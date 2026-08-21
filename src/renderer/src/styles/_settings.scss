@@ -1,0 +1,145 @@
+.settings-page {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(34px, 6vw, 76px);
+  background:
+    radial-gradient(720px 440px at 88% -8%, var(--accent-tint), transparent 68%),
+    var(--bg-inset);
+}
+
+.settings-page-header,
+.settings-section {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.settings-page-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.settings-page-brand {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  color: var(--accent);
+  --omni-prompt: var(--text);
+  --omni-ground: var(--text-dim);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-page-kicker {
+  margin: 0 0 3px;
+  color: var(--accent) !important;
+  font-size: 9px !important;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.settings-page-header h1 { margin: 0; font-size: 28px; letter-spacing: -0.035em; }
+.settings-page-header p { margin: 3px 0 0; color: var(--text-faint); font-size: 12px; }
+
+.settings-close {
+  padding: 8px 13px;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.settings-close:hover { color: var(--text); border-color: var(--accent); }
+
+.settings-section { padding: 35px 0; border-bottom: 1px solid var(--border); }
+
+.settings-section-heading {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.settings-section-heading > span { color: var(--accent); font: 10px "SF Mono", Menlo, monospace; padding-top: 4px; }
+.settings-section-heading h2 { margin: 0; font-size: 16px; }
+.settings-section-heading p { margin: 4px 0 0; color: var(--text-faint); font-size: 11.5px; }
+
+.theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-left: 46px; }
+
+.theme-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 15px;
+  padding: 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 120ms var(--ease), transform 120ms var(--ease), box-shadow 120ms var(--ease);
+}
+
+.theme-card:hover { transform: translateY(-1px); border-color: var(--accent); }
+.theme-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+
+.theme-preview {
+  grid-column: 1 / -1;
+  height: 106px;
+  display: grid;
+  grid-template-columns: 25% 1fr 28%;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-md);
+}
+
+.theme-preview-paper { background: #eee5d4; }
+.theme-preview-paper .theme-preview-sidebar { background: #fbf7ec; border-right: 1px solid rgba(43, 33, 25, 0.1); }
+.theme-preview-paper .theme-preview-agent { background: #fbf7ec; border-left: 1px solid rgba(43, 33, 25, 0.1); }
+.theme-preview-paper .theme-preview-editor { color: #c25f3c; }
+.theme-preview-original { background: #201d1b; }
+.theme-preview-original .theme-preview-sidebar { background: #262220; border-right: 1px solid rgba(255, 255, 255, 0.06); }
+.theme-preview-original .theme-preview-agent { background: #262220; border-left: 1px solid rgba(255, 255, 255, 0.06); }
+.theme-preview-original .theme-preview-editor { color: #e8875f; }
+
+.theme-preview-editor { display: flex; flex-direction: column; gap: 8px; padding: 18px 14px; }
+.theme-preview-editor i { display: block; height: 3px; width: 78%; background: currentColor; border-radius: 4px; opacity: 0.72; }
+.theme-preview-editor i:nth-child(2) { width: 48%; opacity: 0.35; }
+.theme-preview-editor i:nth-child(3) { width: 64%; opacity: 0.5; }
+.theme-card-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.theme-card-copy strong { font-size: 13px; }
+.theme-card-copy small { color: var(--text-faint); font-size: 10.5px; line-height: 1.45; }
+.theme-swatches { display: flex; align-items: flex-start; }
+.theme-swatches i { width: 13px; height: 13px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 50%; margin-left: -3px; }
+.theme-check { grid-column: 1 / -1; color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
+
+.settings-list { margin-left: 46px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.settings-list-row { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 15px 18px; border-bottom: 1px solid var(--border); }
+.settings-list-row:last-child { border: 0; }
+.settings-list-row strong { display: block; font-size: 12.5px; }
+.settings-list-row small { display: block; margin-top: 3px; color: var(--text-faint); font-size: 10.5px; }
+.settings-segmented { display: inline-flex; flex-shrink: 0; padding: 2px; background: var(--bg-inset); border-radius: var(--radius-full); }
+.settings-segmented button { padding: 4px 11px; color: var(--text-dim); background: transparent; border: 0; border-radius: var(--radius-full); cursor: pointer; font-size: 10.5px; }
+.settings-segmented button.on { color: var(--text); background: var(--bg-active-pill); box-shadow: var(--shadow-sm); }
+.settings-switch { position: relative; width: 34px; height: 19px; flex-shrink: 0; padding: 0; background: var(--bg-inset); border: 0; border-radius: var(--radius-full); cursor: pointer; }
+.settings-switch span { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; background: var(--text-faint); border-radius: 50%; transition: transform 120ms var(--ease); }
+.settings-switch.on { background: var(--accent-dim); }
+.settings-switch.on span { transform: translateX(15px); background: var(--accent); }
+
+@media (max-width: 760px) {
+  .settings-page { padding: 28px 20px; }
+  .settings-page-header { grid-template-columns: auto 1fr; }
+  .settings-close { grid-column: 1 / -1; justify-self: start; }
+  .theme-grid { grid-template-columns: 1fr; margin-left: 0; }
+  .settings-list { margin-left: 0; }
+}
