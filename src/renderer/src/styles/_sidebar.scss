@@ -6,6 +6,7 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  font-family: "Avenir Next", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   min-width: 0;
   overflow: hidden;
 }
@@ -194,9 +195,9 @@
   color: var(--text-faint);
   cursor: pointer;
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.9px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   text-align: left;
   transition: background 100ms var(--ease), color 100ms var(--ease);
@@ -330,6 +331,9 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .tree-children {
