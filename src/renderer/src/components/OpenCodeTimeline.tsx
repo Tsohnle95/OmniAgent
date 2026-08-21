@@ -410,6 +410,146 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   return { title, subtitle, args, path };
 }
 
+interface EditFileEntry {
+  file: string;
+  patch?: string;
+  status?: string;
+  additions?: number;
+  deletions?: number;
+}
+
+function editFileEntries(tool: ToolCallView): EditFileEntry[] {
+  const files = tool.metadata?.files;
+  if (!Array.isArray(files)) return [];
+  return files.flatMap((entry): EditFileEntry[] => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const record = entry as Record<string, unknown>;
+    if (typeof record.file !== "string" || !record.file) return [];
+    return [{
+      file: record.file,
+      ...(typeof record.patch === "string" && record.patch ? { patch: record.patch } : {}),
+      ...(typeof record.status === "string" && record.status ? { status: record.status } : {}),
+      ...(typeof record.additions === "number" ? { additions: record.additions } : {}),
+      ...(typeof record.deletions === "number" ? { deletions: record.deletions } : {})
+    }];
+  });
+}
+
+const PATCH_HEADER_PATTERN = /^(Index: |={4,}|--- |\+\+\+ )/;
+
+function patchBody(patch: string): string[] {
+  const lines = patch.split("\n");
+  while (lines.length > 0 && lines.at(-1) === "") lines.pop();
+  let hunkStarted = false;
+  return lines.filter((line) => {
+    if (line.startsWith("@@")) {
+      hunkStarted = true;
+      return true;
+    }
+    return hunkStarted || !PATCH_HEADER_PATTERN.test(line);
+  });
+}
+
+function PatchDiff({ patch }: { patch: string }): ReactNode {
+  return (
+    <div data-component="patch-diff">
+      {patchBody(patch).map((line, index) => (
+        <div
+          data-component="patch-diff-line"
+          data-kind={line.startsWith("@@") ? "hunk" : line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : "context"}
+          key={index}
+        >
+          {line || " "}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function isEditCardTool(tool: ToolCallView): boolean {
+  return ["edit", "patch", "apply_patch"].includes(toolKey(tool.title)) && editFileEntries(tool).length > 0;
+}
+
+function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {
+  const { openFile, focusSession } = useStore();
+  const [open, setOpen] = useState(false);
+  const files = editFileEntries(tool);
+  const additions = files.reduce((sum, file) => sum + (file.additions ?? 0), 0);
+  const deletions = files.reduce((sum, file) => sum + (file.deletions ?? 0), 0);
+  const path = files[0]?.file ?? tool.paths?.[0];
+  const expandable = files.some((file) => file.patch);
+  const activatePath = (): void => {
+    if (!path) return;
+    if (session) focusSession?.(session.id);
+    void openFile(path);
+  };
+  return (
+    <div data-component="edit-tool-card" data-timeline-part-id={tool.id}>
+      <div className="tool-collapsible" data-expanded={open ? "true" : undefined}>
+        <button
+          data-slot="collapsible-trigger"
+          disabled={!expandable}
+          onClick={() => expandable && setOpen((value) => !value)}
+        >
+          <div data-component="tool-trigger" data-clickable={expandable ? "true" : undefined}>
+            <div data-slot="basic-tool-tool-trigger-content">
+              <div data-slot="basic-tool-tool-info">
+                <div data-slot="basic-tool-tool-info-structured">
+                  <div data-slot="basic-tool-tool-info-main">
+                    <span data-slot="basic-tool-tool-title">
+                      <TextShimmer text={titleCase(tool.title)} active={tool.status === "running"} />
+                    </span>
+                    {path && (
+                      <span
+                        data-slot="basic-tool-tool-subtitle"
+                        className="clickable"
+                        title={`${path} · open in editor`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          activatePath();
+                        }}
+                      >
+                        {path}
+                      </span>
+                    )}
+                    {files.length > 1 && (
+                      <span data-slot="basic-tool-tool-arg">{files.length} files</span>
+                    )}
+                    {(additions > 0 || deletions > 0) && (
+                      <span data-slot="edit-tool-stats">
+                        {additions > 0 && <span data-slot="edit-stat-add">+{additions}</span>}
+                        {deletions > 0 && <span data-slot="edit-stat-del">-{deletions}</span>}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {expandable && <span data-slot="collapsible-arrow" className="codicon codicon-chevron-down" />}
+          </div>
+        </button>
+        {expandable && open && (
+          <div data-slot="collapsible-content">
+            {files.map((file) => (
+              <div data-component="edit-tool-file" key={file.file}>
+                {(files.length > 1 || file.status) && (
+                  <div data-slot="edit-tool-file-head">
+                    <span data-slot="edit-tool-file-path">{file.file}</span>
+                    {file.status && <span data-slot="edit-tool-file-status">{file.status}</span>}
+                    {(file.additions ?? 0) > 0 && <span data-slot="edit-stat-add">+{file.additions}</span>}
+                    {(file.deletions ?? 0) > 0 && <span data-slot="edit-stat-del">-{file.deletions}</span>}
+                  </div>
+                )}
+                {file.patch && <PatchDiff patch={file.patch} />}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SessionProgressIndicator(): ReactNode {
   const dots = Array.from({ length: 25 }, (_, index) => ({
     index,
@@ -778,7 +918,11 @@ function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; 
     if (part.kind === "tool") {
       rows.push(
         <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
-          <div data-slot="session-turn-assistant-content"><ToolPart tool={part.tool} session={session} /></div>
+          <div data-slot="session-turn-assistant-content">
+            {isEditCardTool(part.tool)
+              ? <EditToolCard tool={part.tool} session={session} />
+              : <ToolPart tool={part.tool} session={session} />}
+          </div>
         </TimelineRow>
       );
       previous = true;

@@ -153,7 +153,11 @@ part is terminal and cannot regress when an older running event arrives.
 
 Tool parts retain the protocol's parsed input, content blocks, metadata,
 `executed` flag, provider state, and provider-result state. Text content drives
-the expandable output and file content becomes an attachment link.
+the expandable output and file content becomes an attachment link. Edit and
+patch parts additionally carry `metadata.files[]` (`file`, `patch`, `status`,
+`additions`, `deletions`); when present the timeline renders them as a dedicated
+diff card instead of a generic tool trigger (see `EditToolCard` in
+`OpenCodeTimeline.tsx`).
 
 ## Parent and child sessions
 

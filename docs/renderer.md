@@ -259,8 +259,10 @@ Key mechanisms:
   TextShimmer Thinking row appears only before any renderable part; adjacent read/glob/grep/list
   parts group across assistant messages into Exploring/Explored; task calls use
   OpenCode's agent-colored delegation card and todo writes are hidden from the
-  transcript in favor of the live prompt-dock checklist; remaining tools use
-  flat BasicTool triggers.
+  transcript in favor of the live prompt-dock checklist; edit/patch parts with
+  `metadata.files` render a dedicated diff card (full path, +/− stat chips,
+  expandable colorized unified diff, click-to-open in the editor pane) while
+  remaining tools use flat BasicTool triggers.
   There is no assistant bubble, custom tool card, typing-dot placeholder, or
   stream cursor path.
 - **Large-session fixture** — `large-session.performance.test.ts` deterministically
