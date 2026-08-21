@@ -35,6 +35,18 @@ agent work while you review the files it changes.
 - [`opencode2`](https://opencode.ai/v2) on your `PATH`, or an OpenCode service
   already running
 
+## Platform Status
+
+OpenShell is currently **most functional and validated on macOS**. macOS has
+the primary development workflow, packaged `.app` support, Dock installation,
+and additional Electron and GUI smoke coverage.
+
+Linux and Windows support is **in progress**. Both platforms have automated CI
+coverage for launching Electron and testing real terminal/PTY input and output,
+but they do not yet have the same full GUI acceptance coverage as macOS. Expect
+rough edges and consider them development platforms until they receive more
+real-world testing.
+
 ## Run From Source
 
 ```sh
