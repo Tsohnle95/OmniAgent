@@ -61,6 +61,8 @@ const api = {
   references: (workspace: WorkspaceIdentity, query: string): Promise<ReferenceOption[]> =>
     ipcRenderer.invoke("shell:find-files", workspace, query),
   selectFiles: (): Promise<string[]> => ipcRenderer.invoke("shell:select-files"),
+  selectImages: (): Promise<string[]> => ipcRenderer.invoke("shell:select-images"),
+  readImagePreview: (file: string): Promise<string | null> => ipcRenderer.invoke("shell:read-image-preview", file),
   interrupt: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:interrupt", workspace),
   listDir: (workspace: WorkspaceIdentity, rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
     ipcRenderer.invoke("shell:fs-list", workspace, rel),

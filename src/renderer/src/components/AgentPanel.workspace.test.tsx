@@ -113,6 +113,8 @@ describe("composer workspace continuations", () => {
       selectFiles: vi.fn(() => files.promise)
     } as unknown as Window["openshell"];
     await act(async () => root.render(<Composer />));
+    const plus = container.querySelector<HTMLButtonElement>('button[title="Add attachments"]')!;
+    await act(async () => plus.click());
     const attach = container.querySelector<HTMLButtonElement>('button[title="Attach files"]')!;
     await act(async () => attach.click());
 
@@ -121,5 +123,40 @@ describe("composer workspace continuations", () => {
     await act(async () => files.resolve(["/workspace-1/old.txt"]));
 
     expect(container.querySelector(".composer-attachment")).toBeNull();
+  });
+
+  it("adds image picker selections from the plus menu", async () => {
+    window.openshell = {
+      selectImages: vi.fn(async () => ["/tmp/shot.png"]),
+      readImagePreview: vi.fn(async () => null)
+    } as unknown as Window["openshell"];
+    await act(async () => root.render(<Composer />));
+    const plus = container.querySelector<HTMLButtonElement>('button[title="Add attachments"]')!;
+    await act(async () => plus.click());
+    const upload = container.querySelector<HTMLButtonElement>('button[title="Upload images"]')!;
+    expect(upload).not.toBeNull();
+    await act(async () => upload.click());
+
+    expect(window.openshell.selectImages).toHaveBeenCalled();
+    expect(container.querySelector(".composer-attachment")).not.toBeNull();
+  });
+
+  it("attaches dropped images and shows a thumbnail preview", async () => {
+    window.openshell = {
+      getPathForFile: vi.fn((file: File) => (file as File & { path?: string }).path ?? ""),
+      readImagePreview: vi.fn(async () => "data:image/png;base64,AAA")
+    } as unknown as Window["openshell"];
+    await act(async () => root.render(<Composer />));
+    const composer = container.querySelector(".composer")!;
+    const drop = new Event("drop", { bubbles: true }) as DragEvent;
+    Object.defineProperty(drop, "dataTransfer", {
+      value: { types: ["Files"], items: [], files: [{ path: "/tmp/pic.png" }] }
+    });
+    await act(async () => composer.dispatchEvent(drop));
+
+    expect(container.querySelector(".composer-attachment")).not.toBeNull();
+    const thumb = container.querySelector<HTMLImageElement>(".composer-attachment-thumb");
+    expect(thumb).not.toBeNull();
+    expect(thumb!.src).toBe("data:image/png;base64,AAA");
   });
 });

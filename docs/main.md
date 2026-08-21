@@ -187,6 +187,8 @@ Internals:
 | `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(workspace, query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |
 | `shell:select-files` | `() → string[]` (native multi-file dialog) |
+| `shell:select-images` | `() → string[]` (native multi-file dialog filtered to image types) |
+| `shell:read-image-preview` | `(absolutePath) → string \| null` — resized data-URL thumbnail for composer attachment chips; `null` when the file is not a decodable image |
 | `shell:interrupt` | `(workspace) → void` |
 | `shell:fs-list` | `(workspace, rel) → TreeEntry[]` |
 | `shell:fs-read` | `(workspace, rel) → string \| null` |

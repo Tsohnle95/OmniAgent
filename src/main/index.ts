@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent, type WebContents } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, type IpcMainInvokeEvent, type WebContents } from "electron";
 import path from "node:path";
 import fsp from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -694,6 +694,27 @@ function registerIpc(): void {
       properties: ["openFile", "multiSelections"]
     });
     return result.canceled ? [] : result.filePaths;
+  });
+
+  handleTrusted("shell:select-images", async (e) => {
+    const parent = BrowserWindow.fromWebContents(e.sender);
+    const result = await dialog.showOpenDialog(parent ?? win!, {
+      title: "Upload images",
+      properties: ["openFile", "multiSelections"],
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "ico", "tiff", "tif"] }]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+
+  handleTrusted("shell:read-image-preview", async (_e, file: string) => {
+    try {
+      const image = nativeImage.createFromPath(absoluteFilePath(file));
+      if (image.isEmpty()) return null;
+      const { width } = image.getSize();
+      return (width > 128 ? image.resize({ width: 128 }) : image).toDataURL();
+    } catch {
+      return null;
+    }
   });
 
   handleTrusted("shell:interrupt", async (_e, workspace: WorkspaceIdentity) => backend.interrupt(workspace));

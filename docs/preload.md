@@ -29,6 +29,8 @@ automatically.
 | `runCommand(workspace, name, args?)` | `Promise<void>` — runs a slash command or skill in the addressed session |
 | `references(workspace, query)` | `Promise<ReferenceOption[]>` — `file.find` search results for @-mentions, `rel` paths relative to the session directory |
 | `selectFiles()` | `Promise<string[]>` |
+| `selectImages()` | `Promise<string[]>` — image-filtered multi-file dialog |
+| `readImagePreview(file)` | `Promise<string \| null>` — data-URL thumbnail for a local image path |
 | `interrupt(workspace)` | `Promise<void>` |
 | `listDir(workspace, rel)` | `Promise<TreeEntry[]>` |
 | `readFile(workspace, rel)` | `Promise<string \| null>` — workspace-relative only |

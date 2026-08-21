@@ -5,6 +5,7 @@ import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, WorkspaceIdentity } from "@shared/types";
 import { sameWorkspace } from "@shared/generation";
+import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import {
   IconAdd,
   IconArrowLeft,
@@ -21,6 +22,7 @@ import {
   IconFolderOpen,
   IconGear,
   IconGitBranch,
+  IconImage,
   IconMic,
   IconRefresh,
   IconShield,
@@ -121,7 +123,16 @@ function writeModelKeys(storageKey: string, keys: Set<string>): void {
   window.localStorage.setItem(storageKey, JSON.stringify([...keys]));
 }
 
-type MenuKind = "model" | "agent" | null;
+type MenuKind = "model" | "agent" | "add" | null;
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "ico", "tiff", "tif"]);
+
+function isImagePath(path: string): boolean {
+  const name = path.split(/[\\/]/).pop() ?? "";
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return false;
+  return IMAGE_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+}
 
 interface VoiceResult {
   isFinal: boolean;
@@ -311,6 +322,8 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const [modelView, setModelView] = useState<"list" | "settings" | "strength">("list");
   const [mentions, setMentions] = useState<{ rel: string; path: string }[]>([]);
   const [completion, setCompletion] = useState<CompletionState | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const candidatesRef = useRef<{ kind: "command" | "mention"; items: CompletionItem[] } | null>(null);
   const fetchSeqRef = useRef(0);
   const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -373,6 +386,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     candidatesRef.current = null;
     setCompletion(null);
     setFiles([]);
+    setPreviews({});
     setMentions([]);
     if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
   }, [activeSession?.workspace.id, activeSession?.workspace.generation]);
@@ -387,6 +401,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
       );
       setInput("");
       setFiles([]);
+      setPreviews({});
       setMentions([]);
       setCompletion(null);
       const el = inputRef.current;
@@ -403,6 +418,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     void sendPrompt(text, promptFiles, workspace ?? undefined);
     setInput("");
     setFiles([]);
+    setPreviews({});
     setMentions([]);
     setCompletion(null);
     const el = inputRef.current;
@@ -410,6 +426,32 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
       el.style.removeProperty("--composer-input-height");
       el.focus();
     }
+  };
+
+  const loadPreview = async (path: string): Promise<void> => {
+    if (!isImagePath(path)) return;
+    try {
+      const dataUrl = await window.openshell.readImagePreview(path);
+      if (!dataUrl) return;
+      setPreviews((current) => ({ ...current, [path]: dataUrl }));
+    } catch {
+      return;
+    }
+  };
+
+  const addAttachmentPaths = (paths: string[]): void => {
+    if (paths.length === 0) return;
+    setFiles((current) => {
+      const next = [...current];
+      for (const filePath of paths) {
+        if (!next.some((file) => file.path === filePath)) {
+          next.push({ path: filePath, name: filePath.split(/[\\/]/).pop() ?? filePath });
+        }
+      }
+      return next;
+    });
+    for (const filePath of paths) void loadPreview(filePath);
+    inputRef.current?.focus();
   };
 
   const attachFiles = async (): Promise<void> => {
@@ -425,17 +467,42 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
       return;
     }
     if (!sameWorkspace(workspace, workspaceRef.current)) return;
-    if (paths.length === 0) return;
-    setFiles((current) => {
-      const next = [...current];
-      for (const filePath of paths) {
-        if (!next.some((file) => file.path === filePath)) {
-          next.push({ path: filePath, name: filePath.split(/[\\/]/).pop() ?? filePath });
-        }
-      }
-      return next;
-    });
-    inputRef.current?.focus();
+    addAttachmentPaths(paths);
+  };
+
+  const attachImages = async (): Promise<void> => {
+    setNotice("");
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    let paths: string[];
+    try {
+      paths = await window.openshell.selectImages();
+    } catch (err) {
+      if (!sameWorkspace(workspace, workspaceRef.current)) return;
+      setNotice(err instanceof Error ? err.message : "Images could not be attached.");
+      return;
+    }
+    if (!sameWorkspace(workspace, workspaceRef.current)) return;
+    addAttachmentPaths(paths);
+  };
+
+  const onComposerDragOver = (e: React.DragEvent): void => {
+    if (!isExternalFileDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setDragOver(true);
+  };
+
+  const onComposerDragLeave = (e: React.DragEvent): void => {
+    if (composerRef.current?.contains(e.relatedTarget as Node)) return;
+    setDragOver(false);
+  };
+
+  const onComposerDrop = (e: React.DragEvent): void => {
+    if (!isExternalFileDrag(e)) return;
+    e.preventDefault();
+    setDragOver(false);
+    addAttachmentPaths(droppedFilePaths(e));
   };
 
   const toggleVoice = (): void => {
@@ -623,12 +690,22 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   };
 
   return (
-    <div className="composer" ref={composerRef}>
+    <div
+      className="composer"
+      ref={composerRef}
+      onDragOver={onComposerDragOver}
+      onDragLeave={onComposerDragLeave}
+      onDrop={onComposerDrop}
+    >
       {files.length > 0 && (
         <div className="composer-attachments">
           {files.map((file) => (
             <span className="composer-attachment" key={file.path}>
-              <IconFile />
+              {previews[file.path] ? (
+                <img className="composer-attachment-thumb" src={previews[file.path]} alt="" />
+              ) : (
+                <IconFile />
+              )}
               <span>{file.name}</span>
               <button
                 className="composer-attachment-remove"
@@ -641,7 +718,13 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
           ))}
         </div>
       )}
-      <div className="composer-body">
+      <div className={`composer-body ${dragOver ? "drag-over" : ""}`}>
+        {dragOver && (
+          <div className="composer-drop-hint">
+            <IconImage />
+            Drop images to attach
+          </div>
+        )}
         <textarea
           ref={inputRef}
           className="composer-input"
@@ -718,7 +801,12 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
           }}
         />
         <div className="composer-actions">
-          <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
+          <button
+            className={`composer-icon-button ${menu === "add" ? "active" : ""}`}
+            title="Add attachments"
+            aria-expanded={menu === "add"}
+            onClick={() => setMenu(menu === "add" ? null : "add")}
+          >
             <IconAdd />
           </button>
           <button
@@ -802,7 +890,9 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
           workspace={workspace}
           onEditMessage={(content, attachments) => {
             setInput(content);
-            setFiles(attachments.map((file) => ({ path: file.path, name: file.path.split(/[\\/]/).pop() ?? file.path })));
+            const restored = attachments.map((file) => ({ path: file.path, name: file.path.split(/[\\/]/).pop() ?? file.path }));
+            setFiles(restored);
+            for (const file of restored) void loadPreview(file.path);
           }}
         />
       )}
@@ -829,7 +919,34 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
         </div>
       )}
 
-      {menu && (
+      {menu === "add" && (
+        <div className="composer-menu add">
+          <button
+            className="composer-menu-item"
+            title="Attach files"
+            onClick={() => {
+              setMenu(null);
+              void attachFiles();
+            }}
+          >
+            <IconFile />
+            Attach files…
+          </button>
+          <button
+            className="composer-menu-item"
+            title="Upload images"
+            onClick={() => {
+              setMenu(null);
+              void attachImages();
+            }}
+          >
+            <IconImage />
+            Upload images…
+          </button>
+        </div>
+      )}
+
+      {menu && menu !== "add" && (
         <div className="composer-menu">
           {menu === "agent" ? (
             agents.length > 0 ? (

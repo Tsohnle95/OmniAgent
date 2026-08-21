@@ -13,6 +13,7 @@
 
 .composer-body {
   min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -23,6 +24,30 @@
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+.composer-body.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-tint);
+}
+
+.composer-drop-hint {
+  position: absolute;
+  inset: -1px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1.5px dashed var(--accent);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--bg-inset) 78%, transparent);
+  backdrop-filter: blur(2px);
+  color: var(--accent-hover);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
 }
 
 .composer-body:focus-within {
@@ -177,6 +202,14 @@
   color: var(--text-dim);
   font-size: 10.5px;
   padding: 4px 5px 4px 7px;
+}
+
+.composer-attachment-thumb {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .composer-attachment span:nth-child(2) {
@@ -388,6 +421,18 @@
   box-shadow: var(--shadow-md);
   padding: 6px;
   z-index: 60;
+}
+
+.composer-menu.add {
+  left: 12px;
+  right: auto;
+  width: 200px;
+}
+
+.composer-menu.add .composer-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .composer-menu-group { margin-bottom: 4px; }

@@ -238,6 +238,16 @@ export function IconHistory(props: IconProps): ReactNode {
   );
 }
 
+export function IconImage(props: IconProps): ReactNode {
+  return (
+    <Icon name="image" {...props}>
+      <rect x="2.2" y="3" width="11.6" height="10" rx="1.8" />
+      <circle cx="5.9" cy="6.6" r="0.95" />
+      <path d="M4.6 12l2.7-3.3 2.1 2.6 1.65-1.9 1.75 2.6" />
+    </Icon>
+  );
+}
+
 export function IconMic(props: IconProps): ReactNode {
   return (
     <Icon name="mic" {...props}>
