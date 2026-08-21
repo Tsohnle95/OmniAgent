@@ -76,7 +76,8 @@
   margin-top: 8px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .welcome-cta {
@@ -85,14 +86,14 @@
   gap: 8px;
   background: var(--cream);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 7px;
   color: #1b1712;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 11px 22px;
+  padding: 8px 14px;
   cursor: pointer;
-  box-shadow: 0 8px 28px rgba(217, 119, 87, 0.16);
+  box-shadow: 0 5px 16px rgba(217, 119, 87, 0.13);
   transition: background 120ms ease, transform 120ms ease;
 }
 
