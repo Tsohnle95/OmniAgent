@@ -1,9 +1,10 @@
 .agent-panel {
   position: relative;
-  background-color: rgba(18, 16, 20, 0.66);
-  background-image: var(--sidebar-surface-image);
-  background-size: var(--sidebar-surface-size);
-  background-repeat: var(--sidebar-surface-repeat);
+  --panel-aura-x: 100%;
+  background-color: var(--panel-surface-color);
+  background-image: var(--panel-surface-image);
+  background-size: var(--panel-surface-size);
+  background-repeat: var(--panel-surface-repeat);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -493,10 +494,11 @@
 .usage-credits-value { color: var(--text); font-weight: 600; }
 
 .agent-tray {
-  background-color: var(--sidebar-surface-color);
-  background-image: var(--sidebar-surface-image);
-  background-size: var(--sidebar-surface-size);
-  background-repeat: var(--sidebar-surface-repeat);
+  --panel-aura-x: 50%;
+  background-color: var(--panel-surface-color);
+  background-image: var(--panel-surface-image);
+  background-size: var(--panel-surface-size);
+  background-repeat: var(--panel-surface-repeat);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
