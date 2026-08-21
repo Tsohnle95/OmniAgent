@@ -1,49 +1,68 @@
 # OpenShell
 
-**A calm, visual workspace for coding with OpenCode.**
+**See your coding agent work.**
 
-OpenShell is a desktop app that puts your repository, editor, terminal, and AI
-agent in one place. Open a project, describe what you want to change, and
-watch the agent explore the code, explain its work, and make live edits you can
-review before you keep them.
+OpenShell is a desktop workspace for [OpenCode](https://opencode.ai/v2). Open
+your project, describe a task, and watch the agent explore, edit, and explain
+its work in the same place where you review the code.
 
-It is built for people who want the speed of an AI coding agent without giving
-up visibility or control.
+<p align="center">
+  <img src="./docs/screenshots/workspace.png" alt="OpenShell workspace with the file explorer, editor, and live agent timeline" width="1100">
+</p>
 
-![OpenShell workspace showing the file explorer, editor, live changes, and agent timeline](docs/screenshots/workspace.png)
+## The Short Version
 
-## What OpenShell Does
+| OpenShell gives you | Why it matters |
+| --- | --- |
+| Live agent timeline | See exploration, reasoning, tools, subagents, and answers as they happen. |
+| Real file explorer and editor | Work directly in your repository instead of a detached chat window. |
+| Changes and focused diffs | Know which files changed and review the result before you keep it. |
+| Integrated terminal | Run commands without leaving the workspace. |
+| Sessions and workspaces | Reopen previous work and switch projects quickly. |
+| Model and agent controls | Choose the agent, model, strength, permissions, and follow-up behavior. |
 
-- **Works inside your real project** — open a repository or an individual file
-  and work against the files on disk.
-- **Shows the agent working in real time** — follow streamed answers, reasoning,
-  file exploration, shell commands, subagents, todos, permissions, and model
-  activity in one readable timeline.
-- **Makes changes easy to understand** — see observed file changes in the
-  Changes list and switch any known change between editing and a focused diff.
-- **Keeps you in the loop** — approve or reject permission requests, interrupt
-  a run, edit files yourself, or continue the conversation with a follow-up.
-- **Feels like a familiar development environment** — a file explorer, Monaco
-  editor, tabs, autosave, integrated terminal, drag-and-drop files, and common
-  editor conveniences such as Emmet and word wrap.
-- **Keeps work organized** — reopen recent sessions, switch between saved
-  workspaces, and run concurrent model panels when you want multiple lines of
-  investigation.
-- **Helps with front-end files** — HTML and CSS files can be checked with the
-  W3C validators, with results shown directly as editor markers.
-- **Stays local** — OpenShell is an Electron desktop client. Your project is
-  opened from your machine and the app talks to the local OpenCode service.
+<table>
+  <tr>
+    <td align="center"><strong>Explore and edit the project</strong><br><img src="./docs/screenshots/editor-and-files.png" alt="OpenShell file explorer and editor" width="620"></td>
+    <td align="center"><strong>Follow the agent in real time</strong><br><img src="./docs/screenshots/agent-panel.png" alt="OpenShell agent timeline and prompt composer" width="320"></td>
+  </tr>
+</table>
 
-## How It Works
+## What It Is About
 
-1. Open a folder from the Welcome screen, or open a single file.
-2. Choose an agent and model, then describe the task in the prompt box. You can
-   attach files or reference workspace files with `@`.
-3. Watch the agent inspect the project and stream its progress on the right.
-4. Review the files it changed from the explorer or Changes list. Use **Diff**
-   to see what moved and **Edit** to continue working directly in the file.
-5. Ask for another change, run a command in the integrated terminal, or stop
-   the session when you have what you need.
+AI coding is most useful when it is fast **and** inspectable. OpenShell keeps
+the conversation, the working files, and the review surface together. You can
+let an agent move quickly while still seeing what it is doing, approving
+permissions, interrupting a run, editing the result yourself, and checking
+the final diff.
+
+OpenShell is for developers, designers, and technical teams who want an
+agent-assisted workflow that feels like a real desktop development tool rather
+than a chat box with a file upload.
+
+## A Typical Session
+
+1. Choose **Open a folder** on the Welcome screen, or open a single file.
+2. Describe the change in the prompt box. Attach files or reference project
+   files with `@` when useful.
+3. Watch the agent inspect the repository and stream its progress.
+4. Open changed files from **Changes** and switch to **Diff** to review them.
+5. Ask for refinements, edit directly, validate HTML/CSS, run a terminal
+   command, or stop the session.
+
+## Highlights
+
+- Real-time streaming responses with readable activity, tool, subagent, todo,
+  and permission entries.
+- Monaco editor with tabs, autosave, word wrap, Emmet, drag-and-drop files, and
+  Edit/Diff modes.
+- File changes observed from the agent or outside edits, with known baselines
+  shown as diffs.
+- Recent session history, saved workspaces, and concurrent model panels.
+- Integrated terminal and durable recovery for interrupted saves and renames.
+- W3C HTML and CSS validation shown directly in the editor.
+- Local Electron desktop app that opens projects from your machine and connects
+  to the local OpenCode service.
 
 ## Getting Started
 
@@ -54,7 +73,7 @@ up visibility or control.
 - [`opencode2`](https://opencode.ai/v2) on your `PATH`, or an OpenCode service
   already running
 
-### Install And Run From Source
+### Run From Source
 
 ```sh
 git clone https://github.com/Tsohnle95/OpenShell.git
@@ -63,61 +82,45 @@ npm install
 npm run dev
 ```
 
-OpenShell will discover the OpenCode service and start it automatically when
-needed. Once the app opens, select **Open a folder** and start a session.
+OpenShell discovers the OpenCode service and starts it automatically when
+needed. Select **Open a folder** when the app opens.
 
 ### Install As A macOS App
-
-For a normal Dock/Finder application:
 
 ```sh
 npm install
 npm run pack
 ```
 
-Or run the development build and choose **Install app** on the Welcome screen.
-The packaged app is written to `release/mac/OpenShell.app`; the Welcome button
-installs `OpenShell.app` into `/Applications`.
-
-## Why OpenShell
-
-Most agent interfaces make you choose between a chat window and a development
-environment. OpenShell combines both. The conversation tells you what the
-agent is doing, the editor shows the actual project, and the live Changes view
-keeps the result inspectable. You can let the agent move quickly while still
-seeing, approving, editing, and validating the work as it happens.
+This creates `release/mac/OpenShell.app`. You can also use **Install app** on
+the Welcome screen to put `OpenShell.app` in `/Applications`.
 
 ## Development
 
 ```sh
-npm install
 npm run dev          # Electron + React development mode
 npm test             # unit and component tests
 npm run check        # typecheck, tests, docs check, and production compile
 npm run build        # compile and launch the production app
 ```
 
-OpenShell is an Electron + React + Monaco client. The Electron main process is
-the only process that talks to OpenCode; the renderer receives streamed events
-and file updates over the preload bridge. See the [architecture guide](docs/architecture.md)
+OpenShell is an Electron + React + Monaco client. See the [architecture guide](docs/architecture.md)
 for the implementation overview and [operations guide](docs/operations.md)
 for troubleshooting.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — process model, IPC, streaming, and diffs
-- [Walkthrough](docs/walkthrough.md) — the main user and data flows
-- [Events](docs/events.md) — OpenCode event handling
-- [Renderer guide](docs/renderer.md) — UI state and components
-- [Main process guide](docs/main.md) — backend and filesystem behavior
-- [Preload and shared types](docs/preload.md) — bridge and contracts
-- [Landing page](landing.html) — the self-contained product overview
+- [Architecture](docs/architecture.md)
+- [Walkthrough](docs/walkthrough.md)
+- [Events](docs/events.md)
+- [Renderer guide](docs/renderer.md)
+- [Main process guide](docs/main.md)
+- [Preload and shared types](docs/preload.md)
+- [Product landing page](landing.html)
 
 ## Roadmap
 
-Open requests and working items are tracked in [`TODO.md`](TODO.md). The goal
-is to keep OpenShell a focused, transparent, and dependable desktop home for
-agent-assisted software work.
+Open requests and working items are tracked in [`TODO.md`](TODO.md).
 
 ## License
 
