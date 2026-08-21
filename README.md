@@ -91,7 +91,6 @@ production compile.
 - [Renderer](docs/renderer.md)
 - [Shared types](docs/shared.md)
 - [Operations and troubleshooting](docs/operations.md)
-- [Product landing page](landing.html)
 
 ## Roadmap
 
