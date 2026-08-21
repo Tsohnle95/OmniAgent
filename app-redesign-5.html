@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenShell — Soft Studio</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    color: #e8e3dd;
+    background: #1c1917;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.09); border-radius: 5px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .app {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 40px minmax(0,1fr) 150px 30px;
+    gap: 11px;
+    padding: 12px 14px 10px;
+  }
+  .panel {
+    background: #262220;
+    border: 1px solid rgba(255,255,255,.05);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.38), 0 4px 14px rgba(0,0,0,.22);
+  }
+
+  .titlebar { display: flex; align-items: center; gap: 12px; padding: 0 14px; }
+  .traffic { display: flex; gap: 7px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; opacity: .95; }
+  .dot.r { background: #f26057; } .dot.y { background: #f5bd4f; } .dot.g { background: #61c554; }
+  .title {
+    flex: 1; text-align: center; font-size: 12.5px; font-weight: 500; color: #cfc8c1;
+    white-space: nowrap; overflow: hidden;
+  }
+  .title .prompt { color: #e8875f; margin-right: 6px; }
+  .tb-actions { display: flex; align-items: center; gap: 6px; }
+  .tbtn {
+    height: 26px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px;
+    border: none; border-radius: 999px; background: transparent; color: #a8a29e;
+    font-size: 12px; cursor: pointer;
+  }
+  .tbtn:hover { background: rgba(255,255,255,.07); color: #e8e3dd; }
+  .avatar {
+    width: 24px; height: 24px; border-radius: 50%; margin-left: 4px;
+    background: linear-gradient(140deg, #e8875f, #c96a44);
+    display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff4ec;
+  }
+
+  .main { display: grid; grid-template-columns: 258px minmax(0,1fr) 308px; gap: 11px; min-height: 0; }
+  .sidebar, .editor, .agent { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+  .side-head {
+    padding: 14px 16px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .15em;
+    color: #8f8880; display: flex; justify-content: space-between; align-items: center;
+  }
+  .side-head .new {
+    letter-spacing: 0; font-weight: 600; color: #e8875f; background: rgba(232,135,95,.12);
+    padding: 2px 9px; border-radius: 999px; cursor: pointer; font-size: 11px;
+  }
+  .scroll { overflow-y: auto; min-height: 0; }
+
+  .sec-head {
+    display: flex; align-items: center; gap: 7px; padding: 8px 16px 5px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .13em; color: #8f8880;
+    cursor: pointer; user-select: none;
+  }
+  .sec-head:hover { color: #cfc8c1; }
+  .chev { font-size: 9px; color: #78716c; }
+  .count {
+    margin-left: auto; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 999px;
+    background: rgba(232,135,95,.14); color: #eda27f; font-size: 10.5px; font-weight: 700;
+    display: grid; place-items: center; letter-spacing: 0;
+  }
+  .changes { padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .chg {
+    display: flex; align-items: center; gap: 8px; padding: 5px 12px; margin: 1px 8px;
+    font-size: 12px; color: #c4bdb5; cursor: pointer; white-space: nowrap; border-radius: 10px;
+  }
+  .chg:hover { background: rgba(255,255,255,.05); }
+  .chg.active { background: rgba(232,135,95,.13); color: #f3ece4; }
+  .badge {
+    width: 17px; height: 17px; border-radius: 999px; font-size: 9.5px; font-weight: 800;
+    display: grid; place-items: center; flex: none;
+  }
+  .badge.M { color: #eda27f; background: rgba(232,135,95,.16); }
+  .badge.A { color: #a9cbad; background: rgba(157,194,161,.15); }
+  .chg .p { overflow: hidden; text-overflow: ellipsis; }
+  .delta { margin-left: auto; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .delta ins { color: #a9cbad; text-decoration: none; margin-right: 5px; }
+  .delta del { color: #e2988a; }
+
+  .tree { padding: 2px 8px 14px; }
+  .row {
+    display: flex; align-items: center; gap: 8px; height: 28px; padding-right: 10px; margin: 1px 4px;
+    border-radius: 999px; font-size: 12.5px; color: #c4bdb5; cursor: pointer; white-space: nowrap;
+  }
+  .row:hover { background: rgba(255,255,255,.05); }
+  .row.sel { background: rgba(232,135,95,.14); color: #f6efe7; }
+  .ind1 { padding-left: 20px; } .ind2 { padding-left: 36px; } .ind3 { padding-left: 52px; }
+  .chev2 { width: 10px; font-size: 8.5px; color: #78716c; flex: none; }
+  .fdot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .fdot.ts { background: #8fbcd9; } .fdot.md { background: #a9cbad; } .fdot.json { background: #e5c084; }
+  .fname { overflow: hidden; text-overflow: ellipsis; }
+
+  .editor { position: relative; }
+  .tabs { display: flex; align-items: center; gap: 6px; padding: 12px 14px 0; }
+  .tabwrap { display: inline-flex; gap: 4px; background: #201d1b; border-radius: 999px; padding: 4px; }
+  .tab {
+    display: flex; align-items: center; gap: 7px; padding: 6px 14px; font-size: 12.5px;
+    color: #a8a29e; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  }
+  .tab:hover { color: #e8e3dd; }
+  .tab.on { color: #f6efe7; background: #37322e; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .tab.on .undot { width: 5px; height: 5px; border-radius: 50%; background: #e8875f; box-shadow: 0 0 8px rgba(232,135,95,.8); }
+  .dirty { color: #e8875f; font-size: 10px; }
+  .tabs .meta { margin-left: auto; font-size: 11px; color: #78716c; background: #201d1b; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
+
+  .crumbs {
+    display: flex; align-items: center; gap: 7px; padding: 10px 20px 9px; font-size: 11.5px;
+    color: #8f8880; border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .crumbs b { color: #e8e3dd; font-weight: 500; }
+  .crumbs .sep { color: #57534e; }
+  .crumbs .lang { margin-left: auto; font-size: 10.5px; color: #78716c; }
+
+  .code {
+    flex: 1; overflow: auto; padding: 10px 0 16px;
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; line-height: 1.62;
+  }
+  .ln { display: flex; white-space: pre; }
+  .ln:hover { background: rgba(255,255,255,.03); }
+  .no { width: 46px; flex: none; text-align: right; padding-right: 14px; color: #57534e; user-select: none; }
+  .src { color: #ddd6cf; padding-right: 18px; }
+  .kw { color: #e8875f; } .str { color: #a8c69a; } .num { color: #e5b567; }
+  .com { color: #78716c; font-style: italic; } .fn { color: #ead9c8; } .ty { color: #8fbcd9; }
+  .ln.add { background: rgba(157,194,161,.09); box-shadow: inset 2px 0 0 #9dc2a1; }
+  .ln.add .no { color: #a9cbad; }
+  .ln.del { background: rgba(226,152,138,.09); box-shadow: inset 2px 0 0 #e2988a; }
+  .ln.del .no { color: #e2988a; }
+  .ln.del .src { color: #97857e; text-decoration: line-through; text-decoration-color: rgba(226,152,138,.45); }
+
+  .agent-head {
+    display: flex; align-items: center; gap: 9px; padding: 14px 16px 11px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .busy {
+    width: 8px; height: 8px; border-radius: 50%; background: #e8875f; flex: none;
+    box-shadow: 0 0 0 0 rgba(232,135,95,.5); animation: pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 8px rgba(232,135,95,0); } 100% { box-shadow: 0 0 0 0 rgba(232,135,95,0); } }
+  .sname { font-weight: 600; font-size: 13px; color: #f3ece4; }
+  .selapsed { font-size: 10.5px; color: #78716c; }
+  .ring { margin-left: auto; width: 21px; height: 21px; }
+
+  .stream { flex: 1; overflow-y: auto; padding: 15px 15px 8px; display: flex; flex-direction: column; gap: 12px; }
+  .msg.user {
+    align-self: flex-end; max-width: 88%; padding: 9px 14px; border-radius: 18px 18px 6px 18px;
+    background: linear-gradient(160deg, rgba(232,135,95,.30), rgba(232,135,95,.18));
+    border: 1px solid rgba(232,135,95,.22); color: #fbf1ea; line-height: 1.45;
+  }
+  .msg.ai { line-height: 1.55; color: #cdc6bf; max-width: 96%; }
+  .msg.ai b { color: #eee7df; font-weight: 600; }
+  .tool {
+    border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 10px 12px;
+    background: #2d2926; display: flex; align-items: center; gap: 9px;
+    font-size: 12px; color: #c4bdb5;
+  }
+  .tool .ic { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; flex: none; }
+  .tool.done .ic { background: rgba(157,194,161,.16); color: #a9cbad; }
+  .tool.run { border-color: rgba(143,188,217,.28); }
+  .tool.run .ic { background: rgba(143,188,217,.14); }
+  .tool .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; color: #eee7df; }
+  .tool .delta { flex: none; }
+  .spin {
+    width: 11px; height: 11px; border-radius: 50%; border: 2px solid rgba(143,188,217,.25);
+    border-top-color: #8fbcd9; animation: rot .9s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .shimmer {
+    font-size: 12px; font-weight: 500;
+    background: linear-gradient(90deg, #78716c 20%, #f0e9e1 50%, #78716c 80%);
+    background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; animation: shim 2.4s linear infinite;
+  }
+  @keyframes shim { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  .composer { padding: 10px 13px 14px; }
+  .comp-box {
+    border: 1px solid rgba(255,255,255,.08); border-radius: 16px; background: #201d1b;
+    padding: 11px 13px 9px;
+  }
+  .comp-box:focus-within { border-color: rgba(232,135,95,.5); box-shadow: 0 0 0 4px rgba(232,135,95,.08); }
+  .comp-text { color: #78716c; font-size: 12.5px; line-height: 1.4; min-height: 34px; }
+  .comp-row { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 11px;
+    border-radius: 999px; border: 1px solid rgba(255,255,255,.08); font-size: 11px; color: #b5aea6;
+    cursor: pointer; white-space: nowrap;
+  }
+  .chip:hover { border-color: rgba(232,135,95,.45); color: #eee7df; }
+  .chip.model { color: #eda27f; border-color: rgba(232,135,95,.35); background: rgba(232,135,95,.08); }
+  .chip .car { font-size: 8px; opacity: .7; }
+  .send {
+    margin-left: auto; width: 28px; height: 28px; border-radius: 999px; border: none; cursor: pointer;
+    background: linear-gradient(160deg, #e8875f, #cf7048); color: #fff4ec; font-size: 13px;
+    display: grid; place-items: center; box-shadow: 0 5px 14px rgba(232,135,95,.35);
+  }
+  .send:hover { filter: brightness(1.08); }
+
+  .terminal { display: flex; flex-direction: column; overflow: hidden; }
+  .term-head {
+    display: flex; align-items: center; gap: 8px; padding: 10px 18px 0; font-size: 11px; color: #8f8880;
+  }
+  .term-tab { padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+  .term-tab.on { color: #eee7df; background: #37322e; }
+  .term-tab:hover:not(.on) { color: #cfc8c1; }
+  .term-ctl { margin-left: auto; display: flex; gap: 12px; color: #78716c; }
+  .term-ctl span { cursor: pointer; } .term-ctl span:hover { color: #cfc8c1; }
+  .term-body {
+    flex: 1; overflow: auto; padding: 8px 20px 12px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; line-height: 1.65; color: #b5aea6;
+  }
+  .pr { color: #8fbcd9; font-weight: 600; }
+  .ok { color: #a9cbad; } .dim { color: #78716c; }
+
+  .statusbar {
+    display: flex; align-items: center; gap: 4px; padding: 0 10px; font-size: 11px; color: #a8a29e;
+  }
+  .seg { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; cursor: default; }
+  .seg:hover { background: rgba(255,255,255,.06); color: #e8e3dd; }
+  .seg.right { margin-left: auto; }
+  .conn { width: 6px; height: 6px; border-radius: 50%; background: #9dc2a1; box-shadow: 0 0 7px rgba(157,194,161,.8); }
+  .brand { color: #eee7df; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="titlebar panel">
+    <div class="traffic"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+    <div class="title"><span class="prompt">❯</span>openshell — acme-api</div>
+    <div class="tb-actions">
+      <button class="tbtn">⌕ Search</button>
+      <button class="tbtn">▤ Layout</button>
+      <button class="tbtn">⚙</button>
+      <div class="avatar">T</div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <aside class="sidebar panel">
+      <div class="side-head"><span>EXPLORER</span><span class="new">＋ New</span></div>
+      <div class="scroll">
+        <div class="sec-head"><span class="chev">▾</span> CHANGES <span class="count">4</span></div>
+        <div class="changes">
+          <div class="chg active"><span class="badge A">A</span><span class="p">src/middleware/rate-limit.ts</span><span class="delta"><ins>+46</ins><del>−0</del></span></div>
+          <div class="chg"><span class="badge M">M</span><span class="p">src/routes/api.ts</span><span class="delta"><ins>+12</ins><del>−4</del></span></div>
+          <div class="chg"><span class="badge M">M</span><span class="p">src/auth/session.ts</span><span class="delta"><ins>+18</ins><del>−6</del></span></div>
+          <div class="chg"><span class="badge M">M</span><span class="p">docs/api.md</span><span class="delta"><ins>+24</ins><del>−9</del></span></div>
+        </div>
+        <div class="sec-head"><span class="chev">▾</span> ACME-API</div>
+        <div class="tree">
+          <div class="row ind1"><span class="chev2">▾</span><span class="fname">src</span></div>
+          <div class="row ind2"><span class="chev2">▾</span><span class="fname">auth</span></div>
+          <div class="row ind3"><span class="fdot ts"></span><span class="fname">session.ts</span></div>
+          <div class="row ind3"><span class="fdot ts"></span><span class="fname">token.ts</span></div>
+          <div class="row ind2"><span class="chev2">▾</span><span class="fname">middleware</span></div>
+          <div class="row ind3 sel"><span class="fdot ts"></span><span class="fname">rate-limit.ts</span></div>
+          <div class="row ind3"><span class="fdot ts"></span><span class="fname">logger.ts</span></div>
+          <div class="row ind2"><span class="chev2">▸</span><span class="fname">routes</span></div>
+          <div class="row ind2"><span class="fdot ts"></span><span class="fname">index.ts</span></div>
+          <div class="row ind1"><span class="chev2">▾</span><span class="fname">docs</span></div>
+          <div class="row ind2"><span class="fdot md"></span><span class="fname">api.md</span></div>
+          <div class="row ind1"><span class="chev2">▸</span><span class="fname">tests</span></div>
+          <div class="row ind1"><span class="fdot json"></span><span class="fname">package.json</span></div>
+          <div class="row ind1"><span class="fdot md"></span><span class="fname">README.md</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="editor panel">
+      <div class="tabs">
+        <div class="tabwrap">
+          <div class="tab on"><span class="fdot ts"></span>rate-limit.ts<span class="undot"></span><span class="dirty">●</span></div>
+          <div class="tab"><span class="fdot ts"></span>api.ts</div>
+          <div class="tab"><span class="fdot md"></span>api.md</div>
+        </div>
+        <span class="meta">diff vs baseline</span>
+      </div>
+      <div class="crumbs">
+        <span>src</span><span class="sep">›</span><span>middleware</span><span class="sep">›</span><b>rate-limit.ts</b>
+        <span class="lang">TypeScript · UTF-8 · LF</span>
+      </div>
+      <div class="code">
+        <div class="ln"><span class="no">1</span><span class="src"><span class="kw">import</span> { Redis } <span class="kw">from</span> <span class="str">"@upstash/redis"</span>;</span></div>
+        <div class="ln"><span class="no">2</span><span class="src"><span class="kw">import type</span> { NextFunction, Request, Response } <span class="kw">from</span> <span class="str">"express"</span>;</span></div>
+        <div class="ln"><span class="no">3</span><span class="src"> </span></div>
+        <div class="ln"><span class="no">4</span><span class="src"><span class="kw">const</span> WINDOW_MS = <span class="num">60_000</span>;</span></div>
+        <div class="ln"><span class="no">5</span><span class="src"><span class="kw">const</span> MAX_REQUESTS = <span class="num">120</span>;</span></div>
+        <div class="ln"><span class="no">6</span><span class="src"> </span></div>
+        <div class="ln"><span class="no">7</span><span class="src"><span class="kw">const</span> redis = <span class="ty">Redis</span>.<span class="fn">fromEnv</span>();</span></div>
+        <div class="ln"><span class="no">8</span><span class="src"> </span></div>
+        <div class="ln"><span class="no">9</span><span class="src"><span class="kw">interface</span> <span class="ty">Bucket</span> {</span></div>
+        <div class="ln"><span class="no">10</span><span class="src">  count: <span class="ty">number</span>;</span></div>
+        <div class="ln"><span class="no">11</span><span class="src">  resetAt: <span class="ty">number</span>;</span></div>
+        <div class="ln"><span class="no">12</span><span class="src">}</span></div>
+        <div class="ln"><span class="no">13</span><span class="src"> </span></div>
+        <div class="ln"><span class="no">14</span><span class="src"><span class="kw">export async function</span> <span class="fn">rateLimit</span>(</span></div>
+        <div class="ln"><span class="no">15</span><span class="src">  req: <span class="ty">Request</span>,</span></div>
+        <div class="ln"><span class="no">16</span><span class="src">  res: <span class="ty">Response</span>,</span></div>
+        <div class="ln"><span class="no">17</span><span class="src">  next: <span class="ty">NextFunction</span>,</span></div>
+        <div class="ln"><span class="no">18</span><span class="src">) {</span></div>
+        <div class="ln"><span class="no">19</span><span class="src">  <span class="kw">const</span> key = <span class="str">`rl:<span class="fn">${req.ip ?? "anon"}</span>`</span>;</span></div>
+        <div class="ln del"><span class="no">20</span><span class="src">  <span class="kw">const</span> hits = cache.<span class="fn">get</span>(key) ?? [];</span></div>
+        <div class="ln add"><span class="no">21</span><span class="src">  <span class="kw">const</span> bucket = <span class="kw">await</span> redis.<span class="fn">get</span>&lt;<span class="ty">Bucket</span>&gt;(key);</span></div>
+        <div class="ln add"><span class="no">22</span><span class="src">  <span class="kw">if</span> (!bucket || bucket.resetAt &lt; <span class="ty">Date</span>.<span class="fn">now</span>()) {</span></div>
+        <div class="ln"><span class="no">23</span><span class="src">    <span class="kw">await</span> redis.<span class="fn">set</span>(key, { count: <span class="num">1</span>, resetAt: <span class="ty">Date</span>.<span class="fn">now</span>() + WINDOW_MS });</span></div>
+        <div class="ln"><span class="no">24</span><span class="src">    <span class="kw">return</span> <span class="fn">next</span>();</span></div>
+        <div class="ln"><span class="no">25</span><span class="src">  }</span></div>
+        <div class="ln"><span class="no">26</span><span class="src">  <span class="com">// TODO: emit per-key metrics once stable</span></span></div>
+        <div class="ln"><span class="no">27</span><span class="src">  <span class="kw">if</span> (bucket.count &gt;= MAX_REQUESTS) {</span></div>
+        <div class="ln"><span class="no">28</span><span class="src">    res.<span class="fn">setHeader</span>(<span class="str">"Retry-After"</span>, <span class="ty">Math</span>.<span class="fn">ceil</span>((bucket.resetAt - <span class="ty">Date</span>.<span class="fn">now</span>()) / <span class="num">1000</span>));</span></div>
+        <div class="ln"><span class="no">29</span><span class="src">    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">429</span>).<span class="fn">json</span>({ error: <span class="str">"rate_limited"</span> });</span></div>
+        <div class="ln"><span class="no">30</span><span class="src">  }</span></div>
+      </div>
+    </main>
+
+    <aside class="agent panel">
+      <div class="agent-head">
+        <span class="busy"></span>
+        <span class="sname">rate-limiting</span>
+        <span class="selapsed">2m 14s</span>
+        <svg class="ring" viewBox="0 0 20 20">
+          <circle cx="10" cy="10" r="7" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2.5"/>
+          <circle cx="10" cy="10" r="7" fill="none" stroke="#e8875f" stroke-width="2.5"
+                  stroke-dasharray="26 44" stroke-linecap="round" transform="rotate(-90 10 10)"/>
+        </svg>
+      </div>
+      <div class="stream">
+        <div class="msg user">Add rate limiting to the API and update the docs</div>
+        <div class="msg ai">I’ll add a sliding-window limiter backed by Redis in front of the public routes, wire it into <b>api.ts</b>, and document the new <b>X-RateLimit-*</b> headers.</div>
+        <div class="tool done">
+          <span class="ic">✓</span>
+          <span>Edited <span class="mono">src/auth/session.ts</span></span>
+          <span class="delta"><ins>+18</ins><del>−6</del></span>
+        </div>
+        <div class="tool done">
+          <span class="ic">✓</span>
+          <span>Created <span class="mono">src/middleware/rate-limit.ts</span></span>
+          <span class="delta"><ins>+46</ins><del>−0</del></span>
+        </div>
+        <div class="tool run">
+          <span class="ic"><span class="spin"></span></span>
+          <span>Reading <span class="mono">src/routes/api.ts</span></span>
+        </div>
+        <div class="shimmer">Reviewing changes before editing…</div>
+      </div>
+      <div class="composer">
+        <div class="comp-box">
+          <div class="comp-text">Reply to openshell…</div>
+          <div class="comp-row">
+            <span class="chip model">Claude Sonnet 4 · 9x <span class="car">▾</span></span>
+            <span class="chip">@repo <span class="car">▾</span></span>
+            <button class="send">↑</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <section class="terminal panel">
+    <div class="term-head">
+      <span class="term-tab on">zsh — acme-api</span>
+      <span class="term-tab">opencode2</span>
+      <span class="term-ctl"><span>＋</span><span>⌄</span><span>✕</span></span>
+    </div>
+    <div class="term-body">
+      <div><span class="pr">❯</span> npm test -- rate-limit</div>
+      <div class="dim">&nbsp;&nbsp;<span class="ok">✓</span> allows traffic under the configured window (41 ms)</div>
+      <div class="dim">&nbsp;&nbsp;<span class="ok">✓</span> returns 429 with Retry-After after 120 requests (12 ms)</div>
+      <div class="dim">&nbsp;&nbsp;Test Files&nbsp;&nbsp;<span class="ok">1 passed</span> (1)&nbsp;&nbsp;&nbsp;&nbsp;Tests&nbsp;&nbsp;<span class="ok">7 passed</span> (7)</div>
+      <div><span class="pr">❯</span> opencode2 attach ses_8f3k21</div>
+      <div class="dim">&nbsp;&nbsp;attached · streaming session events</div>
+    </div>
+  </section>
+
+  <footer class="statusbar panel">
+    <span class="seg">⑂ main*</span>
+    <span class="seg">✕ 0&nbsp;&nbsp;⚠ 0</span>
+    <span class="seg right"><span class="conn"></span> opencode2 connected</span>
+    <span class="seg">12,418 tok</span>
+    <span class="seg brand">Claude Sonnet 4</span>
+    <span class="seg">Ln 42, Col 18</span>
+  </footer>
+
+</div>
+</body>
+</html>
