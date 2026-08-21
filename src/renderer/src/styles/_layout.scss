@@ -5,6 +5,7 @@
   flex-direction: column;
   height: 100%;
   padding-top: 34px;
+  background: var(--bg-panel);
 }
 
 .main-row {
@@ -54,7 +55,7 @@
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  background: transparent;
+  background: var(--bg);
   border-bottom: none;
   z-index: 50;
   -webkit-app-region: drag;
