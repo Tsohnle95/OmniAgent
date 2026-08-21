@@ -3,13 +3,12 @@ import { StoreProvider, usePanel, useStore } from "./store";
 import { IconAdd, IconFile, IconFolderOpen, IconHistory, IconRobot, IconSymbolEvent, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
-import { FileSidebar } from "./components/FileSidebar";
+import { FileSidebar, type SidebarTab } from "./components/FileSidebar";
 import { EditorPane } from "./components/EditorPane";
 import { AgentPanel } from "./components/AgentPanel";
 import { AgentTray } from "./components/AgentTray";
 import { TerminalTray } from "./components/TerminalTray";
 import { RecoveryNotice } from "./components/RecoveryNotice";
-import { SessionsTab } from "./components/SessionsTab";
 import { StatusBar } from "./components/StatusBar";
 
 const COLLAPSED_PANEL_W = 44;
@@ -315,7 +314,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [pendingModelPanels, setPendingModelPanels] = useState(0);
   const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
   const [winW, setWinW] = useState(() => window.innerWidth);
-  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [sideTab, setSideTab] = useState<SidebarTab>("sessions");
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = prevSidebarRef.current !== null;
 
@@ -673,9 +672,12 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         <span className="titlebar-title">OpenShell</span>
         <span className="titlebar-actions">
           <button
-            className={`icon-btn ${sessionsOpen ? "on" : ""}`}
-            title="Sessions — running sessions, recents, and saved workspaces"
-            onClick={() => setSessionsOpen((open) => !open)}
+            className={`icon-btn ${sideOpen && sideTab === "sessions" ? "on" : ""}`}
+            title="Sessions — pinned sessions, projects, and recents"
+            onClick={() => {
+              setSideTab("sessions");
+              if (!sideOpen) setSidebarOpen(true);
+            }}
           >
             <IconHistory />
           </button>
@@ -790,7 +792,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       <StatusBar />
-      <SessionsTab open={sessionsOpen} onClose={() => setSessionsOpen(false)} />
       <Toasts />
       <RecoveryNotice />
     </div>

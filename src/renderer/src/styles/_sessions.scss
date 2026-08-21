@@ -1,118 +1,220 @@
-.sessions-rail {
-  position: fixed;
-  top: 34px;
-  right: 10px;
-  width: 320px;
-  max-height: calc(100% - 48px);
+.sessions-pane {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  background: var(--panel-float-color);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(18px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  z-index: 300;
+  padding-bottom: 6px;
 }
 
-.sessions-rail-head {
+.sessions-actions {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px 2px;
+  flex-shrink: 0;
 }
 
-.sessions-rail-title {
-  font-weight: 700;
-  color: var(--text);
-}
-
-.sessions-spawn {
+.sessions-new {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px dashed var(--border-strong);
+  gap: 7px;
+  padding: 7px 10px;
+  border: none;
   border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
-  transition: background 120ms var(--ease), border-color 120ms var(--ease);
+  transition: background 120ms var(--ease), color 120ms var(--ease);
 }
 
-.sessions-spawn:hover {
-  background: var(--accent-dim);
-  border-color: var(--accent);
+.sessions-new:hover { background: var(--accent); color: var(--bg-panel); }
+
+.sessions-plugins {
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color 120ms var(--ease), border-color 120ms var(--ease), background 120ms var(--ease);
 }
+
+.sessions-plugins:hover,
+.sessions-plugins.open {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.sessions-plugins-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 12px;
+  z-index: 90;
+  min-width: 220px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.sessions-plugin-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 100ms var(--ease);
+}
+
+.sessions-plugin-item:hover { background: var(--bg-hover); }
+
+.sessions-plugin-kind {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-active);
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+}
+
+.sessions-plugin-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessions-plugin-check { flex-shrink: 0; color: var(--accent); }
+
+.sessions-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 6px 12px 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.sessions-search:focus-within { border-color: var(--accent); }
+
+.sessions-search-icon { flex-shrink: 0; }
+
+.sessions-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.sessions-search-input::placeholder { color: var(--text-faint); }
 
 .sessions-section {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex-shrink: 0;
 }
 
-.sessions-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--text-dim);
-  padding: 4px 6px;
+.sessions-section.grow { flex: 1; min-height: 0; }
+
+.sessions-section .section-trigger { padding: 4px 10px 0; }
+
+.sessions-project { display: flex; flex-direction: column; }
+
+.sessions-project-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 1px 6px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background 100ms var(--ease);
 }
+
+.sessions-project-head:hover { background: var(--bg-hover); }
+
+.sessions-project-head .section-chevron {
+  display: inline-flex;
+  color: var(--text-faint);
+  transition: transform 120ms var(--ease);
+}
+
+.sessions-project-head.open .section-chevron { transform: rotate(180deg); }
+
+.sessions-project-head .sidebar-count { margin-left: auto; }
+
+.sessions-project-new {
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity 100ms var(--ease);
+}
+
+.sessions-project-head:hover .sessions-project-new,
+.sessions-project-head:focus-within .sessions-project-new { opacity: 1; }
+
+.sessions-project-sessions { margin-left: 22px; }
 
 .sessions-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 5px 8px;
+  margin: 0 6px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background 100ms var(--ease);
 }
 
-.sessions-row:hover {
-  background: var(--bg-hover);
-}
+.sessions-row:hover { background: var(--bg-hover); }
 
 .sessions-row.focused {
   background: var(--accent-dim);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.sessions-row .agent-dot {
-  flex: none;
-}
+.sessions-row .agent-dot { flex: none; }
 
-.sessions-row .agent-dot.live {
-  background: var(--green);
-}
+.sessions-row .agent-dot.live { background: var(--green); }
 
-.sessions-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sessions-group-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
-  padding: 6px 8px 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sessions-section .section-trigger {
-  padding: 0;
-}
-
-.sessions-row-icon {
-  flex: none;
-  color: var(--text-dim);
-}
+.sessions-row-icon { flex: none; color: var(--text-dim); }
 
 .sessions-row-main {
   display: flex;
@@ -122,7 +224,7 @@
 }
 
 .sessions-row-title {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -130,11 +232,40 @@
 }
 
 .sessions-row-meta {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sessions-row-pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms var(--ease), color 100ms var(--ease), background 100ms var(--ease);
+}
+
+.sessions-row-pin.pinned {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.sessions-row:hover .sessions-row-pin,
+.sessions-row-pin.pinned { opacity: 1; }
+
+.sessions-row-pin:hover {
+  background: var(--bg-active);
+  color: var(--accent);
 }
 
 .sessions-row-close {
@@ -149,7 +280,11 @@
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms var(--ease), background 100ms var(--ease), color 100ms var(--ease);
 }
+
+.sessions-row:hover .sessions-row-close { opacity: 1; }
 
 .sessions-row-close:hover {
   background: var(--interactive-hover);
@@ -168,5 +303,5 @@
 .sessions-empty {
   font-size: 12px;
   color: var(--text-dim);
-  padding: 4px 8px;
+  padding: 4px 10px 6px;
 }

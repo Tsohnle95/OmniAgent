@@ -2,9 +2,12 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { ShellMark } from "./ShellMark";
-import { IconExpand, IconFolderOpen } from "./icons";
+import { IconExpand, IconFolderOpen, IconGear } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
+import { SessionsPane } from "./SessionsPane";
+
+export type SidebarTab = "sessions" | "files";
 
 const EMPTY_HIDDEN_PATHS = new Set<string>();
 
@@ -345,14 +348,123 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
   return [height, onMouseDown];
 }
 
+function SettingsFooter(): ReactNode {
+  const {
+    approvalMode,
+    toggleApprovalMode,
+    wordWrap,
+    toggleWordWrap,
+    followUpBehavior,
+    setFollowUpBehavior
+  } = useStore();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="sidebar-footer" ref={ref}>
+      {open && (
+        <div className="sidebar-settings">
+          <div className="sidebar-settings-row">
+            <span className="sidebar-settings-label">Permissions</span>
+            <span className="sidebar-settings-seg">
+              <button
+                className={approvalMode !== "approve" ? "on" : ""}
+                title="Ask before running tool actions"
+                onClick={() => {
+                  if (approvalMode === "approve") toggleApprovalMode();
+                }}
+              >
+                Ask
+              </button>
+              <button
+                className={approvalMode === "approve" ? "on" : ""}
+                title="Auto-approve tool actions"
+                onClick={() => {
+                  if (approvalMode !== "approve") toggleApprovalMode();
+                }}
+              >
+                Approve
+              </button>
+            </span>
+          </div>
+          <div className="sidebar-settings-row">
+            <span className="sidebar-settings-label">Word wrap</span>
+            <button
+              className={`sidebar-settings-switch ${wordWrap ? "on" : ""}`}
+              role="switch"
+              aria-checked={Boolean(wordWrap)}
+              onClick={() => toggleWordWrap()}
+            >
+              <span />
+            </button>
+          </div>
+          <div className="sidebar-settings-row">
+            <span className="sidebar-settings-label">Follow-ups</span>
+            <span className="sidebar-settings-seg">
+              <button
+                className={followUpBehavior !== "steer" ? "on" : ""}
+                title="Queue prompts sent while the agent works"
+                onClick={() => {
+                  if (followUpBehavior === "steer") setFollowUpBehavior("queue");
+                }}
+              >
+                Queue
+              </button>
+              <button
+                className={followUpBehavior === "steer" ? "on" : ""}
+                title="Interrupt and steer with prompts sent while the agent works"
+                onClick={() => {
+                  if (followUpBehavior !== "steer") setFollowUpBehavior("steer");
+                }}
+              >
+                Steer
+              </button>
+            </span>
+          </div>
+        </div>
+      )}
+      <button
+        className={`icon-btn sidebar-cog ${open ? "on" : ""}`}
+        title="Sidebar settings"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <IconGear />
+      </button>
+    </div>
+  );
+}
+
 export function FileSidebar({
   collapsed,
   onCollapse,
-  onDrag
+  onDrag,
+  initialTab = "files",
+  tab,
+  onTabChange
 }: {
   collapsed: boolean;
   onCollapse: (open: boolean) => void;
   onDrag: (e: React.MouseEvent) => void;
+  initialTab?: SidebarTab;
+  tab?: SidebarTab;
+  onTabChange?: (tab: SidebarTab) => void;
 }): ReactNode {
   const {
     session,
@@ -379,6 +491,12 @@ export function FileSidebar({
   const { openCtxMenu } = useCtxMenu();
   const [changesOpen, setChangesOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
+  const [fallbackTab, setFallbackTab] = useState<SidebarTab>(initialTab);
+  const activeTab = tab ?? fallbackTab;
+  const switchTab = (next: SidebarTab): void => {
+    if (!tab) setFallbackTab(next);
+    onTabChange?.(next);
+  };
   const [changesH, changesDrag] = useChangesDrag(200);
   const [dragPath, setDragPath] = useState<string | null>(null);
   const [dropDir, setDropDir] = useState<string | null>(null);
@@ -522,6 +640,7 @@ export function FileSidebar({
         >
           <ShellMark size={20} />
         </button>
+        <SettingsFooter />
       </div>
     );
   }
@@ -570,6 +689,7 @@ export function FileSidebar({
             </div>
           </div>
         </div>
+        <SettingsFooter />
         <ExplorerMenu />
       </div>
     );
@@ -594,19 +714,42 @@ export function FileSidebar({
         </span>
       </div>
 
-      <div className="section-trigger">
+      <div className="side-tabs" role="tablist" aria-label="Sidebar panels">
         <button
-          className={`section-toggle ${changesOpen ? "open" : ""}`}
-          aria-expanded={changesOpen}
-          onClick={() => setChangesOpen((o) => !o)}
+          className={`side-tab ${activeTab === "sessions" ? "active" : ""}`}
+          role="tab"
+          aria-selected={activeTab === "sessions"}
+          onClick={() => switchTab("sessions")}
         >
-          <span>CHANGES</span>
-          <span className="sidebar-count changes-count push">{changes.length}</span>
-          <span className="section-chevron">
-            <ChevronIcon open={changesOpen} />
-          </span>
+          Sessions
+        </button>
+        <button
+          className={`side-tab ${activeTab === "files" ? "active" : ""}`}
+          role="tab"
+          aria-selected={activeTab === "files"}
+          onClick={() => switchTab("files")}
+        >
+          Files
         </button>
       </div>
+
+      {activeTab === "sessions" ? (
+        <SessionsPane />
+      ) : (
+        <>
+          <div className="section-trigger">
+            <button
+              className={`section-toggle ${changesOpen ? "open" : ""}`}
+              aria-expanded={changesOpen}
+              onClick={() => setChangesOpen((o) => !o)}
+            >
+              <span>CHANGES</span>
+              <span className="sidebar-count changes-count push">{changes.length}</span>
+              <span className="section-chevron">
+                <ChevronIcon open={changesOpen} />
+              </span>
+            </button>
+          </div>
       {changesOpen && (
         <>
           <div
@@ -742,6 +885,9 @@ export function FileSidebar({
           </div>
         </div>
       )}
+        </>
+      )}
+      <SettingsFooter />
       <ExplorerMenu />
     </div>
   );

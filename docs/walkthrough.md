@@ -243,7 +243,8 @@ tray visible.
 ## Session history and reopen
 
 `shell:sessions` → `session.list({ limit: 30, order: "desc" })` →
-summaries with parent ids for the Welcome screen, the Sessions rail, and
+summaries with parent ids for the Welcome screen, the sidebar's Sessions
+pane, and
 task/subagent links.
 Reopening goes
 `OpenShellBackend.openSessionById()`: `session.get` recovers the
@@ -251,7 +252,7 @@ directory, `activateSession` reuses the context when the session is already
 open (no re-emit, stable workspace identity), then `message.list` is
 replayed through `replayTranscript`/`replayToolCard` into the same semantic
 `TranscriptItem` shape the live stream produces. Clicking a running session
-in the Sessions rail just focuses its panel. Task cards navigate to the
+in the Sessions pane just focuses its panel. Task cards navigate to the
 resolved child session; a child header navigates back to its parent. Subagent
 launches surface as task cards (`task`/`subagent` tool parts resolve their
 child from tool metadata `sessionID` or the newest matching `parentID` +
