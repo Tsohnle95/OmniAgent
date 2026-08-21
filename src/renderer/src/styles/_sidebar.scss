@@ -351,6 +351,29 @@
   flex-shrink: 0;
 }
 
+.tree-meta.modified,
+.tree-meta.observed,
+.tree-meta.deleted {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.tree-meta.modified {
+  background: var(--accent-tint);
+  color: var(--accent-hover);
+}
+
+.tree-meta.observed {
+  background: rgba(143, 188, 217, 0.14);
+  color: var(--sky);
+}
+
+.tree-meta.deleted {
+  background: rgba(226, 152, 138, 0.14);
+}
+
 .tree-badge {
   width: 7px;
   height: 7px;

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { ShellMark } from "./ShellMark";
+import { IconExpand, IconFolderOpen } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 
@@ -536,10 +537,10 @@ export function FileSidebar({
           </span>
           <span className="sidebar-header-actions">
             <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
-              «
+              <IconExpand />
             </button>
             <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
-              ⧉
+              <IconFolderOpen />
             </button>
           </span>
         </div>
@@ -585,10 +586,10 @@ export function FileSidebar({
         </span>
         <span className="sidebar-header-actions">
           <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
-            «
+            <IconExpand />
           </button>
           <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
-            ⧉
+            <IconFolderOpen />
           </button>
         </span>
       </div>

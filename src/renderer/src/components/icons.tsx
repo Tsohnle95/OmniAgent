@@ -127,6 +127,14 @@ export function IconCollapse(props: IconProps): ReactNode {
   );
 }
 
+export function IconExpand(props: IconProps): ReactNode {
+  return (
+    <Icon name="expand" {...props}>
+      <path d="M12.4 4.2L8.6 8l3.8 3.8M7.4 4.2L3.6 8l3.8 3.8" />
+    </Icon>
+  );
+}
+
 export function IconDashboard(props: IconProps): ReactNode {
   return (
     <Icon name="dashboard" {...props}>
