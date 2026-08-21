@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
+import { IconAdd, IconChevronDown, IconChevronUp } from "./icons";
 import type { WorkspaceIdentity } from "@shared/types";
 import { PendingTerminalOutput, removeTerminal, type TerminalTabs } from "../terminal-state";
 
@@ -224,7 +225,7 @@ export function TerminalTray({
       >
         {snapped && (
           <span className="terminal-snap-hint" title="Drag up or click to expand">
-            <span className="codicon codicon-chevron-up" />
+            <IconChevronUp />
           </span>
         )}
         {terms.map((term) => (
@@ -247,11 +248,11 @@ export function TerminalTray({
           </span>
         ))}
         <button className="terminal-add" title="New terminal" onClick={() => void createTerminal()}>
-          <span className="codicon codicon-add" />
+          <IconAdd />
         </button>
         {notice && <span className="terminal-notice" title={notice}>{notice}</span>}
         <button className="terminal-close" title="Close the terminal panel (⌥O)" onClick={onClose}>
-          <span className="codicon codicon-chevron-down" />
+          <IconChevronDown />
         </button>
       </div>
       <div className={`terminal-body ${snapped ? "hidden" : ""}`}>

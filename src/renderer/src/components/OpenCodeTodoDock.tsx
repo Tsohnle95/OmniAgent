@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { TodoItem } from "@shared/types";
+import { IconCheck, IconChevronDown } from "./icons";
 
 function TodoControl({ status }: { status: TodoItem["status"] }): ReactNode {
   const completed = status === "completed";
@@ -11,7 +12,7 @@ function TodoControl({ status }: { status: TodoItem["status"] }): ReactNode {
       data-in-progress={active ? "true" : undefined}
       aria-hidden="true"
     >
-      {completed && <span className="codicon codicon-check" />}
+      {completed && <IconCheck />}
       {active && <span data-slot="todo-active-dot" />}
     </span>
   );
@@ -48,7 +49,7 @@ export function OpenCodeTodoDock({ todos }: { todos: TodoItem[] }): ReactNode {
             setCollapsed((value) => !value);
           }}
         >
-          <span className="codicon codicon-chevron-down" />
+          <IconChevronDown />
         </button>
       </div>
       {!collapsed && (

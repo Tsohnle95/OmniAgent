@@ -82,3 +82,11 @@ body {
 button {
   font-family: inherit;
 }
+
+svg.os-icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+}

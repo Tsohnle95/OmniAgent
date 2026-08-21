@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { IconSymbolEvent } from "./icons";
 
 export function AgentTray({
   busy,
@@ -23,7 +24,7 @@ export function AgentTray({
         aria-label={`Show agent panel — ${label}`}
         onClick={onExpand}
       >
-        <span className="codicon codicon-symbol-event" />
+        <IconSymbolEvent />
       </button>
       {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
     </div>

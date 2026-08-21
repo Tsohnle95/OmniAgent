@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { ProjectInfo, SessionSummary } from "@shared/types";
 import { ChevronIcon } from "./FileIcons";
+import { IconClose, IconFolder, IconHistory } from "./icons";
 
 function formatWhen(ts: number): string {
   if (!ts) return "";
@@ -72,7 +73,7 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
       <div className="sessions-rail-head">
         <span className="sessions-rail-title">Sessions</span>
         <button className="icon-btn" title="Close sessions panel" onClick={onClose}>
-          <span className="codicon codicon-close" />
+          <IconClose />
         </button>
       </div>
 
@@ -105,7 +106,7 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
                     closePanel(panel.id);
                   }}
                 >
-                  <span className="codicon codicon-close" />
+                  <IconClose />
                 </button>
               </div>
             );
@@ -145,7 +146,7 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
                     }}
                     title={s.directory}
                   >
-                    <span className="sessions-row-icon codicon codicon-history" aria-hidden />
+                    <IconHistory className="sessions-row-icon" />
                     <span className="sessions-row-main">
                       <span className="sessions-row-title">{s.title}</span>
                       <span className="sessions-row-meta">{formatWhen(s.updatedAt)} · {s.directory}</span>
@@ -187,7 +188,7 @@ export function SessionsTab({ open, onClose }: { open: boolean; onClose: () => v
                 }}
                 title={p.directory}
               >
-                <span className="sessions-row-icon codicon codicon-folder" aria-hidden />
+                <IconFolder className="sessions-row-icon" />
                 <span className="sessions-row-main">
                   <span className="sessions-row-title">{p.name}</span>
                   <span className="sessions-row-meta">{p.directory}</span>

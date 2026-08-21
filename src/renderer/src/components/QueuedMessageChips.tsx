@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { PromptFile, WorkspaceIdentity } from "@shared/types";
 import { usePanel, useStore } from "../store";
+import { IconArrowDown, IconArrowRight, IconArrowUp, IconClose, IconEdit } from "./icons";
 
 function firstLine(content: string): string {
   const lines = content.split("\n");
@@ -51,7 +52,7 @@ export function QueuedMessageChips({
                 disabled={index === 0}
                 onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index - 1].id)}
               >
-                <span className="codicon codicon-arrow-up" />
+                <IconArrowUp />
               </button>
               <button
                 className="queued-chip-button"
@@ -59,16 +60,16 @@ export function QueuedMessageChips({
                 disabled={index === queuedMessages.length - 1}
                 onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index + 1].id)}
               >
-                <span className="codicon codicon-arrow-down" />
+                <IconArrowDown />
               </button>
               <button className="queued-chip-button" title="Edit in composer" onClick={() => handleEdit(message.id)}>
-                <span className="codicon codicon-edit" />
+                <IconEdit />
               </button>
               <button className="queued-chip-button" title="Send now" onClick={() => void store.sendQueuedNow(workspace, message.id)}>
-                <span className="codicon codicon-send" />
+                <IconArrowRight />
               </button>
               <button className="queued-chip-button" title="Remove" onClick={() => store.removeQueuedMessage(workspace, message.id)}>
-                <span className="codicon codicon-close" />
+                <IconClose />
               </button>
             </div>
           );

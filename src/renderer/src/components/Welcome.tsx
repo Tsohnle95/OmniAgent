@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { ShellMark } from "./ShellMark";
+import { IconArrowRight, IconCloudDownload, IconFile, IconFolder, IconFolderOpen, IconHistory } from "./icons";
 import { droppedFilePaths } from "../drop";
 import type { ProjectInfo, SessionSummary } from "@shared/types";
 
@@ -102,11 +103,11 @@ export function Welcome(): ReactNode {
             </p>
             <div className="welcome-actions">
               <button className="welcome-cta" onClick={() => void selectFolder()}>
-                <span className="codicon codicon-folder-opened" aria-hidden />
+                <IconFolderOpen />
                 Open a folder
               </button>
               <button className="welcome-cta welcome-cta-secondary" onClick={() => void selectFile()}>
-                <span className="codicon codicon-file" aria-hidden />
+                <IconFile />
                 Open a file…
               </button>
               {canInstall && (
@@ -115,7 +116,7 @@ export function Welcome(): ReactNode {
                   onClick={() => void installApp()}
                   disabled={installing}
                 >
-                  <span className="codicon codicon-cloud-download" aria-hidden />
+                  <IconCloudDownload />
                   {installing ? "Installing…" : "Install app"}
                 </button>
               )}
@@ -168,13 +169,13 @@ export function Welcome(): ReactNode {
                     onClick={() => void reopenSession(s.id)}
                     title={s.directory}
                   >
-                    <span className="welcome-row-tile codicon codicon-history" aria-hidden />
+                    <span className="welcome-row-tile"><IconHistory /></span>
                     <span className="welcome-row-main">
                       <span className="welcome-row-title">{s.title}</span>
                       <span className="welcome-row-meta">{s.directory}</span>
                     </span>
                     <span className="welcome-row-when">{formatWhen(s.updatedAt)}</span>
-                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                    <IconArrowRight className="welcome-row-arrow" />
                   </button>
                 ))}
               </div>
@@ -190,13 +191,13 @@ export function Welcome(): ReactNode {
                     onClick={() => void openSession(p.directory)}
                     title={p.directory}
                   >
-                    <span className="welcome-row-tile codicon codicon-folder" aria-hidden />
+                    <span className="welcome-row-tile"><IconFolder /></span>
                     <span className="welcome-row-main">
                       <span className="welcome-row-title">{p.name}</span>
                       <span className="welcome-row-meta">{p.directory}</span>
                     </span>
                     <span className="welcome-row-when" />
-                    <span className="welcome-row-arrow codicon codicon-arrow-right" aria-hidden />
+                    <IconArrowRight className="welcome-row-arrow" />
                   </button>
                 ))}
               </div>

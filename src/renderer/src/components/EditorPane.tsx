@@ -5,6 +5,7 @@ import { languageForPath } from "../monaco";
 import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
+import { ShellMark } from "./ShellMark";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { Tab } from "@shared/types";
@@ -255,7 +256,9 @@ export function EditorPane(): ReactNode {
     >
       {tabs.length === 0 ? (
         <div className="editor-empty">
-          <div className="editor-empty-icon">⌘</div>
+          <div className="editor-empty-icon">
+          <ShellMark size={40} />
+        </div>
           <p>Select a file from the explorer to view or edit it.</p>
           <p className="editor-empty-sub">
             Observed workspace file changes appear under <b>Changes</b>. A diff is shown when pre-change content is known.

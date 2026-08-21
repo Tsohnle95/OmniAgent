@@ -5,6 +5,29 @@ import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, WorkspaceIdentity } from "@shared/types";
 import { sameWorkspace } from "@shared/generation";
+import {
+  IconAdd,
+  IconArrowLeft,
+  IconArrowUp,
+  IconCheck,
+  IconChevronDown,
+  IconChevronRight,
+  IconClose,
+  IconCollapse,
+  IconDashboard,
+  IconEye,
+  IconEyeClosed,
+  IconFile,
+  IconFolderOpen,
+  IconGear,
+  IconGitBranch,
+  IconMic,
+  IconRefresh,
+  IconShield,
+  IconStarFilled,
+  IconStop,
+  IconTerminal
+} from "./icons";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
@@ -605,7 +628,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
         <div className="composer-attachments">
           {files.map((file) => (
             <span className="composer-attachment" key={file.path}>
-              <span className="codicon codicon-file" />
+              <IconFile />
               <span>{file.name}</span>
               <button
                 className="composer-attachment-remove"
@@ -696,7 +719,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
         />
         <div className="composer-actions">
           <button className="composer-icon-button" title="Attach files" onClick={() => void attachFiles()}>
-            <span className="codicon codicon-add" />
+            <IconAdd />
           </button>
           <button
             className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
@@ -704,7 +727,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
             onClick={toggleApprovalMode}
           >
-            <span className="codicon codicon-shield" />
+            <IconShield />
           </button>
           <button
             className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
@@ -712,7 +735,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             aria-pressed={voiceActive}
             onClick={toggleVoice}
           >
-            <span className="codicon codicon-mic" />
+            <IconMic />
           </button>
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
@@ -720,7 +743,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             disabled={!busy && !canSend}
             onClick={busy ? () => void stop(workspace ?? undefined) : send}
           >
-            <span className={`codicon ${busy ? "codicon-stop" : "codicon-arrow-up"}`} />
+            {busy ? <IconStop /> : <IconArrowUp />}
           </button>
         </div>
         <div className="composer-chips">
@@ -736,9 +759,9 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
               if (agents.length === 0) void loadAgents(workspace ?? undefined);
             }}
           >
-            <span className="codicon codicon-git-branch" />
+            <IconGitBranch />
             <span>{currentAgent?.name ?? "Agent"}</span>
-            <span className="codicon codicon-chevron-down" />
+            <IconChevronDown />
           </button>
           <button
             className={`composer-selector model ${menu === "model" && modelView !== "strength" ? "open" : ""}`}
@@ -750,7 +773,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             }}
           >
             <span>{currentModel?.name ?? "Model"}{variantLabel ? ` ${variantLabel}` : ""}</span>
-            <span className="codicon codicon-chevron-down" />
+            <IconChevronDown />
           </button>
           {currentModel?.variants && currentModel.variants.length > 0 && (
             <button
@@ -766,7 +789,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
               }}
             >
               <span>{variantLabel}</span>
-              <span className="codicon codicon-chevron-down" />
+              <IconChevronDown />
             </button>
           )}
         </div>
@@ -798,7 +821,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                 applyCompletion(index);
               }}
             >
-              <span className={`codicon ${completion.kind === "command" ? "codicon-terminal" : "codicon-file"}`} />
+              {completion.kind === "command" ? <IconTerminal /> : <IconFile />}
               <span className="composer-completion-label">{item.label}</span>
               {item.detail && <span className="composer-completion-detail">{item.detail}</span>}
             </button>
@@ -819,7 +842,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                     setMenu(null);
                   }}
                 >
-                  <span className="composer-menu-check">{currentAgent?.id === agent.id ? "✓" : ""}</span>
+                  <span className="composer-menu-check">{currentAgent?.id === agent.id ? <IconCheck /> : ""}</span>
                   {agent.name}
                 </button>
               ))
@@ -838,7 +861,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                     title="Back to model list"
                     onClick={() => setModelView("list")}
                   >
-                    <span className="codicon codicon-arrow-left" />
+                    <IconArrowLeft />
                   </button>
                 ) : (
                   <button
@@ -846,7 +869,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                     title="Choose which models appear here"
                     onClick={() => setModelView("settings")}
                   >
-                    <span className="codicon codicon-gear" />
+                    <IconGear />
                   </button>
                 )}
               </div>
@@ -864,7 +887,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                             onClick={() => toggleModelVisible(model)}
                           >
                             <span className="composer-menu-check">
-                              <span className={`codicon ${visible ? "codicon-eye" : "codicon-eye-closed"}`} />
+                              {visible ? <IconEye /> : <IconEyeClosed />}
                             </span>
                             {model.name}
                           </button>
@@ -876,7 +899,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
               ) : modelView === "strength" ? (
                 <div className="composer-menu-group variant-menu">
                   <button className="composer-menu-item" onClick={() => chooseVariant()}>
-                    <span className="composer-menu-check">{!currentModel?.variant ? "✓" : ""}</span>
+                    <span className="composer-menu-check">{!currentModel?.variant ? <IconCheck /> : ""}</span>
                     Auto
                   </button>
                   {currentModel?.variants?.map((variant) => (
@@ -885,7 +908,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                       className={`composer-menu-item ${currentModel.variant === variant ? "selected" : ""}`}
                       onClick={() => chooseVariant(variant)}
                     >
-                      <span className="composer-menu-check">{currentModel.variant === variant ? "✓" : ""}</span>
+                      <span className="composer-menu-check">{currentModel.variant === variant ? <IconCheck /> : ""}</span>
                       {formatVariant(variant)}
                     </button>
                   ))}
@@ -895,7 +918,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                   {favoriteList.length > 0 && (
                     <div className="composer-menu-group">
                       <div className="composer-menu-head">
-                        <span className="codicon codicon-star-full" />
+                        <IconStarFilled />
                         Favorites
                       </div>
                       {favoriteList.map((model) => (
@@ -905,7 +928,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                           onClick={() => chooseModel(model)}
                         >
                           <span className="composer-menu-check">
-                            {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "✓" : ""}
+                            {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? <IconCheck /> : ""}
                           </span>
                           {model.name}
                           <span
@@ -929,7 +952,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                         title={collapsed.has(provider) ? `Expand ${provider}` : `Collapse ${provider}`}
                         onClick={() => toggleCollapsed(provider)}
                       >
-                        <span className={`codicon ${collapsed.has(provider) ? "codicon-chevron-right" : "codicon-chevron-down"}`} />
+                        {collapsed.has(provider) ? <IconChevronRight /> : <IconChevronDown />}
                         {provider}
                       </button>
                       {!collapsed.has(provider) &&
@@ -942,7 +965,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                               onClick={() => chooseModel(model)}
                             >
                               <span className="composer-menu-check">
-                                {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "✓" : ""}
+                                {currentModel?.id === model.id && currentModel?.providerID === model.providerID ? <IconCheck /> : ""}
                               </span>
                               {model.name}
                               <span
@@ -1117,7 +1140,7 @@ export function AgentPanel({
             aria-label={`Back to ${parent?.title ?? "parent session"}`}
             onClick={() => void reopenSession(activeSession.parentID!)}
           >
-            <span className="codicon codicon-arrow-left" />
+            <IconArrowLeft />
           </button>
         )}
         {!isAnchor && (
@@ -1127,7 +1150,7 @@ export function AgentPanel({
             aria-label="Close model panel"
             onClick={() => onClose?.()}
           >
-            <span className="codicon codicon-close" />
+            <IconClose />
           </button>
         )}
         <span className="agent-title">
@@ -1144,7 +1167,7 @@ export function AgentPanel({
               aria-label="Change workspace"
               onClick={() => void selectPanelDirectory(activeSession.workspace)}
             >
-              <span className="codicon codicon-folder-opened" aria-hidden />
+              <IconFolderOpen />
               {activeSession.directory.split("/").filter(Boolean).pop()}
             </button>
           )}
@@ -1158,7 +1181,7 @@ export function AgentPanel({
               aria-label="Change workspace"
               onClick={() => void selectPanelDirectory(activeSession.workspace)}
             >
-              <span className="codicon codicon-folder-opened" />
+              <IconFolderOpen />
             </button>
           )}
           <button
@@ -1194,13 +1217,13 @@ export function AgentPanel({
             </svg>
           </button>
           <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
-            »
+            <IconCollapse />
           </button>
         </div>
         {usageOpen && (
           <div className="agent-usage-popup">
             <div className="agent-usage-head">
-              <span className="codicon codicon-dashboard" />
+              <IconDashboard />
               Session usage
             </div>
             {usage ? (
@@ -1282,7 +1305,7 @@ export function AgentPanel({
                   aria-label="Refresh provider usage"
                   onClick={() => void refreshProviderUsage()}
                 >
-                  <span className={`codicon codicon-refresh ${providerUsageLoading ? "spinning" : ""}`} />
+                  <IconRefresh className={providerUsageLoading ? "spinning" : ""} />
                 </button>
               </div>
               {providerUsageLoading && providerUsage.length === 0 ? (

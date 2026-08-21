@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, usePanel, useStore } from "./store";
+import { IconAdd, IconFile, IconFolderOpen, IconHistory, IconRobot, IconSymbolEvent, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar } from "./components/FileSidebar";
@@ -199,7 +200,7 @@ function PanelSliver({
         aria-label={`Show panel — ${label}`}
         onClick={onExpand}
       >
-        <span className="codicon codicon-symbol-event" />
+        <IconSymbolEvent />
       </button>
       {onRightDrag && <div className="panel-resize-handle panel-resize-right" onMouseDown={onRightDrag} />}
     </div>
@@ -676,21 +677,21 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             title="Sessions — running sessions, recents, and saved workspaces"
             onClick={() => setSessionsOpen((open) => !open)}
           >
-            <span className="codicon codicon-history" />
+            <IconHistory />
           </button>
           <button
             className="icon-btn"
             title="Open another workspace"
             onClick={() => void selectFolder()}
           >
-            <span className="codicon codicon-folder-opened" />
+            <IconFolderOpen />
           </button>
           <button
             className="icon-btn"
             title="Open a single file"
             onClick={() => void selectFile()}
           >
-            <span className="codicon codicon-file" />
+            <IconFile />
           </button>
           {inAgentMode && (
             <button
@@ -701,7 +702,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               disabled={panels.length + pendingModelPanels >= 4}
               onClick={addModelPanel}
             >
-              <span className="codicon codicon-add" />
+              <IconAdd />
             </button>
           )}
           <button
@@ -718,7 +719,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               toggleAgentMode();
             }}
           >
-            <span className="codicon codicon-robot" />
+            <IconRobot />
           </button>
           <button
             className={`icon-btn ${trayOpen ? "on" : ""}`}
@@ -727,7 +728,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               : "Show terminal (⌥O)"}
             onClick={toggleTray}
           >
-            ▤
+            <IconTerminal />
           </button>
         </span>
       </div>
