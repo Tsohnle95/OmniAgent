@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyChatEvent, hydrateChatState, projectAssistantItems, type ChatDirectoryState } from "./chat-store";
+import { applyChatEvent, findTurnStartedAt, hydrateChatState, projectAssistantItems, type ChatDirectoryState, type ChatMessageRecord } from "./chat-store";
 import type { ChatStreamEvent } from "./chat-stream";
 import type { TranscriptItem } from "@shared/types";
 
@@ -10,6 +10,29 @@ function event(id: string, type: string, data: Record<string, unknown>): ChatStr
 function state(): ChatDirectoryState {
   return { message: {}, part: {}, session_status: {} };
 }
+
+function record(id: string, role: string, created?: number): ChatMessageRecord {
+  return { id, sessionID: "s", role, time: created === undefined ? {} : { created } };
+}
+
+describe("findTurnStartedAt", () => {
+  it("returns the newest user message timestamp", () => {
+    const messages = [record("u1", "user", 1000), record("a1", "assistant", 1100), record("u2", "user", 2000)];
+    expect(findTurnStartedAt(messages)).toBe(2000);
+  });
+
+  it("falls back to the given assistant message when no user message exists", () => {
+    const messages = [record("a1", "assistant", 1500)];
+    expect(findTurnStartedAt(messages, "a1")).toBe(1500);
+  });
+
+  it("returns null when timestamps are missing or messages are absent", () => {
+    expect(findTurnStartedAt(undefined)).toBeNull();
+    expect(findTurnStartedAt([])).toBeNull();
+    expect(findTurnStartedAt([record("u1", "user")])).toBeNull();
+    expect(findTurnStartedAt([record("a1", "assistant")], "missing")).toBeNull();
+  });
+});
 
 describe("applyChatEvent", () => {
   it("reports orphan materialization when a delta arrives before parts", () => {

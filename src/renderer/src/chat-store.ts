@@ -17,6 +17,21 @@ export interface ChatMessageRecord {
   [key: string]: unknown;
 }
 
+export function findTurnStartedAt(
+  messages: ChatMessageRecord[] | undefined,
+  fallbackMessageID?: string
+): number | null {
+  if (!messages) return null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const record = messages[index];
+    if (record.role === "user") {
+      return typeof record.time.created === "number" ? record.time.created : null;
+    }
+  }
+  const fallback = fallbackMessageID ? messages.find((record) => record.id === fallbackMessageID) : undefined;
+  return typeof fallback?.time.created === "number" ? fallback.time.created : null;
+}
+
 export interface ChatPartRecord {
   id: string;
   messageID: string;
