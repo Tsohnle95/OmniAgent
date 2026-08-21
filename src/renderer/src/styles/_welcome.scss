@@ -212,7 +212,7 @@
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 22px;
-  padding: 20px;
+  padding: 14px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 30px 80px rgba(0, 0, 0, 0.42),
@@ -222,7 +222,7 @@
 .welcome-tabs {
   display: inline-flex;
   gap: 3px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 3px;
   background: #141210;
   border: 1px solid var(--hairline);
@@ -267,13 +267,13 @@
 
 .welcome-list {
   display: grid;
-  min-height: 320px;
+  min-height: 220px;
 }
 
 .welcome-pane {
   grid-area: 1 / 1;
   min-width: 0;
-  max-height: min(440px, 58vh);
+  max-height: min(320px, 42vh);
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -286,11 +286,11 @@
 
 .welcome-empty {
   margin: 0;
-  padding: 40px 16px;
+  padding: 28px 16px;
   text-align: center;
   font-family: var(--serif);
   font-style: italic;
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-faint);
 }
 
