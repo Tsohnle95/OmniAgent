@@ -498,6 +498,11 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         type: String(part.type ?? "")
       };
       if (!next.id) return false;
+      if (next.type === "tool") {
+        const parts = draft.part[messageID] ?? [];
+        const hasRawID = Binary.search(parts, next.id, (item) => item.id).found;
+        if (!hasRawID) next.id = toolPartID(messageID, next.id);
+      }
       upsertPart(draft, next);
       return missingOwningMessage
         ? {
@@ -526,14 +531,23 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       else draft.part[messageID] = next;
       return true;
     }
-    case "message.part.delta":
+    case "message.part.delta": {
+      const deltaMessageID = String(data.messageID ?? "");
+      const deltaPartID = String(data.partID ?? "");
+      const parts = draft.part[deltaMessageID];
+      let resolvedPartID = deltaPartID;
+      if (parts && !Binary.search(parts, deltaPartID, (item) => item.id).found) {
+        const alias = toolPartID(deltaMessageID, deltaPartID);
+        if (Binary.search(parts, alias, (item) => item.id).found) resolvedPartID = alias;
+      }
       return applyDelta(draft, {
         sessionID,
-        messageID: String(data.messageID ?? ""),
-        partID: String(data.partID ?? ""),
+        messageID: deltaMessageID,
+        partID: resolvedPartID,
         field: String(data.field ?? "text"),
         delta: String(data.delta ?? "")
       });
+    }
     case "session.step.started": {
       const messageID = eventMessageID(data);
       if (!messageID) return false;
@@ -864,13 +878,14 @@ function recordFromView(messageID: string, sessionID: string, view: Extract<Tran
     };
   }
   const tool = view.tool;
+  const callID = tool.id;
   return {
-    id: view.id,
+    id: toolPartID(messageID, callID),
     messageID,
     sessionID,
     type: "tool",
     ...(tool.title !== "tool" ? { name: tool.title } : {}),
-    callID: tool.id,
+    callID,
     state: {
       status: tool.status === "running" ? "running" : tool.status === "success" ? "completed" : "error",
       input: tool.inputValue ?? tool.input ?? "",

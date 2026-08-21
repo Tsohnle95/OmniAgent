@@ -271,3 +271,79 @@ describe("applyChatEvent", () => {
     });
   });
 });
+
+describe("tool part id aliasing", () => {
+  const seedLiveToolRow = (draft: ChatDirectoryState): void => {
+    applyChatEvent(draft, "s", event("t1", "session.tool.input.started", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      id: "call_1",
+      name: "bash"
+    }));
+    applyChatEvent(draft, "s", event("t2", "session.tool.called", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      callID: "call_1",
+      name: "bash",
+      input: { command: "echo hi" }
+    }));
+  };
+
+  it("merges a server tool snapshot onto the live synthetic-id row", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("m1", "message.updated", {
+      sessionID: "s",
+      info: { id: "msg_1", sessionID: "s", role: "assistant", time: { created: 100 } }
+    }));
+    seedLiveToolRow(draft);
+
+    applyChatEvent(draft, "s", event("u", "message.part.updated", {
+      sessionID: "s",
+      part: { id: "call_1", messageID: "msg_1", sessionID: "s", type: "tool", state: { status: "completed" } }
+    }));
+
+    const parts = draft.part.msg_1;
+    expect(parts).toHaveLength(1);
+    expect(parts[0].id).toBe("msg_1:tool:call_1");
+    expect(String(parts[0].state?.status)).toBe("completed");
+  });
+
+  it("applies server deltas addressed by raw call id to the live row", () => {
+    const draft = state();
+    seedLiveToolRow(draft);
+
+    const result = applyChatEvent(draft, "s", event("d", "message.part.delta", {
+      sessionID: "s", messageID: "msg_1", partID: "call_1", field: "input", delta: "{\"command\":"
+    }));
+
+    expect(result).toBe(true);
+    expect(draft.part.msg_1).toHaveLength(1);
+  });
+
+  it("hydrates history tool parts under canonical ids so live events merge", () => {
+    const draft = state();
+    const transcript: TranscriptItem[] = [{
+      kind: "assistant",
+      id: "msg_1",
+      messageID: "msg_1",
+      completed: true,
+      parts: [{
+        kind: "tool",
+        id: "call_1",
+        tool: { id: "call_1", title: "bash", detail: "", status: "success", input: "{}" }
+      }]
+    }];
+    hydrateChatState(draft, "s", transcript);
+    expect(draft.part.msg_1.map((part) => part.id)).toEqual(["msg_1:tool:call_1"]);
+
+    applyChatEvent(draft, "s", event("t3", "session.tool.success", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      callID: "call_1",
+      output: "done"
+    }));
+
+    expect(draft.part.msg_1).toHaveLength(1);
+    expect(String(draft.part.msg_1[0].state?.output)).toBe("done");
+  });
+});
