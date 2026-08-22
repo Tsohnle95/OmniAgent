@@ -88,10 +88,10 @@
   border-radius: var(--radius-lg);
 }
 
-.sidebar-cog .os-icon { width: 45px; height: 45px; }
+.sidebar-cog .os-icon { width: 22.5px; height: 22.5px; }
 .sidebar.collapsed .sidebar-footer { min-height: 50px; padding: 4px 2px 0; }
 .sidebar.collapsed .sidebar-cog { width: 40px; height: 40px; }
-.sidebar.collapsed .sidebar-cog .os-icon { width: 34px; height: 34px; }
+.sidebar.collapsed .sidebar-cog .os-icon { width: 22.5px; height: 22.5px; }
 
 .sidebar-cog.on {
   background: var(--accent-dim);

@@ -164,7 +164,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
       </section>}
 
       {section === "about" && <section className="settings-section">
-        <div className="settings-about"><OmniMark size={72} /><div><h2>OmniAgent</h2><p>Version 0.1.0</p><small>A native desktop cockpit for coding agents, powered by OpenCode.</small></div></div>
+        <div className="settings-about"><OmniMark size={72} /><div><h2>OmniAgent</h2><p>Version 0.1.0</p><small>A native desktop cockpit for coding agents.</small></div></div>
       </section>}
     </main>
   );

@@ -460,7 +460,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       return slot.open ? slot.width : COLLAPSED_PANEL_W;
     };
     if (prevSidebarRef.current !== null) {
-      const avail = Math.max(0, winW - fixedPanelChrome - sideShown);
+      const avail = Math.max(0, winW - sideShown - 1);
       const openIDs = panels
         .filter((panel) => current[panel.workspace.id]?.open ?? true)
         .map((panel) => panel.workspace.id);
@@ -590,7 +590,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         return { ...current, [anchorId]: { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 } };
       }
       const area = Math.max(0, winW - sideShownAt - 1);
-      const total = Math.max(0, winW - fixedPanelChrome - sideShownAt);
+      const total = modelMode ? area : Math.max(0, winW - fixedPanelChrome - sideShownAt);
       const grid = modelMode && openIDs.length >= 3;
       const columns = grid ? 2 : openIDs.length;
       const rows = grid ? 2 : 1;
@@ -629,10 +629,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const previousPanelCountRef = useRef(panels.length);
   useEffect(() => {
     if (inAgentMode && panels.length > previousPanelCountRef.current) {
-      distributeEvenly(COLLAPSED_PANEL_W, false);
+      distributeEvenly(sideW, false);
     }
     previousPanelCountRef.current = panels.length;
-  }, [distributeEvenly, inAgentMode, panels.length]);
+  }, [distributeEvenly, inAgentMode, panels.length, sideW]);
 
   const addModelPanel = (): void => {
     if (!inAgentMode || panels.length + pendingModelPanels >= 4) return;
@@ -645,8 +645,12 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (!anchor) return;
     if (prevSidebarRef.current === null) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
-      setSideOpen(false);
-      distributeEvenly(COLLAPSED_PANEL_W, false);
+      const modeSidebarWidth = sideOpen ? sideW : SIDE_DEFAULT_W;
+      setSettingsOpen(false);
+      setSideTab("sessions");
+      setSideW(modeSidebarWidth);
+      setSideOpen(true);
+      distributeEvenly(modeSidebarWidth, false);
     } else {
       const prev = prevSidebarRef.current;
       prevSidebarRef.current = null;

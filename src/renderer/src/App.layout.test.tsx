@@ -571,8 +571,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([716, 717]);
-    expect(agentLefts()).toEqual([0, 716]);
+    expect(gridCols()[0]).toBe("280px");
+    expect(container.querySelector(".side-tab.active")?.textContent).toBe("Sessions");
+    expect(agentWidths()).toEqual([599, 600]);
+    expect(agentLefts()).toEqual([0, 599]);
 
     await act(async () => {
       modeButton().click();
@@ -598,8 +600,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([716, 716, 716]);
-    expect(agentLefts()).toEqual([0, 0, 716]);
+    expect(agentWidths()).toEqual([600, 599, 599]);
+    expect(agentLefts()).toEqual([0, 0, 599]);
     expect(agentCols().map((col) => col.style.top)).toEqual(["50%", "0%", "0%"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
@@ -667,7 +669,7 @@ describe("Layout panel sizing", () => {
     });
     expect(selectFolder).toHaveBeenCalledWith(expect.any(Number));
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
-    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentWidths()).toEqual([599, 600]);
 
     await act(async () => {
       add().click();
@@ -719,7 +721,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentWidths()).toEqual([599, 600]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
 
     let resolvePick!: (value: SessionInfo) => void;
@@ -740,8 +742,8 @@ describe("Layout panel sizing", () => {
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
-    expect(agentWidths()).toEqual([716, 717]);
-    expect(agentLefts()).toEqual([0, 716]);
+    expect(agentWidths()).toEqual([599, 600]);
+    expect(agentLefts()).toEqual([0, 599]);
   });
 
   it("closing a quadrant tray restores the default side-by-side trays", async () => {
@@ -768,10 +770,10 @@ describe("Layout panel sizing", () => {
 
     expect(agentCols()).toHaveLength(2);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
-    expect(agentWidths()).toEqual([716, 717]);
+    expect(agentWidths()).toEqual([599, 600]);
   });
 
-  it("opening the file tray during model mode recomputes the grid", async () => {
+  it("keeps the Sessions tray open beside agent mode", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -784,17 +786,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([716, 717]);
-    expect(agentLefts()).toEqual([0, 716]);
-
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>(".sidebar.collapsed .activity-btn")!.click();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-
     expect(gridCols()[0]).toBe("280px");
-    expect(agentLefts()).toEqual([0, 598]);
-    expect(agentWidths()).toEqual([598, 599]);
+    expect(container.querySelector(".side-tab.active")?.textContent).toBe("Sessions");
+    expect(agentLefts()).toEqual([0, 599]);
+    expect(agentWidths()).toEqual([599, 600]);
   });
 
   it("keeps model quadrants spanning the workspace after a window resize", async () => {
@@ -817,8 +812,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "425px", "425px"]);
+    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "309px", "309px"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
-    expect(agentWidths()).toEqual([425, 425, 426, 426]);
+    expect(agentWidths()).toEqual([309, 309, 310, 310]);
   });
 });

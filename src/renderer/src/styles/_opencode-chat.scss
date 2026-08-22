@@ -940,20 +940,22 @@
 [data-component="todo-item"][data-state="cancelled"] { color: var(--v2-text-text-faint); text-decoration: line-through; }
 
 [data-slot="todo-checkbox-control"] {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   margin-top: 1px;
-  flex: 0 0 16px;
+  flex: 0 0 17px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 0.5px solid var(--v2-border-border-strong);
-  border-radius: 3px;
+  border: 2px solid var(--accent-dim);
+  border-top-color: var(--accent);
+  border-radius: 50%;
   color: var(--v2-icon-icon-muted);
 }
 
 [data-slot="todo-checkbox-control"] .codicon { font-size: 11px; }
-[data-slot="todo-checkbox-control"][data-in-progress="true"] { border-color: var(--v2-border-border-strong); }
+[data-slot="todo-checkbox-control"][data-in-progress="true"] { border-color: var(--accent-dim); border-top-color: var(--accent); animation: todo-ring-spin 900ms linear infinite; }
+[data-slot="todo-checkbox-control"][data-checked="true"] { border-color: var(--accent); background: var(--accent-dim); }
 [data-slot="todo-active-dot"] { width: 6px; height: 6px; border-radius: 50%; background: var(--v2-icon-icon-muted); animation: todo-active-pulse 1.2s ease-in-out infinite; }
 [data-slot="todo-content"] { min-width: 0; overflow-wrap: anywhere; }
 
@@ -961,6 +963,8 @@
   0%, 100% { opacity: 0.45; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1); }
 }
+
+@keyframes todo-ring-spin { to { transform: rotate(360deg); } }
 
 [data-component="session-prompt-dock"] .composer {
   z-index: 70;
