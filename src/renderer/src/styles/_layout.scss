@@ -116,6 +116,10 @@
   z-index: 4;
 }
 
+.panel-resize-collapsed {
+  width: 18px;
+}
+
 .panel-resize-left {
   left: 0;
 }
@@ -168,6 +172,8 @@
 }
 
 .agent-sliver .activity-btn {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;

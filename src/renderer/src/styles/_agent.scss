@@ -595,7 +595,7 @@
   cursor: col-resize;
 }
 
-.agent-tray-model { flex: 0 0 34px; padding: 0; }
+.agent-tray-model { position: relative; z-index: 5; flex: 0 0 34px; padding: 0; }
 
 .agent-tray-model .codicon { font-size: 17px; }
 

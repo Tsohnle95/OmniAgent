@@ -21,7 +21,7 @@ const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 280;
-const PANEL_OPEN_DRAG_THRESHOLD = 10;
+const PANEL_OPEN_DRAG_THRESHOLD = 20;
 
 function useDragResize(
   width: number,
@@ -198,7 +198,7 @@ function PanelSliver({
 }): ReactNode {
   return (
     <div className="agent-sliver" title={`Show panel — ${label}`}>
-      <div className="panel-resize-handle panel-resize-left" onMouseDown={onLeftDrag} />
+      <div className="panel-resize-handle panel-resize-left panel-resize-collapsed" onMouseDown={onLeftDrag} />
       <span className={`agent-dot ${busy ? "busy" : ""}`} />
       <button
         className="activity-btn"
@@ -207,7 +207,7 @@ function PanelSliver({
       >
         <IconSymbolEvent />
       </button>
-      {onRightDrag && <div className="panel-resize-handle panel-resize-right" onMouseDown={onRightDrag} />}
+      {onRightDrag && <div className="panel-resize-handle panel-resize-right panel-resize-collapsed" onMouseDown={onRightDrag} />}
     </div>
   );
 }

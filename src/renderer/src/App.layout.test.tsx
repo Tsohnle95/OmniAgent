@@ -239,12 +239,12 @@ describe("Layout panel sizing", () => {
     const divider = container.querySelector<HTMLElement>(".divider.collapsed")!;
     await act(async () => {
       divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 44 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 53 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 63 }));
     });
     expect(gridCols()[0]).toBe("44px");
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 55 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 65 }));
     });
     expect(gridCols()[0]).toBe("280px");
 
@@ -544,13 +544,13 @@ describe("Layout panel sizing", () => {
       sliver.querySelector<HTMLElement>(".panel-resize-left")!.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, clientX: 669 })
       );
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 660 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 650 }));
     });
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
     expect(agentWidths()).toEqual([44, 280]);
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 658 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 648 }));
     });
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentWidths()).toEqual([280, 280]);
@@ -563,6 +563,36 @@ describe("Layout panel sizing", () => {
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentWidths()).toEqual([280, 280]);
     expect(agentLefts()).toEqual([403, 919]);
+  });
+
+  it("repeatedly drags the collapsed single agent tray open after resistance", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      await act(async () => {
+        container.querySelector<HTMLElement>(".agent-panel .agent-collapse")!.click();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
+      expect(agentWidths()).toEqual([44]);
+
+      const handle = container.querySelector<HTMLElement>(".agent-tray .panel-resize-left")!;
+      await act(async () => {
+        handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1155 }));
+        window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1136 }));
+      });
+      expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
+
+      await act(async () => {
+        window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1134 }));
+        window.dispatchEvent(new MouseEvent("mouseup", {}));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+      expect(agentWidths()).toEqual([280]);
+      expect(agentLefts()).toEqual([919]);
+    }
   });
 
   it("closes a model panel when its edge is dragged to the app edge", async () => {

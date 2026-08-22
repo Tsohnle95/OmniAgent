@@ -16,7 +16,7 @@ export function AgentTray({
 }): ReactNode {
   return (
     <div className="agent-tray">
-      <div className="panel-resize-handle panel-resize-left" onMouseDown={onResizeLeft} />
+      <div className="panel-resize-handle panel-resize-left panel-resize-collapsed" onMouseDown={onResizeLeft} />
       <span className={`agent-dot ${busy ? "busy" : ""}`} />
       <button
         className="activity-btn agent-tray-model"
@@ -26,7 +26,7 @@ export function AgentTray({
       >
         <IconSymbolEvent />
       </button>
-      {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
+      {onResizeRight && <div className="panel-resize-handle panel-resize-right panel-resize-collapsed" onMouseDown={onResizeRight} />}
     </div>
   );
 }
