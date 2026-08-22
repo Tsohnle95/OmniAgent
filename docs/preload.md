@@ -64,6 +64,9 @@ automatically.
 | `state()` | `Promise<SessionInfo \| null>` — the most recently activated session |
 | `sessionSelection(workspace)` | `Promise<SessionSelection \| null>` |
 | `providerUsage()` | `Promise<ProviderUsageResult[]>` |
+| `providerIntegrations(workspace)` | `Promise<ProviderIntegration[]>` — provider-neutral catalog and secret-free connection state supplied by the active runtime adapter |
+| `connectProviderKey(workspace, integrationID, key, label, answers)` | `Promise<void>` — sends a write-only key and provider-specific form answers; the key is never returned to the renderer |
+| `removeProviderCredential(workspace, credentialID)` | `Promise<void>` — removes one stored credential by opaque id |
 | `health()` | `Promise<boolean>` |
 | `installApp()` | `Promise<{ok: boolean, message: string}>` — macOS-only: builds the packaged app and installs it to `/Applications`; `ok` false with a message on failure |
 | `validateW3c(path, content)` | `Promise<W3cDiagnostic[]>` — validates HTML/CSS source through the W3C services |
@@ -82,7 +85,7 @@ also require a live `WorkspaceIdentity` matching an open backend session
 context; stale or unknown identities are rejected in main. Main validates
 bounded runtime schemas for activation and session IDs, prompts and
 attachments, command/search payloads, model/agent selection, permission
-replies, filesystem writes, and terminal arguments. The standalone-file channels
+replies, provider keys and form answers, filesystem writes, and terminal arguments. The standalone-file channels
 (`openExternal`, `writeStandalone`) are the one bridge surface that accepts
 arbitrary absolute paths; main bounds them (length/NUL/size caps) and `realpath`s
 them to a regular file before reading or wiring an atomic write, so they behave

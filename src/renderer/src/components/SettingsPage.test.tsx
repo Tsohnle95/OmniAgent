@@ -11,6 +11,8 @@ const store = {
   currentModel: null,
   switchModel: vi.fn(),
   providerUsage: [],
+  refreshProviderUsage: vi.fn(),
+  loadModels: vi.fn(),
   approvalMode: "ask",
   toggleApprovalMode: vi.fn(),
   wordWrap: false,

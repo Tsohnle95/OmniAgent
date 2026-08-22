@@ -108,6 +108,59 @@ describe("workspace-scoped backend queries", () => {
       rel: "src/visible.ts"
     }]);
   });
+
+  it("maps runtime integrations without exposing credential secrets", async () => {
+    const client = { integration: { list: vi.fn(async () => ({ data: [{
+      id: "azure",
+      name: "Azure",
+      methods: [
+        { type: "key", label: "API key", form: [{ key: "resourceName", type: "string", title: "Resource", required: true }] },
+        { type: "env", names: ["AZURE_API_KEY"] },
+        { id: "login", type: "oauth", label: "Sign in" }
+      ],
+      connections: [
+        { type: "credential", id: "credential-1", label: "work" },
+        { type: "env", name: "AZURE_API_KEY" }
+      ]
+    }] })) } };
+    const backend = new OpenShellBackend();
+    const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+    install(backend, workspace, "/workspace", client);
+
+    expect(await backend.listProviderIntegrations(workspace)).toEqual([{
+      id: "azure",
+      name: "Azure",
+      keyMethod: { label: "API key", fields: [{ key: "resourceName", type: "string", title: "Resource", required: true }] },
+      credentials: [{ id: "credential-1", label: "work" }],
+      environment: { names: ["AZURE_API_KEY"], connected: ["AZURE_API_KEY"] },
+      oauth: ["Sign in"]
+    }]);
+    expect(client.integration.list).toHaveBeenCalledWith({ location: { directory: "/workspace" } });
+  });
+
+  it("routes provider credential changes through the active runtime", async () => {
+    const connect = vi.fn(async () => undefined);
+    const remove = vi.fn(async () => undefined);
+    const client = {
+      integration: { connect: { key: connect } },
+      credential: { remove }
+    };
+    const backend = new OpenShellBackend();
+    const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
+    install(backend, workspace, "/workspace", client);
+
+    await backend.connectProviderKey(workspace, "azure", "secret", "work", { resourceName: "models" });
+    await backend.removeProviderCredential(workspace, "credential-1");
+
+    expect(connect).toHaveBeenCalledWith({
+      integrationID: "azure",
+      location: { directory: "/workspace" },
+      key: "secret",
+      label: "work",
+      answer: { resourceName: "models" }
+    });
+    expect(remove).toHaveBeenCalledWith({ credentialID: "credential-1", location: { directory: "/workspace" } });
+  });
 });
 
 describe("built-in commands and prompt files", () => {

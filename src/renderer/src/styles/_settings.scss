@@ -155,6 +155,45 @@
 
 .settings-empty { padding: 32px 20px; color: var(--text-faint); font-size: 12px; text-align: center; }
 
+.provider-settings { display: grid; gap: 16px; }
+.provider-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.provider-toolbar > div { display: grid; gap: 3px; }
+.provider-toolbar strong { font-size: 13px; }
+.provider-toolbar small { color: var(--text-faint); font-size: 10.5px; }
+.provider-toolbar input { width: min(280px, 42%); padding: 9px 12px; color: var(--text); background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: var(--radius-full); outline: none; }
+.provider-toolbar input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+.provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.provider-card { display: flex; min-width: 0; flex-direction: column; padding: 14px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.provider-card.connected { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+.provider-card-heading { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+.provider-card-heading > div { min-width: 0; }
+.provider-card-heading strong, .provider-card-heading small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.provider-card-heading strong { font-size: 12.5px; }
+.provider-card-heading small { margin-top: 2px; color: var(--text-faint); font: 9px "SF Mono", Menlo, monospace; }
+.provider-monogram { display: grid; place-items: center; width: 32px; height: 32px; color: var(--accent); background: var(--accent-dim); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 10px; font: 700 10px "SF Mono", Menlo, monospace; }
+.provider-connections { display: grid; gap: 5px; margin-top: 12px; }
+.provider-connections > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 9px; background: var(--bg-inset); border-radius: var(--radius-md); font-size: 10.5px; }
+.provider-connections span { display: flex; align-items: center; gap: 7px; }
+.provider-connections i { width: 6px; height: 6px; background: var(--green); border-radius: 50%; }
+.provider-connections button, .provider-card-footer button, .provider-form-actions button, .provider-show-all { color: var(--text-dim); background: transparent; border: 1px solid var(--border-strong); border-radius: var(--radius-full); cursor: pointer; }
+.provider-connections button { padding: 3px 7px; font-size: 9px; }
+.provider-note { margin: 9px 0 0; color: var(--text-faint); font-size: 10px; }
+.provider-card-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 14px; }
+.provider-card-footer span { overflow: hidden; color: var(--text-faint); font-size: 9px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.provider-card-footer button { flex-shrink: 0; padding: 5px 9px; color: var(--accent); }
+.provider-key-form { display: grid; gap: 9px; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--border); }
+.provider-key-form label { display: grid; gap: 4px; color: var(--text-dim); font-size: 10px; }
+.provider-key-form label > span { font-weight: 600; }
+.provider-key-form label small { color: var(--text-faint); font-weight: 400; }
+.provider-key-form input:not([type="checkbox"]), .provider-key-form select { width: 100%; min-width: 0; padding: 7px 9px; color: var(--text); background: var(--bg-inset); border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-family: inherit; font-size: 11px; }
+.provider-key-form select[multiple] { min-height: 72px; }
+.provider-external { color: var(--accent); font-size: 10.5px; }
+.provider-form-actions { display: flex; justify-content: flex-end; gap: 7px; padding-top: 3px; }
+.provider-form-actions button { padding: 6px 10px; }
+.provider-form-actions button.primary { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 700; }
+.provider-error { margin: 8px 0 0; color: var(--red) !important; font-size: 10.5px; }
+.provider-show-all { justify-self: center; padding: 7px 13px; }
+
 .settings-select {
   max-width: min(360px, 52%);
   padding: 7px 30px 7px 10px;
@@ -188,4 +227,7 @@
   .settings-close { grid-column: 1 / -1; justify-self: start; }
   .theme-grid { grid-template-columns: 1fr; margin-left: 0; }
   .settings-list { margin-left: 0; }
+  .provider-toolbar { align-items: stretch; flex-direction: column; }
+  .provider-toolbar input { width: 100%; }
+  .provider-grid { grid-template-columns: 1fr; }
 }

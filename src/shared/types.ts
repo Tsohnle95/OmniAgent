@@ -108,6 +108,57 @@ export interface ProviderUsageResult {
   error?: ProviderUsageError | null;
 }
 
+export type ProviderCredentialValue = string | number | boolean | string[];
+
+export interface ProviderFormOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface ProviderFormCondition {
+  key: string;
+  op: "eq" | "neq";
+  value: string | number | boolean;
+}
+
+export interface ProviderFormField {
+  key: string;
+  type: "string" | "number" | "integer" | "boolean" | "multiselect" | "external";
+  title?: string;
+  description?: string;
+  required?: boolean;
+  placeholder?: string;
+  options?: ProviderFormOption[];
+  default?: ProviderCredentialValue;
+  when?: ProviderFormCondition[];
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  minItems?: number;
+  maxItems?: number;
+  url?: string;
+}
+
+export interface ProviderIntegration {
+  id: string;
+  name: string;
+  keyMethod: {
+    label?: string;
+    fields: ProviderFormField[];
+  } | null;
+  credentials: Array<{ id: string; label: string }>;
+  environment: {
+    names: string[];
+    connected: string[];
+  };
+  oauth: string[];
+}
+
+export type ProviderCredentialAnswers = Record<string, ProviderCredentialValue>;
+
 export interface TreeEntry {
   path: string;
   type: "file" | "directory";

@@ -23,6 +23,9 @@ import type {
   PermissionReply,
   ProjectInfo,
   PromptFile,
+  ProviderCredentialAnswers,
+  ProviderFormField,
+  ProviderIntegration,
   ProviderUsageResult,
   ReferenceOption,
   RecoveryRecord,
@@ -1661,6 +1664,107 @@ export class OpenShellBackend {
            : {})
       }))
       .filter((m) => m.id && m.providerID);
+  }
+
+  async listProviderIntegrations(workspace: WorkspaceIdentity): Promise<ProviderIntegration[]> {
+    if (!this.client) return [];
+    const target = this.activeTarget(workspace);
+    const res = await this.client.integration.list({ location: { directory: target.directory } });
+    this.assertTarget(target);
+    const rows = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (rows as Array<{
+      id?: string;
+      name?: string;
+      methods?: Array<{
+        id?: string;
+        type?: string;
+        label?: string;
+        names?: string[];
+        form?: Array<Record<string, unknown>>;
+      }>;
+      connections?: Array<{ type?: string; id?: string; label?: string; name?: string }>;
+    }>).map((row) => {
+      const methods = row.methods ?? [];
+      const keyMethod = methods.find((method) => method.type === "key");
+      const fields = (keyMethod?.form ?? []).flatMap((field): ProviderFormField[] => {
+        if (typeof field.key !== "string" || !["string", "number", "integer", "boolean", "multiselect", "external"].includes(String(field.type))) return [];
+        const defaultValue = field.default;
+        return [{
+          key: field.key,
+          type: field.type as ProviderFormField["type"],
+          ...(typeof field.title === "string" ? { title: field.title } : {}),
+          ...(typeof field.description === "string" ? { description: field.description } : {}),
+          ...(typeof field.required === "boolean" ? { required: field.required } : {}),
+          ...(typeof field.placeholder === "string" ? { placeholder: field.placeholder } : {}),
+          ...(typeof field.url === "string" ? { url: field.url } : {}),
+          ...(typeof field.minimum === "number" && Number.isFinite(field.minimum) ? { minimum: field.minimum } : {}),
+          ...(typeof field.maximum === "number" && Number.isFinite(field.maximum) ? { maximum: field.maximum } : {}),
+          ...(typeof field.minLength === "number" && Number.isSafeInteger(field.minLength) ? { minLength: field.minLength } : {}),
+          ...(typeof field.maxLength === "number" && Number.isSafeInteger(field.maxLength) ? { maxLength: field.maxLength } : {}),
+          ...(typeof field.pattern === "string" ? { pattern: field.pattern } : {}),
+          ...(typeof field.minItems === "number" && Number.isSafeInteger(field.minItems) ? { minItems: field.minItems } : {}),
+          ...(typeof field.maxItems === "number" && Number.isSafeInteger(field.maxItems) ? { maxItems: field.maxItems } : {}),
+          ...(Array.isArray(field.when) ? {
+            when: field.when.flatMap((condition): Array<{ key: string; op: "eq" | "neq"; value: string | number | boolean }> => {
+              if (!condition || typeof condition !== "object" || typeof condition.key !== "string" ||
+                  (condition.op !== "eq" && condition.op !== "neq") ||
+                  !["string", "number", "boolean"].includes(typeof condition.value)) return [];
+              return [{ key: condition.key, op: condition.op, value: condition.value as string | number | boolean }];
+            })
+          } : {}),
+          ...(Array.isArray(field.options) ? {
+            options: field.options.flatMap((option): Array<{ value: string; label: string; description?: string }> => {
+              if (!option || typeof option !== "object" || typeof option.value !== "string" || typeof option.label !== "string") return [];
+              return [{ value: option.value, label: option.label, ...(typeof option.description === "string" ? { description: option.description } : {}) }];
+            })
+          } : {}),
+          ...(typeof defaultValue === "string" || typeof defaultValue === "number" || typeof defaultValue === "boolean" ||
+              (Array.isArray(defaultValue) && defaultValue.every((value) => typeof value === "string"))
+            ? { default: defaultValue as ProviderFormField["default"] }
+            : {})
+        }];
+      });
+      const connections = row.connections ?? [];
+      return {
+        id: row.id ?? "",
+        name: row.name ?? row.id ?? "Provider",
+        keyMethod: keyMethod ? { ...(keyMethod.label ? { label: keyMethod.label } : {}), fields } : null,
+        credentials: connections.flatMap((connection) => connection.type === "credential" && connection.id
+          ? [{ id: connection.id, label: connection.label ?? "default" }]
+          : []),
+        environment: {
+          names: [...new Set(methods.flatMap((method) => method.type === "env" ? (method.names ?? []) : []))],
+          connected: connections.flatMap((connection) => connection.type === "env" && connection.name ? [connection.name] : [])
+        },
+        oauth: methods.flatMap((method) => method.type === "oauth" ? [method.label ?? "OAuth"] : [])
+      };
+    }).filter((row) => row.id);
+  }
+
+  async connectProviderKey(
+    workspace: WorkspaceIdentity,
+    integrationID: string,
+    key: string,
+    label: string | undefined,
+    answers: ProviderCredentialAnswers
+  ): Promise<void> {
+    if (!this.client) throw new Error("no active session");
+    const target = this.activeTarget(workspace);
+    await this.client.integration.connect.key({
+      integrationID,
+      location: { directory: target.directory },
+      key,
+      ...(label ? { label } : {}),
+      ...(Object.keys(answers).length > 0 ? { answer: answers } : {})
+    });
+    this.assertTarget(target);
+  }
+
+  async removeProviderCredential(workspace: WorkspaceIdentity, credentialID: string): Promise<void> {
+    if (!this.client) throw new Error("no active session");
+    const target = this.activeTarget(workspace);
+    await this.client.credential.remove({ credentialID, location: { directory: target.directory } });
+    this.assertTarget(target);
   }
 
   async switchModel(workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string): Promise<void> {

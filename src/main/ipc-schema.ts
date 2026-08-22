@@ -1,4 +1,4 @@
-import type { FileWriteIdentity, PermissionReply, PromptFile, WorkspaceIdentity } from "@shared/types";
+import type { FileWriteIdentity, PermissionReply, PromptFile, ProviderCredentialAnswers, WorkspaceIdentity } from "@shared/types";
 import { fileContent, relativePath, workspaceId } from "./workspace-security";
 
 export const IPC_LIMITS = {
@@ -9,7 +9,11 @@ export const IPC_LIMITS = {
   command: 256,
   commandArgs: 1024 * 1024,
   query: 4096,
-  mentionText: 4096
+  mentionText: 4096,
+  providerKey: 64 * 1024,
+  providerLabel: 256,
+  providerAnswers: 32,
+  providerAnswer: 4096
 } as const;
 
 export function boundedString(value: unknown, name: string, max: number, allowEmpty = false): string {
@@ -82,6 +86,38 @@ export function selectionId(value: unknown, name: string): string {
 
 export function optionalSelectionId(value: unknown, name: string): string | undefined {
   return value === undefined ? undefined : selectionId(value, name);
+}
+
+export function providerCredentialPayload(integrationID: unknown, key: unknown, label: unknown, answers: unknown): {
+  integrationID: string;
+  key: string;
+  label?: string;
+  answers: ProviderCredentialAnswers;
+} {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) throw new Error("invalid provider answers");
+  const entries = Object.entries(answers);
+  if (entries.length > IPC_LIMITS.providerAnswers) throw new Error("invalid provider answers");
+  const cleanAnswers: ProviderCredentialAnswers = {};
+  for (const [answerKey, value] of entries) {
+    const cleanKey = selectionId(answerKey, "provider answer key");
+    if (typeof value === "string") {
+      cleanAnswers[cleanKey] = boundedString(value, "provider answer", IPC_LIMITS.providerAnswer, true);
+    } else if (typeof value === "number" && Number.isFinite(value)) {
+      cleanAnswers[cleanKey] = value;
+    } else if (typeof value === "boolean") {
+      cleanAnswers[cleanKey] = value;
+    } else if (Array.isArray(value) && value.length <= IPC_LIMITS.providerAnswers) {
+      cleanAnswers[cleanKey] = value.map((item) => boundedString(item, "provider answer", IPC_LIMITS.providerAnswer, true));
+    } else {
+      throw new Error("invalid provider answer");
+    }
+  }
+  return {
+    integrationID: selectionId(integrationID, "provider integration id"),
+    key: boundedString(key, "provider key", IPC_LIMITS.providerKey),
+    ...(label === undefined || label === "" ? {} : { label: boundedString(label, "provider label", IPC_LIMITS.providerLabel) }),
+    answers: cleanAnswers
+  };
 }
 
 export function permissionPayload(requestID: unknown, reply: unknown, sessionID: unknown): {

@@ -77,6 +77,9 @@ Public methods (all used by IPC):
 | `acknowledgeRecovery(workspace, id)` | Persists acknowledgment in the transaction manifest without deleting artifact bytes |
 | `listProjects()` | `project.list`, maps to `{directory, name}` |
 | `listModels(workspace)` | `model.list` (location = session dir), filters `enabled`, maps to `{id, providerID, name, variants, limit?}` (`limit.context` = the model's context-window size) |
+| `listProviderIntegrations(workspace)` | `integration.list` (location = session dir), maps runtime-supported key forms, OAuth labels, environment names, and secret-free credential labels into `ProviderIntegration[]` |
+| `connectProviderKey(workspace, integrationID, key, label, answers)` | Sends one bounded write-only key plus provider-specific form answers to `integration.connect.key`; no secret is returned or logged |
+| `removeProviderCredential(workspace, credentialID)` | Removes an opaque runtime credential through `credential.remove`; environment connections remain externally managed |
 | `modelDefault(workspace)` | `model.default`, maps the same |
 | `switchModel(workspace, id, providerID, variant?)` | Switches only the captured context session, then persists the selection |
 | `listAgents(workspace)` | `agent.list` (location = session dir), maps to `{id, name}` |
@@ -218,6 +221,9 @@ Internals:
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `(workspace) → SessionSelection \| null` |
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |
+| `shell:provider-integrations` | `(workspace) → ProviderIntegration[]` — runtime-supported provider catalog and secret-free connection metadata |
+| `shell:provider-key-connect` | `(workspace, integrationID, key, label, answers) → void` — validates and forwards a write-only provider key and bounded form answers |
+| `shell:provider-credential-remove` | `(workspace, credentialID) → void` — removes a stored credential by opaque id |
 | `shell:health` | `() → boolean` |
 | `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/OmniAgent.app` |
 | `shell:validate-w3c` | `(path, content) → W3cDiagnostic[]`; calls the Nu Html Checker or W3C CSS Validator for HTML and plain CSS paths; preprocessor stylesheets (SCSS, LESS, Sass) return no diagnostics |

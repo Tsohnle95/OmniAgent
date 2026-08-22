@@ -13,6 +13,8 @@ import type {
   PermissionReply,
   ProjectInfo,
   PromptFile,
+  ProviderCredentialAnswers,
+  ProviderIntegration,
   ProviderUsageResult,
   RecoveryRecord,
   ReferenceOption,
@@ -116,6 +118,12 @@ const api = {
   sessionSelection: (workspace: WorkspaceIdentity): Promise<SessionSelection | null> =>
     ipcRenderer.invoke("shell:session-selection", workspace),
   providerUsage: (): Promise<ProviderUsageResult[]> => ipcRenderer.invoke("shell:provider-usage"),
+  providerIntegrations: (workspace: WorkspaceIdentity): Promise<ProviderIntegration[]> =>
+    ipcRenderer.invoke("shell:provider-integrations", workspace),
+  connectProviderKey: (workspace: WorkspaceIdentity, integrationID: string, key: string, label: string, answers: ProviderCredentialAnswers): Promise<void> =>
+    ipcRenderer.invoke("shell:provider-key-connect", workspace, integrationID, key, label, answers),
+  removeProviderCredential: (workspace: WorkspaceIdentity, credentialID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:provider-credential-remove", workspace, credentialID),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),
   installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app"),
   validateW3c: (path: string, content: string): Promise<W3cDiagnostic[]> =>

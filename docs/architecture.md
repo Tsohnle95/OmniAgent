@@ -244,6 +244,11 @@ from `client.model.default()` per panel and updated live by
 `session.model.selected` for the addressed session.
 Switching calls `client.session.switchModel({ sessionID, model })`, including
 `model.variant` when a model exposes response-strength variants.
+Provider settings are adapter-backed rather than OpenCode-specific UI. The
+current adapter maps `integration.list` into secret-free shared types and sends
+write-only keys through `integration.connect.key`; credential changes refresh
+the workspace model catalog. A featured top-20 ordering is renderer-only, while
+search exposes every integration supplied by the active runtime.
 Agents come from `client.agent.list()`; the selection is updated live by
 `session.agent.selected` and switched via
 `client.session.switchAgent({ sessionID, agent })`. Both choices are

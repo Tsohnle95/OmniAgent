@@ -40,6 +40,7 @@ import {
   movePayload,
   optionalSelectionId,
   permissionPayload,
+  providerCredentialPayload,
   promptPayload,
   queryText,
   selectionId,
@@ -715,6 +716,29 @@ function registerIpc(): void {
   });
 
   handleTrusted("shell:provider-usage", async () => backend.providerUsage());
+
+  handleTrusted("shell:provider-integrations", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listProviderIntegrations(workspace);
+  });
+
+  handleTrusted("shell:provider-key-connect", async (
+    _e,
+    workspace: WorkspaceIdentity,
+    integrationID: unknown,
+    key: unknown,
+    label: unknown,
+    answers: unknown
+  ) => {
+    workspaceId(workspace);
+    const credential = providerCredentialPayload(integrationID, key, label, answers);
+    return backend.connectProviderKey(workspace, credential.integrationID, credential.key, credential.label, credential.answers);
+  });
+
+  handleTrusted("shell:provider-credential-remove", async (_e, workspace: WorkspaceIdentity, credentialID: unknown) => {
+    workspaceId(workspace);
+    return backend.removeProviderCredential(workspace, selectionId(credentialID, "provider credential id"));
+  });
 
   handleTrusted("shell:health", async () => backend.connect().catch(() => false));
 

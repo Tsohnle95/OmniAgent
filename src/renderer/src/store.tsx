@@ -923,12 +923,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       if (!panelFor(target)) return;
       setModelsByWorkspace((prev) => {
         const current = prev[target.id] ?? [];
-        if (
-          current.length === list.length &&
-          current.every(
-            (m, i) => m.id === list[i].id && m.providerID === list[i].providerID && m.name === list[i].name
-          )
-        ) {
+        if (JSON.stringify(current) === JSON.stringify(list)) {
           return prev;
         }
         return { ...prev, [target.id]: list };

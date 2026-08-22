@@ -222,6 +222,18 @@ defaults rather than a saved OmniAgent preference.
 Reopening a session restores the *session's* picks via
 `sessionSelection()` → `session.get`.
 
+The Providers settings page asks the active runtime adapter for its integration
+catalog rather than embedding one agent harness's model list. It features 20
+common services, searches every additional integration reported by the runtime,
+and renders provider-specific setup fields. API keys cross the trusted IPC
+bridge only for the connection call, are stored by the runtime, and are never
+read back; the UI receives only opaque credential ids and labels. Adding or
+removing a credential refetches both connection state and workspace models so
+newly available models can be selected immediately. The current OpenCode
+adapter implements this contract through `integration.list`,
+`integration.connect.key`, and `credential.remove`; future agent adapters can
+provide the same renderer-safe capability without changing the settings UI.
+
 ## Terminal tray
 
 `TerminalTray` registers a renderer-generated terminal UUID, then mounts/restarts a PTY (`terminalStart(workspace, id)`): main resolves

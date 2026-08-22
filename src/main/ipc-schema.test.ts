@@ -8,6 +8,7 @@ import {
   fileWriteIdentity,
   movePayload,
   permissionPayload,
+  providerCredentialPayload,
   promptPayload,
   queryText,
   selectionId,
@@ -69,5 +70,22 @@ describe("runtime IPC schemas", () => {
     expect(() => movePayload(workspace, "docs/../note.txt", "")).toThrow("invalid workspace path");
     expect(() => movePayload(workspace, "note.txt", "/absolute")).toThrow("invalid workspace path");
     expect(() => movePayload(workspace, "note.txt", "a//b")).toThrow("invalid workspace path");
+  });
+
+  it("bounds provider secrets and validates provider-specific answers", () => {
+    expect(providerCredentialPayload("azure", "secret", "work", {
+      resourceName: "models",
+      retries: 2,
+      enabled: true,
+      regions: ["eastus"]
+    })).toEqual({
+      integrationID: "azure",
+      key: "secret",
+      label: "work",
+      answers: { resourceName: "models", retries: 2, enabled: true, regions: ["eastus"] }
+    });
+    expect(() => providerCredentialPayload("openai", "x".repeat(IPC_LIMITS.providerKey + 1), "", {})).toThrow("invalid provider key");
+    expect(() => providerCredentialPayload("openai", "secret", "", { nested: { value: "no" } })).toThrow("invalid provider answer");
+    expect(() => providerCredentialPayload("openai", "secret", "", { invalid: Number.NaN })).toThrow("invalid provider answer");
   });
 });

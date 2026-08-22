@@ -3,6 +3,7 @@ import type { CommandOption } from "@shared/types";
 import { useStore } from "../store";
 import { type ThemeId, useTheme } from "../theme";
 import { OmniMark } from "./OmniMark";
+import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
 
 const themes: Array<{ id: ThemeId; name: string; description: string; colors: string[] }> = [
@@ -23,7 +24,7 @@ const themes: Array<{ id: ThemeId; name: string; description: string; colors: st
 const sectionCopy: Record<SettingsSection, { title: string; description: string }> = {
   appearance: { title: "Appearance", description: "Choose how OmniAgent looks and how code is presented." },
   plugins: { title: "Plugins", description: "Review commands and skills available in the current workspace." },
-  providers: { title: "Providers", description: "See the model services connected through OpenCode." },
+  providers: { title: "Providers", description: "Connect model services supported by your active agent runtime." },
   safety: { title: "Safety", description: "Set permission and follow-up defaults for agent behavior." },
   voice: { title: "Voice", description: "Configure voice input preferences and review availability." },
   model: { title: "Model", description: "Choose the model used by the current workspace." },
@@ -47,7 +48,9 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
     models,
     currentModel,
     switchModel,
+    loadModels,
     providerUsage,
+    refreshProviderUsage,
     approvalMode,
     toggleApprovalMode,
     wordWrap,
@@ -66,6 +69,10 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
     }
     void window.openshell.commands(session.workspace).then(setCommands).catch(() => setCommands([]));
   }, [section, session]);
+
+  useEffect(() => {
+    if (section === "providers" && session) void refreshProviderUsage();
+  }, [section, session?.id, refreshProviderUsage]);
 
   return (
     <main className="settings-page">
@@ -118,11 +125,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
       </section>}
 
       {section === "providers" && <section className="settings-section">
-        <div className="settings-list">
-          {providerUsage.length === 0 ? <div className="settings-empty">Provider details appear after OpenCode reports a connected account.</div> : providerUsage.map((provider) => (
-            <SettingRow key={provider.provider} title={provider.displayName} detail={provider.snapshot?.planType ?? provider.error?.message ?? "Connected through OpenCode"} control={<span className={`settings-badge ${provider.status}`}>{provider.status}</span>} />
-          ))}
-        </div>
+        <ProviderSettings workspace={session?.workspace ?? null} usage={providerUsage} refreshModels={() => loadModels(session?.workspace)} />
       </section>}
 
       {section === "safety" && <section className="settings-section">

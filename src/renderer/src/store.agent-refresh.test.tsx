@@ -8,7 +8,7 @@ type Store = ReturnType<typeof useStore>;
 
 let store: Store;
 let agentList: { id: string; name: string }[];
-let modelList: { id: string; providerID: string; name: string }[];
+let modelList: { id: string; providerID: string; name: string; variants?: string[]; limit?: { context: number } }[];
 let messageHandler: ((msg: unknown) => void) | null;
 
 function Probe(): ReactNode {
@@ -120,6 +120,10 @@ describe("picker catalogs refresh on server update events", () => {
     });
 
     expect(store.models.map((model) => model.id)).toEqual(["m1"]);
+
+    modelList = [{ id: "m1", providerID: "p1", name: "One", variants: ["high"], limit: { context: 200000 } }];
+    await act(async () => store.loadModels());
+    expect(store.models[0]).toMatchObject({ variants: ["high"], limit: { context: 200000 } });
   });
 
   it("projects live text deltas into the visible transcript immediately", async () => {
