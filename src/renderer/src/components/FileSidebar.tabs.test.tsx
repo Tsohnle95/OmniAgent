@@ -20,6 +20,7 @@ function summary(id: string, directory: string, title: string, updatedAt = Date.
 const store = {
   session: session as MockSession | null,
   selectFolder: vi.fn(),
+  selectFile: vi.fn(),
   tree: {},
   toggleDir: vi.fn(),
   ensureRootOpen: vi.fn(),
@@ -86,7 +87,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     store.activeSessionID = null;
     store.sessions = [];
     for (const mock of [
-      store.focusSession, store.closePanel, store.reopenSession, store.openSession,
+      store.focusSession, store.closePanel, store.reopenSession, store.openSession, store.selectFolder, store.selectFile,
       store.loadSessions, store.runCommand, store.toggleWordWrap
     ]) {
       mock.mockClear();
@@ -129,7 +130,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     )!;
   }
 
-  it("defaults to the sessions pane with New Session and Plugins actions", async () => {
+  it("opens native folder and file pickers from the sessions pane", async () => {
     await render();
     await settle();
 
@@ -137,7 +138,11 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(container.querySelector<HTMLElement>(".tree")).toBeNull();
 
     await act(async () => container.querySelector<HTMLButtonElement>(".sessions-new")!.click());
-    expect(store.openSession).toHaveBeenCalledWith("/workspace");
+    expect(store.selectFolder).toHaveBeenCalledOnce();
+    expect(store.openSession).not.toHaveBeenCalled();
+
+    await act(async () => container.querySelector<HTMLButtonElement>(".sessions-file")!.click());
+    expect(store.selectFile).toHaveBeenCalledOnce();
 
     expect(container.querySelector(".sessions-plugins")).not.toBeNull();
     expect(store.loadSessions).toHaveBeenCalled();

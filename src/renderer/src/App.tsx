@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, usePanel, useStore } from "./store";
-import { IconAdd, IconFile, IconFolderOpen, IconGear, IconHistory, IconRobot, IconSymbolEvent, IconTerminal } from "./components/icons";
+import { IconAdd, IconGear, IconRobot, IconSymbolEvent, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar, type SidebarTab } from "./components/FileSidebar";
@@ -312,7 +312,7 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels: allPanels, workspaceOnlyPanelIDs, activeSessionID, focusSession, closePanel, selectAddPanel, selectFolder, selectFile } = useStore();
+  const { panels: allPanels, workspaceOnlyPanelIDs, activeSessionID, focusSession, closePanel, selectAddPanel } = useStore();
   const panels = useMemo(() => {
     const agentPanels = allPanels.filter((panel) => !workspaceOnlyPanelIDs.has(panel.id));
     const active = allPanels.find((panel) => panel.id === activeSessionID);
@@ -702,31 +702,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       <div className="titlebar">
         <span className="titlebar-title"><OmniMark size={16} />OmniAgent</span>
         <span className="titlebar-actions">
-          <button
-            className={`icon-btn ${sideOpen && sideTab === "sessions" ? "on" : ""}`}
-            title="Sessions — pinned sessions, projects, and recents"
-            onClick={() => {
-              setSettingsOpen(false);
-              setSideTab("sessions");
-              if (!sideOpen) setSidebarOpen(true);
-            }}
-          >
-            <IconHistory />
-          </button>
-          <button
-            className="icon-btn"
-            title="Open another workspace"
-            onClick={() => void selectFolder()}
-          >
-            <IconFolderOpen />
-          </button>
-          <button
-            className="icon-btn"
-            title="Open a single file"
-            onClick={() => void selectFile()}
-          >
-            <IconFile />
-          </button>
           {inAgentMode && (
             <button
               className="icon-btn"

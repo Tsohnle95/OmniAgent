@@ -37,6 +37,28 @@
 
 .sessions-new:hover { background: var(--accent); color: var(--bg-panel); }
 
+.sessions-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 120ms var(--ease), border-color 120ms var(--ease), background 120ms var(--ease);
+}
+
+.sessions-file:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
 .sessions-plugins {
   border: 1px dashed var(--border-strong);
   background: transparent;

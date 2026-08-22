@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { CommandOption, ProjectInfo, SessionSummary } from "@shared/types";
 import { ChevronIcon, PlusIcon } from "./FileIcons";
-import { IconCheck, IconClose, IconFolder, IconHistory, IconStarFilled, IconSearch } from "./icons";
+import { IconCheck, IconClose, IconFile, IconFolder, IconHistory, IconStarFilled, IconSearch } from "./icons";
 
 const PINNED_KEY = "openshell.pinnedSessions";
 
@@ -110,6 +110,7 @@ export function SessionsPane(): ReactNode {
     reopenSession,
     openSession,
     selectFolder,
+    selectFile,
     sessions,
     loadSessions,
     runCommand
@@ -190,8 +191,7 @@ export function SessionsPane(): ReactNode {
   };
 
   const newSession = (): void => {
-    if (session) void openSession(session.directory);
-    else void selectFolder();
+    void selectFolder();
   };
 
   const toggleProject = (directory: string): void => {
@@ -210,9 +210,12 @@ export function SessionsPane(): ReactNode {
   return (
     <div className="sessions-pane">
       <div className="sessions-actions" ref={pluginsRef}>
-        <button className="sessions-new" onClick={newSession} title="Start a new session in this workspace">
+        <button className="sessions-new" onClick={newSession} title="Choose a folder for a new session">
           <PlusIcon />
           New Session
+        </button>
+        <button className="sessions-file" onClick={() => void selectFile()} title="Open a file" aria-label="Open a file">
+          <IconFile />
         </button>
         <button
           className={`sessions-plugins ${pluginsOpen ? "open" : ""}`}

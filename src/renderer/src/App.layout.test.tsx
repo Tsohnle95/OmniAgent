@@ -112,6 +112,15 @@ describe("Layout panel sizing", () => {
     return (grid.style.getPropertyValue("--pane-columns") ?? "").split(" ");
   }
 
+  it("keeps session and workspace opening actions out of the titlebar", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(container.querySelector('[title^="Sessions"]')).toBeNull();
+    expect(container.querySelector('[title="Open another workspace"]')).toBeNull();
+    expect(container.querySelector('[title="Open a single file"]')).toBeNull();
+  });
+
   it("settles with both panels fitting when the window is narrower than their combined width", async () => {
     setWidth(500);
     await act(async () => root.render(<App />));
