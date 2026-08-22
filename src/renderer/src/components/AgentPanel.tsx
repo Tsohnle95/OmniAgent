@@ -1335,32 +1335,7 @@ export function AgentPanel({
             aria-expanded={usageOpen}
             onClick={() => setUsageOpen((open) => !open)}
           >
-            <svg className="agent-usage-glyph" viewBox="0 0 16 16" aria-hidden="true">
-              <rect
-                x="2"
-                y="2.5"
-                width="12"
-                height="11"
-                rx="2.25"
-                fill="none"
-                stroke="currentColor"
-                strokeOpacity="0.5"
-                strokeWidth="1.35"
-              />
-              <path d="M4.25 5.5h7.5M4.25 8h4.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.2" />
-              <path d="M3.75 11h8.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeOpacity="0.2" strokeWidth="1.4" />
-              {contextLimit && contextFraction > 0 && (
-                <rect
-                  data-usage-fill
-                  x="3.75"
-                  y="10.3"
-                  width={contextFraction * 8.5}
-                  height="1.4"
-                  rx="0.7"
-                  fill="currentColor"
-                />
-              )}
-            </svg>
+            <IconDashboard />
           </button>
           <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
             <IconCollapse />
