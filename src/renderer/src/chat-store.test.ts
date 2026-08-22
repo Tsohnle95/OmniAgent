@@ -337,6 +337,39 @@ describe("tool part id aliasing", () => {
     });
   });
 
+  it("projects one enriched tool when stale state still contains duplicate call ids", () => {
+    const draft = state();
+    draft.message.s = [{ id: "msg_1", sessionID: "s", role: "assistant", time: { created: 1, completed: 2 } }];
+    draft.part.msg_1 = [
+      {
+        id: "msg_1:tool:call_1",
+        messageID: "msg_1",
+        sessionID: "s",
+        type: "tool",
+        name: "grep",
+        callID: "call_1",
+        state: { status: "running", input: { pattern: "needle" } }
+      },
+      {
+        id: "part_1",
+        messageID: "msg_1",
+        sessionID: "s",
+        type: "tool",
+        callID: "call_1",
+        state: { status: "completed", output: "match" }
+      }
+    ];
+
+    const item = projectAssistantItems(draft, "s")[0];
+    expect(item.kind).toBe("assistant");
+    if (item.kind !== "assistant") return;
+    expect(item.parts).toHaveLength(1);
+    expect(item.parts[0]).toMatchObject({
+      kind: "tool",
+      tool: { id: "call_1", title: "grep", status: "success", inputValue: { pattern: "needle" }, output: "match" }
+    });
+  });
+
   it("applies server deltas addressed by raw call id to the live row", () => {
     const draft = state();
     seedLiveToolRow(draft);

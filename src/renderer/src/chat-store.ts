@@ -853,10 +853,40 @@ export function projectAssistantItems(draft: ChatDirectoryState, sessionID: stri
   const out: TranscriptItem[] = [];
   for (const message of messages) {
     if (message.role !== "assistant") continue;
-    const parts = (draft.part[message.id] ?? []).flatMap((part): AssistantPartView[] => {
+    const projected = (draft.part[message.id] ?? []).flatMap((part): AssistantPartView[] => {
       const view = partFromProjection(part as Record<string, any>, Number(message.time?.created ?? 0));
       return view ? [view] : [];
     });
+    const parts: AssistantPartView[] = [];
+    const toolIndexes = new Map<string, number>();
+    for (const part of projected) {
+      if (part.kind !== "tool") {
+        parts.push(part);
+        continue;
+      }
+      const existingIndex = toolIndexes.get(part.tool.id);
+      if (existingIndex === undefined) {
+        toolIndexes.set(part.tool.id, parts.length);
+        parts.push(part);
+        continue;
+      }
+      const existing = parts[existingIndex];
+      if (existing.kind !== "tool") continue;
+      parts[existingIndex] = {
+        ...part,
+        tool: {
+          ...existing.tool,
+          ...part.tool,
+          title: part.tool.title.toLowerCase().replace(/[^a-z]/g, "") === "tool" ? existing.tool.title : part.tool.title,
+          detail: part.tool.detail || existing.tool.detail,
+          input: part.tool.input || existing.tool.input,
+          inputValue: part.tool.inputValue ?? existing.tool.inputValue,
+          output: part.tool.output ?? existing.tool.output,
+          paths: part.tool.paths?.length ? part.tool.paths : existing.tool.paths,
+          metadata: part.tool.metadata ?? existing.tool.metadata
+        }
+      };
+    }
     const retry = message.retry;
     out.push({
       kind: "assistant",
