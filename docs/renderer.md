@@ -87,10 +87,12 @@ latching. Authoritative end-of-turn signals (`session.idle`, `session.error`,
 `session.execution.*`) materialize completion of the trailing assistant in
 the chat store even if its completion marker was lost. Terminal message/part
 snapshots cannot promote an already-idle session back to busy; prompt
-submission marks the session busy immediately, and only events that represent
-active work can restore busy after a quiet settle. Terminal message finishes
-also clear busy directly, so the composer and turn status do not depend on a
-later `session.idle` event. Finally, a 1s settle
+submission inserts the optimistic user message into both the transcript and
+authoritative chat store before marking the session busy, so the elapsed clock
+starts from the current turn instead of an older prompt. Only events that
+represent active work can restore busy after a quiet settle. Terminal message
+finishes also clear busy directly, so the composer and turn status do not
+depend on a later `session.idle` event. Finally, a 1s settle
 watchdog finalizes any panel whose trailing assistant stays incomplete without
 stream activity for 60s (or immediately once the runtime reported idle), which
 is what flips the composer's stop button back to send after a missed end event
@@ -289,6 +291,8 @@ Key mechanisms:
   paced while streamed reasoning stays ordered behind a collapsed Think
   disclosure whose fixed-height one-line summary follows the newest live text
   horizontally on the same three-frame visual throttle as DeepSeek Harness,
+  progressively revealing a one-shot reasoning chunk while the turn remains
+  active when a runtime emits its delta and completion in the same render batch,
   with its full text rendered only when the user expands it. The separate
   `Deep diving...` turn status remains visible for the whole active turn. Adjacent read/glob/grep/list
   parts remain individually visible across assistant messages; recursive

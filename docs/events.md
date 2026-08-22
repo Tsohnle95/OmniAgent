@@ -72,7 +72,7 @@ regressing longer live text.
 | `session.text.delta` | Appends streamed text to that part (materializing the session if the message or part is unknown) |
 | `session.text.ended` | Replaces the part with the authoritative final text, marks it complete, and dedupes trailing deltas |
 | `session.reasoning.started` | Adds one ordered reasoning part behind a collapsed Thinking disclosure in event order |
-| `session.reasoning.delta` | Appends streamed reasoning to that part |
+| `session.reasoning.delta` | Appends streamed reasoning to that part; a one-shot chunk is progressively revealed in the active collapsed Think row when its completion lands in the same renderer batch |
 | `session.reasoning.ended` | Replaces the part with authoritative final reasoning and keeps it available through the disclosure after completion |
 | `session.tool.input.started` | Adds an inline tool part with its real name and begins the argument buffer |
 | `session.tool.input.delta` | Appends to the live tool argument buffer |

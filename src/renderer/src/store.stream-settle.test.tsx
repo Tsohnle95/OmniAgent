@@ -229,11 +229,13 @@ describe("store stream settle", () => {
     window.openshell.sessionTranscript = vi.fn(async () => ({ transcript: [], todos: [] }));
 
     let submitted: Promise<void> | undefined;
+    const submittedAt = Date.now();
     await act(async () => {
       submitted = store.sendPrompt("next task");
       await Promise.resolve();
     });
     expect(store.busy).toBe(true);
+    expect(store.panelViews[store.session!.workspace.id]?.turnStartedAt).toBeGreaterThanOrEqual(submittedAt);
 
     await act(async () => {
       finishPrompt!({

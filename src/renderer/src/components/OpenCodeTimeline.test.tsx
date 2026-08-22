@@ -93,6 +93,7 @@ describe("OpenCodeTimeline chronology", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
   it("renders completed reasoning as a collapsed Think row with its first line", () => {
@@ -110,6 +111,7 @@ describe("OpenCodeTimeline chronology", () => {
   });
 
   it("keeps live reasoning collapsed and follows its latest line", () => {
+    vi.useFakeTimers();
     const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
     live.parts = [{ kind: "reasoning", id: "reasoning-1", text: "Inspecting the code\nChecking events", complete: false }];
     act(() => root.render(
@@ -121,11 +123,14 @@ describe("OpenCodeTimeline chronology", () => {
     ));
 
     expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).not.toBe("Checking events");
+    act(() => vi.advanceTimersByTime(2_000));
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Checking events");
     expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
 
   it("keeps the live reasoning preview on the newest streamed text", () => {
+    vi.useFakeTimers();
     const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
     live.parts = [{ kind: "reasoning", id: "reasoning-1", text: "**Inspecting the repository structure and current events**", complete: false }];
     act(() => root.render(
@@ -133,6 +138,7 @@ describe("OpenCodeTimeline chronology", () => {
     ));
 
     const first = container.querySelector("[data-slot='reasoning-part-summary']");
+    act(() => vi.advanceTimersByTime(3_000));
     expect(first?.textContent).toBe("Inspecting the repository structure and current events");
     expect(first?.getAttribute("data-follow-end")).toBe("true");
     expect(container.querySelector("[data-component='reasoning-part']")?.getAttribute("data-state")).toBe("running");
@@ -142,7 +148,26 @@ describe("OpenCodeTimeline chronology", () => {
       <OpenCodeTimeline transcript={[{ ...live }]} busy lastAssistantId="assistant-reasoning" />
     ));
 
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).not.toBe("Checking the latest streamed event now");
+    act(() => vi.advanceTimersByTime(3_000));
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Checking the latest streamed event now");
+  });
+
+  it("progressively paints a reasoning chunk that ended in the same event batch", () => {
+    vi.useFakeTimers();
+    const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.parts = [{ kind: "reasoning", id: "reasoning-1", text: "Inspecting plans and lessons", complete: true }];
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[live]} busy lastAssistantId="assistant-reasoning" />
+    ));
+
+    const summary = container.querySelector("[data-slot='reasoning-part-summary']");
+    expect(summary?.textContent?.length).toBeGreaterThan(0);
+    expect(summary?.textContent).not.toBe("Inspecting plans and lessons");
+    expect(container.querySelector("[data-component='reasoning-part']")?.getAttribute("data-state")).toBe("running");
+
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(summary?.textContent).toBe("Inspecting plans and lessons");
   });
 
   it("opens absolute read paths relative to the tool session workspace", () => {

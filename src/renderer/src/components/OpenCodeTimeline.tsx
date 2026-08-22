@@ -9,6 +9,7 @@ const OUTPUT_LIMIT = 6000;
 const TEXT_RENDER_PACE_MS = 24;
 const TEXT_RENDER_IMMEDIATE = 512;
 const TEXT_RENDER_SNAP = /[\s.,!?;:)\]]/;
+const REASONING_LINE_PACE_MS = 48;
 
 type AssistantItem = Extract<TranscriptItem, { kind: "assistant" }>;
 type AssistantPart = AssistantItem["parts"][number];
@@ -136,6 +137,47 @@ function usePacedText(text: string, live: boolean): string {
   return value;
 }
 
+function useProgressiveReasoningLine(text: string, active: boolean): string {
+  const [value, setValue] = useState(() => active ? "" : text);
+  const valueRef = useRef(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (!active) {
+      valueRef.current = text;
+      setValue(text);
+      return;
+    }
+    if (!text.startsWith(valueRef.current)) {
+      valueRef.current = "";
+      setValue("");
+    }
+    const advance = (): void => {
+      const start = text.startsWith(valueRef.current) ? valueRef.current.length : 0;
+      if (start >= text.length) {
+        timerRef.current = null;
+        return;
+      }
+      const next = text.slice(0, start + 1);
+      valueRef.current = next;
+      setValue(next);
+      timerRef.current = setTimeout(advance, REASONING_LINE_PACE_MS);
+    };
+    advance();
+    return () => {
+      if (timerRef.current === null) return;
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [active, text]);
+
+  return value;
+}
+
 const CODE_TOKEN_PATTERN = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|\b(?:as|async|await|break|case|catch|class|const|continue|def|else|export|extends|for|from|function|if|import|in|interface|let|new|of|return|static|switch|throw|try|type|var|while|with|yield)\b|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*(?=\s*\())/g;
 const CODE_KEYWORDS = new Set([
   "as", "async", "await", "break", "case", "catch", "class", "const", "continue", "def", "else", "export",
@@ -248,13 +290,14 @@ function ReasoningPart({
 }): ReactNode {
   const [open, setOpen] = useState(false);
   const summaryRef = useRef<HTMLSpanElement>(null);
-  const active = streaming && !part.complete;
+  const active = streaming;
   const contentID = `reasoning-${part.id}`;
   const visible = part.text.trimEnd();
   const rawSummary = active
     ? visible.slice(visible.lastIndexOf("\n") + 1)
     : visible.split("\n", 1)[0];
   const summary = rawSummary.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1");
+  const progressiveSummary = useProgressiveReasoningLine(summary, active);
   const scheduleSummaryScroll = useThrottledVisualUpdate(() => {
     const element = summaryRef.current;
     if (!element) return;
@@ -279,7 +322,7 @@ function ReasoningPart({
       >
         <span data-slot="reasoning-part-icon" className="codicon codicon-lightbulb" />
         <span data-slot="reasoning-part-title">Think</span>
-        {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
+        {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{progressiveSummary}</span>}
         <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
       </button>
       {open && (

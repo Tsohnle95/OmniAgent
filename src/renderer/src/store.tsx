@@ -1454,6 +1454,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         ...(attachments.length > 0 ? { attachments } : {})
       };
       updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
+      insertUserMessage(chatStateFor(panel.id), panel.id, userItem.id, promptText);
       setTodosFor(panel.workspace.id, []);
       setSessionBusy(panel.id, true);
       const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): void => {
