@@ -337,10 +337,10 @@ resize targets are wider than normal panel edges, and after 20px of outward drag
 resistance either panel opens directly at the available 280px minimum, matching
 click-to-open behavior without exposing a temporary narrower panel. As agent
 panels consume the editor area, its empty state progressively removes supporting
-copy, then lets the Omni mark wave goodbye with a rigid, logo-colored robotic
-arm before disappearing rather than compressing text. The farewell remains
-complete at narrower widths and resets only when the editor is wide enough to
-restore its primary instruction.
+copy, then lets the Omni mark blink its prompt-eye closed for one second and
+open for one second before disappearing rather than compressing text. The
+stepped farewell remains complete at narrower widths and resets only when the
+editor is wide enough to restore its primary instruction.
 
 ## Styles (`src/renderer/src/styles/`)
 

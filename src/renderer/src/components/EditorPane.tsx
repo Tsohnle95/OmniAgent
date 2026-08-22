@@ -264,9 +264,6 @@ export function EditorPane(): ReactNode {
         <div className="editor-empty">
           <div className="editor-empty-icon">
             <OmniMark size={40} />
-            <span className="editor-empty-wave-arm" aria-hidden="true">
-              <span className="editor-empty-wave-forearm" />
-            </span>
           </div>
           <p>Select a file from the explorer to view or edit it.</p>
           <p className="editor-empty-sub">
