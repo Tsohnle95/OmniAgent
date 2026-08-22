@@ -363,7 +363,7 @@ released at that collapsed position.
 ## Monaco (`monaco.ts`)
 
 - Workers wired for editor/json/css/html/ts (`?worker` imports).
-- `openshell-dark` and `omniagent-paper` themes (diff insert/remove colors included), selected with the persisted renderer color profile. Monaco
+- `omniagent-original` and `omniagent-paper` themes (diff insert/remove colors included), selected with the persisted renderer color profile. Monaco
   parses theme palette colors with `Color.fromHex`, which silently maps any
   non-hex value to pure red — every palette color must be hex
   (`#RRGGBB` or `#RRGGBBAA`), never `rgba()`.

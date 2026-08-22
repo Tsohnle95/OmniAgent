@@ -45,7 +45,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 ```
 
-When any OpenShell instance already holds the single-instance lock (same
+When any OmniAgent instance already holds the single-instance lock (same
 `userData` dir: `~/Library/Application Support/openshell`), every new launch
 quits with **zero output** and exit code 0. Reproduced:
 
@@ -116,7 +116,7 @@ zombie that then poisons all subsequent launches via finding 1.
 
 - The 12:48 PM `opencode2 serve --service` process seen during the incident is
   the user's own opencode2 CLI child process (`ps -o ppid` → their terminal
-  process), not an OpenShell spawn.
+  process), not an OmniAgent spawn.
 - The trust/IPC refactor: verified working by the Electron trust smoke and by
   a live window probe.
 - Build/test/typecheck breakage: all pass at HEAD; the tree is clean.
@@ -126,7 +126,7 @@ zombie that then poisons all subsequent launches via finding 1.
 Priority order:
 
 1. **Make the lock-conflict launch visible and useful** (`src/main/index.ts`):
-   log a clear line (e.g., "OpenShell is already running — activating the
+   log a clear line (e.g., "OmniAgent is already running — activating the
    existing window") before `app.quit()`; rely on the existing
    `second-instance` handler to foreground the running instance. Optionally
    show a native dialog. This alone turns "Process completed" from an

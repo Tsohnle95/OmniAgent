@@ -1,65 +1,80 @@
-# OmniAgent
+<div align="center">
+  <img src="resources/icon.svg" width="104" alt="OmniAgent logo">
+  <h1>OmniAgent</h1>
+  <p><strong>Every agent. One surface.</strong></p>
+  <p>A focused desktop cockpit for building with coding agents without losing sight of the code.</p>
+</div>
 
-OmniAgent is a native desktop cockpit for coding agents. Open a project,
-connect the harness you trust, describe what you want to build, and watch the
-agent work while you review the files it changes.
+![OmniAgent welcome screen](docs/images/omniagent-welcome-hero.png)
 
-## What You Get
+OmniAgent brings your agent, repository, diffs, and terminal into one calm,
+native workspace. Ask for a change, follow every step as it happens, inspect the
+exact files touched, and keep working without bouncing between a terminal,
+editor, and chat window.
 
-- **Live agent timeline** — streamed answers, exploration, tool calls,
-  subagents, todos, and permission requests.
-- **Project workspace** — file explorer, Monaco editor, tabs, autosave, and an
-  integrated terminal.
-- **Reviewable changes** — a Changes list and Edit/Diff views for files changed
-  during a session.
-- **Session continuity** — recent sessions, saved workspaces, and concurrent
-  model panels.
-- **Front-end tooling** — Emmet support plus W3C HTML and CSS validation in the
-  editor.
-- **Local desktop app** — Electron opens projects from your machine and
-  connects to the local OpenCode service.
+## Why OmniAgent
 
-## How It Works
+- **See the work, not just the answer.** Streamed reasoning summaries, tool
+  calls, subagents, todos, and permission requests stay visible in one timeline.
+- **Review changes where they happen.** A live Changes list and Monaco-powered
+  Edit/Diff views make every file modification easy to inspect.
+- **Run agents side by side.** Agent Mode turns the workspace into resizable,
+  concurrent session panels without hiding Sessions or your project context.
+- **Keep a real development environment.** Browse files, edit with autosave,
+  use Emmet, validate HTML and CSS, and open the integrated terminal.
+- **Stay in control.** Choose agents and models per workspace, attach files,
+  reference project context with `@`, and stop or redirect work at any time.
+- **Work locally.** OmniAgent opens repositories from your machine and connects
+  to your local OpenCode service.
 
-1. Open a folder or an individual file.
-2. Choose an agent and model, then send a prompt. Attach files or reference
-   workspace files with `@`.
-3. Follow the agent's progress in the timeline.
-4. Review changes in the editor or Diff view, then continue, edit, validate, or
-   stop the session.
+## One Workspace, Full Context
 
-## Requirements
+![OmniAgent workspace and agent composer](docs/images/omniagent-workspace.png)
 
-- macOS, Linux, or Windows
+The interface is deliberately direct: Sessions and files on the left, the
+editor in the center, and the active agent on the right. Open the terminal when
+you need it, expand Agent Mode when you want parallel work, or collapse panels
+to keep the code in focus.
+
+1. Open a repository or individual file.
+2. Pick an agent and model, then describe what you want to build.
+3. Watch the plan, tools, and file changes arrive live.
+4. Review the diff, edit directly, validate, and continue the conversation.
+
+## Built For Real Projects
+
+| Workspace | Agent | Review |
+|---|---|---|
+| File explorer and project sessions | Streaming turns and structured steps | Live Changes and per-file diffs |
+| Monaco editor with tabs and autosave | Multiple models and concurrent panels | Permission requests and recovery flows |
+| Integrated PTY terminal | Prompt queue, attachments, and `@` context | W3C HTML/CSS validation |
+
+OmniAgent is an Electron, React, and Monaco application powered by
+[`opencode2`](https://opencode.ai/v2). The Electron main process owns all
+service and filesystem access; the renderer receives a narrow preload API and
+live event stream.
+
+## Get Started
+
+### Requirements
+
 - Node 22.23.2 or later within the Node 22 release line
 - [`opencode2`](https://opencode.ai/v2) on your `PATH`, or an OpenCode service
   already running
+- macOS for the most complete and validated experience
 
-## Platform Status
-
-OmniAgent is currently **most functional and validated on macOS**. macOS has
-the primary development workflow, packaged `.app` support, Dock installation,
-and additional Electron and GUI smoke coverage.
-
-Linux and Windows support is **in progress**. Both platforms have automated CI
-coverage for launching Electron and testing real terminal/PTY input and output,
-but they do not yet have the same full GUI acceptance coverage as macOS. Expect
-rough edges and consider them development platforms until they receive more
-real-world testing.
-
-## Run From Source
+### Run From Source
 
 ```sh
-git clone https://github.com/Tsohnle95/OpenShell.git
-cd OpenShell
 npm install
 npm run dev
 ```
 
-OmniAgent discovers the OpenCode service and starts it automatically when
-needed. Select **Open a folder** when the app opens.
+Clone this repository, run those commands from its root, and OmniAgent will
+discover the OpenCode service or start it automatically. Choose **Open a
+folder** on the welcome screen to begin.
 
-## Build And Install
+### Build And Install
 
 ```sh
 npm run build          # compile and launch
@@ -68,30 +83,28 @@ npm start              # launch the existing build
 npm run pack           # package OmniAgent.app on macOS
 ```
 
-On macOS, the Welcome screen also includes **Install app**, which installs the
-packaged app into `/Applications`.
+On macOS, **Install app** on the welcome screen builds and installs
+`OmniAgent.app` into `/Applications`.
 
-## Development Checks
+## Platform Status
+
+macOS is the primary development and packaging target, with `.app` builds,
+Dock installation, and additional Electron and GUI smoke coverage. Linux and
+Windows have automated Electron launch and real PTY coverage, but remain
+development platforms while broader GUI acceptance testing is completed.
+
+## Contributing
 
 ```sh
 npm test
 npm run check
 ```
 
-`npm run check` runs typechecking, tests, documentation checks, and a
-production compile.
+`npm run check` runs strict TypeScript checks, the complete Vitest suite,
+documentation validation, and a production compile.
 
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [Walkthrough](docs/walkthrough.md)
-- [Events](docs/events.md)
-- [Main process](docs/main.md)
-- [Preload bridge](docs/preload.md)
-- [Renderer](docs/renderer.md)
-- [Shared types](docs/shared.md)
-- [Operations and troubleshooting](docs/operations.md)
-
-## Roadmap
-
-Open requests are tracked in [`TODO.md`](TODO.md).
+Deep dives: [Architecture](docs/architecture.md) ·
+[Walkthrough](docs/walkthrough.md) · [Events](docs/events.md) ·
+[Main process](docs/main.md) · [Preload bridge](docs/preload.md) ·
+[Renderer](docs/renderer.md) · [Shared types](docs/shared.md) ·
+[Operations](docs/operations.md)

@@ -193,7 +193,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 
       {mode === "diff" ? (
         <DiffEditor
-          theme={theme === "paper" ? "omniagent-paper" : "openshell-dark"}
+          theme={theme === "paper" ? "omniagent-paper" : "omniagent-original"}
           language={language}
           original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
@@ -210,7 +210,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         />
       ) : (
         <Editor
-          theme={theme === "paper" ? "omniagent-paper" : "openshell-dark"}
+          theme={theme === "paper" ? "omniagent-paper" : "omniagent-original"}
           language={language}
           path={tab.path}
           value={tab.content}

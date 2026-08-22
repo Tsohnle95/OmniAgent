@@ -30,7 +30,7 @@ loader.config({ monaco });
 emmetHTML(monaco, ["html"]);
 emmetCSS(monaco, ["css", "scss", "less"]);
 
-monaco.editor.defineTheme("openshell-dark", {
+monaco.editor.defineTheme("omniagent-original", {
   base: "vs-dark",
   inherit: true,
   rules: [

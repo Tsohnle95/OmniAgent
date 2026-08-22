@@ -341,10 +341,10 @@ function createWindow(show = true): BrowserWindow {
   wc.on("console-message", (event) => {
     console.log(`[renderer:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`);
   });
-  newWin.on("unresponsive", () => console.warn("[openshell] renderer is unresponsive"));
+  newWin.on("unresponsive", () => console.warn("[omniagent] renderer is unresponsive"));
   let lastRendererReload = 0;
   wc.on("render-process-gone", (_event, details) => {
-    console.error("[openshell] renderer process gone:", details.reason, details.exitCode);
+    console.error("[omniagent] renderer process gone:", details.reason, details.exitCode);
     if (newWin.isDestroyed() || Date.now() - lastRendererReload < 10_000) return;
     lastRendererReload = Date.now();
     wc.reload();
@@ -880,7 +880,7 @@ function registerIpc(): void {
 }
 
 if (!app.requestSingleInstanceLock()) {
-  console.log("[openshell] another instance is already running — exiting; the running instance will open or focus its window");
+  console.log("[omniagent] another instance is already running — exiting; the running instance will open or focus its window");
   app.quit();
 } else {
   process.on("uncaughtException", (err) => {

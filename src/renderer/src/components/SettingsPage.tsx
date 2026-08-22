@@ -15,7 +15,7 @@ const themes: Array<{ id: ThemeId; name: string; description: string; colors: st
   {
     id: "original",
     name: "Original",
-    description: "The original warm charcoal OpenShell color profile.",
+    description: "OmniAgent's original warm charcoal color profile.",
     colors: ["#171412", "#262220", "#e8e3dd", "#e8875f", "#a9cbad"]
   }
 ];

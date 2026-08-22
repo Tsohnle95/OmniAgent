@@ -114,9 +114,9 @@ median or jsdom timing as a cross-machine browser benchmark.
 
 1. `which opencode2` — binary present.
 2. `npm run build` (compiles then launches) with output captured to a log:
-   `nohup npm run build > /tmp/openshell-smoke.log 2>&1 &`
-3. After ~10s check the log for `[openshell]` console.error lines
-   (`[openshell] event loop error:` means the SSE subscription failed).
+   `nohup npm run build > /tmp/omniagent-smoke.log 2>&1 &`
+3. After ~10s check the log for `[omniagent]` console.error lines
+   (`[omniagent] event loop error:` means the SSE subscription failed).
 4. Verify the backend spawned its service:
    `pgrep -fl "opencode2 serve"` and
    `lsof -nP -iTCP -sTCP:LISTEN | grep -i opencode`.
@@ -203,7 +203,7 @@ call "should work" but something fails — probe the raw API.
 - Endpoints: `GET /api/model`, `GET /api/model/default`,
   `GET /api/fs/list?<query>`.
 - **Query-serialization gotcha**: nested params use bracket notation —
-  `location[directory]=/Users/ty/openshell`. A JSON-stringified
+  `location[directory]=/Users/ty/omniagent`. A JSON-stringified
   `location={"directory":...}` is rejected with
   `Expected object | undefined, got string at ["location"]`. The
   `@opencode-ai/client` does this correctly itself

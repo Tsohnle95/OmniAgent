@@ -1054,10 +1054,10 @@ export class OpenShellBackend {
         if (this.shouldSkip(abs, context.directory)) return;
         this.scheduleWatch(context.watchContext, abs, event);
       });
-      context.watcher.on("error", (err) => console.error("[openshell] watcher error:", err));
-      console.log("[openshell] watching", context.directory);
+      context.watcher.on("error", (err) => console.error("[omniagent] watcher error:", err));
+      console.log("[omniagent] watching", context.directory);
     } catch (err) {
-      console.error("[openshell] fs.watch unavailable, live updates disabled:", err);
+      console.error("[omniagent] fs.watch unavailable, live updates disabled:", err);
     }
   }
 

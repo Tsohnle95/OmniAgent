@@ -47,8 +47,7 @@ See `docs/` for full docs: `architecture.md` (system overview),
 `walkthrough.md` (guided tour of the connections), `events.md` (opencode2
 event protocol), `operations.md` (run/verify/debug playbook), `main.md`,
 `preload.md`, `renderer.md`, `shared.md`. Open product
-requests live in the README's roadmap section; the actionable working
-queue is `TODO.md` — start a session by reading both.
+requests and current priorities live in the README and repository issues.
 
 ## Architecture in one paragraph
 
@@ -111,7 +110,7 @@ The agent owns version control — the user should never see a dirty tree.
 The brain is `AGENTS.md` + `docs/`. It must never drift from the code.
 
 - `npm run docs:check` runs the documented surface presence check in
-  `scripts/check-docs.mjs`. It checks `AGENTS.md`, `README.md`, `TODO.md`,
+  `scripts/check-docs.mjs`. It checks `AGENTS.md`, `README.md`,
   and every `docs/*.md` file for local Markdown link
   targets, numeric source references, and duplicate table inventory rows.
   Against source, it inventories IPC channels, `OpenShellBackend` public

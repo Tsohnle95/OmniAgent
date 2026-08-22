@@ -47,7 +47,7 @@ const docsFiles = (await readdir(path.join(root, "docs")))
   .filter((file) => file.endsWith(".md"))
   .sort()
   .map((file) => `docs/${file}`);
-const documentationFiles = ["AGENTS.md", "README.md", "TODO.md", ...docsFiles];
+const documentationFiles = ["AGENTS.md", "README.md", ...docsFiles];
 const documentation = new Map(await Promise.all(documentationFiles.map(async (file) => [file, await read(file)])));
 
 for (const [file, markdown] of documentation) {
