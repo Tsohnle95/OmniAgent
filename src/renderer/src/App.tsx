@@ -806,17 +806,17 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </div>}
       </div>
 
-      {!settingsOpen && <div
+      <div
         className={`tray-area ${trayOpen ? "open" : ""} ${trayDragging ? "dragging" : ""}`}
         style={{ "--tray-height": `${trayH}px` } as CSSProperties}
       >
-        <div className="tray-inner">
+        {!settingsOpen && <div className="tray-inner">
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
           <TerminalTray height={trayH} snapped={traySnapped} onClose={closeTray} onExpand={expandTray} />
-        </div>
-      </div>}
+        </div>}
+      </div>
 
-      {!settingsOpen && <StatusBar />}
+      {settingsOpen ? <div className="statusbar settings-statusbar" aria-hidden /> : <StatusBar />}
       <Toasts />
       <RecoveryNotice />
     </div>

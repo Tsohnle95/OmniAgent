@@ -57,14 +57,14 @@ describe("SettingsPage", () => {
     expect(cards[1].getAttribute("aria-checked")).toBe("true");
   });
 
-  it("provides dedicated settings navigation with About at the bottom", () => {
+  it("provides dedicated settings navigation with About as the final tab", () => {
     const onSectionChange = vi.fn();
     const onClose = vi.fn();
     act(() => root.render(<SettingsSidebar section="appearance" onSectionChange={onSectionChange} onClose={onClose} />));
 
     const labels = [...container.querySelectorAll<HTMLButtonElement>(".settings-nav-item")].map((button) => button.textContent);
     expect(labels).toEqual(["Appearance", "Plugins", "Providers", "Safety", "Voice", "Model", "Mobile Setup", "About"]);
-    expect(container.querySelector(".settings-nav-bottom")?.textContent).toContain("About");
+    expect(container.querySelector<HTMLButtonElement>(".settings-nav-item:last-child")?.textContent).toBe("About");
 
     act(() => container.querySelectorAll<HTMLButtonElement>(".settings-nav-item")[5].click());
     expect(onSectionChange).toHaveBeenCalledWith("model");

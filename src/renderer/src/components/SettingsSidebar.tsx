@@ -18,7 +18,8 @@ const primarySections: Array<{ id: SettingsSection; label: string; icon: ReactNo
   { id: "safety", label: "Safety", icon: <IconShield /> },
   { id: "voice", label: "Voice", icon: <IconMic /> },
   { id: "model", label: "Model", icon: <IconRobot /> },
-  { id: "mobile", label: "Mobile Setup", icon: <IconDashboard /> }
+  { id: "mobile", label: "Mobile Setup", icon: <IconDashboard /> },
+  { id: "about", label: "About", icon: <IconDashboard /> }
 ];
 
 export function SettingsSidebar({
@@ -51,9 +52,6 @@ export function SettingsSidebar({
       <nav className="settings-nav" aria-label="Settings sections">
         {primarySections.map(({ id, label, icon }) => item(id, label, icon))}
       </nav>
-      <div className="settings-nav-bottom">
-        {item("about", "About", <IconDashboard />)}
-      </div>
       <div className="sidebar-footer">
         <button className="icon-btn sidebar-cog on" title="Back to workspace" aria-label="Back to workspace" onClick={onClose}>
           <IconGear />
