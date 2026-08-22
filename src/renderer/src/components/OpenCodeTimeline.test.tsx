@@ -118,6 +118,60 @@ describe("OpenCodeTimeline chronology", () => {
     expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Thinking");
   });
 
+  it("consolidates adjacent reasoning into one thought without repeating snapshots", () => {
+    const transcript: TranscriptItem[] = [{
+      kind: "assistant",
+      id: "assistant-reasoning",
+      messageID: "assistant-reasoning",
+      completed: true,
+      parts: [
+        { kind: "reasoning", id: "reasoning-1", text: "Inspecting the code", complete: true },
+        { kind: "reasoning", id: "reasoning-2", text: "Inspecting the code", complete: true },
+        { kind: "reasoning", id: "reasoning-3", text: "Planning the fix", complete: true }
+      ]
+    }];
+    act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
+
+    expect(container.querySelectorAll("[data-component='reasoning-part']")).toHaveLength(1);
+    act(() => container.querySelector<HTMLButtonElement>("[data-slot='reasoning-part-trigger']")!.click());
+    expect(container.querySelector("[data-slot='reasoning-part-content']")?.textContent).toBe("Inspecting the code\nPlanning the fix");
+  });
+
+  it("keeps reasoning separated by a tool as distinct thoughts", () => {
+    const transcript: TranscriptItem[] = [{
+      kind: "assistant",
+      id: "assistant-reasoning",
+      messageID: "assistant-reasoning",
+      completed: true,
+      parts: [
+        { kind: "reasoning", id: "reasoning-1", text: "Before", complete: true },
+        ...((toolAssistant("tool", "bash", { command: "pwd" }) as Extract<TranscriptItem, { kind: "assistant" }>).parts),
+        { kind: "reasoning", id: "reasoning-2", text: "After", complete: true }
+      ]
+    }];
+    act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
+
+    expect(container.querySelectorAll("[data-component='reasoning-part']")).toHaveLength(2);
+  });
+
+  it("hides arbitrary generic tool arguments and exposes long details as a tooltip", () => {
+    const generic = toolAssistant("tool", "tool", { limit: 40, content: "private" }) as Extract<TranscriptItem, { kind: "assistant" }>;
+    const transcript: TranscriptItem[] = [{
+      ...generic,
+      parts: [{
+        kind: "tool",
+        id: "tool:part",
+        tool: { id: "tool:part", title: "tool", detail: "a very long diagnostic detail", status: "success", input: JSON.stringify({ limit: 40, content: "private" }) }
+      }]
+    }];
+    act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
+
+    expect(container.querySelector("[data-slot='basic-tool-tool-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Tool");
+    expect(container.textContent).not.toContain("limit=40");
+    expect(container.textContent).not.toContain("content=private");
+    expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")?.getAttribute("title")).toBe("a very long diagnostic detail");
+  });
+
   it.each(events)("keeps an interleaved %s event between assistant runs", (_name, event, row) => {
     act(() => root.render(
       <OpenCodeTimeline transcript={[assistant("before"), event, assistant("after")]} busy={false} lastAssistantId={null} />

@@ -490,7 +490,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       const partSessionID = typeof part.sessionID === "string" ? part.sessionID : sessionID;
       if (!messageID) return false;
       const missingOwningMessage = !hasMessage(draft, partSessionID, messageID);
-      const next: ChatPartRecord = {
+      let next: ChatPartRecord = {
         ...part,
         id: String(part.id ?? ""),
         messageID,
@@ -500,8 +500,21 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!next.id) return false;
       if (next.type === "tool") {
         const parts = draft.part[messageID] ?? [];
-        const hasRawID = Binary.search(parts, next.id, (item) => item.id).found;
-        if (!hasRawID) next.id = toolPartID(messageID, next.id);
+        const callID = String(part.callID ?? next.id);
+        const canonicalID = toolPartID(messageID, callID);
+        const canonical = Binary.search(parts, canonicalID, (item) => item.id);
+        if (canonical.found) {
+          const previous = parts[canonical.index];
+          next = {
+            ...previous,
+            ...next,
+            id: canonicalID,
+            callID,
+            state: { ...previous.state, ...next.state }
+          };
+        } else if (!Binary.search(parts, next.id, (item) => item.id).found) {
+          next.id = canonicalID;
+        }
       }
       upsertPart(draft, next);
       return missingOwningMessage

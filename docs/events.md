@@ -84,7 +84,7 @@ regressing longer live text.
 | `session.compaction.failed` | Finalizes compaction with its structured error |
 | `message.updated` | Upserts the authoritative assistant message (skipped when unchanged) with its completion/error state |
 | `message.removed` | Removes the assistant message and its parts from the authoritative store |
-| `message.part.updated` | Authoritatively reconciles an ordered text, reasoning, or tool part; requests materialization when the owning message is missing |
+| `message.part.updated` | Authoritatively reconciles an ordered text, reasoning, or tool part; tool snapshots use `callID` to merge with their live row while retaining fields omitted by the snapshot, and missing owning messages request materialization |
 | `message.part.delta` | Appends a text/input/output field delta; orphan and missing-part deltas trigger materialization |
 | `message.part.removed` | Removes the part from the authoritative store |
 | `server.connected` | Re-materializes every open session from the authoritative message history (emitted by the server and synthetically by main after a stream reconnect) |

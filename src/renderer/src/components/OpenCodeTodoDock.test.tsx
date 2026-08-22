@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TranscriptItem } from "@shared/types";
+import type { TodoItem } from "@shared/types";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 
 describe("OpenCodeTodoDock", () => {
@@ -15,31 +15,33 @@ describe("OpenCodeTodoDock", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows structured tool activity as steps when the agent has no todo plan", () => {
+  it("does not turn ordinary tool activity into a todo plan", () => {
     const container = document.createElement("div");
     containers.push(container);
     document.body.append(container);
     const root = createRoot(container);
-    const transcript: TranscriptItem[] = [
-      { kind: "user", id: "user", text: "Fix the issue" },
-      {
-        kind: "assistant",
-        id: "assistant",
-        messageID: "message",
-        completed: false,
-        parts: [
-          { kind: "tool", id: "read", tool: { id: "read", title: "Inspect files", detail: "src", status: "success" } },
-          { kind: "tool", id: "edit", tool: { id: "edit", title: "Apply changes", detail: "", status: "running" } }
-        ]
-      }
+    act(() => root.render(<OpenCodeTodoDock todos={[]} />));
+
+    expect(container.querySelector("[data-component='session-todo-dock']")).toBeNull();
+    act(() => root.unmount());
+  });
+
+  it("shows only the agent's structured todo plan", () => {
+    const container = document.createElement("div");
+    containers.push(container);
+    document.body.append(container);
+    const root = createRoot(container);
+    const todos: TodoItem[] = [
+      { id: "inspect", content: "Inspect the layout", status: "completed" },
+      { id: "fix", content: "Fix the overflow", status: "in_progress" }
     ];
 
-    act(() => root.render(<OpenCodeTodoDock todos={[]} transcript={transcript} />));
+    act(() => root.render(<OpenCodeTodoDock todos={todos} />));
 
     expect(container.querySelector("[data-slot='session-todo-progress']")?.textContent).toBe("1 of 2 steps completed");
     expect([...container.querySelectorAll("[data-slot='todo-content']")].map((item) => item.textContent)).toEqual([
-      "Inspect files · src",
-      "Apply changes"
+      "Inspect the layout",
+      "Fix the overflow"
     ]);
     act(() => root.unmount());
   });

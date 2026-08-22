@@ -308,6 +308,35 @@ describe("tool part id aliasing", () => {
     expect(String(parts[0].state?.status)).toBe("completed");
   });
 
+  it("merges a server part id onto its call id without losing the live tool name", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("m1", "message.updated", {
+      sessionID: "s",
+      info: { id: "msg_1", sessionID: "s", role: "assistant", time: { created: 100 } }
+    }));
+    seedLiveToolRow(draft);
+
+    applyChatEvent(draft, "s", event("u", "message.part.updated", {
+      sessionID: "s",
+      part: {
+        id: "part_1",
+        callID: "call_1",
+        messageID: "msg_1",
+        sessionID: "s",
+        type: "tool",
+        state: { status: "completed", output: "done" }
+      }
+    }));
+
+    expect(draft.part.msg_1).toHaveLength(1);
+    expect(draft.part.msg_1[0]).toMatchObject({
+      id: "msg_1:tool:call_1",
+      name: "bash",
+      callID: "call_1",
+      state: { status: "completed", input: { command: "echo hi" }, output: "done" }
+    });
+  });
+
   it("applies server deltas addressed by raw call id to the live row", () => {
     const draft = state();
     seedLiveToolRow(draft);

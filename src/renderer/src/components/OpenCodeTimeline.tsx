@@ -354,7 +354,7 @@ function taskChildID(tool: ToolCallView, sessions: SessionSummary[], parentID: s
   });
 }
 
-function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; args: string[]; path?: string } {
+function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; path?: string } {
   const name = toolKey(tool.title);
   const input = parseInput(tool.input);
   let title = titleCase(tool.title);
@@ -399,12 +399,7 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   } else if (name === "question") {
     title = "Questions";
   }
-  const skipped = new Set(["description", "query", "url", "filePath", "file_path", "path", "pattern", "name", "command"]);
-  const args = Object.entries(input)
-    .filter(([key, child]) => !skipped.has(key) && ["string", "number", "boolean"].includes(typeof child))
-    .map(([key, child]) => `${key}=${String(child)}`)
-    .slice(0, 3);
-  return { title, subtitle, args, path };
+  return { title, subtitle, path };
 }
 
 interface EditFileEntry {
@@ -748,6 +743,7 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
                       <span
                         data-slot="basic-tool-tool-subtitle"
                         className={presentation.path ? "clickable" : undefined}
+                        title={presentation.subtitle}
                         onClick={(event) => {
                           if (!presentation.path) return;
                           event.stopPropagation();
@@ -757,9 +753,6 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
                         {presentation.subtitle}
                       </span>
                     )}
-                    {presentation.args.map((arg) => (
-                      <span data-slot="basic-tool-tool-arg" key={arg}>{arg}</span>
-                    ))}
                   </div>
                 </div>
               </div>
@@ -852,7 +845,7 @@ function ContextToolGroup({ tools, busy }: { tools: ToolCallView[]; busy: boolea
                               <TextShimmer text={presentation.title} active={tool.status === "running"} />
                             </span>
                             {presentation.subtitle && (
-                              <span data-slot="basic-tool-tool-subtitle">{presentation.subtitle}</span>
+                              <span data-slot="basic-tool-tool-subtitle" title={presentation.subtitle}>{presentation.subtitle}</span>
                             )}
                           </div>
                         </div>
@@ -952,10 +945,29 @@ function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; 
       continue;
     }
     if (part.kind === "reasoning") {
+      const reasoning = [part];
+      let active = streaming && item.id === items.at(-1)?.id;
+      while (index + 1 < parts.length && parts[index + 1].part.kind === "reasoning") {
+        const next = parts[index + 1];
+        if (next.part.kind !== "reasoning") break;
+        reasoning.push(next.part);
+        active ||= streaming && next.item.id === items.at(-1)?.id;
+        index += 1;
+      }
+      const text = reasoning
+        .map((entry) => entry.text.trim())
+        .filter((entry, entryIndex, entries) => entry && entry !== entries[entryIndex - 1])
+        .join("\n\n");
+      const merged = {
+        ...reasoning[0],
+        id: reasoning.map((entry) => entry.id).join(":"),
+        text,
+        complete: reasoning.every((entry) => entry.complete)
+      };
       rows.push(
-        <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
+        <TimelineRow tag="AssistantPart" previous={previous} key={merged.id}>
           <div data-slot="session-turn-assistant-content">
-            <ReasoningPart part={part} streaming={streaming && item.id === items.at(-1)?.id} />
+            <ReasoningPart part={merged} streaming={active} />
           </div>
         </TimelineRow>
       );

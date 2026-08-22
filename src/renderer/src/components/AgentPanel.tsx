@@ -1463,7 +1463,7 @@ export function AgentPanel({
 
       <div data-component="session-prompt-dock">
         {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
-        <OpenCodeTodoDock todos={todos} transcript={transcript} />
+        <OpenCodeTodoDock todos={todos} />
         <Composer session={activeSession} />
       </div>
     </div>
