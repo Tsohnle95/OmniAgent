@@ -239,7 +239,7 @@ function ReasoningPart({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span data-slot="reasoning-part-title"><TextShimmer text="Thinking" active={active} tone="thinking" /></span>
+        <span data-slot="reasoning-part-title"><TextShimmer text={active ? "Thinking" : "Thought"} active={active} tone="thinking" /></span>
       </button>
       {open && (
         <div data-slot="reasoning-part-content" id={contentID} onClick={() => setOpen(false)}>

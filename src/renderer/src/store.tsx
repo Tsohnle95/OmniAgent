@@ -2694,8 +2694,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const pendingPermissions = transcript.filter((item) => item.kind === "permission" && item.pending).length;
       const activity = resolveSessionActivity({
         sessionId: panel.id,
-        statusType: busyBySession[panel.id] && trailingAssistantIncomplete
-          ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
+        statusType: panel.id in busyBySession
+          ? (busyBySession[panel.id]
+              ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
+              : "idle")
           : undefined,
         trailingAssistantIncomplete,
         pendingPermissions

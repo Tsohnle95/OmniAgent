@@ -27,6 +27,14 @@ const assistant = (id: string): TranscriptItem => ({
   parts: [{ kind: "text", id: `${id}:text`, text: id, complete: true }]
 });
 
+const reasoningAssistant = (complete: boolean): TranscriptItem => ({
+  kind: "assistant",
+  id: "assistant-reasoning",
+  messageID: "assistant-reasoning",
+  completed: complete,
+  parts: [{ kind: "reasoning", id: "reasoning-1", text: "Inspecting the code", complete }]
+});
+
 const toolAssistant = (id: string, title: string, input: Record<string, unknown>, metadata?: Record<string, unknown>): TranscriptItem => ({
   kind: "assistant",
   id,
@@ -83,6 +91,31 @@ describe("OpenCodeTimeline chronology", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+  });
+
+  it("labels completed reasoning as thought", () => {
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[reasoningAssistant(true)]}
+        busy={false}
+        lastAssistantId={null}
+      />
+    ));
+
+    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Thought");
+    expect(container.textContent).not.toContain("Thinking");
+  });
+
+  it("keeps live reasoning labeled as thinking", () => {
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[reasoningAssistant(false)]}
+        busy
+        lastAssistantId="assistant-reasoning"
+      />
+    ));
+
+    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Thinking");
   });
 
   it.each(events)("keeps an interleaved %s event between assistant runs", (_name, event, row) => {

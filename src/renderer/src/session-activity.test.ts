@@ -47,6 +47,15 @@ describe("session activity", () => {
     })).toEqual({ phase: "busy", isWorking: true, isBusy: true, isCooldown: false });
   });
 
+  it("honors authoritative idle despite a trailing incomplete assistant", () => {
+    expect(resolveSessionActivity({
+      sessionId: "s",
+      statusType: "idle",
+      trailingAssistantIncomplete: true,
+      pendingPermissions: 0
+    })).toBe(IDLE_ACTIVITY);
+  });
+
   it("is idle when the trailing assistant completed", () => {
     expect(resolveSessionActivity({
       sessionId: "s",
