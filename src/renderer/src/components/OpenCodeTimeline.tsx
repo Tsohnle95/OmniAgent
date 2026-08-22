@@ -570,6 +570,65 @@ function SubagentIcon(): ReactNode {
   );
 }
 
+function DelegatedAgentCard({
+  component,
+  surface,
+  id,
+  title,
+  agent,
+  description,
+  status,
+  state,
+  tone,
+  childID,
+  onOpen
+}: {
+  component: "task-tool-card" | "subagent-link-card";
+  surface: "task-tool-surface" | "subagent-link-surface";
+  id: string;
+  title: string;
+  agent: string;
+  description: string;
+  status: string;
+  state: string;
+  tone: "working" | "complete" | "failed";
+  childID: string;
+  onOpen: () => void;
+}): ReactNode {
+  const detail = description.trim() && description.trim() !== title.trim() ? description.trim() : "";
+  return (
+    <div data-component={component} data-state={state} data-timeline-part-id={id}>
+      <button
+        data-component={surface}
+        className="delegated-agent-surface"
+        disabled={!childID}
+        aria-label={childID ? `Open delegated agent session: ${title}` : `Delegated agent: ${title}`}
+        title={childID ? `Open ${title} session` : undefined}
+        onClick={onOpen}
+      >
+        <span data-component={tone === "working" ? "task-tool-spinner" : tone === "failed" ? "subagent-link-state" : "task-tool-icon"}>
+          {tone === "working" ? <SessionProgressIndicator /> : tone === "failed" ? <span className="codicon codicon-error" /> : <SubagentIcon />}
+        </span>
+        <span data-slot="delegated-agent-content">
+          <span data-slot="delegated-agent-meta">
+            <span data-component="task-tool-kind">Delegated agent</span>
+            {agent && <span data-component="task-tool-agent">@{agent}</span>}
+          </span>
+          <span data-component="task-tool-title">{title}</span>
+          {detail && <span data-slot="basic-tool-tool-subtitle">{detail}</span>}
+        </span>
+        <span data-slot="delegated-agent-tail">
+          <span data-component="task-tool-status" data-status={tone} title={status}>
+            <span data-slot="task-tool-status-dot" />
+            <span data-slot="task-tool-status-label">{status}</span>
+          </span>
+          {childID && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {
   const { agents, sessions, reopenSession } = useStore();
   const input = parseInput(tool.input);
@@ -597,38 +656,19 @@ function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   const detail = description || childSession;
   const subtitle = tool.metadata?.background === true && detail ? `${detail} (background)` : detail;
   const running = tool.status === "running";
-  return (
-    <div data-component="task-tool-card" data-state={tool.status} data-timeline-part-id={tool.id}>
-      <button
-        data-component="task-tool-surface"
-        disabled={!childSession}
-        title={childSession ? `Open ${title} session` : undefined}
-        onClick={() => childSession && void reopenSession(childSession)}
-      >
-        {running ? (
-          <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
-        ) : (
-          <span data-component="task-tool-icon"><SubagentIcon /></span>
-        )}
-        <div data-slot="basic-tool-tool-info-structured">
-          <div data-slot="task-tool-heading">
-            <span data-component="task-tool-kind">Delegated agent</span>
-            <span data-component="task-tool-title">{title}</span>
-            {agentName && titleCase(agentName) !== title && (
-              <span data-component="task-tool-agent">@{agentName}</span>
-            )}
-          </div>
-          {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
-        </div>
-        <span data-component="task-tool-status" data-status={running ? "working" : tool.status === "failed" ? "failed" : "complete"}>
-          <span data-slot="task-tool-status-dot" />
-          {running ? "Working" : tool.status === "failed" ? "Failed" : "Complete"}
-        </span>
-        {childSession && <span data-component="task-tool-action">Open session</span>}
-        {childSession && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
-      </button>
-    </div>
-  );
+  return <DelegatedAgentCard
+    component="task-tool-card"
+    surface="task-tool-surface"
+    id={tool.id}
+    title={title}
+    agent={agentName}
+    description={subtitle}
+    status={running ? "Working" : tool.status === "failed" ? "Failed" : "Complete"}
+    state={tool.status}
+    tone={running ? "working" : tool.status === "failed" ? "failed" : "complete"}
+    childID={childSession}
+    onOpen={() => childSession && void reopenSession(childSession)}
+  />;
 }
 
 function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind: "synthetic" }>; session: SessionInfo | null }): ReactNode {
@@ -653,41 +693,22 @@ function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind:
       : agentName
         ? titleCase(agentName)
         : "Subagent";
-  const detail = !ref?.id && ref?.description
+  const detail = ref?.description
     ? (ref.description.length > 100 ? `${ref.description.slice(0, 100)}…` : ref.description)
-    : [agentName ? `@${agentName}` : "", statusLabel].filter(Boolean).join(" · ");
-  return (
-    <div data-component="subagent-link-card" data-state={state || "running"} data-timeline-part-id={item.id}>
-      <button
-        data-component="subagent-link-surface"
-        disabled={!childID}
-        title={childID ? `Open ${title} session` : undefined}
-        onClick={() => childID && void reopenSession(childID)}
-      >
-        {running ? (
-          <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
-        ) : failed ? (
-          <span data-component="subagent-link-state"><span className="codicon codicon-error" /></span>
-        ) : (
-          <span data-component="task-tool-icon"><SubagentIcon /></span>
-        )}
-        <div data-slot="basic-tool-tool-info-structured">
-          <div data-slot="task-tool-heading">
-            <span data-component="task-tool-kind">Delegated agent</span>
-            <span data-component="task-tool-title">{title}</span>
-            {agentName && !resolved && <span data-component="task-tool-agent">@{agentName}</span>}
-          </div>
-          {detail && <span data-slot="basic-tool-tool-subtitle">{detail}</span>}
-        </div>
-        <span data-component="task-tool-status" data-status={failed ? "failed" : running ? "working" : "complete"}>
-          <span data-slot="task-tool-status-dot" />
-          {statusLabel}
-        </span>
-        {childID && <span data-component="task-tool-action">Open session</span>}
-        {childID && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
-      </button>
-    </div>
-  );
+    : "";
+  return <DelegatedAgentCard
+    component="subagent-link-card"
+    surface="subagent-link-surface"
+    id={item.id}
+    title={title}
+    agent={agentName}
+    description={detail}
+    status={statusLabel}
+    state={state || "running"}
+    tone={failed ? "failed" : running ? "working" : "complete"}
+    childID={childID}
+    onOpen={() => childID && void reopenSession(childID)}
+  />;
 }
 
 function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {

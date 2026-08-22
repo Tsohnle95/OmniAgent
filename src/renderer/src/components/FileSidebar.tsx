@@ -526,7 +526,7 @@ export function FileSidebar({
 
   if (collapsed) {
     return (
-      <div className="sidebar collapsed" onMouseDown={onDrag}>
+      <div className="sidebar collapsed">
         <button
           className="activity-btn"
           title="Explorer"

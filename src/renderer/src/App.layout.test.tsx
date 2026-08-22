@@ -227,6 +227,29 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
+  it("snaps the collapsed explorer to its minimum width as soon as it is dragged open", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(gridCols()[0]).toBe("44px");
+
+    const divider = container.querySelector<HTMLElement>(".divider.collapsed")!;
+    await act(async () => {
+      divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 44 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 45 }));
+    });
+    expect(gridCols()[0]).toBe("280px");
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(gridCols()[0]).toBe("280px");
+  });
+
   it("keeps the anchored agent against the compact explorer tray", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
@@ -516,7 +539,12 @@ describe("Layout panel sizing", () => {
       sliver.querySelector<HTMLElement>(".panel-resize-left")!.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, clientX: 669 })
       );
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 600 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 668 }));
+    });
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
+    expect(agentWidths()).toEqual([280, 280]);
+
+    await act(async () => {
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });

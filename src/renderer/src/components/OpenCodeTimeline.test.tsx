@@ -269,7 +269,12 @@ describe("subagent dispatch links", () => {
 
     expect(container.querySelectorAll("[data-component='task-tool-card'], [data-component='subagent-link-card']")).toHaveLength(1);
     expect(container.querySelector("[data-component='task-tool-kind']")?.textContent).toBe("Delegated agent");
-    expect(container.querySelector("[data-component='task-tool-action']")?.textContent).toBe("Open session");
+    expect(container.querySelector("[data-slot='delegated-agent-content']")).not.toBeNull();
+    expect(container.querySelector("[data-slot='delegated-agent-tail']")).not.toBeNull();
+    expect(container.querySelector("[data-slot='task-tool-status-label']")?.textContent).toBe("Complete");
+    expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")).toBeNull();
+    expect(container.querySelector("[data-component='task-tool-surface']")?.getAttribute("aria-label"))
+      .toBe("Open delegated agent session: Inspect the renderer");
   });
 
   it("keeps cards for distinct child sessions separate", () => {
