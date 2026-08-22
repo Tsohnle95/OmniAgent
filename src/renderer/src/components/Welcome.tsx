@@ -76,12 +76,14 @@ export function Welcome(): ReactNode {
   }, []);
 
   useEffect(() => {
-    if (tab === "sessions" && !loading && sessions.length === 0 && projects.length > 0) {
+    if (tab === "sessions" && !loading && sessions.every((session) => (session.runtimeID ?? "opencode") !== selectedRuntimeID) && projects.length > 0) {
       setTab("projects");
     }
-  }, [tab, loading, sessions.length, projects.length]);
+  }, [tab, loading, sessions, projects.length, selectedRuntimeID]);
 
   const isSessions = tab === "sessions";
+  const runtimeSessions = sessions.filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID);
+  const selectedRuntimeName = runtimes.find((runtime) => runtime.id === selectedRuntimeID)?.name ?? selectedRuntimeID;
 
   return (
     <>
@@ -166,7 +168,7 @@ export function Welcome(): ReactNode {
                 onClick={() => setTab("sessions")}
               >
                 Sessions
-                <span className="welcome-tab-count">{sessions.length}</span>
+                <span className="welcome-tab-count">{runtimeSessions.length}</span>
               </button>
               <button
                 role="tab"
@@ -182,10 +184,10 @@ export function Welcome(): ReactNode {
             <div className="welcome-list" role="tabpanel">
               <div className={`welcome-pane ${isSessions ? "" : "hidden"}`} aria-hidden={!isSessions}>
                 {loading && <p className="welcome-empty">Loading…</p>}
-                {!loading && sessions.length === 0 && (
-                  <p className="welcome-empty">No recent sessions yet — open a folder to start one.</p>
+                {!loading && runtimeSessions.length === 0 && (
+                  <p className="welcome-empty">No recent {selectedRuntimeName} sessions yet — open a folder to start one.</p>
                 )}
-                {sessions.map((s) => (
+                {runtimeSessions.map((s) => (
                   <button
                     key={s.id}
                     className="welcome-row"
