@@ -62,7 +62,9 @@ vi.mock("../store", () => ({
 vi.mock("../emmet-keys", () => ({ wireEmmetKeys: vi.fn() }));
 vi.mock("@monaco-editor/react", () => ({
   default: () => <div data-testid="editor" />,
-  DiffEditor: () => <div data-testid="diff-editor" />
+  DiffEditor: ({ options }: { options?: { renderOverviewRuler?: boolean } }) => (
+    <div data-testid="diff-editor" data-overview-ruler={String(options?.renderOverviewRuler)} />
+  )
 }));
 vi.mock("../monaco", () => ({
   languageForPath: () => "typescript",
@@ -80,6 +82,8 @@ describe("unknown baseline presentation", () => {
 
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    store.tabs = [tab];
+    store.activePath = tab.path;
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -107,5 +111,18 @@ describe("unknown baseline presentation", () => {
     expect(unavailable?.hasAttribute("disabled")).toBe(true);
     expect(container.querySelector("[data-testid=editor]")).toBeTruthy();
     expect(container.querySelector("[data-testid=diff-editor]")).toBeNull();
+  });
+
+  it("enables the diff overview ruler for known baselines", () => {
+    const knownTab: Tab = {
+      ...tab,
+      baseline: { kind: "known", content: "before" }
+    };
+    store.tabs = [knownTab];
+    store.activePath = knownTab.path;
+
+    act(() => root.render(<ThemeProvider><EditorPane /></ThemeProvider>));
+
+    expect(container.querySelector("[data-testid=diff-editor]")?.getAttribute("data-overview-ruler")).toBe("true");
   });
 });

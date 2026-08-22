@@ -204,7 +204,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
             renderSideBySide: false,
             ignoreTrimWhitespace: false,
             enableSplitViewResizing: false,
-            renderOverviewRuler: false,
+            renderOverviewRuler: true,
             overviewRulerBorder: false
           }}
         />
