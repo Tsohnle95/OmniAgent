@@ -37,6 +37,7 @@ import { mergeChatHistory, reduceChatStream, type ChatStreamEvent } from "./chat
 import {
   applyChatEvent,
   attachRetryToLatestAssistant,
+  completeLatestIncomplete,
   hydrateChatState,
   insertUserMessage,
   projectAssistantItems,
@@ -386,6 +387,9 @@ const EMPTY_TABS: Tab[] = [];
 const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
 const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
+const STREAM_SETTLE_MS = 60_000;
+const STREAM_SETTLE_POLL_MS = 1_000;
+const ABORT_RESTORE_SUPPRESS_MS = 10_000;
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
@@ -502,6 +506,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   panelsRef.current = panels;
   const transcriptsBySessionRef = useRef(transcriptsBySession);
   transcriptsBySessionRef.current = transcriptsBySession;
+  const busyBySessionRef = useRef(busyBySession);
+  busyBySessionRef.current = busyBySession;
+  const sessionAbortFlagsRef = useRef(sessionAbortFlags);
+  sessionAbortFlagsRef.current = sessionAbortFlags;
+  const lastStreamActivityRef = useRef<Record<string, number>>({});
   const streamingRef = useRef<StreamingStore>(streamingStore);
   const messageQueueRef = useRef<MessageQueueState>(messageQueue);
   const autoSendInFlightRef = useRef(new Set<string>());
@@ -738,6 +747,31 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     const next = updateStreamingState(chatStateFor(sessionID), streamingRef.current);
     if (next) commitStreaming(next);
   }, [chatStateFor, commitStreaming]);
+
+  useEffect(() => {
+    const finalizeTrailingAssistant = (sessionID: string): void => {
+      completeLatestIncomplete(chatStateFor(sessionID), sessionID);
+      applyProjection(sessionID);
+      reconcileStreaming(sessionID);
+      setSessionBusy(sessionID, false);
+    };
+    const timer = setInterval(() => {
+      const now = Date.now();
+      for (const panel of panelsRef.current) {
+        const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
+        const trailing = [...transcript].reverse().find((item) => item.kind === "assistant");
+        if (trailing?.kind !== "assistant" || trailing.completed) continue;
+        if (busyBySessionRef.current[panel.id]) {
+          if (trailing.retry) continue;
+          const lastActivity = lastStreamActivityRef.current[panel.id];
+          if (lastActivity === undefined) lastStreamActivityRef.current[panel.id] = now;
+          else if (now - lastActivity < STREAM_SETTLE_MS) continue;
+        }
+        finalizeTrailingAssistant(panel.id);
+      }
+    }, STREAM_SETTLE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [chatStateFor, applyProjection, reconcileStreaming, setSessionBusy]);
 
   const setFollowUpBehavior = useCallback((behavior: FollowUpBehavior) => {
     commitQueue({ ...messageQueueRef.current, followUpBehavior: behavior });
@@ -1408,6 +1442,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         });
         const merged = mergeChatHistory(refreshed.transcript, local);
         updateSessionTranscript(panel.id, () => merged);
+        lastStreamActivityRef.current[panel.id] = Date.now();
         chatStatesRef.current.delete(panel.id);
         hydrateChatState(chatStateFor(panel.id), panel.id, merged);
         reconcileStreaming(panel.id);
@@ -1417,7 +1452,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         const completed = users.length > existingRemoteUsers
           && lastUserIndex >= 0
           && refreshed.transcript.slice(lastUserIndex + 1).some((item) => item.kind === "assistant" && item.completed);
-        setSessionBusy(panel.id, !completed);
+        if (completed) setSessionBusy(panel.id, false);
+        else if (!(panel.id in busyBySessionRef.current)) setSessionBusy(panel.id, true);
         return completed;
       };
       try {
@@ -2334,7 +2370,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           const draft = chatStateFor(targetSessionID);
           const previous = snapshotChatState(draft);
           const result = applyChatEvent(draft, targetSessionID, streamEvent);
-          if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
+          if (result === true || (typeof result !== "boolean" && result.changed)) {
+            lastStreamActivityRef.current[targetSessionID] = Date.now();
+            applyProjection(targetSessionID);
+            const abortFlag = sessionAbortFlagsRef.current[targetSessionID];
+            const abortPending = Boolean(abortFlag && !abortFlag.acknowledged && Date.now() - abortFlag.timestamp < ABORT_RESTORE_SUPPRESS_MS);
+            if (!abortPending && !busyBySessionRef.current[targetSessionID]) setSessionBusy(targetSessionID, true);
+          }
           const materialization = typeof result === "boolean" ? undefined : result.materialization;
           if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);
           syncStreaming(targetSessionID, previous);
@@ -2502,6 +2544,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
         case "session.status": {
           const status = data.status as { type?: string; attempt?: number; message?: string; next?: number; action?: RateLimitAction } | undefined;
+          if ((status?.type === "busy" || status?.type === "retry") && targetSessionID) {
+            lastStreamActivityRef.current[targetSessionID] = Date.now();
+          }
           if (status?.type === "busy" && targetSessionID) setSessionBusy(targetSessionID, true);
           if ((status?.type === "idle" || status?.type === "error") && targetSessionID) setSessionBusy(targetSessionID, false);
           if (status?.type === "retry" && targetSessionID) {

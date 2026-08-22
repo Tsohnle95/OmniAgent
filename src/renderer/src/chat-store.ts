@@ -364,9 +364,9 @@ function textSnapshot(messageID: string, sessionID: string, partID: string, type
   };
 }
 
-function completeLatestIncomplete(draft: ChatDirectoryState, sessionID: string): void {
+export function completeLatestIncomplete(draft: ChatDirectoryState, sessionID: string): boolean {
   const messages = draft.message[sessionID];
-  if (!messages) return;
+  if (!messages) return false;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== "assistant") continue;
@@ -374,9 +374,10 @@ function completeLatestIncomplete(draft: ChatDirectoryState, sessionID: string):
       const next = [...messages];
       next[index] = { ...message, time: { ...message.time, completed: Date.now() } };
       draft.message[sessionID] = next;
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 export function attachRetryToLatestAssistant(
@@ -426,14 +427,16 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       return true;
     }
     case "session.idle": {
+      const completed = completeLatestIncomplete(draft, sessionID);
       const status: ChatSessionStatus = { type: "idle" };
-      if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
+      if (!completed && areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
       draft.session_status = { ...draft.session_status, [sessionID]: status };
       return true;
     }
     case "session.error": {
+      const completed = completeLatestIncomplete(draft, sessionID);
       const status: ChatSessionStatus = { type: "idle" };
-      if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
+      if (!completed && areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
       draft.session_status = { ...draft.session_status, [sessionID]: status };
       return true;
     }

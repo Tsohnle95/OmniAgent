@@ -234,6 +234,40 @@ describe("applyChatEvent", () => {
     expect(items[1]).toMatchObject({ messageID: "msg_b", completed: true });
   });
 
+  it("completes the trailing incomplete assistant when the session goes idle", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("u", "message.updated", {
+      info: { id: "usr_1", sessionID: "s", role: "user", time: { created: 1 } }
+    }));
+    applyChatEvent(draft, "s", event("a", "message.updated", {
+      info: { id: "msg_1", sessionID: "s", role: "assistant", time: { created: 2 } }
+    }));
+
+    const result = applyChatEvent(draft, "s", event("i", "session.idle", { sessionID: "s" }));
+    const items = projectAssistantItems(draft, "s");
+
+    expect(result).toBe(true);
+    expect(items[0]).toMatchObject({ messageID: "msg_1", completed: true });
+    expect(draft.session_status.s).toEqual({ type: "idle" });
+  });
+
+  it("completes the trailing incomplete assistant on session error", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("a", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("e", "session.error", { sessionID: "s", error: { message: "boom" } }));
+
+    const items = projectAssistantItems(draft, "s");
+
+    expect(items[0]).toMatchObject({ messageID: "msg_1", completed: true });
+  });
+
+  it("reports no change for a repeated idle with nothing left to complete", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("i1", "session.idle", { sessionID: "s" }));
+
+    expect(applyChatEvent(draft, "s", event("i2", "session.idle", { sessionID: "s" }))).toBe(false);
+  });
+
   it("hydrates history without regressing longer live text", () => {
     const draft = state();
     applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
