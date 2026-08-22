@@ -43,7 +43,38 @@ its work while live diffs of changed files appear in the editor.
    transport (`src/main/stream-pipeline.ts`): 33ms per-directory batched
    flushing with delta coalescing and snapshot barriers, a 30s heartbeat, and
    exponential reconnect backoff; `connect()` is retried every 2s until a
-   client exists.
+    client exists.
+
+## Runtime adapter boundary
+
+The normalized adapter contract starts in
+`src/main/runtimes/runtime-adapter.ts`. `RuntimeManifest` uses OmniAgent
+protocol version 1, a stable runtime id, runtime version, availability, and an
+explicit capability bitmap. Session records carry `runtimeID`; its optional
+shape is the migration path for OpenCode sessions created before runtime
+identity existed, which resolve to OpenCode when they enter the runtime
+manager.
+
+The first non-OpenCode implementation is the built-in DeepSeek Harness adapter
+under `src/main/runtimes/deepseek/`. It targets the verified `dsh` rc.7 native
+contract: correlated request/response envelopes over loopback HTTP and the
+independent mux and host SSE downlinks. The carrier accepts only unauthenticated
+loopback HTTP URLs, sends an explicit loopback Host authority, refuses
+redirects and non-JSON/HTML RPC responses, bounds response/frame sizes, checks
+every echoed `rpcId`, and preserves native business error codes. The two event
+streams reconnect independently and replayed frames are deduplicated by
+`rpcId`. The adapter can launch `dsh web --host 127.0.0.1 --port 0 --no-open`
+in a workspace, reads only its explicit startup URL line, and terminates the
+owned process on shutdown.
+
+DeepSeek history is projected from its provider-neutral `user/message`,
+`assistant/message`, `tool/call`, `tool/result`, and `todo/write` records into
+the shared transcript. Its manifest currently advertises only implemented
+features: model selection, session resume, and steering. Attachments, commands,
+agent presets, approval responses, provider credential editing, and forking
+remain disabled until their normalized adapter methods and UI paths exist. The
+adapter is deliberately not exposed over renderer IPC yet; OpenCode remains
+the active backend until runtime routing and persisted runtime selection land.
 
 ## Message flow
 

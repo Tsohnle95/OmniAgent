@@ -1,5 +1,29 @@
+export type RuntimeID = "opencode" | "deepseek" | (string & {});
+
+export interface RuntimeCapabilities {
+  attachments: boolean;
+  commands: boolean;
+  models: boolean;
+  agents: boolean;
+  permissions: boolean;
+  providerCredentials: boolean;
+  sessionFork: boolean;
+  sessionResume: boolean;
+  steering: boolean;
+}
+
+export interface RuntimeManifest {
+  protocolVersion: 1;
+  id: RuntimeID;
+  name: string;
+  version: string | null;
+  available: boolean;
+  capabilities: RuntimeCapabilities;
+}
+
 export interface SessionInfo {
   id: string;
+  runtimeID?: RuntimeID;
   directory: string;
   workspace: WorkspaceIdentity;
   parentID?: string;
@@ -14,6 +38,7 @@ export interface WorkspaceIdentity {
 
 export interface SessionSummary {
   id: string;
+  runtimeID?: RuntimeID;
   title: string;
   directory: string;
   updatedAt: number;

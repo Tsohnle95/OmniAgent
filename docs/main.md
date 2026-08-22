@@ -7,6 +7,13 @@
 Provider usage is a separate main-process integration with provider APIs in
 `src/main/provider-usage.ts`.
 
+`src/main/runtimes/runtime-adapter.ts` defines the version-1 normalized runtime
+contract and capability manifest. `src/main/runtimes/deepseek/` implements the
+DeepSeek Harness rc.7 HTTP/SSE carrier, native session/model operations, event
+deduplication, owned `dsh web` process lifecycle, and transcript projection.
+It remains main-process-only while runtime routing is introduced; no native
+DeepSeek envelope or service URL crosses preload IPC.
+
 ## OpenShellBackend (`src/main/opencode.ts`)
 
 State:
