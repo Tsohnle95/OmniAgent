@@ -71,8 +71,8 @@ function toggle(container: HTMLDivElement): HTMLButtonElement {
   return container.querySelector(".agent-usage-toggle")!;
 }
 
-function fillArc(container: HTMLDivElement): SVGCircleElement | null {
-  return container.querySelector(".agent-usage-toggle .agent-usage-glyph circle[stroke-dasharray]");
+function usageFill(container: HTMLDivElement): SVGRectElement | null {
+  return container.querySelector(".agent-usage-toggle .agent-usage-glyph [data-usage-fill]");
 }
 
 describe("agent panel usage tracker", () => {
@@ -103,7 +103,7 @@ describe("agent panel usage tracker", () => {
     expect(toggle(container).classList.contains("ok")).toBe(true);
     expect(toggle(container).classList.contains("warn")).toBe(false);
     expect(toggle(container).classList.contains("danger")).toBe(false);
-    expect(fillArc(container)?.getAttribute("stroke-dasharray")).toMatch(/^4\.0/);
+    expect(Number(usageFill(container)?.getAttribute("width"))).toBeCloseTo(0.85);
   });
 
   it("colors the toggle glyph amber at 60% and red at 85% fill", async () => {
@@ -141,7 +141,7 @@ describe("agent panel usage tracker", () => {
     expect(context.querySelector(".agent-usage-context-percent")!.textContent).toBe("100%");
     expect(context.querySelector(".agent-usage-context-fill")!.getAttribute("style")).toContain("width: 100%");
     expect(context.querySelector(".agent-usage-context-fill")!.classList.contains("danger")).toBe(true);
-    expect(fillArc(container)?.getAttribute("stroke-dasharray")).toMatch(/^40\.2/);
+    expect(Number(usageFill(container)?.getAttribute("width"))).toBe(8.5);
   });
 
   it("hides the context row and stays neutral when the model has no context limit", async () => {
@@ -157,6 +157,6 @@ describe("agent panel usage tracker", () => {
     expect(classes.contains("warn")).toBe(false);
     expect(classes.contains("danger")).toBe(false);
     expect(classes.contains("neutral")).toBe(true);
-    expect(fillArc(container)).toBeNull();
+    expect(usageFill(container)).toBeNull();
   });
 });

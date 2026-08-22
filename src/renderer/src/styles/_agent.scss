@@ -207,24 +207,24 @@
 }
 
 .agent-usage-toggle {
-  flex: 0 0 28px;
-  width: 28px;
+  flex: 0 0 30px;
+  width: 30px;
   height: 28px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.035);
+  border-radius: var(--radius-md);
+  border: 0;
+  background: transparent;
   color: var(--text-dim);
   cursor: pointer;
   transition: background 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease), box-shadow 120ms var(--ease);
 }
 
 .agent-usage-toggle .agent-usage-glyph {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
   display: block;
 }
 
@@ -241,10 +241,9 @@
 }
 
 .agent-usage-toggle.open {
-  border-color: transparent;
-  background: var(--accent);
-  color: #0b0d10;
-  box-shadow: 0 0 0 3px rgba(232, 135, 95, 0.25);
+  background: var(--accent-tint);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .agent-usage-toggle .codicon { font-size: 14px; line-height: 1; }
