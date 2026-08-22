@@ -208,6 +208,19 @@ describe("OpenCodeTimeline chronology", () => {
     expect(note?.querySelector(".codicon-info")).toBeTruthy();
     expect(note?.querySelector("[data-slot='session-note-text']")?.textContent).toBe("Interrupted");
   });
+
+  it("renders every context tool instead of replacing them with an exploring summary", () => {
+    const read = toolAssistant("read", "read", { filePath: "/repo/src/main.ts" }) as Extract<TranscriptItem, { kind: "assistant" }>;
+    const grep = toolAssistant("grep", "grep", { pattern: "stream", path: "/repo/src" }) as Extract<TranscriptItem, { kind: "assistant" }>;
+    const transcript: TranscriptItem[] = [{ ...read, parts: [...read.parts, ...grep.parts] }];
+    act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
+
+    const titles = [...container.querySelectorAll("[data-slot='basic-tool-tool-title'] [data-component='text-shimmer']")]
+      .map((node) => node.getAttribute("aria-label"));
+    expect(titles).toEqual(["Read", "Grep"]);
+    expect(container.textContent).not.toContain("Exploring");
+    expect(container.textContent).not.toContain("Explored");
+  });
 });
 
 describe("subagent dispatch links", () => {

@@ -595,37 +595,6 @@
 [data-component="patch-diff-line"][data-kind="del"] { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); }
 [data-component="patch-diff-line"][data-kind="hunk"] { background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--accent); }
 
-[data-component="context-tool-group"] {
-  width: min(100%, 640px);
-  padding: 2px 0;
-}
-
-[data-component="context-tool-group-trigger"] {
-  width: 100%;
-  min-height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0;
-}
-
-[data-component="context-tool-group-trigger"] [data-slot="context-tool-group-title"] {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--accent);
-  font: 500 12px/18px var(--font-family-sans);
-}
-
-[data-component="context-tool-group-trigger"] [data-slot="context-tool-group-label"] { flex-shrink: 0; }
-[data-component="context-tool-group-trigger"] [data-slot="context-tool-group-summary"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--v2-text-text-muted); font-weight: var(--font-weight-regular); }
-[data-component="context-tool-group-list"] { padding: 2px 0 3px 10px; display: flex; flex-direction: column; gap: 2px; }
-[data-component="context-tool-group-list"] [data-component="tool-trigger"] { min-height: 23px; padding: 2px 0; }
-[data-component="context-tool-group-list"] [data-slot="basic-tool-tool-title"] { color: var(--text-dim); }
-[data-component="context-tool-group-list"] [data-slot="context-tool-group-item"] { min-width: 0; padding: 0; }
-
 [data-component="task-tool-card"] {
   width: min(100%, 440px);
   max-width: 100%;

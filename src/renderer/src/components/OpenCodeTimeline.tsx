@@ -6,7 +6,6 @@ import type { ToolCallView, TranscriptItem, SessionSummary, SessionInfo } from "
 import { ExternalLink } from "./ExternalLink";
 
 const OUTPUT_LIMIT = 6000;
-const CONTEXT_TOOLS = new Set(["read", "glob", "grep", "list"]);
 const TEXT_RENDER_PACE_MS = 24;
 const TEXT_RENDER_IMMEDIATE = 512;
 const TEXT_RENDER_SNAP = /[\s.,!?;:)\]]/;
@@ -853,80 +852,6 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   );
 }
 
-function contextKind(tool: ToolCallView): "read" | "search" | "list" {
-  const name = toolKey(tool.title);
-  if (name === "list") return "list";
-  if (name === "glob" || name === "grep") return "search";
-  return "read";
-}
-
-function countLabel(count: number, kind: "read" | "search" | "list"): string {
-  if (kind === "read") return `${count} ${count === 1 ? "read" : "reads"}`;
-  if (kind === "search") return `${count} ${count === 1 ? "search" : "searches"}`;
-  return `${count} ${count === 1 ? "list" : "lists"}`;
-}
-
-function ContextToolGroup({ tools, busy }: { tools: ToolCallView[]; busy: boolean }): ReactNode {
-  const [open, setOpen] = useState(false);
-  const pending = busy || tools.some((tool) => tool.status === "running");
-  useEffect(() => {
-    if (pending) setOpen(true);
-  }, [pending]);
-  const counts = tools.reduce<Record<"read" | "search" | "list", number>>(
-    (result, tool) => ({ ...result, [contextKind(tool)]: result[contextKind(tool)] + 1 }),
-    { read: 0, search: 0, list: 0 }
-  );
-  const summary = (["read", "search", "list"] as const)
-    .filter((kind) => counts[kind] > 0)
-    .map((kind) => countLabel(counts[kind], kind))
-    .join(", ");
-
-  return (
-    <div className="tool-collapsible" data-component="context-tool-group" data-expanded={open ? "true" : undefined}>
-      <button data-slot="collapsible-trigger" onClick={() => setOpen((value) => !value)}>
-        <div data-component="context-tool-group-trigger">
-          <span data-slot="context-tool-group-title">
-            <span data-slot="context-tool-group-label">
-              <TextShimmer text={pending ? "Exploring" : "Explored"} active={pending} />
-            </span>
-            <span data-slot="context-tool-group-summary">{summary}</span>
-          </span>
-          <span data-slot="collapsible-arrow" className="codicon codicon-chevron-down" />
-        </div>
-      </button>
-      {open && (
-        <div data-slot="collapsible-content">
-          <div data-component="context-tool-group-list">
-            {tools.map((tool) => {
-              const presentation = toolPresentation(tool);
-              return (
-                <div data-slot="context-tool-group-item" key={tool.id}>
-                  <div data-component="tool-trigger">
-                    <div data-slot="basic-tool-tool-trigger-content">
-                      <div data-slot="basic-tool-tool-info">
-                        <div data-slot="basic-tool-tool-info-structured">
-                          <div data-slot="basic-tool-tool-info-main">
-                            <span data-slot="basic-tool-tool-title">
-                              <TextShimmer text={presentation.title} active={tool.status === "running"} />
-                            </span>
-                            {presentation.subtitle && (
-                              <span data-slot="basic-tool-tool-subtitle" title={presentation.subtitle}>{presentation.subtitle}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TimelineRow({ tag, children, previous }: { tag: string; children: ReactNode; previous?: boolean }): ReactNode {
   return (
     <div data-timeline-row={tag} className={previous ? "opencode-row previous-assistant-part" : "opencode-row"}>
@@ -971,31 +896,9 @@ function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; 
     .filter((part) => part.kind === "tool" || Boolean(part.text.trim()))
     .filter((part) => part.kind !== "tool" || toolKey(part.tool.title) !== "todowrite")
     .map((part) => ({ item, part })));
-  const contextStarts = parts
-    .map(({ part }, index) => part.kind === "tool" && CONTEXT_TOOLS.has(toolKey(part.tool.title)) ? index : -1)
-    .filter((index) => index >= 0);
-  const finalContextIndex = contextStarts.at(-1);
   let previous = false;
   for (let index = 0; index < parts.length; index += 1) {
     const { item, part } = parts[index];
-    if (part.kind === "tool" && CONTEXT_TOOLS.has(toolKey(part.tool.title))) {
-      const tools = [part.tool];
-      while (index + 1 < parts.length) {
-        const next = parts[index + 1].part;
-        if (next.kind !== "tool" || !CONTEXT_TOOLS.has(toolKey(next.tool.title))) break;
-        tools.push(next.tool);
-        index += 1;
-      }
-      rows.push(
-        <TimelineRow tag="AssistantPart" previous={previous} key={`context:${tools[0].id}`}>
-          <div data-slot="session-turn-assistant-content">
-            <ContextToolGroup tools={tools} busy={streaming && index >= (finalContextIndex ?? -1) && index === parts.length - 1} />
-          </div>
-        </TimelineRow>
-      );
-      previous = true;
-      continue;
-    }
     if (part.kind === "tool") {
       rows.push(
         <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>

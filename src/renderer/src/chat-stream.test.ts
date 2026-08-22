@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { TranscriptItem } from "@shared/types";
 import {
+  hasCompletedPromptResponse,
   mergeChatHistory,
+  reconcilePromptHistory,
   reduceChatStream,
   type ChatStreamEvent
 } from "./chat-stream";
@@ -66,5 +68,43 @@ describe("chat stream auxiliary items", () => {
     const live: TranscriptItem[] = [];
 
     expect(mergeChatHistory(history, live)).toEqual(history);
+  });
+
+  it("reconciles a completed canonical prompt without losing live tool detail", () => {
+    const optimistic: TranscriptItem = { kind: "user", id: "user-100", text: "inspect streaming" };
+    const tool: TranscriptItem = {
+      kind: "assistant",
+      id: "assistant-1",
+      messageID: "assistant-1",
+      completed: false,
+      parts: [{
+        kind: "tool",
+        id: "tool-1",
+        tool: { id: "tool-1", title: "read", detail: "/repo/src/store.tsx", status: "success", input: "{}" }
+      }]
+    };
+    const history: TranscriptItem[] = [
+      { kind: "user", id: "remote-user-1", text: "inspect streaming" },
+      {
+        kind: "assistant",
+        id: "assistant-1",
+        messageID: "assistant-1",
+        completed: true,
+        parts: [{ kind: "text", id: "text-1", text: "Done", complete: true }]
+      }
+    ];
+
+    const merged = reconcilePromptHistory(history, [optimistic, tool], optimistic);
+    expect(merged.filter((item) => item.kind === "user")).toEqual([history[0]]);
+    expect(merged[1]).toMatchObject({
+      kind: "assistant",
+      completed: true,
+      parts: [
+        { kind: "text", text: "Done" },
+        { kind: "tool", tool: { title: "read", detail: "/repo/src/store.tsx" } }
+      ]
+    });
+    expect(hasCompletedPromptResponse(history, "inspect streaming", 0)).toBe(true);
+    expect(hasCompletedPromptResponse(history, "inspect streaming", 1)).toBe(false);
   });
 });

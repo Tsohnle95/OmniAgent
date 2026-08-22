@@ -439,3 +439,36 @@ export function mergeChatHistory(history: TranscriptItem[], live: TranscriptItem
   }
   return result;
 }
+
+export function reconcilePromptHistory(
+  history: TranscriptItem[],
+  live: TranscriptItem[],
+  optimisticUser: Extract<TranscriptItem, { kind: "user" }>
+): TranscriptItem[] {
+  const withOptimistic = live.some((item) => item.id === optimisticUser.id) ? live : [...live, optimisticUser];
+  const remoteUsers = new Map<string, number>();
+  for (const item of history) {
+    if (item.kind === "user") remoteUsers.set(item.text, (remoteUsers.get(item.text) ?? 0) + 1);
+  }
+  const local = withOptimistic.filter((item) => {
+    if (item.kind !== "user" || !item.id.startsWith("user-")) return true;
+    const count = remoteUsers.get(item.text) ?? 0;
+    if (count === 0) return true;
+    remoteUsers.set(item.text, count - 1);
+    return false;
+  });
+  return mergeChatHistory(history, local);
+}
+
+export function hasCompletedPromptResponse(
+  history: TranscriptItem[],
+  promptText: string,
+  existingRemoteUsers: number
+): boolean {
+  const users = history.filter((item) => item.kind === "user" && item.text === promptText);
+  const lastUser = users.at(-1);
+  const lastUserIndex = lastUser ? history.lastIndexOf(lastUser) : -1;
+  return users.length > existingRemoteUsers
+    && lastUserIndex >= 0
+    && history.slice(lastUserIndex + 1).some((item) => item.kind === "assistant" && item.completed);
+}
