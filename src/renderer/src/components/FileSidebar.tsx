@@ -593,12 +593,6 @@ export function FileSidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <span className="sidebar-title" title={session?.directory}>
-          <span className="sidebar-title-dot" aria-hidden />
-          <span className="sidebar-title-name">
-            {session?.directory.split("/").filter(Boolean).pop() ?? "workspace"}
-          </span>
-        </span>
         <span className="sidebar-header-actions">
           <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
             <IconExpand />

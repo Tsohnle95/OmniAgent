@@ -1,18 +1,14 @@
 <div align="center">
   <img src="resources/icon.svg" width="104" alt="OmniAgent logo">
   <h1>OmniAgent</h1>
-  <p><strong>Every agent. One surface.</strong></p>
-  <p>A focused desktop cockpit for building with coding agents without losing sight of the code.</p>
+  <p>A desktop interface for working with coding agents, project files, diffs, and terminals.</p>
 </div>
 
-![OmniAgent welcome screen](docs/images/omniagent-welcome-hero.png)
+OmniAgent keeps the agent, repository, diffs, and terminal in one native
+workspace. Ask for a change, follow the steps as they happen, inspect the files
+touched, and continue working without switching between several applications.
 
-OmniAgent brings your agent, repository, diffs, and terminal into one calm,
-native workspace. Ask for a change, follow every step as it happens, inspect the
-exact files touched, and keep working without bouncing between a terminal,
-editor, and chat window.
-
-## Why OmniAgent
+## Features
 
 - **See the work, not just the answer.** Streamed reasoning summaries, tool
   calls, subagents, todos, and permission requests stay visible in one timeline.
@@ -27,9 +23,7 @@ editor, and chat window.
 - **Work locally.** OmniAgent opens repositories from your machine and connects
   to your local OpenCode service.
 
-## One Workspace, Full Context
-
-![OmniAgent workspace and agent composer](docs/images/omniagent-workspace.png)
+## Workflow
 
 The interface is deliberately direct: Sessions and files on the left, the
 editor in the center, and the active agent on the right. Open the terminal when
@@ -41,7 +35,7 @@ to keep the code in focus.
 3. Watch the plan, tools, and file changes arrive live.
 4. Review the diff, edit directly, validate, and continue the conversation.
 
-## Built For Real Projects
+## Core Capabilities
 
 | Workspace | Agent | Review |
 |---|---|---|
