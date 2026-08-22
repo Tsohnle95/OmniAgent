@@ -162,6 +162,45 @@ describe("concurrent session contexts", () => {
     await backend.stop();
   });
 
+  it("repairs a session directory after its project folder is renamed", async () => {
+    const parent = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-renamed-")));
+    const current = path.join(parent, "omniagent");
+    const previous = path.join(parent, "openshell");
+    await mkdir(current);
+    roots.push(parent);
+    const { backend } = await fixture();
+    const move = vi.fn(async () => {});
+    (backend as unknown as { client: unknown }).client = {
+      session: {
+        get: vi.fn(async () => ({ id: "session-one", projectID: "project-one", location: { directory: previous } })),
+        move
+      },
+      project: { list: vi.fn(async () => [{ id: "project-one", canonical: current }]) },
+      message: { list: vi.fn(async () => []) }
+    };
+
+    const reopened = await backend.openSessionById("session-one", 1);
+
+    expect(reopened.session.directory).toBe(current);
+    expect(move).toHaveBeenCalledWith({ sessionID: "session-one", directory: current });
+    await backend.stop();
+  });
+
+  it("omits missing projects and deduplicates canonical directories", async () => {
+    const current = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-project-current-")));
+    roots.push(current);
+    const { backend } = await fixture();
+    (backend as unknown as { client: unknown }).client = {
+      project: { list: vi.fn(async () => [
+        { canonical: path.join(current, "missing"), name: "Missing" },
+        { canonical: current, name: "Current" },
+        { canonical: current, name: "Duplicate" }
+      ]) }
+    };
+
+    await expect(backend.listProjects()).resolves.toEqual([{ directory: current, name: "Current" }]);
+  });
+
   it("routes tool snapshots to the session that called the tool", async () => {
     const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-tool-one-")));
     const two = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-tool-two-")));

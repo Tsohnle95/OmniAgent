@@ -1356,6 +1356,23 @@ export class OpenShellBackend {
     return context.sessionInfo;
   }
 
+  private async resolveOpenCodeSessionDirectory(directory: string, projectID?: string): Promise<{ directory: string; relocated: boolean }> {
+    try {
+      return { directory: await canonicalWorkspaceRoot(directory), relocated: false };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT" || !projectID || projectID === "global" || !this.client) throw error;
+    }
+    const res = await this.client.project.list();
+    const projects = (Array.isArray(res) ? res : (res as { data?: unknown }).data ?? []) as Array<{ id?: string; canonical?: string }>;
+    const current = projects.find((project) => project.id === projectID)?.canonical;
+    if (!current) throw new Error(`Session workspace no longer exists: ${directory}`);
+    try {
+      return { directory: await canonicalWorkspaceRoot(current), relocated: true };
+    } catch {
+      throw new Error(`Session workspace no longer exists: ${directory}`);
+    }
+  }
+
   async openSession(directory: string, acceptedGeneration?: number, runtimeID: RuntimeID = "opencode"): Promise<SessionInfo> {
     if (acceptedGeneration !== undefined && !Number.isSafeInteger(acceptedGeneration)) {
       throw new Error("invalid activation generation");
@@ -1482,6 +1499,7 @@ export class OpenShellBackend {
     const res = await this.client.session.get({ sessionID });
     const info = res as {
       id?: string;
+      projectID?: string;
       title?: string;
       parentID?: string;
       agent?: string;
@@ -1495,6 +1513,7 @@ export class OpenShellBackend {
       location?: { directory?: string };
       data?: {
         id?: string;
+        projectID?: string;
         title?: string;
         parentID?: string;
         agent?: string;
@@ -1511,6 +1530,8 @@ export class OpenShellBackend {
     const id = info.id ?? info.data?.id;
     const directory = info.location?.directory ?? info.data?.location?.directory;
     if (!id || !directory) throw new Error("session not found");
+    const resolved = await this.resolveOpenCodeSessionDirectory(directory, info.projectID ?? info.data?.projectID);
+    if (resolved.relocated) await this.client.session.move({ sessionID: id, directory: resolved.directory });
     const usage: SessionUsage | null = (() => {
       const raw = info.data ?? info;
       const cost = raw.cost;
@@ -1534,7 +1555,7 @@ export class OpenShellBackend {
     const session = await this.activateSession({
       id,
       runtimeID: "opencode",
-      directory,
+      directory: resolved.directory,
       ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
       ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
       ...(info.agent ?? info.data?.agent ? { agent: info.agent ?? info.data?.agent } : {})
@@ -2491,13 +2512,15 @@ export class OpenShellBackend {
     if (!this.client) return [];
     const res = await this.client.project.list();
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as { canonical?: string; directory?: string; name?: string }[])
-      .map((p) => {
+    const projects = await Promise.all((arr as { canonical?: string; directory?: string; name?: string }[])
+      .map(async (p) => {
         const directory = p.canonical ?? p.directory;
         if (!directory) return null;
-        return { directory, name: p.name ?? path.basename(directory) };
-      })
-      .filter((p): p is ProjectInfo => p !== null);
+        const canonical = await canonicalWorkspaceRoot(directory).catch(() => null);
+        return canonical ? { directory: canonical, name: p.name ?? path.basename(canonical) } : null;
+      }));
+    const available = projects.filter((project): project is ProjectInfo => project !== null);
+    return [...new Map([...available].reverse().map((project) => [project.directory, project])).values()].reverse();
   }
 
   async stop(): Promise<void> {
