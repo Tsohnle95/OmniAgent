@@ -381,6 +381,36 @@ function normalizeStreamEvent(msg: BackendMessage): ChatStreamEvent | null {
   };
 }
 
+const ACTIVE_CHAT_STREAM_TYPES = new Set([
+  "session.step.started",
+  "session.text.started",
+  "session.text.delta",
+  "session.reasoning.started",
+  "session.reasoning.delta",
+  "session.tool.input.started",
+  "session.tool.input.delta",
+  "session.tool.called",
+  "session.tool.progress",
+  "session.retry.scheduled",
+  "message.part.delta"
+]);
+
+function streamEventShowsActiveWork(event: ChatStreamEvent): boolean {
+  if (ACTIVE_CHAT_STREAM_TYPES.has(event.type)) return true;
+  if (event.type === "message.updated") {
+    const info = (event.data.info ?? event.data) as Record<string, any>;
+    const role = String(info.role ?? info.type ?? "assistant");
+    return role === "assistant" && !info.time?.completed && !info.finish && !info.error;
+  }
+  if (event.type === "message.part.updated") {
+    const part = (event.data.part ?? event.data) as Record<string, any>;
+    const state = part.state as Record<string, any> | undefined;
+    const status = String(state?.status ?? "");
+    return !part.time?.completed && !["completed", "error", "failed", "success"].includes(status);
+  }
+  return false;
+}
+
 let toastId = 0;
 
 const EMPTY_TABS: Tab[] = [];
@@ -1425,6 +1455,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       };
       updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
       setTodosFor(panel.workspace.id, []);
+      setSessionBusy(panel.id, true);
       const existingRemoteUsers = transcript.filter((item) => item.kind === "user" && !item.id.startsWith("user-") && item.text === promptText).length;
       const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): boolean => {
         const current = transcriptsBySessionRef.current[panel.id] ?? [];
@@ -1447,7 +1478,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           refreshed = await window.openshell.sessionTranscript(panel.id);
         }
       } catch (err) {
-        if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
+        if (panelFor(target)) {
+          setSessionBusy(panel.id, false);
+          toast(err instanceof Error ? err.message : String(err), "error");
+        }
       }
     },
     [toast, panelFor, setTodosFor, updateSessionTranscript, setSessionBusy, commitQueue, chatStateFor, reconcileStreaming]
@@ -2358,7 +2392,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             applyProjection(targetSessionID);
             const abortFlag = sessionAbortFlagsRef.current[targetSessionID];
             const abortPending = Boolean(abortFlag && !abortFlag.acknowledged && Date.now() - abortFlag.timestamp < ABORT_RESTORE_SUPPRESS_MS);
-            if (!abortPending && !busyBySessionRef.current[targetSessionID]) setSessionBusy(targetSessionID, true);
+            if (!abortPending && !busyBySessionRef.current[targetSessionID] && streamEventShowsActiveWork(streamEvent)) {
+              setSessionBusy(targetSessionID, true);
+            }
           }
           const materialization = typeof result === "boolean" ? undefined : result.materialization;
           if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);

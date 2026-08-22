@@ -50,6 +50,22 @@
   flex: 0 0 var(--timeline-turn-gap);
 }
 
+[data-component="turn-status"] {
+  min-height: 26px;
+  padding: 6px 20px 0;
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  color: var(--v2-text-text-muted);
+  font: var(--font-weight-medium) 14px/20px var(--font-family-sans);
+}
+
+[data-component="turn-status"] [data-slot="turn-status-clock"] {
+  margin-left: 8px;
+  color: var(--v2-text-text-faint);
+  font: var(--font-weight-regular) 13px/20px var(--font-family-sans);
+}
+
 .opencode-row {
   width: 100%;
   max-width: 100%;

@@ -76,16 +76,23 @@ history hydration, and touches the heartbeat for part deltas.
 `session-activity.ts` resolves the session phase (`idle` / `busy` / `retry`):
 it mirrors the authoritative status, falls back to the trailing incomplete
 assistant while status settles, and yields to a pending permission so the
-send button stays a send. Two store-side guarantees keep that fallback from
-latching: authoritative end-of-turn signals (`session.idle`,
-`session.error`, `session.execution.*`) materialize completion of the
-trailing assistant in the chat store even if its completion marker was lost,
-and a 1s settle watchdog finalizes any panel whose trailing assistant stays
-incomplete without stream activity for 60s (or immediately once the runtime
-reported idle), which is what flips the composer's stop button back to send
-after a missed end event or a reopened session with a dead tail. Live stream
-content restores busy on a settled session (unless a stop is in flight), so
-a watchdog false-positive self-heals on the next delta.
+send button stays a send. Three store-side guarantees keep that fallback from
+latching. Authoritative end-of-turn signals (`session.idle`, `session.error`,
+`session.execution.*`) materialize completion of the trailing assistant in
+the chat store even if its completion marker was lost. Terminal message/part
+snapshots cannot promote an already-idle session back to busy; prompt
+submission marks the session busy immediately, and only events that represent
+active work can restore busy after a quiet settle. Finally, a 1s settle
+watchdog finalizes any panel whose trailing assistant stays incomplete without
+stream activity for 60s (or immediately once the runtime reported idle), which
+is what flips the composer's stop button back to send after a missed end event
+or a reopened session with a dead tail. Live stream content restores busy on a
+settled session (unless a stop is in flight), so a watchdog false-positive
+self-heals on the next delta.
+
+The active timeline ends with the same persistent turn-status treatment as
+DeepSeek Harness: a themed `Deep diving...` shimmer is always present while
+the turn runs and gains a one-second elapsed clock after 15 seconds.
 `assistant-status.ts` derives the working summary
 every panel exposes: the active model (from the trailing assistant's
 `parentID` back to its user message), the active part (text → "composing",

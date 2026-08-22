@@ -2,7 +2,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenShellApi } from "../../preload";
-import type { BackendMessage, SessionInfo, TranscriptItem } from "@shared/types";
+import type { BackendMessage, SessionInfo, SessionTranscript, TranscriptItem } from "@shared/types";
 import { StoreProvider, useStore } from "./store";
 
 type Store = ReturnType<typeof useStore>;
@@ -113,6 +113,79 @@ describe("store stream settle", () => {
     expect(store.busy).toBe(true);
 
     await act(async () => { vi.advanceTimersByTime(61_500); });
+
+    expect(store.busy).toBe(false);
+  });
+
+  it("does not restore busy when a completed message follows the idle event", async () => {
+    const sessionID = store.activeSessionID!;
+    const idle: BackendMessage = {
+      kind: "event",
+      type: "session.idle",
+      data: {
+        id: "idle-1",
+        created: Date.now(),
+        data: { sessionID }
+      }
+    };
+    await act(async () => { messageHandler!(idle); });
+    expect(store.busy).toBe(false);
+
+    const completed: BackendMessage = {
+      kind: "event",
+      type: "message.updated",
+      data: {
+        id: "completed-1",
+        created: Date.now(),
+        data: {
+          sessionID,
+          info: {
+            id: "msg_2",
+            sessionID,
+            role: "assistant",
+            time: { created: Date.now(), completed: Date.now() },
+            finish: "stop"
+          }
+        }
+      }
+    };
+    await act(async () => { messageHandler!(completed); });
+
+    expect(store.busy).toBe(false);
+  });
+
+  it("enters busy immediately on prompt submission and returns idle on its completed response", async () => {
+    await act(async () => { vi.advanceTimersByTime(61_500); });
+    expect(store.busy).toBe(false);
+
+    let finishPrompt: ((value: SessionTranscript) => void) | undefined;
+    window.openshell.prompt = vi.fn(() => new Promise<SessionTranscript>((resolve) => {
+      finishPrompt = resolve;
+    }));
+
+    let submitted: Promise<void> | undefined;
+    await act(async () => {
+      submitted = store.sendPrompt("next task");
+      await Promise.resolve();
+    });
+    expect(store.busy).toBe(true);
+
+    await act(async () => {
+      finishPrompt!({
+        transcript: [
+          { kind: "user", id: "remote-user", text: "next task" },
+          {
+            kind: "assistant",
+            id: "remote-assistant",
+            messageID: "remote-assistant",
+            completed: true,
+            parts: [{ kind: "text", id: "remote-text", text: "done", complete: true }]
+          }
+        ],
+        todos: []
+      });
+      await submitted;
+    });
 
     expect(store.busy).toBe(false);
   });

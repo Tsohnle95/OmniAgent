@@ -41,6 +41,33 @@ function TextShimmer({ text, active = true, tone = "default" }: { text: string; 
   );
 }
 
+function formatRunDuration(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  return `${seconds}s`;
+}
+
+function TurnStatus({ startTime }: { startTime?: number | null }): ReactNode {
+  const [mountedAt] = useState(() => Date.now());
+  const anchor = startTime ?? mountedAt;
+  const [elapsed, setElapsed] = useState(() => Date.now() - anchor);
+  useEffect(() => {
+    setElapsed(Date.now() - anchor);
+    const timer = setInterval(() => setElapsed(Date.now() - anchor), 1000);
+    return () => clearInterval(timer);
+  }, [anchor]);
+  return (
+    <div data-component="turn-status" role="status" aria-live="polite">
+      <TextShimmer text="Deep diving..." tone="thinking" />
+      {elapsed >= 15_000 && <span data-slot="turn-status-clock">{formatRunDuration(elapsed)}</span>}
+    </div>
+  );
+}
+
 function paceStep(size: number): number {
   if (size <= 12) return 2;
   if (size <= 48) return 4;
@@ -976,15 +1003,6 @@ function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; 
   }
 
   const latest = items.at(-1);
-  if (streaming && parts.length === 0 && !latest?.retry && !latest?.error) {
-    rows.push(
-      <TimelineRow tag="Thinking" previous={previous} key={`${items.at(-1)?.id ?? "assistant"}:thinking`}>
-        <div data-slot="session-turn-thinking">
-          <TextShimmer text="Thinking" />
-        </div>
-      </TimelineRow>
-    );
-  }
   if (latest?.retry) {
     rows.push(
       <TimelineRow tag="Retry" previous key={`${latest.id}:retry`}>
@@ -1175,12 +1193,14 @@ export function OpenCodeTimeline({
   transcript,
   busy,
   lastAssistantId,
-  session
+  session,
+  turnStartedAt
 }: {
   transcript: TranscriptItem[];
   busy: boolean;
   lastAssistantId: string | null;
   session?: SessionInfo | null;
+  turnStartedAt?: number | null;
 }): ReactNode {
   const store = useStore();
   const activeSession = session === undefined ? store.session : session;
@@ -1229,6 +1249,7 @@ export function OpenCodeTimeline({
           </div>
         );
       })}
+      {busy && <TurnStatus startTime={turnStartedAt} />}
     </div>
   );
 }

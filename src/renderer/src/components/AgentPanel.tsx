@@ -1458,7 +1458,13 @@ export function AgentPanel({
             </p>
           </div>
         )}
-        <OpenCodeTimeline transcript={transcript} busy={busy} lastAssistantId={lastAssistantId} session={activeSession} />
+        <OpenCodeTimeline
+          transcript={transcript}
+          busy={busy}
+          lastAssistantId={lastAssistantId}
+          session={activeSession}
+          turnStartedAt={turnStartedAt}
+        />
       </div>
 
       <div data-component="session-prompt-dock">

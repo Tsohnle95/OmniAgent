@@ -123,6 +123,38 @@ describe("OpenCodeTimeline chronology", () => {
     expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
 
+  it("shows the harness turn status throughout active work and removes it at completion", () => {
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[]} busy lastAssistantId={null} />
+    ));
+
+    const status = container.querySelector("[data-component='turn-status']");
+    expect(status?.getAttribute("role")).toBe("status");
+    expect(status?.querySelector("[data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Deep diving...");
+
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[]} busy={false} lastAssistantId={null} />
+    ));
+
+    expect(container.querySelector("[data-component='turn-status']")).toBeNull();
+  });
+
+  it("adds the harness elapsed clock after fifteen seconds", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-22T00:00:00Z"));
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[]} busy lastAssistantId={null} turnStartedAt={Date.now()} />
+    ));
+
+    expect(container.querySelector("[data-slot='turn-status-clock']")).toBeNull();
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(container.querySelector("[data-slot='turn-status-clock']")?.textContent).toBe("15s");
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[]} busy={false} lastAssistantId={null} />
+    ));
+    vi.useRealTimers();
+  });
+
   it("consolidates adjacent reasoning into one thought without repeating snapshots", () => {
     const transcript: TranscriptItem[] = [{
       kind: "assistant",
