@@ -57,19 +57,25 @@ describe("DeepSeekRpcClient", () => {
     );
   });
 
-  it("parses split SSE frames", async () => {
-    const encoder = new TextEncoder();
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode("data: {\"type\":\"server-request\",\"rpcId\":\"a\","));
-        controller.enqueue(encoder.encode("\"method\":\"events.mux\",\"payload\":{\"type\":\"session/subscribed\"}}\n\n"));
-        controller.close();
+  it("parses native WebSocket frames", async () => {
+    class FakeSocket extends EventTarget {
+      constructor() {
+        super();
+        queueMicrotask(() => {
+          this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ type: "server-request", rpcId: "a", method: "events.mux", payload: { type: "session/subscribed" } }) }));
+          this.dispatchEvent(new Event("close"));
+        });
       }
-    });
-    const fetcher = vi.fn(async () => new Response(body, { headers: { "content-type": "text/event-stream" } })) as typeof fetch;
-    const client = new DeepSeekRpcClient("http://127.0.0.1:8080", fetcher);
+
+      close(): void {
+        this.dispatchEvent(new Event("close"));
+      }
+    }
+    const sockets = vi.fn(() => new FakeSocket() as unknown as WebSocket);
+    const client = new DeepSeekRpcClient("http://127.0.0.1:8080", fetch, sockets);
     const frames = [];
     for await (const frame of client.events("mux", new AbortController().signal)) frames.push(frame);
     expect(frames).toEqual([{ type: "server-request", rpcId: "a", method: "events.mux", payload: { type: "session/subscribed" } }]);
+    expect(sockets).toHaveBeenCalledWith("ws://127.0.0.1:8080/api/events.mux");
   });
 });

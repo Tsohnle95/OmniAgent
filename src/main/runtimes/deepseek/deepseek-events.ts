@@ -1,4 +1,5 @@
 import type { AssistantPartView, SessionTranscript, TodoItem, ToolCallView, TranscriptItem } from "@shared/types";
+import type { RuntimeEvent } from "../runtime-adapter";
 
 interface HistoryEntry {
   event: {
@@ -157,4 +158,21 @@ export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
     if (event.type === "todo/write") todos = todoList(event.data.todos);
   }
   return { transcript, todos };
+}
+
+export function deepSeekRuntimeEvent(payload: Record<string, unknown>): RuntimeEvent | null {
+  if (payload.type === "host/session-status") return payload.running ? { type: "execution.started" } : { type: "execution.idle" };
+  if (payload.type === "host/agent-error") return { type: "execution.error", message: String(payload.message ?? "DeepSeek Harness failed") };
+  if (payload.type !== "session/event") return null;
+  const event = record(payload.event);
+  if (event?.type === "turn/start") return { type: "execution.started" };
+  if (event?.type === "turn/end") return { type: "execution.idle" };
+  if (event?.type === "todo/write") {
+    const data = record(event.data);
+    return { type: "todo.updated", todos: Array.isArray(data?.todos) ? data.todos : [] };
+  }
+  if (["user/message", "assistant/message", "tool/call", "tool/result"].includes(String(event?.type))) {
+    return { type: "transcript.changed" };
+  }
+  return null;
 }

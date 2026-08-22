@@ -24,7 +24,7 @@ describe("DeepSeekRuntimeAdapter", () => {
       id: "deepseek",
       version: "0.1.0-rc.7",
       available: true,
-      capabilities: { models: true, sessionResume: true, steering: true, attachments: false, permissions: false }
+      capabilities: { models: true, sessionResume: true, steering: false, attachments: false, permissions: false }
     });
   });
 

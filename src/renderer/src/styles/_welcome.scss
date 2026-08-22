@@ -97,6 +97,30 @@
   max-width: 42ch;
 }
 
+.welcome-runtime {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+  width: min(310px, 100%);
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.welcome-runtime select {
+  width: 100%;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 13px/1.2 inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  padding: 9px 34px 9px 14px;
+}
+
 .welcome-actions {
   margin-top: 12px;
   display: flex;

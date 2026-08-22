@@ -11,6 +11,7 @@ import {
   providerCredentialPayload,
   promptPayload,
   queryText,
+  runtimeId,
   selectionId,
   sessionId
 } from "./ipc-schema";
@@ -22,6 +23,7 @@ describe("runtime IPC schemas", () => {
     ["activation", () => activationGeneration(1), () => activationGeneration(0)],
     ["directory", () => directoryPath("/workspace"), () => directoryPath("x".repeat(IPC_LIMITS.directory + 1))],
     ["session", () => sessionId("session-1"), () => sessionId("")],
+    ["runtime", () => runtimeId("deepseek"), () => runtimeId("unknown")],
     ["query", () => queryText("src"), () => queryText("x".repeat(IPC_LIMITS.query + 1))],
     ["selection", () => selectionId("model/large", "model id"), () => selectionId("", "model id")],
     ["command", () => commandPayload("review", "--all"), () => commandPayload("x".repeat(IPC_LIMITS.command + 1), "")],

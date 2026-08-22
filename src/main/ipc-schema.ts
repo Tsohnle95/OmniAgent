@@ -1,4 +1,4 @@
-import type { FileWriteIdentity, PermissionReply, PromptFile, ProviderCredentialAnswers, WorkspaceIdentity } from "@shared/types";
+import type { FileWriteIdentity, PermissionReply, PromptFile, ProviderCredentialAnswers, RuntimeID, WorkspaceIdentity } from "@shared/types";
 import { fileContent, relativePath, workspaceId } from "./workspace-security";
 
 export const IPC_LIMITS = {
@@ -34,6 +34,15 @@ export function directoryPath(value: unknown): string {
 
 export function sessionId(value: unknown): string {
   return boundedString(value, "session id", IPC_LIMITS.identifier);
+}
+
+export function runtimeId(value: unknown): RuntimeID {
+  if (value !== "opencode" && value !== "deepseek") throw new Error("invalid runtime id");
+  return value;
+}
+
+export function optionalRuntimeId(value: unknown): RuntimeID | undefined {
+  return value === undefined ? undefined : runtimeId(value);
 }
 
 export function promptPayload(workspace: unknown, text: unknown, files: unknown): {

@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import type { ModelOption, RuntimeManifest, SessionSummary, SessionTranscript } from "@shared/types";
+import type { ModelOption, RuntimeManifest, SessionSelection, SessionSummary, SessionTranscript } from "@shared/types";
 import type { RuntimeAdapter, RuntimeEventEnvelope, RuntimeSessionDraft } from "../runtime-adapter";
 import { RUNTIME_PROTOCOL_VERSION } from "../runtime-adapter";
-import { deepSeekTranscript } from "./deepseek-events";
+import { deepSeekRuntimeEvent, deepSeekTranscript } from "./deepseek-events";
 import { DeepSeekRpcClient } from "./deepseek-rpc";
 
 interface DeepSeekSessionSummary {
@@ -65,7 +65,7 @@ export class DeepSeekRuntimeAdapter implements RuntimeAdapter {
       providerCredentials: false,
       sessionFork: false,
       sessionResume: true,
-      steering: true
+      steering: false
     }
   };
 
@@ -209,6 +209,20 @@ export class DeepSeekRuntimeAdapter implements RuntimeAdapter {
     })));
   }
 
+  async sessionSelection(sessionID: string): Promise<SessionSelection | null> {
+    const value = await this.rpc().call<{
+      current: { provider: string; model: string; reasoningEffort?: string };
+    }>("session.models", { sessionId: sessionID });
+    return {
+      model: {
+        id: value.current.model,
+        providerID: value.current.provider,
+        name: value.current.model,
+        ...(value.current.reasoningEffort ? { variant: value.current.reasoningEffort } : {})
+      }
+    };
+  }
+
   async switchModel(sessionID: string, modelID: string, providerID: string, variant?: string): Promise<void> {
     await this.rpc().call("session.selectModel", {
       sessionId: sessionID,
@@ -233,8 +247,10 @@ export class DeepSeekRuntimeAdapter implements RuntimeAdapter {
             if (seen.has(frame.rpcId)) continue;
             seen.add(frame.rpcId);
             if (seen.size > 10_000) seen.delete(seen.values().next().value!);
+            const event = deepSeekRuntimeEvent(frame.payload);
+            if (!event) continue;
             const sessionID = typeof frame.payload.sessionId === "string" ? frame.payload.sessionId : undefined;
-            queue.push({ runtimeID: "deepseek", eventID: frame.rpcId, ...(sessionID ? { sessionID } : {}), event: frame.payload });
+            queue.push({ runtimeID: "deepseek", eventID: frame.rpcId, ...(sessionID ? { sessionID } : {}), event });
             wake();
           }
           delay = 250;

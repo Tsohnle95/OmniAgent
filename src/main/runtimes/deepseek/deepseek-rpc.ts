@@ -96,7 +96,11 @@ function parseResponse<T>(value: unknown, rpcId: string): ServerResponse<T> {
 export class DeepSeekRpcClient {
   readonly baseUrl: URL;
 
-  constructor(baseUrl: string, private readonly fetcher: typeof fetch = fetch) {
+  constructor(
+    baseUrl: string,
+    private readonly fetcher: typeof fetch = fetch,
+    private readonly webSocketFactory: (url: string) => WebSocket = (url) => new WebSocket(url)
+  ) {
     this.baseUrl = deepSeekBaseUrl(baseUrl);
   }
 
@@ -133,45 +137,77 @@ export class DeepSeekRpcClient {
   }
 
   async *events<T>(stream: "mux" | "host", signal: AbortSignal): AsyncIterable<ServerRequest<T>> {
-    const response = await this.fetcher(new URL(`/api/events.${stream}`, this.baseUrl), {
-      method: "GET",
-      redirect: "manual",
-      signal,
-      headers: { accept: "text/event-stream", host: this.baseUrl.host }
-    });
-    if (response.status >= 300 && response.status < 400) throw new Error("DeepSeek Harness refused an event-stream redirect");
-    if (!response.ok) throw new Error(`DeepSeek Harness event stream failed with HTTP ${response.status}`);
-    if (response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "text/event-stream") {
-      throw new Error("DeepSeek Harness event stream returned unexpected content");
-    }
-    if (!response.body) throw new Error("DeepSeek Harness event stream returned no body");
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-      let boundary = buffer.indexOf("\n\n");
-      while (boundary >= 0) {
-        const block = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        const data = block.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
-        if (data) {
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(data);
-          } catch {
-            throw new Error("DeepSeek Harness event stream returned malformed JSON");
-          }
-          if (!object(parsed) || parsed.type !== "server-request" || typeof parsed.rpcId !== "string" || typeof parsed.method !== "string" || !("payload" in parsed)) {
-            throw new Error("DeepSeek Harness event stream returned an invalid frame");
-          }
-          yield parsed as unknown as ServerRequest<T>;
+    const url = new URL(`/api/events.${stream}`, this.baseUrl);
+    url.protocol = "ws:";
+    const socket = this.webSocketFactory(url.toString());
+    const queue: ServerRequest<T>[] = [];
+    const waiters: Array<() => void> = [];
+    let closed = false;
+    let failure: Error | null = null;
+    const wake = (): void => waiters.splice(0).forEach((resolve) => resolve());
+    const onMessage = (message: MessageEvent): void => {
+      void (async () => {
+        const text = typeof message.data === "string"
+          ? message.data
+          : message.data instanceof ArrayBuffer
+            ? new TextDecoder().decode(message.data)
+            : message.data instanceof Blob
+              ? await message.data.text()
+              : "";
+        if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES) {
+          failure = new Error("DeepSeek Harness event frame is too large");
+          socket.close();
+          wake();
+          return;
         }
-        boundary = buffer.indexOf("\n\n");
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          failure = new Error("DeepSeek Harness event stream returned malformed JSON");
+          socket.close();
+          wake();
+          return;
+        }
+        if (!object(parsed) || parsed.type !== "server-request" || typeof parsed.rpcId !== "string" || typeof parsed.method !== "string" || !("payload" in parsed)) {
+          failure = new Error("DeepSeek Harness event stream returned an invalid frame");
+          socket.close();
+          wake();
+          return;
+        }
+        queue.push(parsed as unknown as ServerRequest<T>);
+        wake();
+      })();
+    };
+    const onError = (): void => {
+      failure ??= new Error("DeepSeek Harness event WebSocket failed");
+      wake();
+    };
+    const onClose = (): void => {
+      closed = true;
+      wake();
+    };
+    const onAbort = (): void => socket.close();
+    socket.addEventListener("message", onMessage);
+    socket.addEventListener("error", onError);
+    socket.addEventListener("close", onClose);
+    signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      while (!signal.aborted && (!closed || queue.length > 0)) {
+        if (queue.length > 0) {
+          yield queue.shift()!;
+          continue;
+        }
+        if (failure) throw failure;
+        await new Promise<void>((resolve) => waiters.push(resolve));
       }
-      if (buffer.length > MAX_RESPONSE_BYTES) throw new Error("DeepSeek Harness event frame is too large");
+      if (failure && !signal.aborted) throw failure;
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+      socket.removeEventListener("message", onMessage);
+      socket.removeEventListener("error", onError);
+      socket.removeEventListener("close", onClose);
+      if (!closed) socket.close();
     }
   }
 }

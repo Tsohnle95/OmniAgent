@@ -30,6 +30,8 @@ import type {
   ReferenceOption,
   RecoveryRecord,
   ReopenedSession,
+  RuntimeID,
+  RuntimeManifest,
   SessionInfo,
   SessionSelection,
   SessionSummary,
@@ -75,6 +77,9 @@ import {
   MAX_WORKSPACE_FILE_BYTES,
   relativePath
 } from "./workspace-security";
+import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
+import { DeepSeekRuntimeAdapter } from "./runtimes/deepseek/deepseek-adapter";
+import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
   if (signal?.aborted) return resolve();
@@ -131,17 +136,6 @@ function variantIDs(variants: unknown): string[] {
   return variants
     .map((variant) => typeof variant === "string" ? variant : (variant as { id?: string })?.id ?? "")
     .filter(Boolean);
-}
-
-function toText(res: unknown): string {
-  const d = (res as { data?: unknown })?.data ?? res;
-  if (typeof d === "string") return d;
-  if (d instanceof Uint8Array) return new TextDecoder().decode(d);
-  if (d instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(d));
-  if (typeof (d as { text?: unknown })?.text === "function") {
-    return String((d as { text: () => string }).text());
-  }
-  return String(d);
 }
 
 function collectFilePaths(obj: unknown): string[] {
@@ -474,6 +468,7 @@ export interface SessionContext {
   watchContext: WatchContext;
   watcher: FSWatcher | null;
   activations: LatestGeneration;
+  runtime?: RuntimeAdapter | null;
 }
 
 export type MutationPhase =
@@ -502,8 +497,15 @@ export class OpenShellBackend {
   private pruning = false;
   private readonly pruneCooldownMs = 24 * 60 * 60 * 1000;
   private streamConnectedOnce = false;
+  private readonly runtimeAdapters = new Map<string, RuntimeAdapter>();
+  private readonly runtimeSubscriptions = new Map<string, AbortController>();
 
-  constructor(private readonly mutationPhase: MutationPhaseHandler = () => {}) {}
+  constructor(
+    private readonly mutationPhase: MutationPhaseHandler = () => {},
+    private readonly runtimeFactory: (runtimeID: RuntimeID, directory: string) => RuntimeAdapter = (_runtimeID, directory) =>
+      new DeepSeekRuntimeAdapter({ directory }),
+    private readonly runtimeSessionIndex = new RuntimeSessionIndex()
+  ) {}
 
   onMessage(cb: (msg: unknown) => void): () => void {
     this.listeners.add(cb);
@@ -645,6 +647,39 @@ export class OpenShellBackend {
   start(): void {
     this.stopped = false;
     this.eventLoop.start((signal, generation) => this.runEventLoop(signal, generation));
+  }
+
+  private startRuntimeSubscription(sessionID: string, runtime: RuntimeAdapter): void {
+    if (this.runtimeSubscriptions.has(sessionID)) return;
+    const controller = new AbortController();
+    this.runtimeSubscriptions.set(sessionID, controller);
+    void (async () => {
+      try {
+        for await (const envelope of runtime.subscribe(controller.signal)) {
+          if (controller.signal.aborted) break;
+          const event = envelope.event;
+          const targetSessionID = envelope.sessionID ?? sessionID;
+          if (event.type === "execution.started") {
+            this.emit({ kind: "event", type: "session.execution.started", data: { sessionID: targetSessionID } });
+          } else if (event.type === "execution.idle") {
+            this.emit({ kind: "event", type: "server.connected", data: {} });
+            this.emit({ kind: "event", type: "session.idle", data: { sessionID: targetSessionID } });
+          } else if (event.type === "execution.error") {
+            this.emit({ kind: "event", type: "session.error", data: { sessionID: targetSessionID, error: { message: event.message } } });
+          } else if (event.type === "transcript.changed") {
+            this.emit({ kind: "event", type: "server.connected", data: {} });
+          } else if (event.type === "todo.updated") {
+            this.emit({ kind: "event", type: "todo.updated", data: { sessionID: targetSessionID, todos: event.todos } });
+          }
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          this.emit({ kind: "event", type: "session.error", data: { sessionID, error: { message: error instanceof Error ? error.message : String(error) } } });
+        }
+      } finally {
+        if (this.runtimeSubscriptions.get(sessionID) === controller) this.runtimeSubscriptions.delete(sessionID);
+      }
+    })();
   }
 
   private async runEventLoop(signal: AbortSignal, generation: number): Promise<void> {
@@ -1279,7 +1314,7 @@ export class OpenShellBackend {
 
   // ---------- session + API ----------
 
-  private async activateSession(info: Omit<SessionInfo, "workspace">): Promise<SessionInfo> {
+  private async activateSession(info: Omit<SessionInfo, "workspace">, runtime: RuntimeAdapter | null = null): Promise<SessionInfo> {
     const directory = await canonicalWorkspaceRoot(info.directory);
     const existing = this.contextBySessionID(info.id);
     if (existing && existing.directory === directory) return existing.sessionInfo;
@@ -1298,7 +1333,8 @@ export class OpenShellBackend {
         timers: new Map()
       },
       watcher: null,
-      activations: new LatestGeneration()
+      activations: new LatestGeneration(),
+      runtime
     };
     context.sessionInfo = { ...info, directory, workspace: context.workspace };
     context.watchContext.workspace = context.workspace;
@@ -1319,10 +1355,29 @@ export class OpenShellBackend {
     return context.sessionInfo;
   }
 
-  async openSession(directory: string, acceptedGeneration?: number): Promise<SessionInfo> {
+  async openSession(directory: string, acceptedGeneration?: number, runtimeID: RuntimeID = "opencode"): Promise<SessionInfo> {
     if (acceptedGeneration !== undefined && !Number.isSafeInteger(acceptedGeneration)) {
       throw new Error("invalid activation generation");
     }
+    if (runtimeID === "deepseek") {
+      const runtimeDirectory = await canonicalWorkspaceRoot(directory);
+      const runtime = this.runtimeFactory(runtimeID, runtimeDirectory);
+      if (!(await runtime.connect())) throw new Error("DeepSeek Harness is not available");
+      const draft = await runtime.createSession(runtimeDirectory);
+      this.runtimeAdapters.set(draft.id, runtime);
+      this.startRuntimeSubscription(draft.id, runtime);
+      await this.runtimeSessionIndex.put({
+        id: draft.id,
+        runtimeID: "deepseek",
+        title: draft.title ?? path.basename(runtimeDirectory),
+        directory: runtimeDirectory,
+        updatedAt: Date.now(),
+        ...(draft.parentID ? { parentID: draft.parentID } : {}),
+        ...(draft.agent ? { agent: draft.agent } : {})
+      });
+      return this.activateSession({ ...draft, runtimeID: "deepseek" }, runtime);
+    }
+    if (runtimeID !== "opencode") throw new Error(`Unsupported runtime: ${runtimeID}`);
     if (!this.client) throw new Error("not connected to opencode service");
     const res = await this.client.session.create({
       location: { directory }
@@ -1338,6 +1393,7 @@ export class OpenShellBackend {
     if (!id) throw new Error("session create returned no id");
     return this.activateSession({
       id,
+      runtimeID: "opencode",
       directory,
       ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
       ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
@@ -1346,7 +1402,10 @@ export class OpenShellBackend {
   }
 
   async listSessions(): Promise<SessionSummary[]> {
-    if (!this.client) return [];
+    const persistedRuntimeSummaries = await this.runtimeSessionIndex.list();
+    const liveRuntimeSummaries = (await Promise.all([...new Set(this.runtimeAdapters.values())].map((runtime) => runtime.listSessions().catch(() => [])))).flat();
+    const runtimeSummaries = [...new Map([...persistedRuntimeSummaries, ...liveRuntimeSummaries].map((summary) => [summary.id, summary])).values()];
+    if (!this.client) return runtimeSummaries.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30);
     const summaries: SessionSummary[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < 10 && summaries.length < 30; page += 1) {
@@ -1368,6 +1427,7 @@ export class OpenShellBackend {
         if (!hasConversation(s.title, s.tokens)) continue;
         summaries.push({
           id: s.id,
+          runtimeID: "opencode",
           title: s.title?.trim() ? s.title : path.basename(directory),
           directory,
           updatedAt: updated,
@@ -1380,7 +1440,7 @@ export class OpenShellBackend {
       if (!next) break;
       cursor = next;
     }
-    return summaries;
+    return [...runtimeSummaries, ...summaries].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30);
   }
 
   private async loadSessionMessages(sessionID: string): Promise<unknown[]> {
@@ -1398,10 +1458,25 @@ export class OpenShellBackend {
     throw new Error(`could not load conversation history (${lastError instanceof Error ? lastError.message : String(lastError)})`);
   }
 
-  async openSessionById(sessionID: string, acceptedGeneration?: number): Promise<ReopenedSession> {
+  async openSessionById(sessionID: string, acceptedGeneration?: number, runtimeID?: RuntimeID): Promise<ReopenedSession> {
     if (acceptedGeneration !== undefined && !Number.isSafeInteger(acceptedGeneration)) {
       throw new Error("invalid activation generation");
     }
+    let runtime = this.runtimeAdapters.get(sessionID);
+    const persistedRuntime = await this.runtimeSessionIndex.get(sessionID);
+    if (runtimeID === "deepseek" || runtime || persistedRuntime?.runtimeID === "deepseek") {
+      if (!runtime && persistedRuntime) {
+        runtime = this.runtimeFactory("deepseek", persistedRuntime.directory);
+        if (!(await runtime.connect())) throw new Error("DeepSeek Harness is not available");
+        this.runtimeAdapters.set(sessionID, runtime);
+        this.startRuntimeSubscription(sessionID, runtime);
+      }
+      if (!runtime) throw new Error("DeepSeek session runtime is not active");
+      const [draft, history] = await Promise.all([runtime.sessionInfo(sessionID), runtime.sessionTranscript(sessionID)]);
+      const session = await this.activateSession({ ...draft, runtimeID: "deepseek" }, runtime);
+      return { session, ...history, usage: null };
+    }
+    if (runtimeID && runtimeID !== "opencode") throw new Error(`Unsupported runtime: ${runtimeID}`);
     if (!this.client) throw new Error("not connected to opencode service");
     const res = await this.client.session.get({ sessionID });
     const info = res as {
@@ -1457,6 +1532,7 @@ export class OpenShellBackend {
     const history = await this.loadSessionMessages(id);
     const session = await this.activateSession({
       id,
+      runtimeID: "opencode",
       directory,
       ...(info.parentID ?? info.data?.parentID ? { parentID: info.parentID ?? info.data?.parentID } : {}),
       ...(info.title ?? info.data?.title ? { title: info.title ?? info.data?.title } : {}),
@@ -1466,6 +1542,8 @@ export class OpenShellBackend {
   }
 
   async sessionTranscript(sessionID: string): Promise<SessionTranscript> {
+    const runtime = this.runtimeAdapters.get(sessionID);
+    if (runtime) return runtime.sessionTranscript(sessionID);
     if (!this.client) throw new Error("not connected to opencode service");
     const history = await this.loadSessionMessages(sessionID);
     return { transcript: replayTranscript(history), todos: replayTodos(history) };
@@ -1505,9 +1583,56 @@ export class OpenShellBackend {
     return fetchProviderUsage();
   }
 
+  async runtimeManifests(): Promise<RuntimeManifest[]> {
+    const probe = (command: string) => new Promise<{ available: boolean; version: string | null }>((resolve) => {
+      execFile(command, ["--version"], { timeout: 5000 }, (error, stdout) =>
+        resolve({ available: !error, version: error ? null : stdout.trim().split("\n")[0] || null }));
+    });
+    const [opencode, deepseek] = await Promise.all([probe("opencode2"), probe("dsh")]);
+    return [
+      {
+        protocolVersion: 1,
+        id: "opencode",
+        name: "OpenCode",
+        version: opencode.version,
+        available: Boolean(this.client) || opencode.available,
+        capabilities: {
+          attachments: true,
+          commands: true,
+          models: true,
+          agents: true,
+          permissions: true,
+          providerCredentials: true,
+          sessionFork: true,
+          sessionResume: true,
+          steering: false
+        }
+      },
+      {
+        protocolVersion: 1,
+        id: "deepseek",
+        name: "DeepSeek Harness",
+        version: deepseek.version,
+        available: deepseek.available,
+        capabilities: {
+          attachments: false,
+          commands: false,
+          models: true,
+          agents: false,
+          permissions: false,
+          providerCredentials: false,
+          sessionFork: false,
+          sessionResume: true,
+          steering: true
+        }
+      }
+    ];
+  }
+
   async sessionSelection(workspace: WorkspaceIdentity): Promise<SessionSelection | null> {
-    if (!this.client) return null;
     const context = this.contextFor(workspace);
+    if (context.runtime) return context.runtime.sessionSelection(context.sessionID);
+    if (!this.client) return null;
     const res = await this.client.session.get({ sessionID: context.sessionID }).catch(() => null);
     if (!this.currentContext(context)) return null;
     if (!res) return null;
@@ -1523,8 +1648,16 @@ export class OpenShellBackend {
   }
 
   async prompt(workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<SessionTranscript> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    const context = this.contextFor(workspace);
+    if (context.runtime) {
+      if (files.length > 0) throw new Error("DeepSeek Harness attachments are not supported yet");
+      await context.runtime.prompt(target.sessionID, text);
+      await this.runtimeSessionIndex.touch(target.sessionID);
+      this.assertTarget(target);
+      return context.runtime.sessionTranscript(target.sessionID);
+    }
+    if (!this.client) throw new Error("no active session");
     const fileSpecs = await Promise.all(
       files.map(async (file) => {
         const stat = await fsp.stat(file.path);
@@ -1550,8 +1683,9 @@ export class OpenShellBackend {
   }
 
   async listCommands(workspace: WorkspaceIdentity): Promise<CommandOption[]> {
-    if (!this.client) return [];
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
     const location = { location: { directory: target.directory } };
     const [commands, skills] = await Promise.all([
       this.client.command.list(location).catch(() => []),
@@ -1579,8 +1713,9 @@ export class OpenShellBackend {
   }
 
   async runCommand(workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness commands are not supported yet");
+    if (!this.client) throw new Error("no active session");
     const builtin = BUILTIN_COMMANDS.find((command) => command.name === name);
     if (builtin) {
       await builtin.run(this.client, target.sessionID);
@@ -1609,8 +1744,9 @@ export class OpenShellBackend {
   }
 
   async searchFiles(workspace: WorkspaceIdentity, query: string): Promise<ReferenceOption[]> {
-    if (!this.client) return [];
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
     const res = await this.client.file.find({
       location: { directory: target.directory },
       query,
@@ -1631,15 +1767,23 @@ export class OpenShellBackend {
   }
 
   async interrupt(workspace: WorkspaceIdentity): Promise<void> {
-    if (!this.client) return;
     const target = this.activeTarget(workspace);
+    const runtime = this.contextFor(workspace).runtime;
+    if (runtime) {
+      await runtime.interrupt(target.sessionID).catch(() => {});
+      this.assertTarget(target);
+      return;
+    }
+    if (!this.client) return;
     await this.client.session.interrupt({ sessionID: target.sessionID }).catch(() => {});
     this.assertTarget(target);
   }
 
   async listModels(workspace: WorkspaceIdentity): Promise<ModelOption[]> {
-    if (!this.client) return [];
     const target = this.activeTarget(workspace);
+    const runtime = this.contextFor(workspace).runtime;
+    if (runtime) return runtime.listModels(target.sessionID);
+    if (!this.client) return [];
     const res = await this.client.model.list(
       { location: { directory: target.directory } }
     );
@@ -1667,8 +1811,9 @@ export class OpenShellBackend {
   }
 
   async listProviderIntegrations(workspace: WorkspaceIdentity): Promise<ProviderIntegration[]> {
-    if (!this.client) return [];
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
     const res = await this.client.integration.list({ location: { directory: target.directory } });
     this.assertTarget(target);
     const rows = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
@@ -1748,8 +1893,9 @@ export class OpenShellBackend {
     label: string | undefined,
     answers: ProviderCredentialAnswers
   ): Promise<void> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness provider setup is not supported yet");
+    if (!this.client) throw new Error("no active session");
     await this.client.integration.connect.key({
       integrationID,
       location: { directory: target.directory },
@@ -1761,15 +1907,22 @@ export class OpenShellBackend {
   }
 
   async removeProviderCredential(workspace: WorkspaceIdentity, credentialID: string): Promise<void> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness provider setup is not supported yet");
+    if (!this.client) throw new Error("no active session");
     await this.client.credential.remove({ credentialID, location: { directory: target.directory } });
     this.assertTarget(target);
   }
 
   async switchModel(workspace: WorkspaceIdentity, id: string, providerID: string, variant?: string): Promise<void> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    const runtime = this.contextFor(workspace).runtime;
+    if (runtime) {
+      await runtime.switchModel(target.sessionID, id, providerID, variant);
+      this.assertTarget(target);
+      return;
+    }
+    if (!this.client) throw new Error("no active session");
     await this.client.session.switchModel({
       sessionID: target.sessionID,
       model: { id, providerID, ...(variant ? { variant } : {}) }
@@ -1778,8 +1931,9 @@ export class OpenShellBackend {
   }
 
   async listAgents(workspace: WorkspaceIdentity): Promise<AgentOption[]> {
-    if (!this.client) return [];
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
     const res = await this.client.agent.list(
       { location: { directory: target.directory } }
     );
@@ -1795,15 +1949,18 @@ export class OpenShellBackend {
   }
 
   async switchAgent(workspace: WorkspaceIdentity, id: string): Promise<void> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness agent presets are not supported yet");
+    if (!this.client) throw new Error("no active session");
     await this.client.session.switchAgent({ sessionID: target.sessionID, agent: id });
     this.assertTarget(target);
   }
 
   async modelDefault(workspace: WorkspaceIdentity): Promise<ModelOption | null> {
-    if (!this.client) return null;
     const target = this.activeTarget(workspace);
+    const runtime = this.contextFor(workspace).runtime;
+    if (runtime) return (await runtime.sessionSelection(target.sessionID))?.model ?? null;
+    if (!this.client) return null;
     const res = await this.client.model.default(
       { location: { directory: target.directory } }
     );
@@ -1835,8 +1992,9 @@ export class OpenShellBackend {
   }
 
   async replyPermission(workspace: WorkspaceIdentity, requestID: string, reply: PermissionReply, sessionID: string): Promise<void> {
-    if (!this.client) throw new Error("no active session");
     const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness approval responses are not supported yet");
+    if (!this.client) throw new Error("no active session");
     assertPermissionSession(target, sessionID);
     await this.client.permission.reply({
       sessionID: target.sessionID,
@@ -1847,8 +2005,9 @@ export class OpenShellBackend {
   }
 
   async listPermissions(workspace: WorkspaceIdentity): Promise<PendingPermissionRequest[]> {
-    if (!this.client) throw new Error("no active session");
     this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) throw new Error("no active session");
     const res = await this.client.permission.request.list().catch(() => null);
     const rows = Array.isArray(res) ? res : ((res as { data?: unknown } | null)?.data ?? []);
     if (!Array.isArray(rows)) return [];
@@ -1868,7 +2027,6 @@ export class OpenShellBackend {
   }
 
   async listDir(workspace: WorkspaceIdentity, rel: string): Promise<TreeEntry[]> {
-    if (!this.client) throw new Error("no active session");
     const root = this.workspaceRoot(workspace);
     const clean = relativePath(rel, true);
     const abs = await confinedPath(root, clean, true);
@@ -1884,21 +2042,16 @@ export class OpenShellBackend {
   }
 
   async readFile(workspace: WorkspaceIdentity, rel: string): Promise<string | null> {
-    if (!this.client) throw new Error("no active session");
     const root = this.workspaceRoot(workspace);
     const clean = relativePath(rel);
-    await confinedPath(root, clean);
+    const abs = await confinedPath(root, clean);
     this.contextFor(workspace);
-    const res = await this.client.file.read({
-      location: { directory: root },
-      path: clean
-    });
+    const content = await this.readExternalText(abs);
     this.contextFor(workspace);
-    return toText(res);
+    return content;
   }
 
   async resolveExternalOpen(workspace: WorkspaceIdentity, value: string): Promise<ExternalOpenResult> {
-    if (!this.client) throw new Error("no active session");
     const abs = await this.canonicalExternalFile(value);
     const root = this.workspaceRoot(workspace);
     this.contextFor(workspace);
@@ -1959,7 +2112,7 @@ export class OpenShellBackend {
     }
   }
 
-  async openFileWorkspace(value: string, acceptedGeneration?: number): Promise<OpenFileWorkspaceResult> {
+  async openFileWorkspace(value: string, acceptedGeneration?: number, runtimeID: RuntimeID = "opencode"): Promise<OpenFileWorkspaceResult> {
     if (acceptedGeneration !== undefined && !Number.isSafeInteger(acceptedGeneration)) {
       throw new Error("invalid activation generation");
     }
@@ -1968,7 +2121,7 @@ export class OpenShellBackend {
     const stat = await fsp.stat(real);
     if (!stat.isFile()) throw new Error("workspace file is not a file");
     const parent = path.dirname(real);
-    const session = await this.openSession(parent, acceptedGeneration);
+    const session = await this.openSession(parent, acceptedGeneration, runtimeID);
     return { session, path: path.relative(parent, real).split(path.sep).join("/") };
   }
 
@@ -2355,6 +2508,11 @@ export class OpenShellBackend {
     }
     this.contexts.clear();
     this.primary = null;
+    for (const controller of this.runtimeSubscriptions.values()) controller.abort();
+    this.runtimeSubscriptions.clear();
+    const runtimes = [...new Set(this.runtimeAdapters.values())];
+    this.runtimeAdapters.clear();
+    await Promise.all(runtimes.map((runtime) => runtime.stop().catch(() => {})));
     await this.eventLoop.stop();
   }
 }

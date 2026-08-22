@@ -308,6 +308,11 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     stop
   } = store;
   const activeSession = session === undefined ? store.session : session;
+  const runtime = (store.runtimes ?? []).find((item) => item.id === (activeSession?.runtimeID ?? "opencode"));
+  const supportsAttachments = runtime?.capabilities.attachments ?? activeSession?.runtimeID !== "deepseek";
+  const supportsCommands = runtime?.capabilities.commands ?? activeSession?.runtimeID !== "deepseek";
+  const supportsAgents = runtime?.capabilities.agents ?? activeSession?.runtimeID !== "deepseek";
+  const supportsPermissions = runtime?.capabilities.permissions ?? activeSession?.runtimeID !== "deepseek";
   const workspace = activeSession?.workspace ?? null;
   const view = usePanel(workspace);
   const { models, currentModel, agents, currentAgent, busy, assistantStatus } = view;
@@ -395,7 +400,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     if (!canSend) return;
     const text = input.trim();
     const command = /^\/(\S+)(?:\s+([\s\S]*))?$/.exec(text);
-    if (command) {
+    if (command && supportsCommands) {
       void runCommand(command[1], command[2] ?? "", workspace ?? undefined).catch((err) =>
         setNotice(err instanceof Error ? err.message : String(err))
       );
@@ -440,6 +445,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   };
 
   const addAttachmentPaths = (paths: string[]): void => {
+    if (!supportsAttachments) return;
     if (paths.length === 0) return;
     setFiles((current) => {
       const next = [...current];
@@ -487,7 +493,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   };
 
   const onComposerDragOver = (e: React.DragEvent): void => {
-    if (!isExternalFileDrag(e)) return;
+    if (!supportsAttachments || !isExternalFileDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     setDragOver(true);
@@ -499,7 +505,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   };
 
   const onComposerDrop = (e: React.DragEvent): void => {
-    if (!isExternalFileDrag(e)) return;
+    if (!supportsAttachments || !isExternalFileDrag(e)) return;
     e.preventDefault();
     setDragOver(false);
     addAttachmentPaths(droppedFilePaths(e));
@@ -737,7 +743,10 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             e.target.style.setProperty("--composer-input-height", "0px");
             e.target.style.setProperty("--composer-input-height", `${e.target.scrollHeight}px`);
             const caret = e.target.selectionStart ?? value.length;
-            const trigger = detectTrigger(value, caret, mentionSpans(value, mentions));
+            const detected = detectTrigger(value, caret, mentionSpans(value, mentions));
+            const trigger = detected && ((detected.kind === "command" && supportsCommands) || (detected.kind === "mention" && supportsAttachments))
+              ? detected
+              : null;
             if (!trigger) {
               setCompletion(null);
               return;
@@ -801,30 +810,30 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
           }}
         />
         <div className="composer-actions">
-          <button
-            className={`composer-icon-button ${menu === "add" ? "active" : ""}`}
-            title="Add attachments"
-            aria-expanded={menu === "add"}
-            onClick={() => setMenu(menu === "add" ? null : "add")}
-          >
-            <IconAdd />
-          </button>
-          <button
-            className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
-            aria-pressed={approvalMode === "approve"}
-            title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
-            onClick={toggleApprovalMode}
-          >
-            <IconShield />
-          </button>
-          <button
+          {supportsAttachments && <button
+              className={`composer-icon-button ${menu === "add" ? "active" : ""}`}
+              title="Add attachments"
+              aria-expanded={menu === "add"}
+              onClick={() => setMenu(menu === "add" ? null : "add")}
+            >
+              <IconAdd />
+            </button>}
+          {supportsPermissions && <button
+              className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
+              aria-pressed={approvalMode === "approve"}
+              title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
+              onClick={toggleApprovalMode}
+            >
+              <IconShield />
+            </button>}
+          {supportsAgents && <button
             className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
             title={voiceActive ? "Stop voice input" : "Use voice input"}
             aria-pressed={voiceActive}
             onClick={toggleVoice}
           >
             <IconMic />
-          </button>
+          </button>}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
             title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
@@ -919,7 +928,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
         </div>
       )}
 
-      {menu === "add" && (
+      {supportsAttachments && menu === "add" && (
         <div className="composer-menu add">
           <button
             className="composer-menu-item"

@@ -1,9 +1,10 @@
 # OmniAgent — Agent Guide
 
-OmniAgent is a VS Code-style desktop GUI for coding agents, currently powered by opencode2: an
-Electron + React + Monaco app that opens a repository, sends prompts to
-opencode2, streams the agent's progress, and shows live per-file diffs of
-workspace file changes observed during the active session.
+OmniAgent is a VS Code-style desktop GUI for coding agents: an Electron + React
++ Monaco app that opens a repository, routes prompts through capability-aware
+runtime adapters, streams the agent's progress, and shows live per-file diffs
+of workspace file changes observed during the active session. Built-in runtime
+support currently covers OpenCode and DeepSeek Harness.
 
 Read this file first. For depth, read the module docs — each one is
 self-contained so you never need to crawl the whole repo.
@@ -22,14 +23,16 @@ npm run check      # canonical verification gate
 npm start          # run the existing production build without rebuilding
 ```
 
-`opencode2` must be on PATH (or an opencode service already running).
+`opencode2` must be on PATH (or an opencode service already running) for
+OpenCode sessions. `dsh` must be on PATH for DeepSeek Harness sessions.
 
 ## Module map
 
 | Area | Path | Role |
 |---|---|---|
 | Main process | `src/main/index.ts` | Window, IPC handlers, backend wiring |
-| Backend | `src/main/opencode.ts` | All opencode2 API traffic, session state, fs watching, baselines |
+| Backend | `src/main/opencode.ts` | Runtime routing, session state, fs watching, baselines, and OpenCode traffic |
+| Runtime adapters | `src/main/runtimes/` | Versioned adapter contract, capability manifests, durable runtime identity, and DeepSeek HTTP/WebSocket integration |
 | Stream transport | `src/main/stream-pipeline.ts` | SSE pipeline: per-directory delta coalescing, snapshot barriers, 33ms batched flush, heartbeat, reconnect backoff |
 | Provider usage | `src/main/provider-usage.ts` | Reads opencode's stored OAuth credentials and fetches per-provider plan/rate-limit data (ChatGPT, Claude, Copilot) |
 | Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
@@ -51,12 +54,13 @@ requests and current priorities live in the README and repository issues.
 
 ## Architecture in one paragraph
 
-The Electron **main process** is the only thing that talks to opencode2
-(`@opencode-ai/client`). It spawns/connects to the service, creates a
-session for the opened directory, and runs an SSE pipeline that coalesces
-events per directory into 33ms batches (delta concatenation, snapshot
-barriers, heartbeat, reconnect backoff) and forwards every server event to
-the renderer over IPC. The **renderer** (React) keeps all UI state in one
+The Electron **main process** owns runtime adapters and is the only process that
+talks to OpenCode or DeepSeek Harness. OpenCode uses its discovered service and
+coalesced SSE pipeline; DeepSeek launches a workspace-local `dsh web` process,
+uses correlated loopback HTTP RPC plus independent WebSocket downlinks, and
+maps verified native records to normalized runtime events. Every session keeps
+its runtime id and capability manifest, while a durable index makes DeepSeek
+sessions reopenable after restart. The **renderer** (React) keeps all UI state in one
 store and renders a three-pane layout: file tree,
 Monaco editor with an Edit/Diff toggle, and the streaming agent panel. Model
 response events mutate an authoritative per-session message/part chat store
@@ -77,8 +81,8 @@ the session is active, and Diff remains available when the baseline is known.
 - IPC channels are named `shell:*`; backend messages to the renderer are
   `{ kind: "event" | "file-update" | "session", ... }` (see
   `src/shared/types.ts`).
-- All opencode2 API calls are isolated in `src/main/opencode.ts` — if the
-  client API shape changes, only that file changes.
+- OpenCode SDK calls remain isolated in `src/main/opencode.ts`; DeepSeek native
+  traffic remains isolated under `src/main/runtimes/deepseek/`.
 - Tree paths are relative to the session directory, always `/`-separated,
   no trailing slashes.
 - Everything under `out/`, `node_modules/`, `*.tsbuildinfo` is gitignored.

@@ -19,6 +19,8 @@ import type {
   RecoveryRecord,
   ReferenceOption,
   ReopenedSession,
+  RuntimeID,
+  RuntimeManifest,
   SessionInfo,
   SessionSelection,
   SessionSummary,
@@ -35,10 +37,10 @@ const api = {
     ipcRenderer.on("shell:message", listener);
     return () => ipcRenderer.removeListener("shell:message", listener);
   },
-  selectFolder: (generation: number): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder", generation),
-  selectFile: (generation: number): Promise<OpenFileWorkspaceResult | null> => ipcRenderer.invoke("shell:select-file", generation),
-  openFileWorkspace: (file: string, generation: number): Promise<OpenFileWorkspaceResult> =>
-    ipcRenderer.invoke("shell:open-file", file, generation),
+  selectFolder: (generation: number, runtimeID?: RuntimeID): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder", generation, runtimeID),
+  selectFile: (generation: number, runtimeID?: RuntimeID): Promise<OpenFileWorkspaceResult | null> => ipcRenderer.invoke("shell:select-file", generation, runtimeID),
+  openFileWorkspace: (file: string, generation: number, runtimeID?: RuntimeID): Promise<OpenFileWorkspaceResult> =>
+    ipcRenderer.invoke("shell:open-file", file, generation, runtimeID),
   openExternal: (workspace: WorkspaceIdentity, file: string): Promise<ExternalOpenResult> =>
     ipcRenderer.invoke("shell:open-external", workspace, file),
   externalKind: (file: string): Promise<ExternalKind> =>
@@ -48,12 +50,13 @@ const api = {
     ipcRenderer.invoke("shell:fs-write-standalone", file, content, expectedContent, overwrite),
   importExternal: (workspace: WorkspaceIdentity, destDir: string, sources: string[]): Promise<ImportResult[]> =>
     ipcRenderer.invoke("shell:fs-import", workspace, destDir, sources),
-  openSession: (dir: string, generation: number): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir, generation),
+  openSession: (dir: string, generation: number, runtimeID?: RuntimeID): Promise<SessionInfo> => ipcRenderer.invoke("shell:open-session", dir, generation, runtimeID),
+  runtimes: (): Promise<RuntimeManifest[]> => ipcRenderer.invoke("shell:runtimes"),
   sessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke("shell:sessions"),
   activeSessions: (): Promise<SessionInfo[]> => ipcRenderer.invoke("shell:active-sessions"),
   closeSession: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:close-session", workspace),
-  openSessionById: (sessionID: string, generation: number): Promise<ReopenedSession> =>
-    ipcRenderer.invoke("shell:open-session-id", sessionID, generation),
+  openSessionById: (sessionID: string, generation: number, runtimeID?: RuntimeID): Promise<ReopenedSession> =>
+    ipcRenderer.invoke("shell:open-session-id", sessionID, generation, runtimeID),
   sessionTranscript: (sessionID: string): Promise<SessionTranscript> =>
     ipcRenderer.invoke("shell:session-transcript", sessionID),
   prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<SessionTranscript> =>

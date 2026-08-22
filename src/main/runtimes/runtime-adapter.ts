@@ -2,6 +2,7 @@ import type {
   ModelOption,
   RuntimeManifest,
   SessionInfo,
+  SessionSelection,
   SessionSummary,
   SessionTranscript
 } from "@shared/types";
@@ -20,8 +21,15 @@ export interface RuntimeEventEnvelope {
   runtimeID: string;
   eventID: string;
   sessionID?: string;
-  event: unknown;
+  event: RuntimeEvent;
 }
+
+export type RuntimeEvent =
+  | { type: "execution.started" }
+  | { type: "execution.idle" }
+  | { type: "execution.error"; message: string }
+  | { type: "transcript.changed" }
+  | { type: "todo.updated"; todos: unknown[] };
 
 export interface RuntimeAdapter {
   readonly manifest: RuntimeManifest;
@@ -33,6 +41,7 @@ export interface RuntimeAdapter {
   prompt(sessionID: string, text: string): Promise<void>;
   interrupt(sessionID: string): Promise<void>;
   listModels(sessionID: string): Promise<ModelOption[]>;
+  sessionSelection(sessionID: string): Promise<SessionSelection | null>;
   switchModel(sessionID: string, modelID: string, providerID: string, variant?: string): Promise<void>;
   subscribe(signal: AbortSignal): AsyncIterable<RuntimeEventEnvelope>;
   stop(): Promise<void>;

@@ -58,10 +58,10 @@ manager.
 The first non-OpenCode implementation is the built-in DeepSeek Harness adapter
 under `src/main/runtimes/deepseek/`. It targets the verified `dsh` rc.7 native
 contract: correlated request/response envelopes over loopback HTTP and the
-independent mux and host SSE downlinks. The carrier accepts only unauthenticated
+independent mux and host WebSocket downlinks required by `dsh web`. The carrier accepts only unauthenticated
 loopback HTTP URLs, sends an explicit loopback Host authority, refuses
 redirects and non-JSON/HTML RPC responses, bounds response/frame sizes, checks
-every echoed `rpcId`, and preserves native business error codes. The two event
+every echoed `rpcId`, and preserves native business error codes. The two WebSocket
 streams reconnect independently and replayed frames are deduplicated by
 `rpcId`. The adapter can launch `dsh web --host 127.0.0.1 --port 0 --no-open`
 in a workspace, reads only its explicit startup URL line, and terminates the
@@ -70,11 +70,21 @@ owned process on shutdown.
 DeepSeek history is projected from its provider-neutral `user/message`,
 `assistant/message`, `tool/call`, `tool/result`, and `todo/write` records into
 the shared transcript. Its manifest currently advertises only implemented
-features: model selection, session resume, and steering. Attachments, commands,
+features: model selection and session resume. Attachments, commands, steering,
 agent presets, approval responses, provider credential editing, and forking
-remain disabled until their normalized adapter methods and UI paths exist. The
-adapter is deliberately not exposed over renderer IPC yet; OpenCode remains
-the active backend until runtime routing and persisted runtime selection land.
+remain disabled until their normalized adapter methods and UI paths exist.
+Renderer IPC carries only runtime manifests, selected runtime ids, and the
+existing normalized session operations; native DeepSeek envelopes and service
+URLs remain main-process-only.
+
+Runtime selection is persisted in renderer preferences and passed through the
+folder/session-open boundary. Each active workspace context retains its
+adapter and `runtimeID`; workspace watching, editing, recovery, and terminals
+stay in core while prompts, history, interruption, models, and event streams
+route to the selected adapter. DeepSeek session id/directory/runtime mappings
+are atomically persisted in the main-process runtime session index, allowing a
+cold app restart to launch `dsh web` in the correct workspace and reopen the
+native session. UI controls are hidden when their manifest capability is false.
 
 ## Message flow
 

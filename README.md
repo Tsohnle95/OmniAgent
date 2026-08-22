@@ -20,8 +20,8 @@ touched, and continue working without switching between several applications.
   use Emmet, validate HTML and CSS, and open the integrated terminal.
 - **Stay in control.** Choose agents and models per workspace, attach files,
   reference project context with `@`, and stop or redirect work at any time.
-- **Work locally.** OmniAgent opens repositories from your machine and connects
-  to your local OpenCode service.
+- **Choose the runtime.** OpenCode and DeepSeek Harness sessions share the same
+  local workspace, editor, diff, terminal, and session surface.
 
 ## Workflow
 
@@ -43,10 +43,12 @@ to keep the code in focus.
 | Monaco editor with tabs and autosave | Multiple models and concurrent panels | Permission requests and recovery flows |
 | Integrated PTY terminal | Prompt queue, attachments, and `@` context | W3C HTML/CSS validation |
 
-OmniAgent is an Electron, React, and Monaco application powered by
-[`opencode2`](https://opencode.ai/v2). The Electron main process owns all
-service and filesystem access; the renderer receives a narrow preload API and
-live event stream.
+OmniAgent is an Electron, React, and Monaco application with a versioned runtime
+adapter boundary. It supports [`opencode2`](https://opencode.ai/v2) and the
+DeepSeek Harness `dsh` CLI; each adapter declares its capabilities so the UI
+does not offer unsupported controls. The Electron main process owns all runtime
+and filesystem access; the renderer receives a narrow preload API and normalized
+live events.
 
 ## Get Started
 
@@ -54,7 +56,7 @@ live event stream.
 
 - Node 22.23.2 or later within the Node 22 release line
 - [`opencode2`](https://opencode.ai/v2) on your `PATH`, or an OpenCode service
-  already running
+  already running, and/or `dsh` for DeepSeek Harness sessions
 - macOS for the most complete and validated experience
 
 ### Run From Source
@@ -65,8 +67,8 @@ npm run dev
 ```
 
 Clone this repository, run those commands from its root, and OmniAgent will
-discover the OpenCode service or start it automatically. Choose **Open a
-folder** on the welcome screen to begin.
+discover the installed runtimes and start the selected one automatically.
+Choose a runtime and **Open a folder** on the welcome screen to begin.
 
 ### Build And Install
 

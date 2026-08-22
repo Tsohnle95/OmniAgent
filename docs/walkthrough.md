@@ -213,6 +213,14 @@ auto-replies `once` to every request without showing a card decision.
 
 ## Models and agents
 
+The welcome runtime selector reads `RuntimeManifest[]` over `shell:runtimes`
+and persists the selected id locally. Folder opens carry that id into main;
+the resulting `SessionInfo.runtimeID` keeps every later operation on the same
+adapter. OpenCode remains the default. DeepSeek Harness starts `dsh web` in the
+chosen directory, while the durable runtime-session index records enough
+identity to reopen that native session after an app restart. Controls whose
+manifest capability is false are omitted rather than allowed to fail later.
+
 Both pickers follow the same pattern: `loadModels`/`loadAgents` fetch
 catalogs (location = session directory) and the current pick via
 `modelDefault()`, seeded live by `session.model.selected`. Switching calls
@@ -231,8 +239,9 @@ read back; the UI receives only opaque credential ids and labels. Adding or
 removing a credential refetches both connection state and workspace models so
 newly available models can be selected immediately. The current OpenCode
 adapter implements this contract through `integration.list`,
-`integration.connect.key`, and `credential.remove`; future agent adapters can
-provide the same renderer-safe capability without changing the settings UI.
+`integration.connect.key`, and `credential.remove`. DeepSeek currently reports
+provider credential editing as unsupported, so Settings directs users to the
+runtime instead of rendering a nonfunctional form.
 
 ## Terminal tray
 

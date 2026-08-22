@@ -45,6 +45,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
   const { theme, setTheme } = useTheme();
   const {
     session,
+    runtimes,
     models,
     currentModel,
     switchModel,
@@ -60,6 +61,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
   } = useStore();
   const [commands, setCommands] = useState<CommandOption[]>([]);
   const copy = sectionCopy[section];
+  const runtime = (runtimes ?? []).find((item) => item.id === (session?.runtimeID ?? "opencode"));
 
   useEffect(() => {
     if (section !== "plugins") return;
@@ -125,21 +127,23 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
       </section>}
 
       {section === "providers" && <section className="settings-section">
-        <ProviderSettings workspace={session?.workspace ?? null} usage={providerUsage} refreshModels={() => loadModels(session?.workspace)} />
+        {runtime && !runtime.capabilities.providerCredentials
+          ? <div className="settings-callout"><strong>Managed by {runtime.name}</strong><p>This runtime does not expose provider credential editing through OmniAgent. Configure credentials in the runtime, then refresh its model list here.</p></div>
+          : <ProviderSettings workspace={session?.workspace ?? null} usage={providerUsage} refreshModels={() => loadModels(session?.workspace)} />}
       </section>}
 
       {section === "safety" && <section className="settings-section">
         <div className="settings-list">
-          <SettingRow
+          {(!runtime || runtime.capabilities.permissions) && <SettingRow
             title="Tool permissions"
             detail="Choose whether agent tool actions need confirmation."
             control={<span className="settings-segmented"><button className={approvalMode !== "approve" ? "on" : ""} onClick={() => approvalMode === "approve" && toggleApprovalMode()}>Ask</button><button className={approvalMode === "approve" ? "on" : ""} onClick={() => approvalMode !== "approve" && toggleApprovalMode()}>Approve</button></span>}
-          />
-          <SettingRow
+          />}
+          {(!runtime || runtime.capabilities.steering) && <SettingRow
             title="Follow-up behavior"
             detail="Queue new prompts or use them to steer active work."
             control={<span className="settings-segmented"><button className={followUpBehavior !== "steer" ? "on" : ""} onClick={() => setFollowUpBehavior("queue")}>Queue</button><button className={followUpBehavior === "steer" ? "on" : ""} onClick={() => setFollowUpBehavior("steer")}>Steer</button></span>}
-          />
+          />}
         </div>
       </section>}
 

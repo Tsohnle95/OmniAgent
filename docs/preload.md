@@ -15,14 +15,15 @@ automatically.
 | `platform()` | `string` — `process.platform` (not an invoke; the renderer uses it for the darwin titlebar inset) |
 | `isPackaged()` | `boolean` — true when main added the `--openshell-packaged` flag; the renderer hides install affordances in packaged builds |
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
-| `selectFolder(generation)` | `Promise<SessionInfo \| null>` — native dialog; the caller decides mounting (replace panels, add a model panel, or swap an existing panel's directory) |
-| `selectFile(generation)` | `Promise<OpenFileWorkspaceResult \| null>` — native single-file dialog; opens the file's parent folder as a new single-file workspace and reports which file to open |
-| `openFileWorkspace(file, generation)` | `Promise<OpenFileWorkspaceResult>` — opens an absolute path as a single-file workspace (parent folder session + the file to open), no dialog |
-| `openSession(dir, generation)` | `Promise<SessionInfo>` — creates an opencode session for `dir` as the replacement view; model mode uses the renderer's explicit additive action |
+| `selectFolder(generation, runtimeID?)` | `Promise<SessionInfo \| null>` — native dialog; the caller decides mounting (replace panels, add a model panel, or swap an existing panel's directory) |
+| `selectFile(generation, runtimeID?)` | `Promise<OpenFileWorkspaceResult \| null>` — native single-file dialog; opens the file's parent folder through the selected runtime and reports which file to open |
+| `openFileWorkspace(file, generation, runtimeID?)` | `Promise<OpenFileWorkspaceResult>` — opens an absolute path as a single-file workspace through the selected runtime (parent folder session + the file to open), no dialog |
+| `openSession(dir, generation, runtimeID?)` | `Promise<SessionInfo>` — creates a session through OpenCode by default or the selected runtime; model mode uses the renderer's explicit additive action |
+| `runtimes()` | `Promise<RuntimeManifest[]>` — installed status, versions, and normalized capability manifests |
 | `sessions()` | `Promise<SessionSummary[]>` — recent session list |
 | `activeSessions()` | `Promise<SessionInfo[]>` — currently open backend sessions in activation order; the last element is the most recently activated (used for startup restore) |
 | `closeSession(workspace)` | `Promise<void>` — tears down the backend context when a panel closes; the opencode session remains reopenable |
-| `openSessionById(sessionID, generation)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions |
+| `openSessionById(sessionID, generation, runtimeID?)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions and resolves persisted runtime identity when omitted |
 | `sessionTranscript(sessionID)` | `Promise<{transcript, todos}>` — authoritative message replay used to materialize incomplete stream snapshots |
 | `prompt(workspace, text, files?)` | `Promise<void>`; files are `PromptFile[]` — paths from `selectFiles()` or @-mentions (with `mention` spans) |
 | `commands(workspace)` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
@@ -84,7 +85,7 @@ subframe cannot use the exposed API. Workspace filesystem and terminal calls
 also require a live `WorkspaceIdentity` matching an open backend session
 context; stale or unknown identities are rejected in main. Main validates
 bounded runtime schemas for activation and session IDs, prompts and
-attachments, command/search payloads, model/agent selection, permission
+attachments, runtime ids, command/search payloads, model/agent selection, permission
 replies, provider keys and form answers, filesystem writes, and terminal arguments. The standalone-file channels
 (`openExternal`, `writeStandalone`) are the one bridge surface that accepts
 arbitrary absolute paths; main bounds them (length/NUL/size caps) and `realpath`s

@@ -39,6 +39,7 @@ import {
   fileWriteIdentity,
   movePayload,
   optionalSelectionId,
+  optionalRuntimeId,
   permissionPayload,
   providerCredentialPayload,
   promptPayload,
@@ -450,7 +451,7 @@ function handleTrusted<Args extends unknown[], Result>(
 }
 
 function registerIpc(): void {
-  handleTrusted("shell:select-folder", async (e, requestGeneration: number) => {
+  handleTrusted("shell:select-folder", async (e, requestGeneration: number, requestedRuntimeID?: unknown) => {
     const generation = backend.beginActivation(activationGeneration(requestGeneration));
     const parent = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(parent ?? win!, {
@@ -458,10 +459,10 @@ function registerIpc(): void {
       properties: ["openDirectory"]
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return backend.openSession(result.filePaths[0], generation);
+    return backend.openSession(result.filePaths[0], generation, optionalRuntimeId(requestedRuntimeID));
   });
 
-  handleTrusted("shell:select-file", async (e, requestGeneration: number) => {
+  handleTrusted("shell:select-file", async (e, requestGeneration: number, requestedRuntimeID?: unknown) => {
     const generation = backend.beginActivation(activationGeneration(requestGeneration));
     const parent = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(parent ?? win!, {
@@ -469,11 +470,11 @@ function registerIpc(): void {
       properties: ["openFile"]
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return backend.openFileWorkspace(result.filePaths[0], generation);
+    return backend.openFileWorkspace(result.filePaths[0], generation, optionalRuntimeId(requestedRuntimeID));
   });
 
-  handleTrusted("shell:open-file", async (_e, file: string, requestGeneration: number) =>
-    backend.openFileWorkspace(absoluteFilePath(file), backend.beginActivation(activationGeneration(requestGeneration))));
+  handleTrusted("shell:open-file", async (_e, file: string, requestGeneration: number, requestedRuntimeID?: unknown) =>
+    backend.openFileWorkspace(absoluteFilePath(file), backend.beginActivation(activationGeneration(requestGeneration)), optionalRuntimeId(requestedRuntimeID)));
 
   handleTrusted("shell:open-external", async (_e, workspace: WorkspaceIdentity, file: string) => {
     workspaceId(workspace);
@@ -504,8 +505,8 @@ function registerIpc(): void {
     return backend.importExternal(workspace, workspacePath(workspace, destDir, true).rel, absoluteFilePaths(sources));
   });
 
-  handleTrusted("shell:open-session", async (_e, dir: string, requestGeneration: number) =>
-    backend.openSession(directoryPath(dir), backend.beginActivation(activationGeneration(requestGeneration))));
+  handleTrusted("shell:open-session", async (_e, dir: string, requestGeneration: number, requestedRuntimeID?: unknown) =>
+    backend.openSession(directoryPath(dir), backend.beginActivation(activationGeneration(requestGeneration)), optionalRuntimeId(requestedRuntimeID)));
 
   handleTrusted("shell:sessions", async () => backend.listSessions());
 
@@ -516,9 +517,11 @@ function registerIpc(): void {
     return backend.closeSession(workspace);
   });
 
-  handleTrusted("shell:open-session-id", async (_e, sessionID: string, requestGeneration: number) =>
-    backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)))
+  handleTrusted("shell:open-session-id", async (_e, sessionID: string, requestGeneration: number, requestedRuntimeID?: unknown) =>
+    backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)), optionalRuntimeId(requestedRuntimeID))
   );
+
+  handleTrusted("shell:runtimes", async () => backend.runtimeManifests());
 
   handleTrusted("shell:session-transcript", async (_e, sessionID: string) =>
     backend.sessionTranscript(sessionId(sessionID))

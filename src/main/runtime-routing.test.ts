@@ -1,0 +1,83 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
+import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
+
+vi.mock("electron", () => ({ shell: { trashItem: vi.fn(), openPath: vi.fn() } }));
+vi.mock("@opencode-ai/client", () => ({ OpenCode: { make: vi.fn() } }));
+vi.mock("@opencode-ai/client/service", () => ({ Service: {} }));
+
+import { OpenShellBackend } from "./opencode";
+
+const roots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+function adapter(directory: string): RuntimeAdapter {
+  return {
+    manifest: {
+      protocolVersion: 1,
+      id: "deepseek",
+      name: "DeepSeek Harness",
+      version: "0.1.0-rc.7",
+      available: true,
+      capabilities: {
+        attachments: false,
+        commands: false,
+        models: true,
+        agents: false,
+        permissions: false,
+        providerCredentials: false,
+        sessionFork: false,
+        sessionResume: true,
+        steering: false
+      }
+    },
+    connect: vi.fn(async () => true),
+    createSession: vi.fn(async () => ({ id: "deepseek-session", directory })),
+    listSessions: vi.fn(async () => []),
+    sessionInfo: vi.fn(async () => ({ id: "deepseek-session", directory })),
+    sessionTranscript: vi.fn(async () => ({ transcript: [], todos: [] })),
+    prompt: vi.fn(async () => {}),
+    interrupt: vi.fn(async () => {}),
+    listModels: vi.fn(async () => [{ id: "deepseek-chat", providerID: "deepseek-official", name: "DeepSeek Chat" }] ),
+    sessionSelection: vi.fn(async () => ({ model: { id: "deepseek-chat", providerID: "deepseek-official", name: "DeepSeek Chat" } })),
+    switchModel: vi.fn(async () => {}),
+    subscribe: async function* () {},
+    stop: vi.fn(async () => {})
+  };
+}
+
+describe("runtime routing", () => {
+  it("keeps workspace services in core and routes agent operations by session runtime", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "omniagent-runtime-"));
+    roots.push(directory);
+    const runtime = adapter(directory);
+    const backend = new OpenShellBackend(() => {}, () => runtime, new RuntimeSessionIndex(path.join(directory, "runtime-sessions.json")));
+    const session = await backend.openSession(directory, 1, "deepseek");
+    expect(session).toMatchObject({ id: "deepseek-session", runtimeID: "deepseek" });
+    await expect(backend.workspaceDirectory(session.workspace)).resolves.toBe(session.directory);
+    await backend.prompt(session.workspace, "hello");
+    expect(runtime.prompt).toHaveBeenCalledWith("deepseek-session", "hello");
+    await expect(backend.listModels(session.workspace)).resolves.toEqual([
+      { id: "deepseek-chat", providerID: "deepseek-official", name: "DeepSeek Chat" }
+    ]);
+    await backend.stop();
+    expect(runtime.stop).toHaveBeenCalledOnce();
+
+    const reopenedRuntime = adapter(directory);
+    const reopenedBackend = new OpenShellBackend(
+      () => {},
+      () => reopenedRuntime,
+      new RuntimeSessionIndex(path.join(directory, "runtime-sessions.json"))
+    );
+    const reopened = await reopenedBackend.openSessionById("deepseek-session", 2);
+    expect(reopened.session).toMatchObject({ id: "deepseek-session", runtimeID: "deepseek" });
+    expect(reopenedRuntime.connect).toHaveBeenCalledOnce();
+    await reopenedBackend.stop();
+  });
+});
