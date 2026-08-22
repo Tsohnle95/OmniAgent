@@ -14,9 +14,7 @@
   --v2-border-border-muted: var(--agent-border-muted);
   --v2-border-border-base: var(--agent-border-base);
   --v2-border-border-strong: var(--agent-border-strong);
-  --v2-state-bg-danger: color-mix(in srgb, var(--red) 12%, transparent);
   --v2-state-fg-danger: var(--red);
-  --v2-state-border-danger: color-mix(in srgb, var(--red) 50%, transparent);
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --font-size-base: 14px;
@@ -206,16 +204,13 @@
 [data-component="reasoning-part"] [data-slot="reasoning-part-trigger"] {
   width: fit-content;
   max-width: 100%;
-  padding: 3px 8px 3px 7px;
-  border: 0.5px solid color-mix(in srgb, var(--accent) 16%, transparent);
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  padding: 1px 0;
   color: var(--text-dim);
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  font: var(--font-weight-regular) 13px/20px var(--font-family-sans);
+  font: var(--font-weight-regular) 12px/20px var(--font-family-sans);
   text-align: left;
 }
 
@@ -230,8 +225,6 @@
 
 [data-component="reasoning-part"] [data-slot="reasoning-part-trigger"]:hover {
   color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 [data-component="reasoning-part"] [data-slot="reasoning-part-content"] {
@@ -466,25 +459,10 @@
 [data-component="edit-tool-card"] {
   width: min(100%, 640px);
   min-width: 0;
-  border: 0.5px solid color-mix(in srgb, var(--accent) 16%, var(--v2-border-border-muted));
-  border-radius: 10px;
-  background:
-    linear-gradient(110deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 42%),
-    color-mix(in srgb, var(--v2-background-bg-layer-01) 74%, transparent);
-  box-shadow: inset 0 1px color-mix(in srgb, white 22%, transparent);
-  transition: border-color 140ms ease, background 140ms ease;
 }
 
-[data-component="tool-part-wrapper"]:hover,
-[data-component="edit-tool-card"]:hover {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--v2-border-border-base));
-  background:
-    linear-gradient(110deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 46%),
-    color-mix(in srgb, var(--v2-background-bg-layer-01) 88%, transparent);
-}
-
-[data-component="tool-part-wrapper"][data-status="failed"] {
-  border-color: color-mix(in srgb, var(--red) 34%, var(--v2-border-border-base));
+[data-component="tool-part-wrapper"][data-status="failed"] [data-slot="basic-tool-tool-title"] {
+  color: color-mix(in oklch, var(--red) 68%, var(--v2-text-text-muted));
 }
 
 .tool-collapsible { width: 100%; min-width: 0; }
@@ -498,8 +476,8 @@
 
 [data-component="tool-trigger"] {
   width: 100%;
-  min-height: 34px;
-  padding: 5px 9px;
+  min-height: 26px;
+  padding: 2px 0;
   display: flex;
   align-items: center;
   align-self: stretch;
@@ -508,6 +486,7 @@
 }
 
 [data-component="tool-trigger"][data-clickable="true"] { cursor: pointer; }
+[data-component="tool-trigger"][data-clickable="true"]:hover [data-slot="basic-tool-tool-title"] { color: var(--accent); }
 [data-component="tool-trigger"] [data-slot="basic-tool-tool-trigger-content"] { flex: 1 1 auto; width: 100%; max-width: 100%; min-width: 0; display: flex; align-items: center; align-self: stretch; gap: 8px; }
 [data-component="tool-trigger"] [data-slot="basic-tool-tool-info"] { flex: 1 1 auto; min-width: 0; max-width: 100%; font-size: 14px; }
 [data-component="tool-trigger"] [data-slot="basic-tool-tool-info-structured"] { flex: 1 1 auto; width: 100%; max-width: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; }
@@ -519,7 +498,7 @@
 [data-component="tool-trigger"] [data-slot="basic-tool-tool-subtitle"].clickable:hover { color: var(--accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 42%, transparent); text-underline-offset: 2px; }
 
 [data-slot="tool-progress"] {
-  padding: 0 9px 7px;
+  padding: 0 0 4px;
   color: var(--v2-text-text-muted);
   font: 12px/18px var(--font-family-mono);
   white-space: pre-wrap;
@@ -527,15 +506,18 @@
   word-break: break-word;
 }
 
+.tool-collapsible > [data-slot="collapsible-content"] {
+  margin: 2px 0 6px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--v2-border-border-muted);
+}
+
 [data-slot="collapsible-content"] [data-component="tool-output"] {
   width: 100%;
   max-height: 240px;
-  margin: 3px 8px 8px;
-  padding: 12px;
+  margin: 0;
+  padding: 0;
   overflow: auto;
-  border: 0.5px solid color-mix(in srgb, var(--accent) 13%, var(--v2-border-border-base));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--v2-background-bg-deep) 54%, transparent);
   color: var(--v2-text-text-muted);
   font: 12px/18px var(--font-family-mono);
   white-space: pre-wrap;
@@ -543,8 +525,7 @@
 }
 
 [data-slot="collapsible-content"] [data-component="tool-output"][data-error="true"] {
-  border-color: var(--v2-state-border-danger);
-  color: var(--v2-state-fg-danger);
+  color: color-mix(in oklch, var(--v2-state-fg-danger) 78%, var(--v2-text-text-muted));
 }
 
 [data-component="tool-files"] { display: flex; flex-direction: column; gap: 4px; }
@@ -566,7 +547,7 @@
 [data-slot="edit-tool-summary"] [data-slot="basic-tool-tool-subtitle"] { flex: 0 1 auto; max-width: min(40ch, 62vw); }
 [data-slot="edit-tool-meta"] { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; }
 [data-slot="edit-tool-file-count"],
-[data-slot="edit-tool-stats"] { display: inline-flex; align-items: baseline; gap: 4px; flex-shrink: 0; padding: 1px 6px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--text-dim); font: var(--font-weight-medium) 11px/16px var(--font-family-sans); font-variant-numeric: tabular-nums; }
+[data-slot="edit-tool-stats"] { display: inline-flex; align-items: baseline; gap: 4px; flex-shrink: 0; color: var(--text-dim); font: var(--font-weight-regular) 11px/16px var(--font-family-sans); font-variant-numeric: tabular-nums; }
 [data-slot="edit-tool-stats"] { font-family: var(--font-family-mono); }
 [data-slot="edit-stat-add"] { color: color-mix(in srgb, var(--green) 86%, var(--text)); }
 [data-slot="edit-stat-del"] { color: color-mix(in srgb, var(--red) 88%, var(--text)); }
@@ -579,17 +560,14 @@
 [data-slot="collapsible-content"] [data-component="patch-diff"] {
   width: 100%;
   max-height: 280px;
-  margin: 3px 8px 8px;
-  padding: 8px 0;
+  margin: 0;
+  padding: 0;
   overflow: auto;
-  border: 0.5px solid color-mix(in srgb, var(--accent) 13%, var(--v2-border-border-base));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--v2-background-bg-deep) 58%, transparent);
   font: 12px/18px var(--font-family-mono);
 }
 
 [data-component="patch-diff-line"] {
-  padding: 0 12px;
+  padding: 0 8px;
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--v2-text-text-muted);
@@ -601,10 +579,7 @@
 
 [data-component="context-tool-group"] {
   width: min(100%, 640px);
-  padding: 4px 8px;
-  border-left: 2px solid color-mix(in srgb, var(--accent) 46%, transparent);
-  border-radius: 0 8px 8px 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 72%);
+  padding: 2px 0;
 }
 
 [data-component="context-tool-group-trigger"] {
@@ -629,7 +604,7 @@
 [data-component="context-tool-group-trigger"] [data-slot="context-tool-group-label"] { flex-shrink: 0; }
 [data-component="context-tool-group-trigger"] [data-slot="context-tool-group-summary"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--v2-text-text-muted); font-weight: var(--font-weight-regular); }
 [data-component="context-tool-group-list"] { padding: 2px 0 3px 10px; display: flex; flex-direction: column; gap: 2px; }
-[data-component="context-tool-group-list"] [data-component="tool-trigger"] { min-height: 23px; padding: 2px 6px; }
+[data-component="context-tool-group-list"] [data-component="tool-trigger"] { min-height: 23px; padding: 2px 0; }
 [data-component="context-tool-group-list"] [data-slot="basic-tool-tool-title"] { color: var(--text-dim); }
 [data-component="context-tool-group-list"] [data-slot="context-tool-group-item"] { min-width: 0; padding: 0; }
 
