@@ -332,9 +332,9 @@ Key mechanisms:
 | `AgentTray` | `AgentTray.tsx` | Shown when the rightmost agent panel is collapsed: transparent 44px strip mirroring the left activity bar, with a busy dot and model icon button that expands the panel back (busy/label come from the addressed panel's view); collapsed inner panels render the equivalent `agent-sliver` |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, removes naturally exited tabs and selects a neighbor, bounds startup output awaiting xterm registration, fits + resizes the PTY on layout change, and restarts on session change |
 
-Collapsed Files/Sessions and agent panels render at 44px. Their first outward
-resize movement opens them directly at the available 280px minimum, matching
-their click-to-open behavior instead of exposing a temporary narrower panel.
+Collapsed Files/Sessions and agent panels render at 44px. After 10px of
+outward drag resistance they open directly at the available 280px minimum,
+matching click-to-open behavior without exposing a temporary narrower panel.
 
 ## Styles (`src/renderer/src/styles/`)
 

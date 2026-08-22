@@ -21,6 +21,7 @@ const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 280;
+const PANEL_OPEN_DRAG_THRESHOLD = 10;
 
 function useDragResize(
   width: number,
@@ -51,6 +52,9 @@ function useDragResize(
       if (!startRef.current) return;
       const dx = ev.clientX - startRef.current.x;
       const rawW = startRef.current.width + (flip ? -dx : dx);
+      if (!startedOpen && !startRef.current.open && rawW <= COLLAPSED_PANEL_W + PANEL_OPEN_DRAG_THRESHOLD) {
+        return;
+      }
       if (onCollapse && rawW <= COLLAPSED_PANEL_W) {
         if (startRef.current.open) {
           startRef.current.open = false;

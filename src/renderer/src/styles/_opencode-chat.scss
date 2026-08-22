@@ -188,6 +188,12 @@
   user-select: text;
 }
 
+[data-component="text-part"] [data-slot="text-part-body"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 [data-component="text-part"][data-copyable="true"] [data-slot="text-part-body"] { padding-right: 32px; }
 
 [data-component="reasoning-part"] {
@@ -260,6 +266,7 @@
 
 [data-component="markdown"] {
   --markdown-inline-code-bg-mix: 8%;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
   overflow-wrap: break-word;
@@ -273,6 +280,15 @@
 [data-component="markdown"] p,
 [data-component="markdown"] li,
 [data-component="markdown"] a,
+[data-component="markdown"] h1,
+[data-component="markdown"] h2,
+[data-component="markdown"] h3,
+[data-component="markdown"] h4,
+[data-component="markdown"] h5,
+[data-component="markdown"] h6,
+[data-component="markdown"] blockquote,
+[data-component="markdown"] td,
+[data-component="markdown"] th,
 [data-component="markdown"] :not(pre) > code {
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -714,6 +730,7 @@
 [data-component="task-tool-card"] [data-component="session-progress-indicator-v2"] { color: var(--accent); }
 
 [data-component="task-tool-agent"] {
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 14ch;
   height: 18px;
@@ -744,14 +761,18 @@
   [data-component="subagent-link-surface"] { padding-inline: 9px; }
 }
 
-@container (max-width: 320px) {
+@container (max-width: 380px) {
   [data-component="task-tool-surface"],
-  [data-component="subagent-link-surface"] { grid-template-columns: 16px minmax(0, 1fr) 18px; gap: 7px; }
+  [data-component="subagent-link-surface"] { grid-template-columns: 16px minmax(0, 1fr); gap: 7px 9px; }
+  [data-slot="delegated-agent-tail"] { grid-column: 2; justify-self: start; }
+  [data-component="task-tool-agent"] { max-width: min(18ch, 100%); }
+}
+
+@container (max-width: 260px) {
   [data-component="task-tool-status"] { width: 8px; height: 8px; padding: 0; background: transparent; }
   [data-component="task-tool-status"] [data-slot="task-tool-status-dot"] { width: 7px; height: 7px; margin: 0; }
   [data-slot="task-tool-status-label"] { display: none; }
   [data-slot="delegated-agent-tail"] { gap: 2px; }
-  [data-component="task-tool-agent"] { max-width: 9ch; }
 }
 
 [data-component="subagent-link-state"] {

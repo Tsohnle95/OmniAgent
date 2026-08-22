@@ -601,6 +601,9 @@
 
 .agent-scroll {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overflow-anchor: none;
@@ -611,6 +614,12 @@
   flex-direction: column;
   gap: 10px;
   user-select: text;
+}
+
+.agent-scroll > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .agent-empty { color: var(--text-dim); font-size: 13px; }

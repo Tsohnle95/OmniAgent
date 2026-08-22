@@ -227,7 +227,7 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
-  it("snaps the collapsed explorer to its minimum width as soon as it is dragged open", async () => {
+  it("snaps the collapsed explorer to its minimum width after drag resistance", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -239,7 +239,12 @@ describe("Layout panel sizing", () => {
     const divider = container.querySelector<HTMLElement>(".divider.collapsed")!;
     await act(async () => {
       divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 44 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 45 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 53 }));
+    });
+    expect(gridCols()[0]).toBe("44px");
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 55 }));
     });
     expect(gridCols()[0]).toBe("280px");
 
@@ -539,7 +544,13 @@ describe("Layout panel sizing", () => {
       sliver.querySelector<HTMLElement>(".panel-resize-left")!.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, clientX: 669 })
       );
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 668 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 660 }));
+    });
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+    expect(agentWidths()).toEqual([44, 280]);
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 658 }));
     });
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentWidths()).toEqual([280, 280]);
