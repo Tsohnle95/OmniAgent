@@ -14,8 +14,8 @@ touched, and continue working without switching between several applications.
   calls, subagents, todos, and permission requests stay visible in one timeline.
 - **Review changes where they happen.** A live Changes list and Monaco-powered
   Edit/Diff views make every file modification easy to inspect.
-- **Run agents side by side.** Agent Mode turns the workspace into resizable,
-  concurrent session panels without hiding Sessions or your project context.
+- **Run agents side by side.** Agent Mode collapses the sidebar and turns the
+  workspace into resizable, concurrent session panels.
 - **Keep a real development environment.** Browse files, edit with autosave,
   use Emmet, validate HTML and CSS, and open the integrated terminal.
 - **Stay in control.** Choose agents and models per workspace, attach files,

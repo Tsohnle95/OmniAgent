@@ -633,7 +633,7 @@ describe("Layout panel sizing", () => {
     expect(cols[0].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
   });
 
-  it("agent mode splits open agents evenly and exit restores the file tray with an even shrink", async () => {
+  it("agent mode collapses the file tray, splits agents evenly, and restores the tray on exit", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -649,10 +649,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("280px");
-    expect(container.querySelector(".side-tab.active")?.textContent).toBe("Sessions");
-    expect(agentWidths()).toEqual([599, 600]);
-    expect(agentLefts()).toEqual([0, 599]);
+    expect(gridCols()[0]).toBe("44px");
+    expect(container.querySelector(".sidebar.collapsed")).not.toBeNull();
+    expect(agentWidths()).toEqual([717, 718]);
+    expect(agentLefts()).toEqual([0, 717]);
 
     await act(async () => {
       modeButton().click();
@@ -678,8 +678,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([600, 599, 599]);
-    expect(agentLefts()).toEqual([0, 0, 599]);
+    expect(agentWidths()).toEqual([717, 717, 718]);
+    expect(agentLefts()).toEqual([0, 0, 717]);
     expect(agentCols().map((col) => col.style.top)).toEqual(["50%", "0%", "0%"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
@@ -697,10 +697,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("280px");
-    expect(agentWidths()).toEqual([1199]);
+    expect(gridCols()[0]).toBe("44px");
+    expect(agentWidths()).toEqual([1435]);
     expect(agentLefts()).toEqual([0]);
-    expect(agentLefts()[0] + agentWidths()[0]).toBe(1199);
+    expect(agentLefts()[0] + agentWidths()[0]).toBe(1435);
 
     await act(async () => {
       modeButton().click();
@@ -740,8 +740,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(mode.getAttribute("aria-pressed")).toBe("false");
-    expect(gridCols()[0]).toBe("280px");
-    expect(agentWidths()[0]).toBeGreaterThan(280);
+    expect(gridCols()[0]).toBe("44px");
   });
 
   it("reopens a collapsed model panel when entering model mode", async () => {
@@ -784,7 +783,7 @@ describe("Layout panel sizing", () => {
     });
     expect(selectFolder).toHaveBeenCalledWith(expect.any(Number));
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
-    expect(agentWidths()).toEqual([599, 600]);
+    expect(agentWidths()).toEqual([717, 718]);
 
     await act(async () => {
       add().click();
@@ -836,7 +835,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([599, 600]);
+    expect(agentWidths()).toEqual([717, 718]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
 
     let resolvePick!: (value: SessionInfo) => void;
@@ -857,8 +856,8 @@ describe("Layout panel sizing", () => {
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
-    expect(agentWidths()).toEqual([599, 600]);
-    expect(agentLefts()).toEqual([0, 599]);
+    expect(agentWidths()).toEqual([717, 718]);
+    expect(agentLefts()).toEqual([0, 717]);
   });
 
   it("preserves an enlarged tray through subagent navigation and back", async () => {
@@ -960,10 +959,10 @@ describe("Layout panel sizing", () => {
 
     expect(agentCols()).toHaveLength(2);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
-    expect(agentWidths()).toEqual([599, 600]);
+    expect(agentWidths()).toEqual([717, 718]);
   });
 
-  it("keeps the Sessions tray open beside agent mode", async () => {
+  it("places agent mode beside the collapsed sidebar", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -976,10 +975,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("280px");
-    expect(container.querySelector(".side-tab.active")?.textContent).toBe("Sessions");
-    expect(agentLefts()).toEqual([0, 599]);
-    expect(agentWidths()).toEqual([599, 600]);
+    expect(gridCols()[0]).toBe("44px");
+    expect(container.querySelector(".sidebar.collapsed")).not.toBeNull();
+    expect(agentLefts()).toEqual([0, 717]);
+    expect(agentWidths()).toEqual([717, 718]);
   });
 
   it("keeps model quadrants spanning the workspace after a window resize", async () => {
@@ -1002,8 +1001,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "309px", "309px"]);
+    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "427px", "427px"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
-    expect(agentWidths()).toEqual([309, 309, 310, 310]);
+    expect(agentWidths()).toEqual([427, 427, 428, 428]);
   });
 });

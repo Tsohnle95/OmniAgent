@@ -652,10 +652,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const previousPanelCountRef = useRef(panels.length);
   useEffect(() => {
     if (inAgentMode && panels.length > previousPanelCountRef.current) {
-      distributeEvenly(sideW, false);
+      distributeEvenly(sideShown, false);
     }
     previousPanelCountRef.current = panels.length;
-  }, [distributeEvenly, inAgentMode, panels.length, sideW]);
+  }, [distributeEvenly, inAgentMode, panels.length, sideShown]);
 
   useLayoutEffect(() => {
     if (inAgentMode && sideOpen) distributeEvenly(sideW, false);
@@ -673,12 +673,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (!inAgentMode) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
       setAgentModeActive(true);
-      const modeSidebarWidth = sideOpen ? sideW : SIDE_DEFAULT_W;
       setSettingsOpen(false);
-      setSideTab("sessions");
-      setSideW(modeSidebarWidth);
-      setSideOpen(true);
-      distributeEvenly(modeSidebarWidth, false);
+      setSideOpen(false);
+      distributeEvenly(COLLAPSED_PANEL_W, false);
     } else {
       const prev = prevSidebarRef.current;
       if (!prev) return;
@@ -736,7 +733,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             aria-pressed={inAgentMode}
             title={inAgentMode
               ? "Exit Agent Mode — restore the previous panel layout"
-              : "Agent Mode — open Sessions and split models across the workspace"}
+              : "Agent Mode — collapse the sidebar and split models across the workspace"}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
