@@ -263,8 +263,9 @@ export function EditorPane(): ReactNode {
       {tabs.length === 0 ? (
         <div className="editor-empty">
           <div className="editor-empty-icon">
-          <OmniMark size={40} />
-        </div>
+            <OmniMark size={40} />
+            <span className="editor-empty-wave-arm" aria-hidden="true" />
+          </div>
           <p>Select a file from the explorer to view or edit it.</p>
           <p className="editor-empty-sub">
             Observed workspace file changes appear under <b>Changes</b>. A diff is shown when pre-change content is known.

@@ -206,6 +206,7 @@
 }
 
 .editor-empty-icon {
+  position: relative;
   font-size: 42px;
   color: var(--text-faint);
   margin-bottom: 10px;
@@ -223,7 +224,54 @@
 
   .editor-empty-icon {
     margin: 0;
-    opacity: 0.62;
-    transform: scale(0.8);
+    animation: editor-empty-farewell 1800ms var(--ease) forwards;
+  }
+
+  .editor-empty-wave-arm {
+    position: absolute;
+    top: 12px;
+    left: 32px;
+    width: 17px;
+    height: 3px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    opacity: 0;
+    transform-origin: 1px 50%;
+    animation: editor-empty-wave 1250ms ease-in-out 220ms both;
+  }
+
+  .editor-empty-wave-arm::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    right: -4px;
+    width: 7px;
+    height: 7px;
+    border-top: 2px solid var(--accent);
+    border-right: 2px solid var(--accent);
+    border-radius: 0 3px 0 0;
+    transform: rotate(28deg);
+  }
+}
+
+@keyframes editor-empty-farewell {
+  0%, 72% { opacity: 0.62; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(0.68); }
+}
+
+@keyframes editor-empty-wave {
+  0% { opacity: 0; transform: scaleX(0) rotate(0deg); }
+  18% { opacity: 1; transform: scaleX(1) rotate(-18deg); }
+  38% { opacity: 1; transform: scaleX(1) rotate(24deg); }
+  56% { opacity: 1; transform: scaleX(1) rotate(-22deg); }
+  74% { opacity: 1; transform: scaleX(1) rotate(18deg); }
+  88% { opacity: 1; transform: scaleX(1) rotate(-8deg); }
+  100% { opacity: 0; transform: scaleX(0.7) rotate(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @container (max-width: 280px) {
+    .editor-empty-icon { animation-duration: 1ms; }
+    .editor-empty-wave-arm { display: none; }
   }
 }
