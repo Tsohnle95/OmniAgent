@@ -82,7 +82,9 @@ latching. Authoritative end-of-turn signals (`session.idle`, `session.error`,
 the chat store even if its completion marker was lost. Terminal message/part
 snapshots cannot promote an already-idle session back to busy; prompt
 submission marks the session busy immediately, and only events that represent
-active work can restore busy after a quiet settle. Finally, a 1s settle
+active work can restore busy after a quiet settle. Terminal message finishes
+also clear busy directly, so the composer and turn status do not depend on a
+later `session.idle` event. Finally, a 1s settle
 watchdog finalizes any panel whose trailing assistant stays incomplete without
 stream activity for 60s (or immediately once the runtime reported idle), which
 is what flips the composer's stop button back to send after a missed end event
@@ -91,8 +93,9 @@ settled session (unless a stop is in flight), so a watchdog false-positive
 self-heals on the next delta.
 
 The active timeline ends with the same persistent turn-status treatment as
-DeepSeek Harness: a themed `Deep diving...` shimmer is always present while
-the turn runs and gains a one-second elapsed clock after 15 seconds.
+DeepSeek Harness: one stable text node uses its continuous 1.8s gradient
+animation while the turn runs and gains a one-second elapsed clock after 15
+seconds. Text/reasoning deltas cannot remount or restart that status node.
 `assistant-status.ts` derives the working summary
 every panel exposes: the active model (from the trailing assistant's
 `parentID` back to its user message), the active part (text → "composing",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
@@ -51,7 +51,7 @@ function formatRunDuration(elapsedMs: number): string {
   return `${seconds}s`;
 }
 
-function TurnStatus({ startTime }: { startTime?: number | null }): ReactNode {
+const TurnStatus = memo(function TurnStatus({ startTime }: { startTime?: number | null }): ReactNode {
   const [mountedAt] = useState(() => Date.now());
   const anchor = startTime ?? mountedAt;
   const [elapsed, setElapsed] = useState(() => Date.now() - anchor);
@@ -62,11 +62,11 @@ function TurnStatus({ startTime }: { startTime?: number | null }): ReactNode {
   }, [anchor]);
   return (
     <div data-component="turn-status" role="status" aria-live="polite">
-      <TextShimmer text="Deep diving..." tone="thinking" />
-      {elapsed >= 15_000 && <span data-slot="turn-status-clock">{formatRunDuration(elapsed)}</span>}
+      Deep diving...
+      {elapsed >= 15_000 && <span data-slot="turn-status-clock" aria-hidden="true">{formatRunDuration(elapsed)}</span>}
     </div>
   );
-}
+});
 
 function paceStep(size: number): number {
   if (size <= 12) return 2;
@@ -1398,7 +1398,7 @@ export function OpenCodeTimeline({
           </div>
         );
       })}
-      {busy && <TurnStatus startTime={turnStartedAt} />}
+      {busy && <TurnStatus key="turn-status" startTime={turnStartedAt} />}
     </div>
   );
 }

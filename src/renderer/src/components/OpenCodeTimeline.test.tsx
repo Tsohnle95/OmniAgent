@@ -174,13 +174,30 @@ describe("OpenCodeTimeline chronology", () => {
 
     const status = container.querySelector("[data-component='turn-status']");
     expect(status?.getAttribute("role")).toBe("status");
-    expect(status?.querySelector("[data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Deep diving...");
+    expect(status?.textContent).toBe("Deep diving...");
 
     act(() => root.render(
       <OpenCodeTimeline transcript={[]} busy={false} lastAssistantId={null} />
     ));
 
     expect(container.querySelector("[data-component='turn-status']")).toBeNull();
+  });
+
+  it("keeps one turn-status node while streamed text changes beneath it", () => {
+    const live = assistant("assistant-live") as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.completed = false;
+    live.parts = [{ kind: "text", id: "text-live", text: "First", complete: false }];
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[live]} busy lastAssistantId="assistant-live" />
+    ));
+    const status = container.querySelector("[data-component='turn-status']");
+
+    live.parts = [{ kind: "text", id: "text-live", text: "First streamed update", complete: false }];
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[{ ...live }]} busy lastAssistantId="assistant-live" />
+    ));
+
+    expect(container.querySelector("[data-component='turn-status']")).toBe(status);
   });
 
   it("adds the harness elapsed clock after fifteen seconds", () => {

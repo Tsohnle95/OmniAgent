@@ -2392,7 +2392,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             applyProjection(targetSessionID);
             const abortFlag = sessionAbortFlagsRef.current[targetSessionID];
             const abortPending = Boolean(abortFlag && !abortFlag.acknowledged && Date.now() - abortFlag.timestamp < ABORT_RESTORE_SUPPRESS_MS);
-            if (!abortPending && !busyBySessionRef.current[targetSessionID] && streamEventShowsActiveWork(streamEvent)) {
+            const sessionStatus = draft.session_status[targetSessionID];
+            if (sessionStatus?.type === "idle" || sessionStatus?.type === "error") {
+              setSessionBusy(targetSessionID, false);
+            } else if (!abortPending && !busyBySessionRef.current[targetSessionID] && streamEventShowsActiveWork(streamEvent)) {
               setSessionBusy(targetSessionID, true);
             }
           }
@@ -2563,6 +2566,12 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
         case "session.status": {
           const status = data.status as { type?: string; attempt?: number; message?: string; next?: number; action?: RateLimitAction } | undefined;
+          if (targetSessionID) {
+            const draft = chatStateFor(targetSessionID);
+            const previous = snapshotChatState(draft);
+            applyChatEvent(draft, targetSessionID, streamEvent);
+            syncStreaming(targetSessionID, previous);
+          }
           if ((status?.type === "busy" || status?.type === "retry") && targetSessionID) {
             lastStreamActivityRef.current[targetSessionID] = Date.now();
           }

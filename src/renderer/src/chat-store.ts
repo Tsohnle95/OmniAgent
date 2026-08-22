@@ -5,6 +5,7 @@ import { Binary } from "./binary";
 export const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"]);
 const DELTA_OVERLAP_FIELDS = ["text", "output", "input"] as const;
 const FINAL_TOOL_STATUSES = new Set(["completed", "error", "aborted", "failed", "timeout", "cancelled"]);
+const TERMINAL_TURN_FINISHES = new Set(["stop", "length", "content-filter", "error", "unknown"]);
 
 export interface ChatMessageRecord {
   id: string;
@@ -197,6 +198,12 @@ function areSessionStatusesEqual(left: ChatSessionStatus | undefined, right: Cha
   if (left.type === "retry" && right.type === "retry") {
     return left.attempt === right.attempt && left.message === right.message && left.next === right.next;
   }
+  return true;
+}
+
+function setChatSessionStatus(draft: ChatDirectoryState, sessionID: string, status: ChatSessionStatus): boolean {
+  if (areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
+  draft.session_status = { ...draft.session_status, [sessionID]: status };
   return true;
 }
 
@@ -455,11 +462,17 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         ...(info.error ? { error: info.error } : {}),
         ...(retryRecord(info.retry) ? { retry: retryRecord(info.retry) } : {})
       };
+      const terminal = next.role === "assistant" && (
+        TERMINAL_TURN_FINISHES.has(String(next.finish ?? "")) || Boolean(next.error)
+      );
+      const statusChanged = terminal
+        ? setChatSessionStatus(draft, infoSessionID, next.error ? { type: "error" } : { type: "idle" })
+        : false;
       const messages = draft.message[infoSessionID] ?? [];
       const result = Binary.search(messages, messageID, (message) => message.id);
       if (result.found) {
         const existing = messages[result.index];
-        if (areMessageUpdateFieldsEqual(existing, next)) return false;
+        if (areMessageUpdateFieldsEqual(existing, next)) return statusChanged;
         const replaced = [...messages];
         replaced[result.index] = next;
         draft.message[infoSessionID] = replaced;
@@ -580,6 +593,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         role: "assistant",
         time: { created: event.created }
       });
+      setChatSessionStatus(draft, sessionID, { type: "busy" });
       return true;
     }
     case "session.step.ended": {
@@ -589,8 +603,12 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         id: messageID,
         sessionID,
         role: "assistant",
-        time: { created: event.created, completed: event.created }
+        time: { created: event.created, completed: event.created },
+        finish: data.finish
       });
+      if (TERMINAL_TURN_FINISHES.has(String(data.finish ?? ""))) {
+        setChatSessionStatus(draft, sessionID, { type: "idle" });
+      }
       return true;
     }
     case "session.step.failed": {

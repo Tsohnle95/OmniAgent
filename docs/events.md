@@ -65,8 +65,8 @@ regressing longer live text.
 | `session.idle` | Sets `busy = false` and completes the active assistant |
 | `session.error` | Sets `busy = false` and completes the active assistant so a failed run cannot leave the composer stuck on the running/stop icon |
 | `session.status` | Mirrors OpenCode `busy` / `idle` / `retry` / `error`; an `error` status clears `busy` (and the chat store records a non-busy `error` status); retry details attach to the latest assistant. A retry carrying a `free_tier_limit` or `account_rate_limit` action appends an error `status` transcript item (`buildRateLimitNotice` in `src/renderer/src/chat-store.ts`) on the first attempt so the user sees the rate-limit reason and resolution link inline |
-| `session.step.started` | Creates or reopens the addressed assistant message in the authoritative chat store, clears its retry/error state, and completes a different unfinished assistant |
-| `session.step.ended` | Completes the addressed assistant message |
+| `session.step.started` | Creates or reopens the addressed assistant message in the authoritative chat store, marks the chat session busy, clears its retry/error state, and completes a different unfinished assistant |
+| `session.step.ended` | Completes the addressed assistant message; a terminal finish marks the chat session idle while `tool-calls` keeps the multi-step turn active |
 | `session.step.failed` | Completes the assistant and records the structured failure |
 | `session.text.started` | Adds one ordered text part for the message/ordinal |
 | `session.text.delta` | Appends streamed text to that part (materializing the session if the message or part is unknown) |
@@ -90,7 +90,7 @@ regressing longer live text.
 | `session.compaction.delta` | Streams the compaction summary into the active compaction entry |
 | `session.compaction.ended` | Finalizes the authoritative compaction summary |
 | `session.compaction.failed` | Finalizes compaction with its structured error |
-| `message.updated` | Upserts the authoritative assistant message (skipped when unchanged) with its completion/error state |
+| `message.updated` | Upserts the authoritative assistant message (skipped when unchanged) with its completion/error state; terminal assistant finishes (`stop`, `length`, content filter, error, or unknown) authoritatively mark the chat session non-busy even if `session.idle` is delayed or absent |
 | `message.removed` | Removes the assistant message and its parts from the authoritative store |
 | `message.part.updated` | Authoritatively reconciles an ordered text, reasoning, or tool part; tool snapshots use `callID` to merge with their live row while retaining fields omitted by the snapshot, and missing owning messages request materialization |
 | `message.part.delta` | Appends a text/input/output field delta; orphan and missing-part deltas trigger materialization |

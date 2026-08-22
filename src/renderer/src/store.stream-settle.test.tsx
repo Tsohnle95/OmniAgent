@@ -154,6 +154,70 @@ describe("store stream settle", () => {
     expect(store.busy).toBe(false);
   });
 
+  it("does not relatch busy when a late unfinished part follows idle", async () => {
+    const sessionID = store.activeSessionID!;
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.idle",
+        data: { id: "idle-late", created: Date.now(), data: { sessionID } }
+      });
+    });
+    expect(store.busy).toBe(false);
+
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "message.part.updated",
+        data: {
+          id: "late-part",
+          created: Date.now(),
+          data: {
+            sessionID,
+            part: { id: "late-text", messageID: "msg_1", sessionID, type: "text", text: "done" }
+          }
+        }
+      });
+    });
+
+    expect(store.busy).toBe(false);
+  });
+
+  it("returns idle from a final stop message even when no idle event arrives", async () => {
+    const sessionID = store.activeSessionID!;
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.status",
+        data: { id: "busy-final", created: Date.now(), data: { sessionID, status: { type: "busy" } } }
+      });
+    });
+    expect(store.busy).toBe(true);
+
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "message.updated",
+        data: {
+          id: "stop-final",
+          created: Date.now(),
+          data: {
+            sessionID,
+            info: {
+              id: "msg_final",
+              sessionID,
+              role: "assistant",
+              time: { created: Date.now(), completed: Date.now() },
+              finish: "stop"
+            }
+          }
+        }
+      });
+    });
+
+    expect(store.busy).toBe(false);
+  });
+
   it("enters busy immediately on prompt submission and returns idle on its completed response", async () => {
     await act(async () => { vi.advanceTimersByTime(61_500); });
     expect(store.busy).toBe(false);

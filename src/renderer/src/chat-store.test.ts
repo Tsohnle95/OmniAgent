@@ -145,6 +145,39 @@ describe("applyChatEvent", () => {
     });
   });
 
+  it("projects each reasoning delta into the live Think text", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("r", "session.reasoning.started", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0 }));
+    applyChatEvent(draft, "s", event("d1", "session.reasoning.delta", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0, delta: "Inspecting" }));
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      completed: false,
+      parts: [{ kind: "reasoning", text: "Inspecting", complete: false }]
+    });
+
+    applyChatEvent(draft, "s", event("d2", "session.reasoning.delta", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0, delta: " the events" }));
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "reasoning", text: "Inspecting the events", complete: false }]
+    });
+  });
+
+  it("uses step and final-message records as authoritative turn status", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    expect(draft.session_status.s).toEqual({ type: "busy" });
+
+    applyChatEvent(draft, "s", event("done", "message.updated", {
+      info: {
+        id: "msg_1",
+        sessionID: "s",
+        role: "assistant",
+        time: { created: 100, completed: 200 },
+        finish: "stop"
+      }
+    }));
+    expect(draft.session_status.s).toEqual({ type: "idle" });
+  });
+
   it("does not duplicate a delta already included in a message part snapshot", () => {
     const draft = state();
     draft.message.s = [{ id: "msg_1", sessionID: "s", role: "assistant", time: { created: 1 } }];

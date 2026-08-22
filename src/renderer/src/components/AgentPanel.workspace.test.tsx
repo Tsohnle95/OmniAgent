@@ -82,6 +82,20 @@ describe("composer workspace continuations", () => {
     vi.restoreAllMocks();
   });
 
+  it("switches the composer control from stop to send when the panel becomes idle", async () => {
+    currentSession = session("working", 1);
+    await act(async () => root.render(<Composer session={currentSession} />));
+    const running = container.querySelector<HTMLButtonElement>(".composer-send");
+    expect(running?.classList.contains("stop")).toBe(true);
+    expect(running?.title).toBe("running command");
+
+    currentSession = session("idle", 1);
+    await act(async () => root.render(<Composer session={currentSession} />));
+    const idle = container.querySelector<HTMLButtonElement>(".composer-send");
+    expect(idle?.classList.contains("stop")).toBe(false);
+    expect(idle?.title).toBe("Type a prompt first");
+  });
+
   it("changes the panel's workspace from the header folder control", async () => {
     await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
     const folder = container.querySelector<HTMLButtonElement>('button[aria-label="Change workspace"]')!;
