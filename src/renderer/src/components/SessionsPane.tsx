@@ -274,8 +274,9 @@ export function SessionsPane(): ReactNode {
             </span>
           </button>
         </div>
-        {pinnedOpen &&
-          (filteredPinned.length === 0 ? (
+        {pinnedOpen && (
+          <div className="sessions-section-list">
+          {filteredPinned.length === 0 ? (
             <div className="sessions-empty">No pinned sessions yet.</div>
           ) : (
             filteredPinned.map((s) => {
@@ -294,7 +295,9 @@ export function SessionsPane(): ReactNode {
                 />
               );
             })
-          ))}
+          )}
+          </div>
+        )}
       </section>
 
       <section className="sessions-section">
@@ -304,15 +307,16 @@ export function SessionsPane(): ReactNode {
             aria-expanded={projectsOpen}
             onClick={() => setProjectsOpen((o) => !o)}
           >
-            <span>Projects</span>
+            <span>Sessions</span>
             <span className="sidebar-count push">{filteredProjects.length}</span>
             <span className="section-chevron">
               <ChevronIcon open={projectsOpen} />
             </span>
           </button>
         </div>
-        {projectsOpen &&
-          (filteredProjects.length === 0 ? (
+        {projectsOpen && (
+          <div className="sessions-section-list sessions-project-list">
+          {filteredProjects.length === 0 ? (
             <div className="sessions-empty">No saved workspaces found.</div>
           ) : (
             filteredProjects.map((p) => {
@@ -377,7 +381,9 @@ export function SessionsPane(): ReactNode {
                 </div>
               );
             })
-          ))}
+          )}
+          </div>
+        )}
       </section>
 
       <section className="sessions-section grow">
@@ -394,8 +400,9 @@ export function SessionsPane(): ReactNode {
             </span>
           </button>
         </div>
-        {recentOpen &&
-          (filteredRecents.length === 0 ? (
+        {recentOpen && (
+          <div className="sessions-section-list">
+          {filteredRecents.length === 0 ? (
             <div className="sessions-empty">No recent sessions yet.</div>
           ) : (
             filteredRecents.map((s) => {
@@ -414,7 +421,9 @@ export function SessionsPane(): ReactNode {
                 />
               );
             })
-          ))}
+          )}
+          </div>
+        )}
       </section>
     </div>
   );

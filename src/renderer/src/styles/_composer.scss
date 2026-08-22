@@ -51,8 +51,8 @@
 }
 
 .composer-body:focus-within {
-  border-color: rgba(232, 135, 95, 0.5);
-  box-shadow: 0 0 0 4px rgba(232, 135, 95, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 4px var(--accent-tint);
 }
 
 .composer-prompt {
@@ -286,7 +286,7 @@
   background: none;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-full);
-  color: #b5aea6;
+  color: var(--text-dim);
   cursor: pointer;
   font-size: 11.5px;
   white-space: nowrap;
@@ -294,7 +294,7 @@
 }
 
 .composer-selector:hover, .composer-selector.open {
-  border-color: rgba(232, 135, 95, 0.45);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   color: var(--text);
 }
 
@@ -305,9 +305,9 @@
 
 .composer-selector.model {
   flex: 0 1 140px;
-  color: #eda27f;
-  border-color: rgba(232, 135, 95, 0.35);
-  background: rgba(232, 135, 95, 0.08);
+  color: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-tint);
 }
 .composer-selector.strength { flex: 0 0 auto; max-width: 84px; color: var(--text-dim); }
 
@@ -331,13 +331,13 @@
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(160deg, #e8875f, #cf7048);
-  color: #fff4ec;
+  background: var(--agent-send-background);
+  color: var(--agent-send-color);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 5px 14px rgba(232, 135, 95, 0.35);
+  box-shadow: var(--agent-send-shadow);
   transition: filter 100ms var(--ease), transform 100ms var(--ease), box-shadow 100ms var(--ease);
 }
 

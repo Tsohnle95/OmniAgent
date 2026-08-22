@@ -177,7 +177,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await settle();
 
     const projects = [...container.querySelectorAll(".sessions-section")].find((el) =>
-      el.textContent?.includes("Projects")
+      el.textContent?.includes("Sessions")
     )!;
     expect(projects.querySelectorAll(".sessions-project-sessions .sessions-row")).toHaveLength(0);
 
@@ -188,6 +188,17 @@ describe("FileSidebar tabs and sessions pane", () => {
       projects.querySelector<HTMLButtonElement>(".sessions-project-new")!.click()
     );
     expect(store.openSession).toHaveBeenCalledWith("/workspace");
+  });
+
+  it("gives each expanded session group its own scrolling list", async () => {
+    store.sessions = [summary("s1", "/workspace", "In project")];
+    await render();
+    await settle();
+
+    const sections = [...container.querySelectorAll(".sessions-section")];
+    expect(sections).toHaveLength(3);
+    expect(sections.map((section) => section.querySelectorAll(":scope > .sessions-section-list").length)).toEqual([1, 1, 1]);
+    expect(sections[1].textContent).toContain("Sessions");
   });
 
   it("focuses running sessions and reopens closed ones from recents", async () => {

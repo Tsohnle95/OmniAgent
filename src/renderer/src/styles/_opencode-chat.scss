@@ -1,22 +1,22 @@
 .agent-panel {
-  --v2-background-bg-base: #262220;
-  --v2-background-bg-deep: #1c1917;
-  --v2-background-bg-layer-01: #37322e;
-  --v2-background-bg-layer-02: rgba(255, 255, 255, 0.05);
-  --v2-background-bg-layer-03: rgba(255, 255, 255, 0.08);
-  --v2-text-text-base: #e8e3dd;
-  --v2-text-text-muted: #a8a29e;
-  --v2-text-text-faint: #8f8880;
-  --v2-text-text-accent: #e8875f;
-  --v2-text-text-code-accent: #e8875f;
-  --v2-icon-icon-base: #e8e3dd;
-  --v2-icon-icon-muted: #8f8880;
-  --v2-border-border-muted: rgba(255, 255, 255, 0.05);
-  --v2-border-border-base: rgba(255, 255, 255, 0.08);
-  --v2-border-border-strong: rgba(255, 255, 255, 0.14);
-  --v2-state-bg-danger: rgba(226, 152, 138, 0.12);
-  --v2-state-fg-danger: #e2988a;
-  --v2-state-border-danger: rgba(226, 152, 138, 0.5);
+  --v2-background-bg-base: var(--agent-bg-base);
+  --v2-background-bg-deep: var(--agent-bg-deep);
+  --v2-background-bg-layer-01: var(--agent-bg-layer);
+  --v2-background-bg-layer-02: var(--agent-bg-hover);
+  --v2-background-bg-layer-03: var(--agent-bg-active);
+  --v2-text-text-base: var(--text);
+  --v2-text-text-muted: var(--text-dim);
+  --v2-text-text-faint: var(--text-faint);
+  --v2-text-text-accent: var(--accent);
+  --v2-text-text-code-accent: var(--accent);
+  --v2-icon-icon-base: var(--text);
+  --v2-icon-icon-muted: var(--text-faint);
+  --v2-border-border-muted: var(--agent-border-muted);
+  --v2-border-border-base: var(--agent-border-base);
+  --v2-border-border-strong: var(--agent-border-strong);
+  --v2-state-bg-danger: color-mix(in srgb, var(--red) 12%, transparent);
+  --v2-state-fg-danger: var(--red);
+  --v2-state-border-danger: color-mix(in srgb, var(--red) 50%, transparent);
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --font-size-base: 14px;
@@ -984,17 +984,14 @@
   overflow: hidden;
   border: 0.5px solid var(--v2-border-border-base);
   border-radius: 12px;
-  background:
-    linear-gradient(118deg, rgba(226, 152, 138, 0.035), transparent 34%),
-    linear-gradient(300deg, rgba(178, 92, 166, 0.025), transparent 42%),
-    var(--v2-background-bg-base);
-  border-color: rgba(226, 152, 138, 0.16);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 0 16px rgba(226, 152, 138, 0.025);
+  background: var(--agent-composer-background);
+  border-color: var(--agent-composer-border);
+  box-shadow: var(--agent-composer-shadow);
 }
 
 .agent-panel .composer-body:focus-within {
-  border-color: rgba(226, 152, 138, 0.38);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(226, 152, 138, 0.06), 0 0 18px rgba(226, 152, 138, 0.05);
+  border-color: var(--agent-composer-focus-border);
+  box-shadow: var(--agent-composer-focus-shadow);
 }
 
 .agent-panel .composer-input {
@@ -1038,14 +1035,14 @@
   height: 28px;
   border: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(160deg, #e8875f, #cf7048);
-  color: #fff4ec;
-  box-shadow: 0 5px 14px rgba(232, 135, 95, 0.35);
+  background: var(--agent-send-background);
+  color: var(--agent-send-color);
+  box-shadow: var(--agent-send-shadow);
 }
 
 .agent-panel .composer-send:hover:not(:disabled) {
-  background: linear-gradient(160deg, #eda27f, #d97a52);
-  box-shadow: 0 5px 18px rgba(232, 135, 95, 0.45);
+  background: var(--agent-send-hover);
+  box-shadow: var(--agent-send-hover-shadow);
   transform: translateY(-1px);
 }
 
