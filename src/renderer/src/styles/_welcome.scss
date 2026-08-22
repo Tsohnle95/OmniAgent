@@ -24,21 +24,6 @@
   -webkit-app-region: drag;
 }
 
-.welcome::after {
-  content: "";
-  position: absolute;
-  left: -70px;
-  bottom: -190px;
-  width: 580px;
-  height: 430px;
-  border: 24px solid var(--accent);
-  border-radius: 72px;
-  color: var(--accent);
-  opacity: 0.035;
-  pointer-events: none;
-  user-select: none;
-}
-
 .welcome button,
 .welcome [role="tab"],
 .welcome-row {
@@ -381,7 +366,6 @@
 
 @media (max-width: 900px) {
   .welcome { padding: 24px; overflow-y: auto; }
-  .welcome::after { display: none; }
   .welcome-inner {
     grid-template-columns: 1fr;
     gap: 40px;
