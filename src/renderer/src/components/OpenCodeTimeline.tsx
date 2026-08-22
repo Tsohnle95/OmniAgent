@@ -252,8 +252,11 @@ function ReasoningPart({
   streaming: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
-  if (!part.text) return null;
   const active = streaming && !part.complete;
+  useEffect(() => {
+    if (active) setOpen(true);
+  }, [active]);
+  if (!part.text) return null;
   const contentID = `reasoning-${part.id}`;
   return (
     <div
@@ -338,13 +341,15 @@ function matchChildSession(
   if (criteria.description) {
     const described = candidates.filter((candidate) => candidate.title.startsWith(criteria.description!));
     if (described.length > 0) candidates = described;
+    else if (!criteria.agent) return "";
   }
   if (criteria.agent) {
     const key = criteria.agent.toLowerCase();
     const byAgent = candidates.filter((candidate) =>
       candidate.agent?.toLowerCase() === key || candidate.title.includes(`@${criteria.agent}`)
     );
-    if (byAgent.length > 0) candidates = byAgent;
+    if (byAgent.length === 0) return "";
+    candidates = byAgent;
   }
   return candidates.sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? "";
 }
@@ -611,27 +616,29 @@ function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   const running = tool.status === "running";
   const style = { "--task-agent-color": agentTone(agentName || requested, configured?.color) } as CSSProperties;
   return (
-    <div data-component="task-tool-card" style={style} data-timeline-part-id={tool.id}>
+    <div data-component="task-tool-card" data-state={tool.status} style={style} data-timeline-part-id={tool.id}>
       <button
         data-component="task-tool-surface"
         disabled={!childSession}
         title={childSession ? `Open ${title} session` : undefined}
         onClick={() => childSession && void reopenSession(childSession)}
       >
+        {running ? (
+          <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
+        ) : (
+          <span data-component="task-tool-icon"><SubagentIcon /></span>
+        )}
         <div data-slot="basic-tool-tool-info-structured">
-          <div data-slot="basic-tool-tool-info-main">
-            {running ? (
-              <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
-            ) : (
-              <span data-component="task-tool-icon"><SubagentIcon /></span>
-            )}
+          <div data-slot="task-tool-heading">
+            <span data-component="task-tool-kind">Subagent</span>
             <span data-component="task-tool-title">{title}</span>
             {agentName && titleCase(agentName) !== title && (
               <span data-component="task-tool-agent">@{agentName}</span>
             )}
-            {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
           </div>
+          {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
         </div>
+        <span data-component="task-tool-status">{running ? "Working" : tool.status === "failed" ? "Failed" : "Complete"}</span>
         {childSession && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
       </button>
     </div>
@@ -672,20 +679,22 @@ function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind:
         title={childID ? `Open ${title} session` : undefined}
         onClick={() => childID && void reopenSession(childID)}
       >
+        {running ? (
+          <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
+        ) : failed ? (
+          <span data-component="subagent-link-state"><span className="codicon codicon-error" /></span>
+        ) : (
+          <span data-component="task-tool-icon"><SubagentIcon /></span>
+        )}
         <div data-slot="basic-tool-tool-info-structured">
-          <div data-slot="basic-tool-tool-info-main">
-            {running ? (
-              <span data-component="task-tool-spinner"><SessionProgressIndicator /></span>
-            ) : failed ? (
-              <span data-component="subagent-link-state"><span className="codicon codicon-error" /></span>
-            ) : (
-              <span data-component="task-tool-icon"><SubagentIcon /></span>
-            )}
+          <div data-slot="task-tool-heading">
+            <span data-component="task-tool-kind">Subagent</span>
             <span data-component="task-tool-title">{title}</span>
             {agentName && !resolved && <span data-component="task-tool-agent">@{agentName}</span>}
-            {detail && <span data-slot="basic-tool-tool-subtitle">{detail}</span>}
           </div>
+          {detail && <span data-slot="basic-tool-tool-subtitle">{detail}</span>}
         </div>
+        <span data-component="task-tool-status">{statusLabel}</span>
         {childID && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
       </button>
     </div>
@@ -792,6 +801,9 @@ function countLabel(count: number, kind: "read" | "search" | "list"): string {
 function ContextToolGroup({ tools, busy }: { tools: ToolCallView[]; busy: boolean }): ReactNode {
   const [open, setOpen] = useState(false);
   const pending = busy || tools.some((tool) => tool.status === "running");
+  useEffect(() => {
+    if (pending) setOpen(true);
+  }, [pending]);
   const counts = tools.reduce<Record<"read" | "search" | "list", number>>(
     (result, tool) => ({ ...result, [contextKind(tool)]: result[contextKind(tool)] + 1 }),
     { read: 0, search: 0, list: 0 }

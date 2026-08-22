@@ -2297,7 +2297,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           const draft = chatStateFor(targetSessionID);
           const previous = snapshotChatState(draft);
           const result = applyChatEvent(draft, targetSessionID, streamEvent);
-          if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+          if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
           const materialization = typeof result === "boolean" ? undefined : result.materialization;
           if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);
           syncStreaming(targetSessionID, previous);
@@ -2371,7 +2371,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
-            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
             syncStreaming(targetSessionID, previous);
             setSessionAbortFlags((current) => current[targetSessionID]
               ? { ...current, [targetSessionID]: { ...current[targetSessionID], acknowledged: true } }
@@ -2398,7 +2398,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
-            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
             syncStreaming(targetSessionID, previous);
             setSessionAbortFlags((current) => current[targetSessionID]
               ? { ...current, [targetSessionID]: { ...current[targetSessionID], acknowledged: true } }
@@ -2413,7 +2413,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
-            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
             syncStreaming(targetSessionID, previous);
           }
           break;
@@ -2490,7 +2490,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
-            if (typeof result !== "boolean" && result.changed) applyProjection(targetSessionID);
+            if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
             syncStreaming(targetSessionID, previous);
           }
           break;

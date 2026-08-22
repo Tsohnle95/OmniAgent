@@ -58,6 +58,14 @@ function updatedEvent(type: string): { kind: "event"; type: string; data: unknow
   };
 }
 
+function chatEvent(type: string, data: Record<string, unknown>): { kind: "event"; type: string; data: unknown } {
+  return {
+    kind: "event",
+    type,
+    data: { id: `${type}-${Date.now()}`, type, created: Date.now(), data, location: { directory: "/one" } }
+  };
+}
+
 describe("picker catalogs refresh on server update events", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -112,5 +120,21 @@ describe("picker catalogs refresh on server update events", () => {
     });
 
     expect(store.models.map((model) => model.id)).toEqual(["m1"]);
+  });
+
+  it("projects live text deltas into the visible transcript immediately", async () => {
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+
+    await act(async () => {
+      messageHandler!(chatEvent("session.step.started", { sessionID: "session-1", assistantMessageID: "assistant-1" }));
+      messageHandler!(chatEvent("session.text.started", { sessionID: "session-1", assistantMessageID: "assistant-1", ordinal: 0 }));
+      messageHandler!(chatEvent("session.text.delta", { sessionID: "session-1", assistantMessageID: "assistant-1", ordinal: 0, delta: "Streaming now" }));
+    });
+
+    const assistant = store.transcript.find((item) => item.kind === "assistant");
+    const text = assistant?.kind === "assistant" ? assistant.parts.find((part) => part.kind === "text") : null;
+    expect(text?.kind === "text" ? text.text : null).toBe("Streaming now");
   });
 });

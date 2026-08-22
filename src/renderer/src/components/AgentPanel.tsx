@@ -1142,7 +1142,7 @@ export function AgentPanel({
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
-  const { busy, todos, transcript, sessionUsage, currentModel, turnStartedAt } = view;
+  const { busy, todos, transcript, sessionUsage, currentModel, turnStartedAt, assistantStatus } = view;
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
@@ -1280,37 +1280,40 @@ export function AgentPanel({
             <IconClose />
           </button>
         )}
-        <span className="agent-title">
-          {activeSession?.parentID
-            ? activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? activeSession.directory?.split("/").filter(Boolean).pop() ?? (parent ? `${parent.title} subagent` : "Subagent session")
-            : activeSession?.directory?.split("/").filter(Boolean).pop() ?? "Agent"}
-          {activeSession?.parentID && activeSession.agent && activeSession.agent !== activeSession.title && (
-            <span className="agent-subagent">@{activeSession.agent}</span>
+        <div className="agent-identity">
+          <div className="agent-identity-line">
+            <span
+              className={`agent-status-dot ${busy || assistantStatus?.isWorking ? "working" : "idle"}`}
+              title={assistantStatus?.statusText ?? (busy ? "Working" : "Idle")}
+              aria-label={assistantStatus?.statusText ?? (busy ? "Working" : "Idle")}
+            />
+            {activeSession?.parentID ? (
+              <span className="agent-title">
+                {activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? activeSession.directory?.split("/").filter(Boolean).pop() ?? (parent ? `${parent.title} subagent` : "Subagent session")}
+                {activeSession.agent && activeSession.agent !== activeSession.title && (
+                  <span className="agent-subagent">@{activeSession.agent}</span>
+                )}
+              </span>
+            ) : activeSession?.directory ? (
+              <button
+                className="agent-workspace"
+                title={`Change workspace — currently ${activeSession.directory}`}
+                aria-label="Change workspace"
+                onClick={() => void selectPanelDirectory(activeSession.workspace)}
+              >
+                <IconFolderOpen />
+                <span>{activeSession.directory.split("/").filter(Boolean).pop()}</span>
+              </button>
+            ) : (
+              <span className="agent-title">Agent</span>
+            )}
+          </div>
+          {(busy || assistantStatus?.isWorking) && assistantStatus?.statusText && (
+            <span className="agent-status-text">{assistantStatus.statusText}</span>
           )}
-          {!activeSession?.parentID && activeSession?.directory && (
-            <button
-              className="agent-workspace"
-              title={`Change workspace — currently ${activeSession.directory}`}
-              aria-label="Change workspace"
-              onClick={() => void selectPanelDirectory(activeSession.workspace)}
-            >
-              <IconFolderOpen />
-              {activeSession.directory.split("/").filter(Boolean).pop()}
-            </button>
-          )}
-        </span>
+        </div>
         <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">
-          {activeSession && !activeSession.parentID && (
-            <button
-              className="icon-btn agent-workspace-change"
-              title={activeSession.directory ? `Change workspace — currently ${activeSession.directory}` : "Change workspace"}
-              aria-label="Change workspace"
-              onClick={() => void selectPanelDirectory(activeSession.workspace)}
-            >
-              <IconFolderOpen />
-            </button>
-          )}
           <button
             className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
             title="Session and provider usage"

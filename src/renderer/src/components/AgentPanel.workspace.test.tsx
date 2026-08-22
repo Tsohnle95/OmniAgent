@@ -5,6 +5,7 @@ import type { SessionInfo } from "@shared/types";
 
 let currentSession: SessionInfo;
 const selectPanelDirectoryMock = vi.fn(async () => {});
+const reopenSessionMock = vi.fn(async () => {});
 
 vi.mock("../store", () => ({
   useStore: () => ({
@@ -23,8 +24,8 @@ vi.mock("../store", () => ({
     runCommand: vi.fn(),
     stop: vi.fn(),
     busy: false,
-    sessions: [],
-    reopenSession: vi.fn(),
+    sessions: currentSession.parentID ? [{ id: currentSession.parentID, title: "Main agent", directory: currentSession.directory, updatedAt: 1 }] : [],
+    reopenSession: reopenSessionMock,
     providerUsage: [],
     providerUsageLoading: false,
     refreshProviderUsage: vi.fn(),
@@ -32,14 +33,15 @@ vi.mock("../store", () => ({
   }),
   usePanel: () => ({
     session: currentSession,
-    busy: false,
+    busy: currentSession.id === "working",
     transcript: [],
     todos: [],
     sessionUsage: null,
     models: [],
     currentModel: null,
     agents: [],
-    currentAgent: null
+    currentAgent: null,
+    assistantStatus: currentSession.id === "working" ? { isWorking: true, statusText: "running command" } : null
   })
 }));
 
@@ -67,6 +69,7 @@ describe("composer workspace continuations", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     currentSession = session("one", 1);
     selectPanelDirectoryMock.mockClear();
+    reopenSessionMock.mockClear();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -86,6 +89,22 @@ describe("composer workspace continuations", () => {
     await act(async () => folder.click());
 
     expect(selectPanelDirectoryMock).toHaveBeenCalledWith(currentSession.workspace);
+  });
+
+  it("shows active status beside the workspace name", async () => {
+    currentSession = { ...session("working", 1), id: "working" };
+    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+
+    expect(container.querySelector(".agent-status-dot.working")).not.toBeNull();
+    expect(container.querySelector(".agent-status-text")?.textContent).toBe("running command");
+  });
+
+  it("returns from a child agent session to its parent", async () => {
+    currentSession = { ...session("child", 1), id: "child", parentID: "parent", title: "Review changes", agent: "review" };
+    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+
+    await act(async () => container.querySelector<HTMLButtonElement>(".agent-session-back")!.click());
+    expect(reopenSessionMock).toHaveBeenCalledWith("parent");
   });
 
   it("discards slash completions returned after a workspace switch", async () => {

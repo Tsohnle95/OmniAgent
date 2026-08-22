@@ -770,7 +770,7 @@ describe("Layout panel sizing", () => {
     window.openshell = { ...window.openshell, selectFolder: vi.fn(() => picked) };
 
     await act(async () => {
-      container.querySelectorAll<HTMLElement>(".agent-workspace-change")[0]!.click();
+      container.querySelectorAll<HTMLElement>(".agent-workspace")[0]!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
