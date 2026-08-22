@@ -221,11 +221,12 @@ function ReasoningPart({
 }): ReactNode {
   const [open, setOpen] = useState(false);
   const active = streaming && !part.complete;
-  useEffect(() => {
-    if (active) setOpen(true);
-  }, [active]);
   if (!part.text) return null;
   const contentID = `reasoning-${part.id}`;
+  const visible = part.text.trimEnd();
+  const summary = active
+    ? visible.slice(visible.lastIndexOf("\n") + 1)
+    : visible.split("\n", 1)[0];
   return (
     <div
       data-component="reasoning-part"
@@ -238,7 +239,10 @@ function ReasoningPart({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span data-slot="reasoning-part-title"><TextShimmer text={active ? "Thinking" : "Thought"} active={active} tone="thinking" /></span>
+        <span data-slot="reasoning-part-icon" className="codicon codicon-lightbulb" />
+        <span data-slot="reasoning-part-title"><TextShimmer text="Think" active={active} tone="thinking" /></span>
+        {summary && <span data-slot="reasoning-part-summary">{summary}</span>}
+        <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
       </button>
       {open && (
         <div data-slot="reasoning-part-content" id={contentID} onClick={() => setOpen(false)}>
@@ -749,9 +753,14 @@ function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind:
 
 function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {
   const { openFile, focusSession } = useStore();
-  const [open, setOpen] = useState(tool.status === "failed");
+  const [open, setOpen] = useState(false);
   const presentation = toolPresentation(tool);
   const output = tool.output ?? "";
+  const input = tool.inputValue === undefined
+    ? tool.input ?? ""
+    : typeof tool.inputValue === "string"
+      ? tool.inputValue
+      : JSON.stringify(tool.inputValue, null, 2);
   const files = tool.content?.filter((item) => item.type === "file") ?? [];
   const native = tool.metadata?.deepseek;
   const nativeRecord = native && typeof native === "object" && !Array.isArray(native) ? native as Record<string, unknown> : null;
@@ -771,8 +780,9 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
       ...(typeof value.startedAt === "number" ? { startedAt: value.startedAt } : {})
     }];
   }) : [];
-  const expandable = subCalls.length > 0 || tool.status !== "running" && (output.length > 0 || files.length > 0);
-  const truncated = output.length > OUTPUT_LIMIT;
+  const expandable = input.length > 0 || output.length > 0 || files.length > 0 || subCalls.length > 0;
+  const displayInput = input.length > OUTPUT_LIMIT ? `${input.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : input;
+  const displayOutput = output.length > OUTPUT_LIMIT ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output;
   const activateSubtitle = (): void => {
     if (!presentation.path) return;
     if (session) focusSession?.(session.id);
@@ -824,10 +834,22 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
         )}
         {expandable && open && (
           <div data-slot="collapsible-content">
-            {output && (
-              <pre data-component="tool-output" data-error={tool.status === "failed" ? "true" : undefined}>
-                {truncated ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output}
-              </pre>
+            {(input || output) && (
+              <div data-component="tool-io">
+                {input && (
+                  <div data-component="tool-io-section">
+                    <span data-slot="tool-io-label">IN</span>
+                    <pre data-slot="tool-io-text">{displayInput}</pre>
+                  </div>
+                )}
+                {input && output && <span data-slot="tool-io-divider" />}
+                {output && (
+                  <div data-component="tool-io-section">
+                    <span data-slot="tool-io-label">OUT</span>
+                    <pre data-slot="tool-io-text" data-error={tool.status === "failed" ? "true" : undefined}>{displayOutput}</pre>
+                  </div>
+                )}
+              </div>
             )}
             {files.length > 0 && (
               <div data-component="tool-files">

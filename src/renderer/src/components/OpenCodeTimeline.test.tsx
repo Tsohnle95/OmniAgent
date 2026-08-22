@@ -93,7 +93,7 @@ describe("OpenCodeTimeline chronology", () => {
     container.remove();
   });
 
-  it("labels completed reasoning as thought", () => {
+  it("renders completed reasoning as a collapsed Think row with its first line", () => {
     act(() => root.render(
       <OpenCodeTimeline
         transcript={[reasoningAssistant(true)]}
@@ -102,20 +102,25 @@ describe("OpenCodeTimeline chronology", () => {
       />
     ));
 
-    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Thought");
-    expect(container.textContent).not.toContain("Thinking");
+    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Inspecting the code");
+    expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
 
-  it("keeps live reasoning labeled as thinking", () => {
+  it("keeps live reasoning collapsed and follows its latest line", () => {
+    const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.parts = [{ kind: "reasoning", id: "reasoning-1", text: "Inspecting the code\nChecking events", complete: false }];
     act(() => root.render(
       <OpenCodeTimeline
-        transcript={[reasoningAssistant(false)]}
+        transcript={[live]}
         busy
         lastAssistantId="assistant-reasoning"
       />
     ));
 
-    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Thinking");
+    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Checking events");
+    expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
 
   it("consolidates adjacent reasoning into one thought without repeating snapshots", () => {
@@ -170,6 +175,19 @@ describe("OpenCodeTimeline chronology", () => {
     expect(container.textContent).not.toContain("limit=40");
     expect(container.textContent).not.toContain("content=private");
     expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")?.getAttribute("title")).toBe("a very long diagnostic detail");
+  });
+
+  it("shows tool input and output in an expandable disclosure", () => {
+    const generic = toolAssistant("tool", "custom_tool", { query: "stream events" }) as Extract<TranscriptItem, { kind: "assistant" }>;
+    generic.parts[0] = generic.parts[0].kind === "tool"
+      ? { ...generic.parts[0], tool: { ...generic.parts[0].tool, output: "event payload" } }
+      : generic.parts[0];
+    act(() => root.render(<OpenCodeTimeline transcript={[generic]} busy={false} lastAssistantId={null} />));
+
+    act(() => container.querySelector<HTMLButtonElement>("[data-slot='collapsible-trigger']")!.click());
+    expect([...container.querySelectorAll("[data-slot='tool-io-label']")].map((node) => node.textContent)).toEqual(["IN", "OUT"]);
+    expect(container.querySelector("[data-component='tool-io']")?.textContent).toContain("stream events");
+    expect(container.querySelector("[data-component='tool-io']")?.textContent).toContain("event payload");
   });
 
   it.each(events)("keeps an interleaved %s event between assistant runs", (_name, event, row) => {
