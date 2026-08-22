@@ -10,6 +10,7 @@ const storeState = vi.hoisted(() => ({
   session: null as SessionInfo | null,
   reopenSession: vi.fn(),
   openFile: vi.fn(),
+  focusSession: vi.fn(),
   replyPermission: vi.fn()
 }));
 
@@ -82,6 +83,7 @@ describe("OpenCodeTimeline chronology", () => {
     storeState.session = null;
     storeState.reopenSession.mockReset();
     storeState.openFile.mockReset();
+    storeState.focusSession.mockReset();
     storeState.replyPermission.mockReset();
     container = document.createElement("div");
     document.body.append(container);
@@ -102,7 +104,7 @@ describe("OpenCodeTimeline chronology", () => {
       />
     ));
 
-    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Think");
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Inspecting the code");
     expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
@@ -118,9 +120,51 @@ describe("OpenCodeTimeline chronology", () => {
       />
     ));
 
-    expect(container.querySelector("[data-slot='reasoning-part-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Think");
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Checking events");
     expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
+  });
+
+  it("keeps the live reasoning preview on the newest streamed text", () => {
+    const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.parts = [{ kind: "reasoning", id: "reasoning-1", text: "**Inspecting the repository structure and current events**", complete: false }];
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[live]} busy lastAssistantId="assistant-reasoning" />
+    ));
+
+    const first = container.querySelector("[data-slot='reasoning-part-summary']");
+    expect(first?.textContent).toBe("Inspecting the repository structure and current events");
+    expect(first?.getAttribute("data-follow-end")).toBe("true");
+    expect(container.querySelector("[data-component='reasoning-part']")?.getAttribute("data-state")).toBe("running");
+
+    live.parts = [{ kind: "reasoning", id: "reasoning-1", text: "Earlier thought\n**Checking the latest streamed event now**", complete: false }];
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[{ ...live }]} busy lastAssistantId="assistant-reasoning" />
+    ));
+
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Checking the latest streamed event now");
+  });
+
+  it("opens absolute read paths relative to the tool session workspace", () => {
+    const session: SessionInfo = {
+      id: "session-read",
+      directory: "/repo",
+      workspace: { id: "workspace-read", generation: 4 }
+    };
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[toolAssistant("read", "read", { filePath: "/repo/docs/README.md" })]}
+        busy={false}
+        lastAssistantId={null}
+        session={session}
+      />
+    ));
+
+    const subtitle = container.querySelector("[data-slot='basic-tool-tool-subtitle']") as HTMLElement | null;
+    act(() => subtitle?.click());
+
+    expect(storeState.focusSession).toHaveBeenCalledWith("session-read");
+    expect(storeState.openFile).toHaveBeenCalledWith("docs/README.md", undefined, session.workspace);
   });
 
   it("shows the harness turn status throughout active work and removes it at completion", () => {
@@ -283,6 +327,7 @@ describe("subagent dispatch links", () => {
     storeState.session = { id: "session-parent", directory: "/repo", workspace: { id: "workspace-1", generation: 1 } };
     storeState.reopenSession.mockReset();
     storeState.openFile.mockReset();
+    storeState.focusSession.mockReset();
     storeState.replyPermission.mockReset();
     container = document.createElement("div");
     document.body.append(container);
@@ -440,6 +485,74 @@ describe("subagent dispatch links", () => {
     expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")).toBeNull();
     expect(container.querySelector("[data-component='task-tool-surface']")?.getAttribute("aria-label"))
       .toBe("Open delegated agent session: Inspect the renderer");
+  });
+
+  it("consolidates repeated tool snapshots for one child into one stable card", () => {
+    storeState.sessions = [summary("session-child", {
+      title: "Inspect the renderer",
+      agent: "build",
+      parentID: "session-parent"
+    })];
+    const first = toolAssistant("assistant-1", "subagent", { agent: "build", description: "Inspect the renderer" }, { sessionID: "session-child" });
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[first]} busy lastAssistantId="assistant-1" />
+    ));
+    const initialCard = container.querySelector("[data-component='task-tool-card']");
+
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[
+          first,
+          toolAssistant("assistant-2", "subagent", { agent: "build", description: "Inspect the renderer" }, { sessionID: "session-child" }),
+          toolAssistant("assistant-3", "task", { agent: "build", description: "Inspect the renderer" }, { sessionID: "session-child" })
+        ]}
+        busy={false}
+        lastAssistantId={null}
+      />
+    ));
+
+    expect(container.querySelectorAll("[data-component='task-tool-card']")).toHaveLength(1);
+    expect(container.querySelector("[data-component='task-tool-card']")).toBe(initialCard);
+    expect(container.querySelector("[data-component='task-tool-title']")?.textContent).toBe("Inspect the renderer");
+  });
+
+  it("keeps one dispatch card while the child session graph is still arriving", () => {
+    storeState.sessions = [];
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[
+          toolAssistant("assistant-1", "subagent", { agent: "build", description: "Inspect the renderer" }),
+          {
+            kind: "synthetic",
+            id: "dispatch-child",
+            text: '<subagent id="session-child" agent="build" description="Inspect the renderer" state="running" />'
+          }
+        ]}
+        busy
+        lastAssistantId="assistant-1"
+      />
+    ));
+
+    expect(container.querySelectorAll("[data-component='task-tool-card'], [data-component='subagent-link-card']")).toHaveLength(1);
+    expect(container.querySelector("[data-component='task-tool-card']")).not.toBeNull();
+  });
+
+  it("keeps deliberate matching dispatches from separate user turns", () => {
+    storeState.sessions = [];
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[
+          { kind: "user", id: "user-1", text: "Inspect it" },
+          toolAssistant("assistant-1", "subagent", { agent: "build", description: "Inspect the renderer" }),
+          { kind: "user", id: "user-2", text: "Inspect it again" },
+          toolAssistant("assistant-2", "subagent", { agent: "build", description: "Inspect the renderer" })
+        ]}
+        busy={false}
+        lastAssistantId={null}
+      />
+    ));
+
+    expect(container.querySelectorAll("[data-component='task-tool-card']")).toHaveLength(2);
   });
 
   it("keeps cards for distinct child sessions separate", () => {

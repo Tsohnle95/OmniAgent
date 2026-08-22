@@ -137,7 +137,7 @@ describe("edit tool diff cards", () => {
     const subtitle = container.querySelector("[data-slot='basic-tool-tool-subtitle']") as HTMLElement | null;
     act(() => subtitle?.click());
     expect(storeState.focusSession).toHaveBeenCalledWith("session-1");
-    expect(storeState.openFile).toHaveBeenCalledWith("src/app.ts");
+    expect(storeState.openFile).toHaveBeenCalledWith("src/app.ts", undefined, storeState.session.workspace);
   });
 
   it("renders one section per file when a part edits several files", () => {

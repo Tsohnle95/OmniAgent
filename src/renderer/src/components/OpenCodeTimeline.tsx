@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
@@ -247,17 +247,28 @@ function ReasoningPart({
   streaming: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
+  const summaryRef = useRef<HTMLSpanElement>(null);
   const active = streaming && !part.complete;
-  if (!part.text) return null;
   const contentID = `reasoning-${part.id}`;
   const visible = part.text.trimEnd();
-  const summary = active
+  const rawSummary = active
     ? visible.slice(visible.lastIndexOf("\n") + 1)
     : visible.split("\n", 1)[0];
+  const summary = rawSummary.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1");
+  const scheduleSummaryScroll = useThrottledVisualUpdate(() => {
+    const element = summaryRef.current;
+    if (!element) return;
+    element.scrollLeft = active ? element.scrollWidth - element.clientWidth : 0;
+  });
+  useEffect(() => {
+    scheduleSummaryScroll();
+  }, [active, scheduleSummaryScroll, summary]);
+  if (!part.text) return null;
   return (
     <div
       data-component="reasoning-part"
       data-expanded={open ? "true" : "false"}
+      data-state={active ? "running" : "ok"}
       data-timeline-part-id={part.id}
     >
       <button
@@ -267,8 +278,8 @@ function ReasoningPart({
         onClick={() => setOpen((current) => !current)}
       >
         <span data-slot="reasoning-part-icon" className="codicon codicon-lightbulb" />
-        <span data-slot="reasoning-part-title"><TextShimmer text="Think" active={active} tone="thinking" /></span>
-        {summary && <span data-slot="reasoning-part-summary">{summary}</span>}
+        <span data-slot="reasoning-part-title">Think</span>
+        {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
         <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
       </button>
       {open && (
@@ -278,6 +289,31 @@ function ReasoningPart({
       )}
     </div>
   );
+}
+
+function useThrottledVisualUpdate(update: () => void, intervalFrames = 3): () => void {
+  const updateRef = useRef(update);
+  const pendingFrameRef = useRef<number | null>(null);
+  updateRef.current = update;
+  useLayoutEffect(() => () => {
+    if (pendingFrameRef.current === null) return;
+    cancelAnimationFrame(pendingFrameRef.current);
+    pendingFrameRef.current = null;
+  }, []);
+  return useCallback(() => {
+    if (pendingFrameRef.current !== null) return;
+    let remainingFrames = intervalFrames;
+    const advance = (): void => {
+      remainingFrames -= 1;
+      if (remainingFrames > 0) {
+        pendingFrameRef.current = requestAnimationFrame(advance);
+        return;
+      }
+      pendingFrameRef.current = null;
+      updateRef.current();
+    };
+    pendingFrameRef.current = requestAnimationFrame(advance);
+  }, [intervalFrames]);
 }
 
 function parseInput(value: string | undefined): Record<string, unknown> {
@@ -295,6 +331,20 @@ function parseInput(value: string | undefined): Record<string, unknown> {
 function fileName(value: unknown): string {
   if (typeof value !== "string") return "";
   return value.split(/[\\/]/).pop() ?? value;
+}
+
+function workspaceFilePath(path: string, session: SessionInfo | null): string | null {
+  const normalizedPath = path.replace(/\\/g, "/");
+  if (!session) return normalizedPath;
+  const directory = session.directory.replace(/\\/g, "/").replace(/\/$/, "");
+  if (/^(?:\/|[A-Za-z]:\/)/.test(normalizedPath)) {
+    const caseInsensitive = /^[A-Za-z]:\//.test(normalizedPath);
+    const comparedPath = caseInsensitive ? normalizedPath.toLowerCase() : normalizedPath;
+    const comparedDirectory = caseInsensitive ? directory.toLowerCase() : directory;
+    if (!comparedPath.startsWith(`${comparedDirectory}/`)) return null;
+    return normalizedPath.slice(directory.length + 1);
+  }
+  return normalizedPath.replace(/^\.\//, "");
 }
 
 function titleCase(value: string): string {
@@ -382,6 +432,85 @@ function taskChildID(tool: ToolCallView, sessions: SessionSummary[], parentID: s
     ...(description ? { description } : {}),
     ...(requested ? { agent: requested } : {})
   });
+}
+
+function dispatchSignature(agent: string, description: string): string {
+  const normalizedAgent = agent.trim().toLowerCase();
+  const normalizedDescription = description.trim().toLowerCase().replace(/\s+/g, " ");
+  return normalizedAgent || normalizedDescription ? `dispatch:${normalizedAgent}:${normalizedDescription}` : "";
+}
+
+function taskDispatchSignature(tool: ToolCallView): string {
+  const input = parseInput(tool.input);
+  const agent = typeof input.agent === "string"
+    ? input.agent
+    : typeof input.subagent_type === "string"
+      ? input.subagent_type
+      : "";
+  const description = typeof input.description === "string"
+    ? input.description
+    : typeof input.prompt === "string"
+      ? input.prompt
+      : "";
+  return dispatchSignature(agent, description);
+}
+
+function refDispatchSignature(ref: SubagentRef): string {
+  return dispatchSignature(ref.agent, ref.description);
+}
+
+function mergeSubagentTool(first: ToolCallView, latest: ToolCallView): ToolCallView {
+  return {
+    ...first,
+    ...latest,
+    id: first.id,
+    detail: latest.detail || first.detail,
+    input: latest.input || first.input,
+    inputValue: latest.inputValue ?? first.inputValue,
+    output: latest.output ?? first.output,
+    paths: latest.paths?.length ? latest.paths : first.paths,
+    metadata: { ...first.metadata, ...latest.metadata }
+  };
+}
+
+function consolidateSubagentTools(
+  transcript: TranscriptItem[],
+  sessions: SessionSummary[],
+  parentID: string | undefined
+): TranscriptItem[] {
+  const result: TranscriptItem[] = [];
+  const represented = new Map<string, { item: AssistantItem; partIndex: number }>();
+  for (const entry of transcript) {
+    if (entry.kind !== "assistant") {
+      if (entry.kind === "user") represented.clear();
+      result.push(entry);
+      continue;
+    }
+    const item: AssistantItem = { ...entry, parts: [] };
+    for (const part of entry.parts) {
+      if (part.kind !== "tool" || !["task", "subagent"].includes(toolKey(part.tool.title))) {
+        item.parts.push(part);
+        continue;
+      }
+      const childID = taskChildID(part.tool, sessions, parentID);
+      const signature = taskDispatchSignature(part.tool);
+      const key = childID ? `child:${childID}` : signature || `call:${part.tool.id}`;
+      const previous = represented.get(key);
+      if (!previous) {
+        represented.set(key, { item, partIndex: item.parts.length });
+        item.parts.push(part);
+        continue;
+      }
+      const existing = previous.item.parts[previous.partIndex];
+      if (existing?.kind !== "tool") continue;
+      previous.item.parts[previous.partIndex] = {
+        ...existing,
+        tool: mergeSubagentTool(existing.tool, part.tool)
+      };
+    }
+    result.push(item);
+  }
+  return result;
 }
 
 function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; path?: string } {
@@ -541,8 +670,10 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
   if (files.length === 0) return <ToolPart tool={tool} session={session} />;
   const activatePath = (): void => {
     if (!path) return;
+    const target = workspaceFilePath(path, session);
+    if (!target) return;
     if (session) focusSession?.(session.id);
-    void openFile(path);
+    void openFile(target, undefined, session?.workspace);
   };
   return (
     <div data-component="edit-tool-card" data-tool={toolKey(tool.title)} data-timeline-part-id={tool.id}>
@@ -812,8 +943,10 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   const displayOutput = output.length > OUTPUT_LIMIT ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output;
   const activateSubtitle = (): void => {
     if (!presentation.path) return;
+    const target = workspaceFilePath(presentation.path, session);
+    if (!target) return;
     if (session) focusSession?.(session.id);
-    void openFile(presentation.path);
+    void openFile(target, undefined, session?.workspace);
   };
 
   if (toolKey(tool.title) === "todowrite") return null;
@@ -1204,31 +1337,47 @@ export function OpenCodeTimeline({
 }): ReactNode {
   const store = useStore();
   const activeSession = session === undefined ? store.session : session;
+  const consolidatedTranscript = useMemo(
+    () => consolidateSubagentTools(transcript, store.sessions, activeSession?.id),
+    [transcript, store.sessions, activeSession?.id]
+  );
   const representedSubagents = useMemo(() => {
     const ids = new Set<string>();
-    for (const item of transcript) {
+    let turn = 0;
+    for (const item of consolidatedTranscript) {
+      if (item.kind === "user") {
+        turn += 1;
+        continue;
+      }
       if (item.kind !== "assistant") continue;
       for (const part of item.parts) {
         if (part.kind !== "tool" || !["task", "subagent"].includes(toolKey(part.tool.title))) continue;
         const childID = taskChildID(part.tool, store.sessions, activeSession?.id);
-        if (childID) ids.add(childID);
+        if (childID) ids.add(`${turn}:child:${childID}`);
+        const signature = taskDispatchSignature(part.tool);
+        if (signature) ids.add(`${turn}:${signature}`);
       }
     }
     return ids;
-  }, [transcript, store.sessions, activeSession?.id]);
-  const timeline = useMemo(
-    () => transcript.filter((item): item is VisibleTimelineItem => {
+  }, [consolidatedTranscript, store.sessions, activeSession?.id]);
+  const timeline = useMemo(() => {
+    const visible: VisibleTimelineItem[] = [];
+    let turn = 0;
+    for (const item of consolidatedTranscript) {
+      if (item.kind === "user") turn += 1;
       if (item.kind === "permission" || item.kind === "pending-input" || item.kind === "selection" || item.kind === "system") {
-        return false;
+        continue;
       }
       if (item.kind === "synthetic") {
-        const ref = parseSubagentTag(item.text);
-        if (ref?.id && representedSubagents.has(ref.id)) return false;
+        const ref = parseSubagentTag(item.text) ?? parseLegacyTaskText(item.text);
+        const childID = ref ? subagentChildID(ref, store.sessions, activeSession?.id) : "";
+        if (childID && representedSubagents.has(`${turn}:child:${childID}`)) continue;
+        if (ref && representedSubagents.has(`${turn}:${refDispatchSignature(ref)}`)) continue;
       }
-      return item.kind !== "synthetic" || !isInternalSystemReminder(item);
-    }),
-    [transcript, representedSubagents]
-  );
+      if (item.kind !== "synthetic" || !isInternalSystemReminder(item)) visible.push(item);
+    }
+    return visible;
+  }, [consolidatedTranscript, representedSubagents, store.sessions, activeSession?.id]);
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
 
   return (
