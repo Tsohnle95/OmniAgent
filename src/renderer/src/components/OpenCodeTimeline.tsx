@@ -357,6 +357,10 @@ function taskChildID(tool: ToolCallView, sessions: SessionSummary[], parentID: s
 function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; path?: string } {
   const name = toolKey(tool.title);
   const input = parseInput(tool.input);
+  const native = tool.metadata?.deepseek;
+  const nativeRecord = native && typeof native === "object" && !Array.isArray(native) ? native as Record<string, unknown> : null;
+  const rawView = nativeRecord?.resultView ?? nativeRecord?.callView;
+  const view = rawView && typeof rawView === "object" && !Array.isArray(rawView) ? rawView as Record<string, unknown> : null;
   let title = titleCase(tool.title);
   let subtitle = tool.detail.replace(/^\$\s*/, "");
   let path: string | undefined;
@@ -399,6 +403,18 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   } else if (name === "question") {
     title = "Questions";
   }
+  if (view?.card === "terminal") {
+    title = "Shell";
+    subtitle = typeof view.title === "string" ? view.title : subtitle;
+  } else if (view?.card === "read") {
+    title = "Read";
+    path = typeof view.path === "string" ? view.path : path;
+    subtitle = typeof view.title === "string" ? view.title : fileName(path);
+  } else if (view?.card === "search" && typeof view.title === "string") {
+    subtitle = view.title;
+  } else if (view?.card === "web" && typeof view.url === "string") {
+    subtitle = view.url;
+  }
   return { title, subtitle, path };
 }
 
@@ -412,7 +428,28 @@ interface EditFileEntry {
 
 function editFileEntries(tool: ToolCallView): EditFileEntry[] {
   const files = tool.metadata?.files;
-  if (!Array.isArray(files)) return [];
+  if (!Array.isArray(files)) {
+    const native = tool.metadata?.deepseek;
+    const nativeRecord = native && typeof native === "object" && !Array.isArray(native) ? native as Record<string, unknown> : null;
+    const rawView = nativeRecord?.resultView ?? nativeRecord?.callView;
+    const view = rawView && typeof rawView === "object" && !Array.isArray(rawView) ? rawView as Record<string, unknown> : null;
+    if (view?.card !== "diff" || !Array.isArray(view.diffs)) return [];
+    return view.diffs.flatMap((entry): EditFileEntry[] => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const diff = entry as Record<string, unknown>;
+      if (typeof diff.path !== "string" || typeof diff.newText !== "string") return [];
+      const oldText = typeof diff.oldText === "string" ? diff.oldText : "";
+      const oldLines = oldText.split("\n");
+      const newLines = diff.newText.split("\n");
+      return [{
+        file: diff.path,
+        patch: [`--- ${diff.path}`, `+++ ${diff.path}`, `@@ -1,${oldLines.length} +1,${newLines.length} @@`, ...oldLines.map((line) => `-${line}`), ...newLines.map((line) => `+${line}`)].join("\n"),
+        status: oldText ? "modified" : "created",
+        additions: newLines.length,
+        deletions: oldText ? oldLines.length : 0
+      }];
+    });
+  }
   return files.flatMap((entry): EditFileEntry[] => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
     const record = entry as Record<string, unknown>;
@@ -459,7 +496,8 @@ function PatchDiff({ patch }: { patch: string }): ReactNode {
 }
 
 function isEditCardTool(tool: ToolCallView): boolean {
-  return ["edit", "patch", "apply_patch"].includes(toolKey(tool.title));
+  if (["edit", "write", "patch", "apply_patch"].includes(toolKey(tool.title))) return editFileEntries(tool).length > 0;
+  return false;
 }
 
 function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionInfo | null }): ReactNode {

@@ -1425,44 +1425,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       };
       updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
       setTodosFor(panel.workspace.id, []);
-      const existingRemoteUsers = transcript.filter((item) => item.kind === "user" && !item.id.startsWith("user-") && item.text === promptText).length;
-      const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): boolean => {
-        const current = transcriptsBySessionRef.current[panel.id] ?? [];
-        const withOptimistic = current.some((item) => item.id === userItem.id) ? current : [...current, userItem];
-        const remoteUsers = new Map<string, number>();
-        for (const item of refreshed.transcript) {
-          if (item.kind === "user") remoteUsers.set(item.text, (remoteUsers.get(item.text) ?? 0) + 1);
-        }
-        const local = withOptimistic.filter((item) => {
-          if (item.kind !== "user" || !item.id.startsWith("user-")) return true;
-          const count = remoteUsers.get(item.text) ?? 0;
-          if (count === 0) return true;
-          remoteUsers.set(item.text, count - 1);
-          return false;
-        });
-        const merged = mergeChatHistory(refreshed.transcript, local);
-        updateSessionTranscript(panel.id, () => merged);
-        lastStreamActivityRef.current[panel.id] = Date.now();
-        chatStatesRef.current.delete(panel.id);
-        hydrateChatState(chatStateFor(panel.id), panel.id, merged);
-        reconcileStreaming(panel.id);
-        const users = refreshed.transcript.filter((item) => item.kind === "user" && item.text === promptText);
-        const lastUser = users.at(-1);
-        const lastUserIndex = lastUser ? refreshed.transcript.lastIndexOf(lastUser) : -1;
-        const completed = users.length > existingRemoteUsers
-          && lastUserIndex >= 0
-          && refreshed.transcript.slice(lastUserIndex + 1).some((item) => item.kind === "assistant" && item.completed);
-        if (completed) setSessionBusy(panel.id, false);
-        else if (!(panel.id in busyBySessionRef.current)) setSessionBusy(panel.id, true);
-        return completed;
-      };
       try {
-        let refreshed = await window.openshell.prompt(target, promptText, files);
-        for (let attempt = 0; attempt < 1200 && panelFor(target); attempt += 1) {
-          if (applyCanonicalTranscript(refreshed)) break;
-          await new Promise((resolve) => setTimeout(resolve, 250));
-          refreshed = await window.openshell.sessionTranscript(panel.id);
-        }
+        await window.openshell.prompt(target, promptText, files);
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
       }

@@ -5,6 +5,7 @@ import type { RuntimeAdapter, RuntimeEventEnvelope, RuntimeSessionDraft } from "
 import { RUNTIME_PROTOCOL_VERSION } from "../runtime-adapter";
 import { deepSeekRuntimeEvent, deepSeekTranscript } from "./deepseek-events";
 import { DeepSeekRpcClient } from "./deepseek-rpc";
+import { DeepSeekStreamProjector } from "./deepseek-stream";
 
 interface DeepSeekSessionSummary {
   sessionId: string;
@@ -72,6 +73,7 @@ export class DeepSeekRuntimeAdapter implements RuntimeAdapter {
   private client: DeepSeekRpcClient | null;
   private process: ReturnType<typeof spawn> | null = null;
   private stopped = false;
+  private readonly streamProjector = new DeepSeekStreamProjector();
 
   constructor(private readonly options: DeepSeekAdapterOptions) {
     this.client = options.client ?? (options.baseUrl ? new DeepSeekRpcClient(options.baseUrl) : null);
@@ -247,10 +249,37 @@ export class DeepSeekRuntimeAdapter implements RuntimeAdapter {
             if (seen.has(frame.rpcId)) continue;
             seen.add(frame.rpcId);
             if (seen.size > 10_000) seen.delete(seen.values().next().value!);
-            const event = deepSeekRuntimeEvent(frame.payload);
-            if (!event) continue;
             const sessionID = typeof frame.payload.sessionId === "string" ? frame.payload.sessionId : undefined;
-            queue.push({ runtimeID: "deepseek", eventID: frame.rpcId, ...(sessionID ? { sessionID } : {}), event });
+            const native = frame.payload.type === "session/event" && sessionID && frame.payload.event && typeof frame.payload.event === "object"
+              ? this.streamProjector.project(sessionID, frame.payload.event as DeepSeekHistoryEntry["event"], frame.payload.view)
+              : [];
+            if (frame.payload.type === "host/session-added" && sessionID) {
+              native.push({
+                type: "stream.event",
+                eventType: "session.created",
+                created: Date.now(),
+                data: {
+                  sessionID,
+                  location: { directory: typeof frame.payload.cwd === "string" ? frame.payload.cwd : this.options.directory },
+                  ...(typeof frame.payload.parentSessionId === "string" ? { parentID: frame.payload.parentSessionId } : {}),
+                  ...(typeof frame.payload.agentPreset === "string" ? { agent: frame.payload.agentPreset } : {}),
+                  ...(frame.payload.origin === "subagent" ? { origin: "subagent" } : {})
+                }
+              });
+            } else if (frame.payload.type === "host/session-removed" && sessionID) {
+              native.push({ type: "stream.event", eventType: "session.deleted", created: Date.now(), data: { sessionID } });
+            } else if (frame.payload.type === "session/projection" && sessionID && frame.payload.key === "title" && typeof frame.payload.value === "string") {
+              native.push({ type: "stream.event", eventType: "session.renamed", created: Date.now(), data: { sessionID, title: frame.payload.value } });
+            }
+            const lifecycle = deepSeekRuntimeEvent(frame.payload);
+            const events = [...native, ...(lifecycle ? [lifecycle] : [])];
+            if (events.length === 0) continue;
+            events.forEach((event, index) => queue.push({
+              runtimeID: "deepseek",
+              eventID: `${frame.rpcId}:${index}`,
+              ...(sessionID ? { sessionID } : {}),
+              event
+            }));
             wake();
           }
           delay = 250;

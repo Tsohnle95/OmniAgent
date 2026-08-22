@@ -667,6 +667,16 @@ export class OpenShellBackend {
           } else if (event.type === "execution.error") {
             this.emit({ kind: "event", type: "server.connected", data: {} });
             this.emit({ kind: "event", type: "session.error", data: { sessionID: targetSessionID, error: { message: event.message } } });
+          } else if (event.type === "stream.event") {
+            this.emit({
+              kind: "event",
+              type: event.eventType,
+              data: {
+                id: envelope.eventID,
+                created: event.created,
+                data: { ...event.data, sessionID: targetSessionID }
+              }
+            });
           } else if (event.type === "transcript.changed") {
             this.emit({ kind: "event", type: "server.connected", data: {} });
           } else if (event.type === "todo.updated") {

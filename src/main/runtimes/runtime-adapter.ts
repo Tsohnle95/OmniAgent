@@ -28,6 +28,7 @@ export type RuntimeEvent =
   | { type: "execution.started" }
   | { type: "execution.idle" }
   | { type: "execution.error"; message: string }
+  | { type: "stream.event"; eventType: string; data: Record<string, unknown>; created: number }
   | { type: "transcript.changed" }
   | { type: "todo.updated"; todos: unknown[] };
 

@@ -45,4 +45,41 @@ describe("DeepSeekRuntimeAdapter", () => {
     await expect(adapter.listSessions()).resolves.toEqual([{ id: "s1", runtimeID: "deepseek", title: "Fix tests", directory: "/repo", updatedAt: 2 }]);
     await expect(adapter.listModels("s1")).resolves.toEqual([{ id: "deepseek-chat", providerID: "deepseek-official", name: "DeepSeek Chat", variants: ["low", "high"], variant: "high" }]);
   });
+
+  it("publishes native child sessions through the shared session stream", async () => {
+    const rpc = client({});
+    rpc.events = vi.fn(async function* (stream: "mux" | "host") {
+      if (stream === "host") {
+        yield {
+          rpcId: "child-added",
+          payload: {
+            type: "host/session-added",
+            sessionId: "child-1",
+            parentSessionId: "parent-1",
+            origin: "subagent",
+            cwd: "/repo",
+            agentPreset: "researcher"
+          }
+        };
+      }
+    }) as DeepSeekRpcClient["events"];
+    const adapter = new DeepSeekRuntimeAdapter({ directory: "/repo", client: rpc });
+    const controller = new AbortController();
+    const iterator = adapter.subscribe(controller.signal)[Symbol.asyncIterator]();
+    const next = await iterator.next();
+    controller.abort();
+    expect(next.value).toMatchObject({
+      sessionID: "child-1",
+      event: {
+        type: "stream.event",
+        eventType: "session.created",
+        data: {
+          sessionID: "child-1",
+          parentID: "parent-1",
+          agent: "researcher",
+          origin: "subagent"
+        }
+      }
+    });
+  });
 });
