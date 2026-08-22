@@ -73,6 +73,18 @@ function todoList(value: unknown): TodoItem[] {
   });
 }
 
+function internalContext(source: Record<string, unknown> | null): boolean {
+  return source?.kind === "agent-instructions" ||
+    (source?.kind === "plugin" && source.plugin === "@deepseek-ai/dsh-system-prompt");
+}
+
+function turnError(data: Record<string, unknown>): string | null {
+  const reason = record(data.reason);
+  if (reason?.kind !== "error") return null;
+  const error = record(reason.error) ?? record(reason.failure);
+  return typeof error?.message === "string" ? error.message : "DeepSeek Harness failed";
+}
+
 export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
   const transcript: TranscriptItem[] = [];
   const tools = new Map<string, ToolCallView>();
@@ -83,7 +95,7 @@ export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
     if (event.type === "user/message") {
       const source = record(event.data.source);
       const text = blockText(event.data.content);
-      if (!text) continue;
+      if (!text || internalContext(source)) continue;
       if (source?.kind === "user") transcript.push({ kind: "user", id: String(event.data.id ?? `deepseek-user-${event.seq}`), text });
       else transcript.push({ kind: "synthetic", id: `deepseek-context-${event.seq}`, text, ...(typeof source?.summary === "string" ? { description: source.summary } : {}) });
       continue;
@@ -155,6 +167,11 @@ export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
       }
       continue;
     }
+    if (event.type === "turn/end") {
+      const error = turnError(event.data);
+      if (error) transcript.push({ kind: "status", id: `deepseek-error-${event.seq}`, text: error, tone: "error" });
+      continue;
+    }
     if (event.type === "todo/write") todos = todoList(event.data.todos);
   }
   return { transcript, todos };
@@ -166,7 +183,11 @@ export function deepSeekRuntimeEvent(payload: Record<string, unknown>): RuntimeE
   if (payload.type !== "session/event") return null;
   const event = record(payload.event);
   if (event?.type === "turn/start") return { type: "execution.started" };
-  if (event?.type === "turn/end") return { type: "execution.idle" };
+  if (event?.type === "turn/end") {
+    const data = record(event.data);
+    const error = data ? turnError(data) : null;
+    return error ? { type: "execution.error", message: error } : { type: "execution.idle" };
+  }
   if (event?.type === "todo/write") {
     const data = record(event.data);
     return { type: "todo.updated", todos: Array.isArray(data?.todos) ? data.todos : [] };

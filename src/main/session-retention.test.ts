@@ -13,6 +13,7 @@ vi.mock("@opencode-ai/client/service", () => ({ Service: {} }));
 
 import { SESSION_RETENTION_MS } from "@shared/retention";
 import { OpenShellBackend } from "./opencode";
+import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
 
 interface RawSession {
   id?: string;
@@ -59,7 +60,13 @@ function pagedClient(pages: Array<{ data: RawSession[]; next?: string | null }>,
 }
 
 async function fixture(client: unknown): Promise<OpenShellBackend> {
-  const backend = new OpenShellBackend();
+  const root = await mkdtemp(path.join(tmpdir(), "omniagent-retention-index-"));
+  roots.push(root);
+  const backend = new OpenShellBackend(
+    () => {},
+    () => { throw new Error("Runtime adapter is not used in retention tests"); },
+    new RuntimeSessionIndex(path.join(root, "runtime-sessions.json"))
+  );
   (backend as unknown as { client: unknown }).client = client;
   return backend;
 }

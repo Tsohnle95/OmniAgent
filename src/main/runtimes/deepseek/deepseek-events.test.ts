@@ -27,9 +27,21 @@ describe("deepSeekTranscript", () => {
     expect(result.transcript).toEqual([{ kind: "synthetic", id: "deepseek-context-1", text: "context", description: "Files changed" }]);
   });
 
+  it("hides internal context and projects turn failures", () => {
+    const result = deepSeekTranscript([
+      { event: { type: "user/message", seq: 1, data: { source: { kind: "agent-instructions" }, content: [{ type: "text", text: "instructions" }] } } },
+      { event: { type: "user/message", seq: 2, data: { source: { kind: "plugin", plugin: "@deepseek-ai/dsh-system-prompt" }, content: [{ type: "text", text: "runtime context" }] } } },
+      { event: { type: "turn/end", seq: 3, data: { reason: { kind: "error", error: { message: "Provider is not configured: openai" } } } } }
+    ]);
+    expect(result.transcript).toEqual([
+      { kind: "status", id: "deepseek-error-3", text: "Provider is not configured: openai", tone: "error" }
+    ]);
+  });
+
   it("normalizes only verified native lifecycle events", () => {
     expect(deepSeekRuntimeEvent({ type: "host/session-status", sessionId: "s", running: true })).toEqual({ type: "execution.started" });
     expect(deepSeekRuntimeEvent({ type: "session/event", sessionId: "s", event: { type: "assistant/message" } })).toEqual({ type: "transcript.changed" });
+    expect(deepSeekRuntimeEvent({ type: "session/event", sessionId: "s", event: { type: "turn/end", data: { reason: { kind: "error", error: { message: "Provider failed" } } } } })).toEqual({ type: "execution.error", message: "Provider failed" });
     expect(deepSeekRuntimeEvent({ type: "session/event", sessionId: "s", event: { type: "unknown" } })).toBeNull();
   });
 });
