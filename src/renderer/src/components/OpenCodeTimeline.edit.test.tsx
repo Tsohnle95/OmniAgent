@@ -156,6 +156,10 @@ describe("edit tool diff cards", () => {
 
     const card = container.querySelector("[data-component='edit-tool-card']");
     expect(card?.textContent).toContain("2 files");
+    const groupedSummary = card?.querySelector("[data-slot='edit-tool-summary']");
+    expect(groupedSummary?.textContent).toBe("src/a.ts2 files+4-1");
+    expect(groupedSummary?.querySelector("[data-slot='basic-tool-tool-subtitle']")).not.toBeNull();
+    expect(groupedSummary?.querySelector("[data-slot='edit-tool-meta']")).not.toBeNull();
 
     const trigger = container.querySelector("[data-slot='collapsible-trigger']") as HTMLButtonElement | null;
     act(() => trigger?.click());

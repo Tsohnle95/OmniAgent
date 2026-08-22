@@ -477,7 +477,7 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
     void openFile(path);
   };
   return (
-    <div data-component="edit-tool-card" data-timeline-part-id={tool.id}>
+    <div data-component="edit-tool-card" data-tool={toolKey(tool.title)} data-timeline-part-id={tool.id}>
       <div className="tool-collapsible" data-expanded={open ? "true" : undefined}>
         <button
           data-slot="collapsible-trigger"
@@ -488,32 +488,36 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
             <div data-slot="basic-tool-tool-trigger-content">
               <div data-slot="basic-tool-tool-info">
                 <div data-slot="basic-tool-tool-info-structured">
-                  <div data-slot="basic-tool-tool-info-main">
+                  <div data-slot="basic-tool-tool-info-main" data-layout="edit">
                     <span data-slot="basic-tool-tool-title">
                       <TextShimmer text={titleCase(tool.title)} active={tool.status === "running"} />
                     </span>
-                    {path && (
-                      <span
-                        data-slot="basic-tool-tool-subtitle"
-                        className="clickable"
-                        title={`${path} · open in editor`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          activatePath();
-                        }}
-                      >
-                        {path}
-                      </span>
-                    )}
-                    {files.length > 1 && (
-                      <span data-slot="basic-tool-tool-arg">{files.length} files</span>
-                    )}
-                    {(additions > 0 || deletions > 0) && (
-                      <span data-slot="edit-tool-stats">
-                        {additions > 0 && <span data-slot="edit-stat-add">+{additions}</span>}
-                        {deletions > 0 && <span data-slot="edit-stat-del">-{deletions}</span>}
-                      </span>
-                    )}
+                    <span data-slot="edit-tool-summary">
+                      {path && (
+                        <span
+                          data-slot="basic-tool-tool-subtitle"
+                          className="clickable"
+                          title={`${path} · open in editor`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            activatePath();
+                          }}
+                        >
+                          {path}
+                        </span>
+                      )}
+                      {(files.length > 1 || additions > 0 || deletions > 0) && (
+                        <span data-slot="edit-tool-meta">
+                          {files.length > 1 && <span data-slot="edit-tool-file-count">{files.length} files</span>}
+                          {(additions > 0 || deletions > 0) && (
+                            <span data-slot="edit-tool-stats">
+                              {additions > 0 && <span data-slot="edit-stat-add">+{additions}</span>}
+                              {deletions > 0 && <span data-slot="edit-stat-del">-{deletions}</span>}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -724,7 +728,7 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   if (toolKey(tool.title) === "task" || toolKey(tool.title) === "subagent") return <TaskTool tool={tool} session={session} />;
 
   return (
-    <div data-component="tool-part-wrapper" data-timeline-part-id={tool.id}>
+    <div data-component="tool-part-wrapper" data-tool={toolKey(tool.title)} data-status={tool.status} data-timeline-part-id={tool.id}>
       <div className="tool-collapsible" data-expanded={open ? "true" : undefined}>
         <button
           data-slot="collapsible-trigger"
@@ -817,7 +821,7 @@ function ContextToolGroup({ tools, busy }: { tools: ToolCallView[]; busy: boolea
     .join(", ");
 
   return (
-    <div className="tool-collapsible" data-expanded={open ? "true" : undefined}>
+    <div className="tool-collapsible" data-component="context-tool-group" data-expanded={open ? "true" : undefined}>
       <button data-slot="collapsible-trigger" onClick={() => setOpen((value) => !value)}>
         <div data-component="context-tool-group-trigger">
           <span data-slot="context-tool-group-title">
