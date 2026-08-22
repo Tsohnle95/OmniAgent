@@ -1118,7 +1118,8 @@ export function AgentPanel({
   onClose,
   onResizeLeft,
   onResizeRight,
-  onPanelDrag
+  onPanelDrag,
+  onPanelDragStart
 }: {
   session?: SessionInfo | null;
   isAnchor?: boolean;
@@ -1128,6 +1129,7 @@ export function AgentPanel({
   onResizeLeft?: (e: React.MouseEvent) => void;
   onResizeRight?: (e: React.MouseEvent) => void;
   onPanelDrag?: (delta: number) => void;
+  onPanelDragStart?: () => void;
 }): ReactNode {
   const {
     session: storeSession,
@@ -1150,6 +1152,7 @@ export function AgentPanel({
   const startPanelDrag = (event: React.MouseEvent<HTMLDivElement>): void => {
     if (!onPanelDrag || (event.target as HTMLElement).closest("button")) return;
     event.preventDefault();
+    onPanelDragStart?.();
     panelDragRef.current = event.clientX;
     const move = (moveEvent: MouseEvent): void => {
       if (panelDragRef.current === null) return;

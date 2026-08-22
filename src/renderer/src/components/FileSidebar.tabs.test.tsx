@@ -258,14 +258,4 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(titles.some((t) => t?.includes("Alpha"))).toBe(true);
   });
 
-  it("opens the settings page from the footer cog", async () => {
-    const onOpenSettings = vi.fn();
-    act(() => {
-      root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} initialTab="sessions" onOpenSettings={onOpenSettings} />);
-    });
-    await settle();
-
-    await act(async () => container.querySelector<HTMLButtonElement>(".sidebar-cog")!.click());
-    expect(onOpenSettings).toHaveBeenCalledOnce();
-  });
 });

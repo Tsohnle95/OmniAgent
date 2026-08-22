@@ -65,38 +65,6 @@
   overflow: hidden;
 }
 
-.sidebar.collapsed .sidebar-footer { margin-top: auto; }
-
-.sidebar-footer {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 66px;
-  padding: 6px 10px 8px;
-  border-top: 1px solid var(--border-subtle, var(--border));
-  flex-shrink: 0;
-  margin-top: auto;
-}
-
-.sidebar-cog {
-  display: inline-flex;
-  align-items: center;
- 
-  padding: 0;
-  justify-content: center;
-  border-radius: var(--radius-lg);
-}
-
-.sidebar-cog .os-icon { width: 22.5px; height: 22.5px; }
-.sidebar.collapsed .sidebar-footer { min-height: 50px; padding: 4px 2px 0; }
-.sidebar.collapsed .sidebar-cog { width: 40px; height: 40px; }
-.sidebar.collapsed .sidebar-cog .os-icon { width: 22.5px; height: 22.5px; }
-
-.sidebar-cog.on {
-  background: var(--accent-dim);
-  color: var(--accent);
-}
-
 .settings-sidebar-header {
   display: flex;
   flex-direction: column;

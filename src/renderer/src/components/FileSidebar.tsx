@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { OmniMark } from "./OmniMark";
-import { IconExpand, IconFolderOpen, IconGear } from "./icons";
+import { IconExpand, IconFolderOpen } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 import { SessionsPane } from "./SessionsPane";
@@ -348,30 +348,13 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
   return [height, onMouseDown];
 }
 
-function SettingsFooter({ active, onOpen }: { active: boolean; onOpen?: () => void }): ReactNode {
-  return (
-    <div className="sidebar-footer">
-      <button
-        className={`icon-btn sidebar-cog ${active ? "on" : ""}`}
-        title="Settings"
-        aria-pressed={active}
-        onClick={onOpen}
-      >
-        <IconGear />
-      </button>
-    </div>
-  );
-}
-
 export function FileSidebar({
   collapsed,
   onCollapse,
   onDrag,
   initialTab = "files",
   tab,
-  onTabChange,
-  onOpenSettings,
-  settingsOpen = false
+  onTabChange
 }: {
   collapsed: boolean;
   onCollapse: (open: boolean) => void;
@@ -379,8 +362,6 @@ export function FileSidebar({
   initialTab?: SidebarTab;
   tab?: SidebarTab;
   onTabChange?: (tab: SidebarTab) => void;
-  onOpenSettings?: () => void;
-  settingsOpen?: boolean;
 }): ReactNode {
   const {
     session,
@@ -556,7 +537,6 @@ export function FileSidebar({
         >
           <OmniMark size={20} />
         </button>
-        <SettingsFooter active={settingsOpen} onOpen={onOpenSettings} />
       </div>
     );
   }
@@ -605,7 +585,6 @@ export function FileSidebar({
             </div>
           </div>
         </div>
-        <SettingsFooter active={settingsOpen} onOpen={onOpenSettings} />
         <ExplorerMenu />
       </div>
     );
@@ -803,7 +782,6 @@ export function FileSidebar({
       )}
         </>
       )}
-      <SettingsFooter active={settingsOpen} onOpen={onOpenSettings} />
       <ExplorerMenu />
     </div>
   );

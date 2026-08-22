@@ -629,6 +629,31 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([919]);
   });
 
+  it("exits agent mode without restoring when the user manually resizes a panel", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    const mode = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-model-mode"]')!;
+
+    await act(async () => {
+      mode.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(mode.getAttribute("aria-pressed")).toBe("true");
+
+    const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+    await act(async () => {
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 0 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(mode.getAttribute("aria-pressed")).toBe("false");
+    expect(gridCols()[0]).toBe("280px");
+    expect(agentWidths()[0]).toBeGreaterThan(280);
+    expect(agentLefts()[0]).toBeGreaterThan(0);
+  });
+
   it("reopens a collapsed model panel when entering model mode", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));

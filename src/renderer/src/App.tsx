@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, usePanel, useStore } from "./store";
-import { IconAdd, IconFile, IconFolderOpen, IconHistory, IconRobot, IconSymbolEvent, IconTerminal } from "./components/icons";
+import { IconAdd, IconFile, IconFolderOpen, IconGear, IconHistory, IconRobot, IconSymbolEvent, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar, type SidebarTab } from "./components/FileSidebar";
@@ -221,7 +221,8 @@ function PanelColumn({
   isLast,
   onSlot,
   onFocus,
-  onClose
+  onClose,
+  onManualAdjust
 }: {
   session: SessionInfo;
   slot: PanelSlot;
@@ -234,6 +235,7 @@ function PanelColumn({
   onSlot: React.Dispatch<React.SetStateAction<PanelSlot>>;
   onFocus: () => void;
   onClose: () => void;
+  onManualAdjust?: () => void;
 }): ReactNode {
   const view = usePanel(session.workspace);
   const label = view.currentModel?.name ?? "Model";
@@ -285,11 +287,19 @@ function PanelColumn({
   const slideBy = (delta: number): void => {
     onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
   };
+  const manualResizeLeft = (event: React.MouseEvent): void => {
+    onManualAdjust?.();
+    resizeLeft(event);
+  };
+  const manualResizeRight = (event: React.MouseEvent): void => {
+    onManualAdjust?.();
+    resizeRight(event);
+  };
 
   if (slot.open) {
     return (
       <div className={`agent-col ${settling ? "settling" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
-        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? undefined : resizeLeft} onResizeRight={freeMove ? undefined : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove ? undefined : isAnchor ? undefined : slideBy} />
+        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? manualResizeLeft : resizeLeft} onResizeRight={freeMove ? manualResizeRight : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragStart={freeMove ? onManualAdjust : undefined} />
       </div>
     );
   }
@@ -321,8 +331,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideTab, setSideTab] = useState<SidebarTab>("sessions");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("appearance");
+  const [agentModeActive, setAgentModeActive] = useState(false);
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
-  const inAgentMode = prevSidebarRef.current !== null;
+  const inAgentMode = agentModeActive;
 
   const sideShown = sideOpen ? sideW : COLLAPSED_PANEL_W;
   const fixedPanelChrome = 1 + panels.length;
@@ -643,8 +654,9 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const toggleAgentMode = (): void => {
     const anchor = panels[0];
     if (!anchor) return;
-    if (prevSidebarRef.current === null) {
+    if (!inAgentMode) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
+      setAgentModeActive(true);
       const modeSidebarWidth = sideOpen ? sideW : SIDE_DEFAULT_W;
       setSettingsOpen(false);
       setSideTab("sessions");
@@ -653,11 +665,19 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       distributeEvenly(modeSidebarWidth, false);
     } else {
       const prev = prevSidebarRef.current;
+      if (!prev) return;
       prevSidebarRef.current = null;
+      setAgentModeActive(false);
       setSideOpen(prev.open);
       setSideW(prev.width);
       distributeEvenly(prev.open ? prev.width : COLLAPSED_PANEL_W, true);
     }
+  };
+
+  const leaveAgentModeForManualAdjustment = (): void => {
+    if (!inAgentMode) return;
+    prevSidebarRef.current = null;
+    setAgentModeActive(false);
   };
 
   const setSlotWidth = (id: string, width: number): void => {
@@ -724,8 +744,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             aria-label={inAgentMode ? "Exit Agent Mode" : "Enter Agent Mode"}
             aria-pressed={inAgentMode}
             title={inAgentMode
-              ? "Exit Agent Mode — restore the file tray"
-              : "Agent Mode — collapse the file tray and split models across the app"}
+              ? "Exit Agent Mode — restore the previous panel layout"
+              : "Agent Mode — open Sessions and split models across the workspace"}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -743,6 +763,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           >
             <IconTerminal />
           </button>
+          <button
+            className={`icon-btn ${settingsOpen ? "on" : ""}`}
+            title={settingsOpen ? "Back to workspace" : "Settings"}
+            aria-label={settingsOpen ? "Back to workspace" : "Settings"}
+            aria-pressed={settingsOpen}
+            onClick={() => {
+              if (!settingsOpen) setSidebarOpen(true);
+              setSettingsOpen((open) => !open);
+            }}
+          >
+            <IconGear />
+          </button>
         </span>
       </div>
 
@@ -750,7 +782,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         {settingsOpen ? <SettingsSidebar
           section={settingsSection}
           onSectionChange={setSettingsSection}
-          onClose={() => setSettingsOpen(false)}
         /> : <FileSidebar
           collapsed={!sideOpen}
           onCollapse={setSidebarOpen}
@@ -760,11 +791,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             setSideTab(tab);
             setSettingsOpen(false);
           }}
-          onOpenSettings={() => {
-            setSidebarOpen(true);
-            setSettingsOpen(true);
-          }}
-          settingsOpen={settingsOpen}
         />}
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
         {settingsOpen ? <SettingsPage section={settingsSection} onClose={() => setSettingsOpen(false)} /> : <div
@@ -804,6 +830,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
                 }
                 onFocus={() => focusSession(panel.id)}
                 onClose={() => closePanel(panel.id)}
+                onManualAdjust={leaveAgentModeForManualAdjustment}
               />
             );
           })}
