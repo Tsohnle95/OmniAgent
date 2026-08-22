@@ -39,7 +39,6 @@ automatically.
 | `getPathForFile(file)` | `string` — synchronous (not an invoke): `webUtils.getPathForFile` is the Electron 32+ replacement for the removed `File.path`, exposed so renderer drop handlers can recover absolute paths from dropped OS files |
 | `writeStandalone(file, content, expectedContent, overwrite)` | `Promise<void>` — atomic standalone-file write (conflict-checked unless `overwrite`) for external tabs outside the workspace root |
 | `importExternal(workspace, destDir, sources)` | `Promise<ImportResult[]>` — copies external files/folders into the workspace at `destDir`, seeding clean baselines so imports never show as changes |
-| `readSourceFile(absolutePath)` | `Promise<string \| null>` — privileged app-source read used only by DevTools source navigation |
 | `writeFile(workspace, rel, content, write)` | `Promise<void>` |
 | `createFile(workspace, rel)` | `Promise<void>` — creates an empty file, erroring if it exists |
 | `createDir(workspace, rel)` | `Promise<void>` — creates a folder, erroring if it exists |

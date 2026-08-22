@@ -197,8 +197,9 @@ All filesystem calls include the addressed panel's workspace identity. Main
 resolves each identity against its open context map and rejects unknown or
 replaced identities, malformed/bounded relative paths, traversal, absolute paths,
 and every existing symlink component, including intermediate parents of new
-targets. DevTools app-source navigation uses a separate absolute read confined
-to the canonical application root.
+targets. DevTools source candidates are resolved only within the canonical
+application root, then opened through the same writable external-file capability
+used for a file dropped from outside the active workspace.
 
 ## Permissions
 
@@ -280,10 +281,9 @@ links back to the parent session.
   hover highlight, with the click routed through `inspectElement` so the
   Elements panel selects the node. Clicking a rule's source link in the
   Styles panel (`styles.scss:12`) sends an `open-source` `ui-command` so
-  the file opens in the editor at that exact line — when the resolved
-  file belongs to the app itself, the app directory becomes the session
-  (either by matching the active session or opening it fresh), so the
-  stylesheet is editable and saveable from the explorer.
+  the file opens in the editor at that exact line. Resolution never searches
+  the user's active workspace: an app stylesheet outside that workspace becomes
+  a writable standalone tab, leaving the current session and panels unchanged.
 - ⌥O toggles the terminal tray; drag dividers resize the sidebar, each
   session panel, and the tray (dragging the tray to the bottom closes it on
   release).

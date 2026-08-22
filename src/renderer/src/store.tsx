@@ -197,7 +197,7 @@ interface Store {
   selectFolder: () => Promise<void>;
   selectFile: () => Promise<void>;
   openFileWorkspace: (file: string) => Promise<SessionInfo | null>;
-  openExternalPath: (absolutePath: string, workspace?: WorkspaceIdentity) => Promise<void>;
+  openExternalPath: (absolutePath: string, workspace?: WorkspaceIdentity) => Promise<string | null>;
   importPaths: (destDir: string, sources: string[]) => Promise<void>;
   dropIntoExplorer: (paths: string[]) => Promise<void>;
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
@@ -1636,9 +1636,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   );
 
   const openFile = useCallback(
-    async (path: string, opts?: { mode?: "edit" | "diff"; source?: boolean }, workspace?: WorkspaceIdentity) => {
+    async (path: string, opts?: { mode?: "edit" | "diff" }, workspace?: WorkspaceIdentity) => {
       const target = workspace ?? sessionRef.current?.workspace;
-      if (!target && !opts?.source) return;
+      if (!target) return;
       const currentTabs = target ? (tabsByWorkspaceRef.current[target.id] ?? []) : [];
       const existing = currentTabs.find((t) => t.path === path);
       if (existing) {
@@ -1651,12 +1651,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       }
       try {
         const agentFile = target ? (agentFilesByWorkspaceRef.current[target.id] ?? new Map()).get(path) : undefined;
-        let content = opts?.source
-          ? await window.openshell.readSourceFile(path)
-          : target
-            ? await window.openshell.readFile(target, path)
-            : null;
-        if (!opts?.source && !panelFor(target!)) return;
+        let content = await window.openshell.readFile(target, path);
+        if (!panelFor(target)) return;
         if (content === null && agentFile?.deleted) content = "";
         if (content === null) {
           toast(`Could not read ${path}`, "error");
@@ -1670,7 +1666,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           toast(`${path} is a binary file`, "error");
           return;
         }
-        if (!target) return;
         const name = path.split("/").pop() ?? path;
         const tab: Tab = {
           path,
@@ -1695,31 +1690,31 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     [toast, panelFor, setTabsFor, setActivePathFor]
   );
   const openExternalPath = useCallback(
-    async (absolutePath: string, workspace?: WorkspaceIdentity): Promise<void> => {
+    async (absolutePath: string, workspace?: WorkspaceIdentity): Promise<string | null> => {
       const target = workspace ?? sessionRef.current?.workspace;
-      if (!target) return;
+      if (!target) return null;
       try {
         const result = await window.openshell.openExternal(target, absolutePath);
         if (result.kind === "relative") {
-          void openFile(result.rel, {}, target);
-          return;
+          await openFile(result.rel, {}, target);
+          return result.rel;
         }
         const path = result.path;
         if ((tabsByWorkspaceRef.current[target.id] ?? []).some((t) => t.path === path)) {
           setActivePathFor(target.id, path);
-          return;
+          return path;
         }
         if (result.content === null) {
           toast(`Could not read ${path}`, "error");
-          return;
+          return null;
         }
         if (result.content.length > MAX_EDITABLE_BYTES) {
           toast(`${path} is too large to open in the editor`, "error");
-          return;
+          return null;
         }
         if (result.content.includes("\u0000")) {
           toast(`${path} is a binary file`, "error");
-          return;
+          return null;
         }
         const name = path.split(/[\\/]/).pop() ?? path;
         const tab: Tab = {
@@ -1739,8 +1734,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         };
         setTabsFor(target.id, (prev) => [...prev, tab]);
         setActivePathFor(target.id, path);
+        return path;
       } catch (err) {
         if (panelFor(target)) toast(err instanceof Error ? err.message : String(err), "error");
+        return null;
       }
     },
     [openFile, toast, panelFor, setTabsFor, setActivePathFor]
@@ -1829,22 +1826,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     [attachFileWorkspace, toast]
   );
   const openSourceTarget = useCallback(
-    async (path: string, line: number, root?: string): Promise<void> => {
-      const currentDir = sessionRef.current?.directory ?? null;
-      if (root && root !== currentDir) {
-        const opened = await openSession(root);
-        if (!opened) return;
-        await openFile(path, { mode: "edit" }, opened.workspace);
-        requestReveal(path, line);
-        return;
-      }
+    async (path: string, line: number): Promise<void> => {
+      if (!path.startsWith("/")) return;
       const active = sessionRef.current?.workspace ?? null;
       if (active) {
-        await openFile(path, { mode: "edit", source: path.startsWith("/") }, active);
-        requestReveal(path, line);
+        const openedPath = await openExternalPath(path, active);
+        if (openedPath) requestReveal(openedPath, line);
         return;
       }
-      if (!path.startsWith("/")) return;
       const dir = path.slice(0, path.lastIndexOf("/"));
       if (!dir || dir === path) return;
       const opened = await openSession(dir);
@@ -1853,7 +1842,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       await openFile(rel, { mode: "edit" }, opened.workspace);
       requestReveal(rel, line);
     },
-    [openSession, openFile]
+    [openSession, openFile, openExternalPath]
   );
 
   const commitName = useCallback(
@@ -2182,7 +2171,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         if (msg.command === "toggle-word-wrap") {
           toggleWordWrap();
         } else if (msg.command === "open-source" && typeof msg.path === "string" && typeof msg.line === "number") {
-          void openSourceTarget(msg.path, msg.line, typeof msg.root === "string" ? msg.root : undefined);
+          void openSourceTarget(msg.path, msg.line);
         }
         return;
       }

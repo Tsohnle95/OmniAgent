@@ -69,8 +69,6 @@ const api = {
     ipcRenderer.invoke("shell:fs-list", workspace, rel),
   readFile: (workspace: WorkspaceIdentity, rel: string): Promise<string | null> =>
     ipcRenderer.invoke("shell:fs-read", workspace, rel),
-  readSourceFile: (absolutePath: string): Promise<string | null> =>
-    ipcRenderer.invoke("shell:source-read", absolutePath),
   writeFile: (
     workspace: WorkspaceIdentity,
     rel: string,

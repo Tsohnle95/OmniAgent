@@ -64,9 +64,9 @@ All backend→renderer message kinds are defined in
   exit from the terminal tray (`src/main/terminal.ts`).
 - `{ kind: "ui-command", command }` — main-process requests to the
   renderer (`toggle-word-wrap` when ⌘W / Ctrl+W is pressed;
-  `open-source` with `{ path, line, root }` when a CSS rule's source link
-  is clicked in DevTools — the editor opens that file at that line, in
-  the session rooted at `root` when the active session differs).
+  `open-source` with `{ path, line }` when a CSS rule's source link
+  is clicked in DevTools — `path` is a canonical app-root-confined absolute
+  path opened at that line as a standalone tab when outside the active workspace).
 
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.
@@ -224,8 +224,9 @@ rejects stale generations. Paths are bounded strict relative paths and no
 existing symlink component may be traversed, including an intermediate parent
 of a new target. This assumes stable topology during the operation; Node
 pathname APIs cannot fully prevent an external symlink swap after validation.
-Absolute reads are not part of the workspace API; the separate
-app-root-confined source-view channel exists only for DevTools CSS navigation.
+Absolute reads are not part of the workspace API. DevTools CSS navigation
+resolves only app-root-confined sources in main, then uses the same explicit
+external-file capability as a user-opened standalone file.
 
 `.openshell-recovery` is excluded from watching, Explorer, and application file
 references. The recovery root, transaction directories, artifacts, and

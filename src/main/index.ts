@@ -15,6 +15,7 @@ import {
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
 import { validateWithW3c } from "./w3c-validation";
+import { resolveAppSource } from "./source-resolver";
 import type {
   FileWriteIdentity,
   PermissionReply,
@@ -24,7 +25,6 @@ import type {
 import {
   absoluteFilePath,
   absoluteFilePaths,
-  confinedAbsolutePath,
   fileContent,
   terminalDimensions,
   terminalId,
@@ -62,30 +62,6 @@ let overlayEnabled = false;
 let lastPickedNode = 0;
 let lastPickedAt = 0;
 let devToolsKeyPolling = false;
-
-const SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "out",
-  "dist",
-  "build",
-  ".next",
-  ".turbo",
-  "coverage",
-  ".venv",
-  "venv",
-  "__pycache__",
-  ".opencode",
-  ".claude",
-  ".cursor",
-  ".aider",
-  ".windsurf",
-  ".codeium",
-  ".roo",
-  ".gemini",
-  ".kilocode",
-  ".continue"
-]);
 
 const DEVTOOLS_WATCHER = `
 (() => {
@@ -191,119 +167,6 @@ function stopInspectPicker(wc: WebContents): void {
   void wc.debugger
     .sendCommand("Overlay.setInspectMode", { mode: "none", highlightConfig: INSPECT_HIGHLIGHT })
     .catch((err) => console.error("stopInspectPicker:", err));
-}
-
-async function findFileByBasename(root: string, basename: string, maxDepth = 7): Promise<string | null> {
-  const matches: string[] = [];
-  const walk = async (dir: string, depth: number): Promise<void> => {
-    if (depth > maxDepth || matches.length >= 5) return;
-    let entries;
-    try {
-      entries = await fsp.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (matches.length >= 5) return;
-      if (entry.isDirectory()) {
-        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
-        await walk(path.join(dir, entry.name), depth + 1);
-      } else if (entry.isFile() && entry.name === basename) {
-        matches.push(path.join(dir, entry.name));
-      }
-    }
-  };
-  await walk(root, 0);
-  matches.sort((a, b) => a.length - b.length);
-  return matches[0] ?? null;
-}
-
-async function isFile(p: string): Promise<boolean> {
-  try {
-    return (await fsp.stat(p)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-function stripFragment(target: string): string {
-  return target.replace(/[?#].*$/, "");
-}
-
-function sourceTarget(title: string): string | null {
-  const t = title.trim();
-  return t ? t.replace(/:(\d+)\s*$/, "") : null;
-}
-
-function toAbsolute(root: string, target: string): string | null {
-  if (target.startsWith("file://")) {
-    let p = target.slice("file://".length);
-    try {
-      p = decodeURIComponent(p);
-    } catch {
-      /* keep raw */
-    }
-    if (!path.isAbsolute(p)) p = path.join(root, p);
-    return p;
-  }
-  if (/^https?:\/\//i.test(target)) {
-    try {
-      const u = new URL(target);
-      const decoded = decodeURIComponent(u.pathname);
-      if (path.isAbsolute(decoded)) return decoded;
-      return path.join(root, decoded.replace(/^\/+/, ""));
-    } catch {
-      return null;
-    }
-  }
-  if (path.isAbsolute(target)) return target;
-  return path.join(root, target.replace(/^\/+/, ""));
-}
-
-async function resolveInRoot(root: string, file: string, title: string): Promise<string | null> {
-  const candidates: string[] = [];
-  if (file) candidates.push(stripFragment(file));
-  const titleTarget = sourceTarget(title);
-  if (titleTarget) candidates.push(stripFragment(titleTarget));
-  for (const candidate of candidates) {
-    const abs = toAbsolute(root, candidate);
-    if (abs && !isUnderSkippedDir(root, abs) && (await isFile(abs))) return abs;
-  }
-  for (const candidate of candidates) {
-    if (!/^https?:\/\//i.test(candidate)) continue;
-    const mapped = stripFragment(candidate.replace(/^[a-z]+:\/\/[^/]+/i, ""));
-    if (mapped) {
-      const abs = path.join(root, mapped.replace(/^\/+/, ""));
-      if (!isUnderSkippedDir(root, abs) && (await isFile(abs))) return abs;
-    }
-  }
-  const bases = new Set<string>();
-  for (const source of [file, titleTarget].filter((value): value is string => Boolean(value))) {
-    const last = stripFragment(source).split(/[\\/]/).pop();
-    if (last) bases.add(last);
-  }
-  for (const base of bases) {
-    const found = await findFileByBasename(root, base);
-    if (found) return found;
-  }
-  return null;
-}
-
-function isUnderSkippedDir(root: string, abs: string): boolean {
-  const rel = path.relative(root, abs);
-  return rel.split(path.sep).some((segment) => SKIP_DIRS.has(segment));
-}
-
-async function resolveOpenSource(file: string, title: string): Promise<{ root: string; rel: string } | null> {
-  const session = await backend.getState();
-  if (session?.directory) {
-    const resolved = await resolveInRoot(session.directory, file, title);
-    if (resolved) return { root: session.directory, rel: path.relative(session.directory, resolved) };
-  }
-  const appRoot = app.getAppPath();
-  const resolved = await resolveInRoot(appRoot, file, title);
-  if (resolved) return { root: appRoot, rel: path.relative(appRoot, resolved) };
-  return null;
 }
 
 function createWindow(show = true): BrowserWindow {
@@ -438,14 +301,13 @@ function createWindow(show = true): BrowserWindow {
         try {
           const src = JSON.parse(parsed.source) as { file?: string; line?: number; title?: string };
           if (typeof src.file === "string" && typeof src.line === "number") {
-            const resolved = await resolveOpenSource(src.file, src.title ?? "");
+            const resolved = await resolveAppSource(app.getAppPath(), src.file, src.title ?? "");
             if (resolved) {
               wc.send("shell:message", {
                 kind: "ui-command",
                 command: "open-source",
-                path: resolved.rel,
-                line: src.line,
-                root: resolved.root
+                path: resolved,
+                line: src.line
               });
             } else {
               console.warn("open-source: no local file for", src.file, src.title ?? "");
@@ -727,15 +589,6 @@ function registerIpc(): void {
   handleTrusted("shell:fs-read", async (_e, workspace: WorkspaceIdentity, rel: string) => {
     const target = workspacePath(workspace, rel);
     return backend.readFile(target.workspace, target.rel);
-  });
-
-  handleTrusted("shell:source-read", async (_e, absolutePath: string) => {
-    const source = await confinedAbsolutePath(await fsp.realpath(app.getAppPath()), absolutePath);
-    try {
-      return await fsp.readFile(source, "utf8");
-    } catch {
-      return null;
-    }
   });
 
   handleTrusted("shell:fs-write", async (
