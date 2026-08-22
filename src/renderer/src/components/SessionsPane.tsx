@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import type { CommandOption, SessionSummary } from "@shared/types";
+import type { CommandOption, ProjectInfo, SessionSummary } from "@shared/types";
 import { ChevronIcon, PlusIcon } from "./FileIcons";
-import { IconCheck, IconClose, IconHistory, IconStarFilled, IconSearch } from "./icons";
+import { IconCheck, IconClose, IconFolder, IconHistory, IconStarFilled, IconSearch } from "./icons";
 
 const PINNED_KEY = "openshell.pinnedSessions";
 
@@ -114,17 +114,23 @@ export function SessionsPane(): ReactNode {
     loadSessions,
     runCommand
   } = useStore();
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [query, setQuery] = useState("");
   const [pinnedIDs, setPinnedIDs] = useState<string[]>(readPinned);
   const [pinnedOpen, setPinnedOpen] = useState(false);
-  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [recentOpen, setRecentOpen] = useState(false);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [plugins, setPlugins] = useState<CommandOption[] | null>(null);
   const pluginsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void loadSessions();
+    void window.openshell
+      .projects()
+      .then(setProjects)
+      .catch(() => setProjects([]));
   }, [loadSessions]);
 
   useEffect(() => {
@@ -188,7 +194,16 @@ export function SessionsPane(): ReactNode {
     else void selectFolder();
   };
 
-  const filteredOpenSessions = panelSummaries.filter((s) => matches(query, s.title, s.directory));
+  const toggleProject = (directory: string): void => {
+    setExpandedProjects((current) => {
+      const next = new Set(current);
+      if (next.has(directory)) next.delete(directory);
+      else next.add(directory);
+      return next;
+    });
+  };
+
+  const filteredProjects = projects.filter((p) => matches(query, p.name, p.directory));
   const filteredRecents = recents.filter((s) => matches(query, s.title, s.directory));
   const filteredPinned = pinned.filter((s) => matches(query, s.title, s.directory));
 
@@ -288,36 +303,78 @@ export function SessionsPane(): ReactNode {
       <section className="sessions-section">
         <div className="section-trigger">
           <button
-            className={`section-toggle ${sessionsOpen ? "open" : ""}`}
-            aria-expanded={sessionsOpen}
-            onClick={() => setSessionsOpen((o) => !o)}
+            className={`section-toggle ${projectsOpen ? "open" : ""}`}
+            aria-expanded={projectsOpen}
+            onClick={() => setProjectsOpen((o) => !o)}
           >
             <span>Sessions</span>
-            <span className="sidebar-count push">{filteredOpenSessions.length}</span>
+            <span className="sidebar-count push">{filteredProjects.length}</span>
             <span className="section-chevron">
-              <ChevronIcon open={sessionsOpen} />
+              <ChevronIcon open={projectsOpen} />
             </span>
           </button>
         </div>
-        {sessionsOpen && (
-          <div className="sessions-section-list">
-          {filteredOpenSessions.length === 0 ? (
-            <div className="sessions-empty">No open sessions.</div>
+        {projectsOpen && (
+          <div className="sessions-section-list sessions-project-list">
+          {filteredProjects.length === 0 ? (
+            <div className="sessions-empty">No saved workspaces found.</div>
           ) : (
-            filteredOpenSessions.map((s) => {
-              const panel = runningPanels.get(s.id);
+            filteredProjects.map((p) => {
+              const projectSessions = recents.filter(
+                (s) => s.directory === p.directory && matches(query, s.title)
+              );
+              const expanded = expandedProjects.has(p.directory);
               return (
-                <SessionRow
-                  key={s.id}
-                  summary={s}
-                  running
-                  focused={s.id === activeSessionID}
-                  pinned={pinnedIDs.includes(s.id)}
-                  busy={Boolean(panel && panelViews[panel.workspace.id]?.busy)}
-                  onOpen={() => openRow(s.id)}
-                  onClose={() => closePanel(s.id)}
-                  onTogglePin={() => togglePin(s.id)}
-                />
+                <div key={p.directory} className="sessions-project">
+                  <div
+                    className={`sessions-project-head ${expanded ? "open" : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleProject(p.directory)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") toggleProject(p.directory);
+                    }}
+                    title={p.directory}
+                  >
+                    <span className="section-chevron"><ChevronIcon open={expanded} /></span>
+                    <IconFolder className="sessions-row-icon" />
+                    <span className="sessions-row-title">{p.name}</span>
+                    <span className="sidebar-count">{projectSessions.length}</span>
+                    <button
+                      className="tree-row-action sessions-project-new"
+                      title={`New session in ${p.name}`}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void openSession(p.directory);
+                      }}
+                    >
+                      <PlusIcon />
+                    </button>
+                  </div>
+                  {expanded && (
+                    <div className="sessions-project-sessions">
+                      {projectSessions.length === 0 ? (
+                        <div className="sessions-empty">No sessions yet.</div>
+                      ) : projectSessions.map((s) => {
+                        const panel = runningPanels.get(s.id);
+                        return (
+                          <SessionRow
+                            key={s.id}
+                            summary={s}
+                            running={Boolean(panel)}
+                            focused={s.id === activeSessionID}
+                            pinned={pinnedIDs.includes(s.id)}
+                            busy={Boolean(panel && panelViews[panel.workspace.id]?.busy)}
+                            onOpen={() => openRow(s.id)}
+                            onClose={() => closePanel(s.id)}
+                            onTogglePin={() => togglePin(s.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })
           )}

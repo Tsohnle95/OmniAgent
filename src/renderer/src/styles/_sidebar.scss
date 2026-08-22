@@ -74,9 +74,22 @@
   padding: 6px 10px;
   border-top: 1px solid var(--border-subtle, var(--border));
   flex-shrink: 0;
+  margin-top: auto;
 }
 
-.sidebar-cog { font-size: 14px; }
+.sidebar-cog {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sidebar-cog .si-icon { width: 18px; height: 18px; }
+.sidebar.collapsed .sidebar-settings-text { display: none; }
+.sidebar.collapsed .sidebar-cog { width: 34px; height: 34px; padding: 0; justify-content: center; }
 
 .sidebar-cog.on {
   background: var(--accent-dim);

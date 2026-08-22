@@ -358,6 +358,7 @@ function SettingsFooter({ active, onOpen }: { active: boolean; onOpen?: () => vo
         onClick={onOpen}
       >
         <IconGear />
+        <span className="sidebar-settings-text">Settings</span>
       </button>
     </div>
   );

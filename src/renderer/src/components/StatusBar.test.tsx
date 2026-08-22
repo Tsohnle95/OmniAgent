@@ -53,18 +53,16 @@ describe("StatusBar validation", () => {
     vi.restoreAllMocks();
   });
 
-  it("disables the validate button when no tab is open or the file is not HTML/CSS", () => {
+  it("only shows the validate button for HTML and CSS files", () => {
     store.tabs = [];
     store.activePath = null;
     act(() => root.render(<StatusBar />));
-    let button = container.querySelector<HTMLButtonElement>('[data-testid="validate-btn"]')!;
-    expect(button.disabled).toBe(true);
+    expect(container.querySelector('[data-testid="validate-btn"]')).toBeNull();
 
     store.tabs = [tsTab];
     store.activePath = tsTab.path;
     act(() => root.render(<StatusBar />));
-    button = container.querySelector<HTMLButtonElement>('[data-testid="validate-btn"]')!;
-    expect(button.disabled).toBe(true);
+    expect(container.querySelector('[data-testid="validate-btn"]')).toBeNull();
   });
 
   it("runs the W3C validator for an open HTML file and shows the marker counts", async () => {
@@ -78,6 +76,7 @@ describe("StatusBar validation", () => {
     act(() => root.render(<StatusBar />));
     const button = container.querySelector<HTMLButtonElement>('[data-testid="validate-btn"]')!;
     expect(button.disabled).toBe(false);
+    expect(button.closest(".statusbar-right")).not.toBeNull();
 
     await act(async () => {
       button.click();

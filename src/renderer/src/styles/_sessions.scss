@@ -177,6 +177,30 @@
   padding: 1px 0;
 }
 
+.sessions-project { display: flex; flex-direction: column; }
+
+.sessions-project-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--session-list-row-height);
+  margin: 0 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  transition: background 100ms var(--ease);
+}
+
+.sessions-project-head:hover { background: var(--bg-hover); }
+.sessions-project-head .section-chevron { display: inline-flex; color: var(--text-faint); transition: transform 120ms var(--ease); }
+.sessions-project-head.open .section-chevron { transform: rotate(180deg); }
+.sessions-project-head .sidebar-count { margin-left: auto; }
+.sessions-project-new { display: inline-flex; opacity: 0; transition: opacity 100ms var(--ease); }
+.sessions-project-head:hover .sessions-project-new,
+.sessions-project-head:focus-within .sessions-project-new { opacity: 1; }
+.sessions-project-sessions { margin-left: 18px; }
+
 .sessions-row {
   display: flex;
   align-items: center;

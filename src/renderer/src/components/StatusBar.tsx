@@ -66,32 +66,29 @@ export function StatusBar(): ReactNode {
 
   return (
     <div className="statusbar">
-      <div className="statusbar-left">
-        <button
-          className="statusbar-btn validate-btn"
-          data-testid="validate-btn"
-          disabled={!w3cFile || running}
-          title={!activeTab
-            ? "Open a file to validate"
-            : !w3cFile
-              ? "W3C validation supports HTML and CSS files"
-              : "Run the W3C Nu Html Checker / CSS Validator on the open file"}
-          onClick={validate}
-        >
-          {running && <span className="validate-spinner" aria-hidden="true" />}
-          {running ? "Validating…" : "Validate"}
-        </button>
-        {resultText && (
-          <span className={`validate-result ${resultTone}`} data-testid="validate-result">
-            {resultText}
-          </span>
-        )}
-      </div>
+      <div className="statusbar-left" />
       <div className="statusbar-right">
         {activeTab && (
           <span className="statusbar-item statusbar-path" title={activeTab.path}>
             {activeTab.path}
           </span>
+        )}
+        {w3cFile && resultText && (
+          <span className={`validate-result ${resultTone}`} data-testid="validate-result">
+            {resultText}
+          </span>
+        )}
+        {w3cFile && (
+          <button
+            className="statusbar-btn validate-btn"
+            data-testid="validate-btn"
+            disabled={running}
+            title="Run the W3C Nu Html Checker / CSS Validator on the open file"
+            onClick={validate}
+          >
+            {running && <span className="validate-spinner" aria-hidden="true" />}
+            {running ? "Validating…" : "Validate"}
+          </button>
         )}
       </div>
     </div>

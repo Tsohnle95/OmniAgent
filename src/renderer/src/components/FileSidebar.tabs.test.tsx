@@ -178,18 +178,17 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(pinned.querySelector(".sessions-row-pin")?.classList.contains("pinned")).toBe(true);
   });
 
-  it("lists open sessions with the same row layout as recents", async () => {
+  it("lists project folders under Sessions and expands their session history", async () => {
     store.sessions = [summary("running", "/workspace", "Running row")];
-    store.panels = [{ ...session, id: "running" }];
     await render();
     await settle();
 
     const sessions = section("Sessions");
     await act(async () => sessions.querySelector<HTMLButtonElement>(".section-toggle")!.click());
-    const row = sessions.querySelector<HTMLElement>(".sessions-row")!;
-    expect(row.textContent).toContain("Current");
-    await act(async () => row.click());
-    expect(store.focusSession).toHaveBeenCalledWith("running");
+    const project = sessions.querySelector<HTMLElement>(".sessions-project-head")!;
+    expect(project.textContent).toContain("Workspace");
+    await act(async () => project.click());
+    expect(sessions.querySelector(".sessions-project-sessions")?.textContent).toContain("Running row");
   });
 
   it("gives each expanded session group its own scrolling list", async () => {
