@@ -229,28 +229,61 @@
 
   .editor-empty-wave-arm {
     position: absolute;
-    top: 12px;
-    left: 32px;
-    width: 17px;
-    height: 3px;
-    border-radius: var(--radius-full);
-    background: var(--accent);
+    top: 13px;
+    left: 31px;
+    width: 12px;
+    height: 4px;
+    border-radius: 1px;
+    background: currentColor;
     opacity: 0;
-    transform-origin: 1px 50%;
-    animation: editor-empty-wave 1250ms ease-in-out 220ms both;
+    transform-origin: 0 50%;
+    animation: editor-empty-wave 1400ms steps(1, end) 180ms both;
   }
 
-  .editor-empty-wave-arm::after {
+  .editor-empty-wave-arm::before {
     content: "";
     position: absolute;
-    top: -3px;
-    right: -4px;
+    top: -2px;
+    left: -3px;
+    width: 6px;
+    height: 6px;
+    border: 2px solid currentColor;
+    border-radius: 2px;
+    background: var(--panel-surface-color);
+  }
+
+  .editor-empty-wave-forearm {
+    position: absolute;
+    top: 1px;
+    left: 10px;
+    width: 11px;
+    height: 4px;
+    border-radius: 1px;
+    background: currentColor;
+    transform: rotate(38deg);
+    transform-origin: 1px 50%;
+  }
+
+  .editor-empty-wave-forearm::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    background: currentColor;
+  }
+
+  .editor-empty-wave-forearm::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    right: -9px;
     width: 7px;
-    height: 7px;
-    border-top: 2px solid var(--accent);
-    border-right: 2px solid var(--accent);
-    border-radius: 0 3px 0 0;
-    transform: rotate(28deg);
+    height: 10px;
+    border-top: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
   }
 }
 
@@ -261,12 +294,13 @@
 
 @keyframes editor-empty-wave {
   0% { opacity: 0; transform: scaleX(0) rotate(0deg); }
-  18% { opacity: 1; transform: scaleX(1) rotate(-18deg); }
-  38% { opacity: 1; transform: scaleX(1) rotate(24deg); }
-  56% { opacity: 1; transform: scaleX(1) rotate(-22deg); }
-  74% { opacity: 1; transform: scaleX(1) rotate(18deg); }
-  88% { opacity: 1; transform: scaleX(1) rotate(-8deg); }
-  100% { opacity: 0; transform: scaleX(0.7) rotate(0deg); }
+  10% { opacity: 1; transform: scaleX(1) rotate(0deg); }
+  20% { opacity: 1; transform: scaleX(1) rotate(24deg); }
+  40% { opacity: 1; transform: scaleX(1) rotate(-24deg); }
+  55% { opacity: 1; transform: scaleX(1) rotate(24deg); }
+  70% { opacity: 1; transform: scaleX(1) rotate(-24deg); }
+  88% { opacity: 1; transform: scaleX(1) rotate(0deg); }
+  100% { opacity: 0; transform: scaleX(0) rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
