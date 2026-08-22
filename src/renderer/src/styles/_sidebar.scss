@@ -71,7 +71,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  padding: 6px 10px;
+  min-height: 66px;
+  padding: 6px 10px 8px;
   border-top: 1px solid var(--border-subtle, var(--border));
   flex-shrink: 0;
   margin-top: auto;
@@ -80,21 +81,83 @@
 .sidebar-cog {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  justify-content: center;
+  border-radius: var(--radius-lg);
 }
 
-.sidebar-cog .si-icon { width: 18px; height: 18px; }
-.sidebar.collapsed .sidebar-settings-text { display: none; }
-.sidebar.collapsed .sidebar-cog { width: 34px; height: 34px; padding: 0; justify-content: center; }
+.sidebar-cog .si-icon { width: 45px; height: 45px; }
+.sidebar.collapsed .sidebar-footer { min-height: 50px; padding: 4px 2px 0; }
+.sidebar.collapsed .sidebar-cog { width: 40px; height: 40px; }
+.sidebar.collapsed .sidebar-cog .si-icon { width: 34px; height: 34px; }
 
 .sidebar-cog.on {
   background: var(--accent-dim);
   color: var(--accent);
 }
+
+.settings-sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-sidebar-header strong { font-size: 18px; letter-spacing: -0.02em; }
+
+.settings-sidebar-kicker {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 10px;
+}
+
+.settings-nav-bottom { margin-top: auto; padding: 8px 10px; }
+
+.settings-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 38px;
+  padding: 6px 9px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav-item:hover { color: var(--text); background: var(--bg-hover); }
+.settings-nav-item.active { color: var(--text); background: var(--accent-dim); }
+
+.settings-nav-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.settings-nav-mark .si-icon { width: 15px; height: 15px; }
 
 .sidebar-settings {
   position: absolute;

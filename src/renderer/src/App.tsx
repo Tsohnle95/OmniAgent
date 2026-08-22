@@ -12,6 +12,7 @@ import { RecoveryNotice } from "./components/RecoveryNotice";
 import { StatusBar } from "./components/StatusBar";
 import { OmniMark } from "./components/OmniMark";
 import { SettingsPage } from "./components/SettingsPage";
+import { SettingsSidebar, type SettingsSection } from "./components/SettingsSidebar";
 import { ThemeProvider } from "./theme";
 
 const COLLAPSED_PANEL_W = 44;
@@ -319,6 +320,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sideTab, setSideTab] = useState<SidebarTab>("sessions");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("appearance");
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = prevSidebarRef.current !== null;
 
@@ -741,7 +743,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
-        <FileSidebar
+        {settingsOpen ? <SettingsSidebar
+          section={settingsSection}
+          onSectionChange={setSettingsSection}
+          onClose={() => setSettingsOpen(false)}
+        /> : <FileSidebar
           collapsed={!sideOpen}
           onCollapse={setSidebarOpen}
           onDrag={sideDrag}
@@ -750,11 +756,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             setSideTab(tab);
             setSettingsOpen(false);
           }}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setSidebarOpen(true);
+            setSettingsOpen(true);
+          }}
           settingsOpen={settingsOpen}
-        />
+        />}
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} />
-        {settingsOpen ? <SettingsPage onClose={() => setSettingsOpen(false)} /> : <div
+        {settingsOpen ? <SettingsPage section={settingsSection} onClose={() => setSettingsOpen(false)} /> : <div
           className="workspace-area"
           style={
             {
