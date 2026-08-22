@@ -22,7 +22,7 @@ const EDITOR_OPTIONS = {
   cursorBlinking: "smooth" as const,
   padding: { top: 10, bottom: 10 },
   renderWhitespace: "none" as const,
-  scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
+  scrollbar: { verticalScrollbarSize: 3, horizontalScrollbarSize: 3 },
   glyphMargin: false,
   folding: false,
   lineNumbersMinChars: 3,

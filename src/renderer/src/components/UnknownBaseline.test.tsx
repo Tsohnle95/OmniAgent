@@ -62,8 +62,12 @@ vi.mock("../store", () => ({
 vi.mock("../emmet-keys", () => ({ wireEmmetKeys: vi.fn() }));
 vi.mock("@monaco-editor/react", () => ({
   default: () => <div data-testid="editor" />,
-  DiffEditor: ({ options }: { options?: { renderOverviewRuler?: boolean } }) => (
-    <div data-testid="diff-editor" data-overview-ruler={String(options?.renderOverviewRuler)} />
+  DiffEditor: ({ options }: { options?: { renderOverviewRuler?: boolean; scrollbar?: { verticalScrollbarSize?: number } } }) => (
+    <div
+      data-testid="diff-editor"
+      data-overview-ruler={String(options?.renderOverviewRuler)}
+      data-scrollbar-width={String(options?.scrollbar?.verticalScrollbarSize)}
+    />
   )
 }));
 vi.mock("../monaco", () => ({
@@ -124,5 +128,6 @@ describe("unknown baseline presentation", () => {
     act(() => root.render(<ThemeProvider><EditorPane /></ThemeProvider>));
 
     expect(container.querySelector("[data-testid=diff-editor]")?.getAttribute("data-overview-ruler")).toBe("true");
+    expect(container.querySelector("[data-testid=diff-editor]")?.getAttribute("data-scrollbar-width")).toBe("3");
   });
 });

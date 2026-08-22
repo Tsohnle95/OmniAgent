@@ -100,6 +100,11 @@
 
 .editor-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
+.editor-wrap .monaco-diff-editor .diffOverview {
+  transform: scaleX(0.5);
+  transform-origin: right center;
+}
+
 .editor-toolbar {
   display: flex;
   align-items: center;
