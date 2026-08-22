@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
@@ -17,37 +17,6 @@ type VisibleTimelineItem = Exclude<TranscriptItem, { kind: "permission" | "pendi
 
 function isInternalSystemReminder(item: Extract<TranscriptItem, { kind: "synthetic" }>): boolean {
   return /<system-reminder(?:\s[^>]*)?>[\s\S]*<\/system-reminder>/i.test(item.text);
-}
-
-const AGENT_TONES: Record<string, string> = {
-  build: "#a9c3ff",
-  explore: "#f0dfa8",
-  plan: "#f5a8cf",
-  review: "#a5e0b8",
-  writer: "#a8a3f0"
-};
-
-const AGENT_PALETTE = [
-  "#d97757", "#e68a68", "#e0af68", "#e49ac7", "#6fc3df", "#4cc38a",
-  "#f0b14f", "#ff9ae2", "#7fd9e8", "#9bcd97", "#ff8b85", "#e0af68"
-];
-
-function agentTone(name: string, configured?: string): string {
-  const aliases: Record<string, string> = {
-    primary: "#e68a68",
-    secondary: "#9aa1ad",
-    accent: "#e68a68",
-    success: "#4cc38a",
-    warning: "#e0af68",
-    error: "#f16d6b",
-    info: "#6fc3df"
-  };
-  if (configured) return aliases[configured] ?? configured;
-  const key = name.toLowerCase();
-  if (AGENT_TONES[key]) return AGENT_TONES[key];
-  let hash = 0;
-  for (const char of key) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return AGENT_PALETTE[hash % AGENT_PALETTE.length];
 }
 
 function TextShimmer({ text, active = true, tone = "default" }: { text: string; active?: boolean; tone?: "default" | "thinking" }): ReactNode {
@@ -614,9 +583,8 @@ function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   const detail = description || childSession;
   const subtitle = tool.metadata?.background === true && detail ? `${detail} (background)` : detail;
   const running = tool.status === "running";
-  const style = { "--task-agent-color": agentTone(agentName || requested, configured?.color) } as CSSProperties;
   return (
-    <div data-component="task-tool-card" data-state={tool.status} style={style} data-timeline-part-id={tool.id}>
+    <div data-component="task-tool-card" data-state={tool.status} data-timeline-part-id={tool.id}>
       <button
         data-component="task-tool-surface"
         disabled={!childSession}
@@ -670,9 +638,8 @@ function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind:
   const detail = !ref?.id && ref?.description
     ? (ref.description.length > 100 ? `${ref.description.slice(0, 100)}…` : ref.description)
     : [agentName ? `@${agentName}` : "", statusLabel].filter(Boolean).join(" · ");
-  const style = { "--task-agent-color": agentTone(agentName, configured?.color) } as CSSProperties;
   return (
-    <div data-component="subagent-link-card" data-state={state || "running"} style={style} data-timeline-part-id={item.id}>
+    <div data-component="subagent-link-card" data-state={state || "running"} data-timeline-part-id={item.id}>
       <button
         data-component="subagent-link-surface"
         disabled={!childID}

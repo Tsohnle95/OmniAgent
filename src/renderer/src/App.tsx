@@ -343,7 +343,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   }, []);
 
   const prevPanelsRef = useRef<SessionInfo[] | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const prev = prevPanelsRef.current;
     prevPanelsRef.current = panels;
     if (!prev || prev.length !== panels.length) return;
