@@ -641,9 +641,17 @@ describe("Layout panel sizing", () => {
     expect(mode.getAttribute("aria-pressed")).toBe("true");
 
     const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+    const widthBeforeDrag = agentWidths()[0];
     await act(async () => {
-      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 0 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300 }));
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1300 }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(mode.getAttribute("aria-pressed")).toBe("true");
+    expect(agentWidths()[0]).toBe(widthBeforeDrag);
+
+    await act(async () => {
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
@@ -651,7 +659,6 @@ describe("Layout panel sizing", () => {
     expect(mode.getAttribute("aria-pressed")).toBe("false");
     expect(gridCols()[0]).toBe("280px");
     expect(agentWidths()[0]).toBeGreaterThan(280);
-    expect(agentLefts()[0]).toBeGreaterThan(0);
   });
 
   it("reopens a collapsed model panel when entering model mode", async () => {

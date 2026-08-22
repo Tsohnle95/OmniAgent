@@ -64,9 +64,7 @@ function useDragResize(
         const capped = Math.min(max, nextW);
         startRef.current.live = capped;
         setWidth(capped);
-        if (flip && setLeft) {
-          setLeft(startRef.current.left + startRef.current.width - capped);
-        }
+        if (flip && setLeft) setLeft(startRef.current.left + startRef.current.width - capped);
         if (!startRef.current.open) {
           startRef.current.open = true;
           onOpen();
@@ -287,19 +285,18 @@ function PanelColumn({
   const slideBy = (delta: number): void => {
     onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
   };
-  const manualResizeLeft = (event: React.MouseEvent): void => {
-    onManualAdjust?.();
-    resizeLeft(event);
+  const exitModeOnRelease = (event: React.MouseEvent): void => {
+    event.preventDefault();
+    const release = (): void => {
+      window.removeEventListener("mouseup", release);
+      onManualAdjust?.();
+    };
+    window.addEventListener("mouseup", release);
   };
-  const manualResizeRight = (event: React.MouseEvent): void => {
-    onManualAdjust?.();
-    resizeRight(event);
-  };
-
   if (slot.open) {
     return (
       <div className={`agent-col ${settling ? "settling" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
-        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? manualResizeLeft : resizeLeft} onResizeRight={freeMove ? manualResizeRight : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragStart={freeMove ? onManualAdjust : undefined} />
+        <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? exitModeOnRelease : resizeLeft} onResizeRight={freeMove ? exitModeOnRelease : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragEnd={freeMove ? onManualAdjust : undefined} />
       </div>
     );
   }
@@ -644,6 +641,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     }
     previousPanelCountRef.current = panels.length;
   }, [distributeEvenly, inAgentMode, panels.length, sideW]);
+
+  useLayoutEffect(() => {
+    if (inAgentMode && sideOpen) distributeEvenly(sideW, false);
+  }, [inAgentMode, sideOpen]);
 
   const addModelPanel = (): void => {
     if (!inAgentMode || panels.length + pendingModelPanels >= 4) return;
