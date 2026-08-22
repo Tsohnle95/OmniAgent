@@ -68,7 +68,7 @@ const events: Array<[string, TranscriptItem, string]> = [
   ["compaction", { kind: "compaction", id: "event", status: "completed", reason: "auto", summary: "summary" }, "Compaction"],
   ["synthetic", { kind: "synthetic", id: "event", text: "visible synthetic" }, "SessionEvent"],
   ["skill", { kind: "skill", id: "event", skill: "review", name: "Review", text: "loaded" }, "SessionEvent"],
-  ["status", { kind: "status", id: "event", text: "working", tone: "info" }, "Error"],
+  ["status", { kind: "status", id: "event", text: "working", tone: "info" }, "StatusNote"],
   ["divider", { kind: "divider", id: "event" }, "TurnDivider"]
 ];
 
@@ -192,6 +192,21 @@ describe("OpenCodeTimeline chronology", () => {
 
     expect([...container.querySelectorAll("[data-timeline-row]")].map((node) => node.textContent))
       .toEqual(["one", "two", "working", "three", "four"]);
+  });
+
+  it("renders status notes as quiet inline markers, not boxes", () => {
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[{ kind: "status", id: "event", text: "Interrupted", tone: "info" }]}
+        busy={false}
+        lastAssistantId={null}
+      />
+    ));
+
+    const note = container.querySelector("[data-component='session-note']");
+    expect(note?.getAttribute("data-tone")).toBe("info");
+    expect(note?.querySelector(".codicon-info")).toBeTruthy();
+    expect(note?.querySelector("[data-slot='session-note-text']")?.textContent).toBe("Interrupted");
   });
 });
 

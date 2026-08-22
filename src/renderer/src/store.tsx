@@ -2465,7 +2465,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
                 kind: "status",
                 id: `${streamEvent.id}-end`,
                 text: type === "session.execution.interrupted" ? "Interrupted" : "Failed",
-                tone: "error"
+                tone: type === "session.execution.interrupted" ? "info" : "error"
               }
             ]);
           }

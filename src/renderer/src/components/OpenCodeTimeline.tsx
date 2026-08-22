@@ -1002,7 +1002,7 @@ function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; 
   if (latest?.retry) {
     rows.push(
       <TimelineRow tag="Retry" previous key={`${latest.id}:retry`}>
-        <div data-slot="session-turn-retry" className="error-card">
+        <div data-slot="session-turn-retry">
           <span className="spinner" />
           <div>
             <div data-slot="session-turn-retry-message">{latest.retry.message.slice(0, 80)}</div>
@@ -1015,7 +1015,10 @@ function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; 
   if (latest?.error) {
     rows.push(
       <TimelineRow tag="Error" previous key={`${latest.id}:error`}>
-        <div className="error-card">{latest.error.replace(/^Error:\s*/, "")}</div>
+        <div data-component="session-note" data-tone="error">
+          <span className="codicon codicon-error" data-slot="session-note-icon" />
+          <span data-slot="session-note-text">{latest.error.replace(/^Error:\s*/, "")}</span>
+        </div>
       </TimelineRow>
     );
   }
@@ -1069,9 +1072,13 @@ function TimelineEvent({
 }): ReactNode {
   const { sessions } = useStore();
   if (item.kind === "status") {
+    const icon = item.tone === "error" ? "codicon-error" : item.tone === "success" ? "codicon-check" : "codicon-info";
     return (
-      <TimelineRow tag="Error">
-        <div className={`error-card ${item.tone}`}>{item.text}</div>
+      <TimelineRow tag="StatusNote">
+        <div data-component="session-note" data-tone={item.tone}>
+          <span className={`codicon ${icon}`} data-slot="session-note-icon" />
+          <span data-slot="session-note-text">{item.text}</span>
+        </div>
       </TimelineRow>
     );
   }
@@ -1122,7 +1129,12 @@ function TimelineEvent({
             <span data-slot="compaction-part-line" />
           </div>
           {item.summary && <Markdown text={item.summary} streaming={item.status === "running"} />}
-          {item.error && <div className="error-card">{item.error}</div>}
+          {item.error && (
+            <div data-component="session-note" data-tone="error">
+              <span className="codicon codicon-error" data-slot="session-note-icon" />
+              <span data-slot="session-note-text">{item.error}</span>
+            </div>
+          )}
         </div>
       </TimelineRow>
     );
