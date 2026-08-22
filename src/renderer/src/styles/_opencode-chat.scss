@@ -204,13 +204,16 @@
 [data-component="reasoning-part"] [data-slot="reasoning-part-trigger"] {
   width: fit-content;
   max-width: 100%;
-  padding: 1px 0;
+  padding: 3px 8px 3px 7px;
+  border: 0.5px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
   color: var(--text-dim);
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  font: var(--font-weight-regular) 12px/20px var(--font-family-sans);
+  font: var(--font-weight-regular) 13px/20px var(--font-family-sans);
   text-align: left;
 }
 
@@ -225,6 +228,8 @@
 
 [data-component="reasoning-part"] [data-slot="reasoning-part-trigger"]:hover {
   color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 [data-component="reasoning-part"] [data-slot="reasoning-part-content"] {
