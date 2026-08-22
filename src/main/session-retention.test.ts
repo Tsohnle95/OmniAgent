@@ -73,8 +73,9 @@ async function fixture(client: unknown): Promise<OpenShellBackend> {
 
 describe("session retention", () => {
   it("hides conversation-less and expired sessions from recents", async () => {
-    const keep = session({ title: "Real work", tokens: undefined, location: { directory: "/w/keep" }, time: recent() });
-    const promptedButUntitled = session({ tokens: usedTokens(), location: { directory: "/w/prompted" }, time: recent() });
+    const time = recent();
+    const keep = session({ title: "Real work", tokens: undefined, location: { directory: "/w/keep" }, time });
+    const promptedButUntitled = session({ tokens: usedTokens(), location: { directory: "/w/prompted" }, time });
     const phantom = session({ location: { directory: "/w/phantom" }, time: recent() });
     const old = session({ title: "Old chat", tokens: usedTokens(), location: { directory: "/w/old" }, time: expired() });
     const backend = await fixture(pagedClient([{ data: [keep, promptedButUntitled, phantom, old] }]));
@@ -87,10 +88,11 @@ describe("session retention", () => {
   });
 
   it("keeps paging until recents are full or pages run out", async () => {
+    const time = recent();
     const fillers = Array.from({ length: 3 }, () =>
-      session({ title: "Filler", tokens: usedTokens(), location: { directory: "/w/fill" }, time: recent() })
+      session({ title: "Filler", tokens: usedTokens(), location: { directory: "/w/fill" }, time })
     );
-    const late = session({ title: "Late find", tokens: usedTokens(), location: { directory: "/w/late" }, time: recent() });
+    const late = session({ title: "Late find", tokens: usedTokens(), location: { directory: "/w/late" }, time });
     const phantoms = Array.from({ length: 4 }, () => session({ location: { directory: "/w/x" }, time: recent() }));
     const removed: string[] = [];
     const client = pagedClient(
