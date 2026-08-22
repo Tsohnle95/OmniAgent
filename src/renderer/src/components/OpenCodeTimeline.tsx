@@ -331,6 +331,29 @@ function subagentChildID(ref: SubagentRef, sessions: SessionSummary[], parentID:
   });
 }
 
+function taskChildID(tool: ToolCallView, sessions: SessionSummary[], parentID: string | undefined): string {
+  const input = parseInput(tool.input);
+  const requested = typeof input.agent === "string"
+    ? input.agent
+    : typeof input.subagent_type === "string"
+      ? input.subagent_type
+      : "";
+  const description = typeof input.description === "string" && input.description
+    ? input.description
+    : typeof input.prompt === "string"
+      ? input.prompt.trim()
+      : "";
+  const metadataSession = typeof tool.metadata?.sessionId === "string"
+    ? tool.metadata.sessionId
+    : typeof tool.metadata?.sessionID === "string"
+      ? tool.metadata.sessionID
+      : "";
+  return metadataSession || matchChildSession(sessions, parentID, {
+    ...(description ? { description } : {}),
+    ...(requested ? { agent: requested } : {})
+  });
+}
+
 function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; args: string[]; path?: string } {
   const name = toolKey(tool.title);
   const input = parseInput(tool.input);
@@ -563,16 +586,7 @@ function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo 
     : typeof input.prompt === "string"
       ? input.prompt.trim()
       : "";
-  const metadataSession = typeof tool.metadata?.sessionId === "string"
-    ? tool.metadata.sessionId
-    : typeof tool.metadata?.sessionID === "string"
-      ? tool.metadata.sessionID
-      : "";
-  const fallbackSession = matchChildSession(sessions, session?.id, {
-    ...(description ? { description } : {}),
-    ...(requested ? { agent: requested } : {})
-  });
-  const childSession = metadataSession || fallbackSession || "";
+  const childSession = taskChildID(tool, sessions, session?.id);
   const resolved = sessions.find((candidate) => candidate.id === childSession);
   const agentName = resolved?.agent ?? configured?.name ?? requested;
   const title = resolved?.title.trim()
@@ -598,7 +612,7 @@ function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo 
         )}
         <div data-slot="basic-tool-tool-info-structured">
           <div data-slot="task-tool-heading">
-            <span data-component="task-tool-kind">Subagent</span>
+            <span data-component="task-tool-kind">Delegated agent</span>
             <span data-component="task-tool-title">{title}</span>
             {agentName && titleCase(agentName) !== title && (
               <span data-component="task-tool-agent">@{agentName}</span>
@@ -606,7 +620,11 @@ function TaskTool({ tool, session }: { tool: ToolCallView; session: SessionInfo 
           </div>
           {subtitle && <span data-slot="basic-tool-tool-subtitle">{subtitle}</span>}
         </div>
-        <span data-component="task-tool-status">{running ? "Working" : tool.status === "failed" ? "Failed" : "Complete"}</span>
+        <span data-component="task-tool-status" data-status={running ? "working" : tool.status === "failed" ? "failed" : "complete"}>
+          <span data-slot="task-tool-status-dot" />
+          {running ? "Working" : tool.status === "failed" ? "Failed" : "Complete"}
+        </span>
+        {childSession && <span data-component="task-tool-action">Open session</span>}
         {childSession && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
       </button>
     </div>
@@ -655,13 +673,17 @@ function SubagentLink({ item, session }: { item: Extract<TranscriptItem, { kind:
         )}
         <div data-slot="basic-tool-tool-info-structured">
           <div data-slot="task-tool-heading">
-            <span data-component="task-tool-kind">Subagent</span>
+            <span data-component="task-tool-kind">Delegated agent</span>
             <span data-component="task-tool-title">{title}</span>
             {agentName && !resolved && <span data-component="task-tool-agent">@{agentName}</span>}
           </div>
           {detail && <span data-slot="basic-tool-tool-subtitle">{detail}</span>}
         </div>
-        <span data-component="task-tool-status">{statusLabel}</span>
+        <span data-component="task-tool-status" data-status={failed ? "failed" : running ? "working" : "complete"}>
+          <span data-slot="task-tool-status-dot" />
+          {statusLabel}
+        </span>
+        {childID && <span data-component="task-tool-action">Open session</span>}
         {childID && <span className="codicon codicon-chevron-right" data-slot="task-tool-open" />}
       </button>
     </div>
@@ -1125,15 +1147,32 @@ export function OpenCodeTimeline({
   lastAssistantId: string | null;
   session?: SessionInfo | null;
 }): ReactNode {
-  const activeSession = session === undefined ? useStore().session : session;
+  const store = useStore();
+  const activeSession = session === undefined ? store.session : session;
+  const representedSubagents = useMemo(() => {
+    const ids = new Set<string>();
+    for (const item of transcript) {
+      if (item.kind !== "assistant") continue;
+      for (const part of item.parts) {
+        if (part.kind !== "tool" || !["task", "subagent"].includes(toolKey(part.tool.title))) continue;
+        const childID = taskChildID(part.tool, store.sessions, activeSession?.id);
+        if (childID) ids.add(childID);
+      }
+    }
+    return ids;
+  }, [transcript, store.sessions, activeSession?.id]);
   const timeline = useMemo(
     () => transcript.filter((item): item is VisibleTimelineItem => {
       if (item.kind === "permission" || item.kind === "pending-input" || item.kind === "selection" || item.kind === "system") {
         return false;
       }
+      if (item.kind === "synthetic") {
+        const ref = parseSubagentTag(item.text);
+        if (ref?.id && representedSubagents.has(ref.id)) return false;
+      }
       return item.kind !== "synthetic" || !isInternalSystemReminder(item);
     }),
-    [transcript]
+    [transcript, representedSubagents]
   );
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
 

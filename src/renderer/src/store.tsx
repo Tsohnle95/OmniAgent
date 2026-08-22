@@ -657,6 +657,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const chatStatesRef = useRef(new Map<string, ChatDirectoryState>());
   const materializingRef = useRef(new Set<string>());
   const swapPendingRef = useRef(false);
+  const replacingSessionIDsRef = useRef(new Map<string, number>());
 
   const chatStateFor = useCallback((sessionID: string): ChatDirectoryState => {
     let state = chatStatesRef.current.get(sessionID);
@@ -1251,6 +1252,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       }
       const request = ++requestSeqRef.current;
       const activation = silent ? 0 : ++activationSeqRef.current;
+      if (!silent) {
+        replacingSessionIDsRef.current.set(sessionID, (replacingSessionIDsRef.current.get(sessionID) ?? 0) + 1);
+      }
       try {
         const reopened = await window.openshell.openSessionById(sessionID, request);
         if (!silent && activation !== activationSeqRef.current) {
@@ -1302,6 +1306,12 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         void loadSessions();
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
+      } finally {
+        if (!silent) {
+          const pending = replacingSessionIDsRef.current.get(sessionID) ?? 0;
+          if (pending <= 1) replacingSessionIDsRef.current.delete(sessionID);
+          else replacingSessionIDsRef.current.set(sessionID, pending - 1);
+        }
       }
     },
     [attachPanel, replacePanels, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
@@ -2163,7 +2173,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
-        if (msg.session && !swapPendingRef.current) attachPanel(msg.session);
+        if (msg.session && !swapPendingRef.current && !replacingSessionIDsRef.current.has(msg.session.id)) {
+          attachPanel(msg.session);
+        }
         return;
       }
       if (msg.kind === "ui-command") {

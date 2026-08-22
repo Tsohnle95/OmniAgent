@@ -181,4 +181,44 @@ describe("agent and model picker state across sessions", () => {
     await act(async () => store.reopenSession("session-parent"));
     expect(store.session?.id).toBe("session-parent");
   });
+
+  it("does not attach an emitted replacement session before reopen completes", async () => {
+    let messageHandler: ((message: { kind: "session"; session: SessionInfo }) => void) | null = null;
+    let resolveOpen!: (value: {
+      session: SessionInfo;
+      transcript: [];
+      todos: [];
+      usage: null;
+    }) => void;
+    const child = { ...info("/root", 2), id: "session-child", parentID: "session-parent", title: "Inspect renderer" };
+    const opening = new Promise<{
+      session: SessionInfo;
+      transcript: [];
+      todos: [];
+      usage: null;
+    }>((resolve) => { resolveOpen = resolve; });
+    window.openshell = api({
+      onMessage: (handler: typeof messageHandler) => {
+        messageHandler = handler;
+        return () => { messageHandler = null; };
+      },
+      openSessionById: async () => opening
+    });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/root"));
+
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = store.reopenSession("session-child");
+      await Promise.resolve();
+    });
+    await act(async () => messageHandler?.({ kind: "session", session: child }));
+    expect(store.panels.map((panel) => panel.id)).toEqual(["session-1"]);
+
+    await act(async () => {
+      resolveOpen({ session: child, transcript: [], todos: [], usage: null });
+      await pending;
+    });
+    expect(store.panels.map((panel) => panel.id)).toEqual(["session-child"]);
+  });
 });

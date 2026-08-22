@@ -240,6 +240,57 @@ describe("subagent dispatch links", () => {
     expect(storeState.reopenSession).toHaveBeenCalledWith("session-child");
   });
 
+  it("collapses tool and synthetic records for one child into one descriptive card", () => {
+    storeState.sessions = [summary("session-child", {
+      title: "Inspect the renderer",
+      agent: "build",
+      parentID: "session-parent"
+    })];
+    const synthetic: TranscriptItem = {
+      kind: "synthetic",
+      id: "dispatch-child",
+      text: '<subagent id="session-child" agent="build" description="Inspect the renderer" state="running" />'
+    };
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[
+          toolAssistant(
+            "assistant-1",
+            "subagent",
+            { agent: "build", description: "Inspect the renderer" },
+            { sessionID: "session-child" }
+          ),
+          synthetic
+        ]}
+        busy={false}
+        lastAssistantId={null}
+      />
+    ));
+
+    expect(container.querySelectorAll("[data-component='task-tool-card'], [data-component='subagent-link-card']")).toHaveLength(1);
+    expect(container.querySelector("[data-component='task-tool-kind']")?.textContent).toBe("Delegated agent");
+    expect(container.querySelector("[data-component='task-tool-action']")?.textContent).toBe("Open session");
+  });
+
+  it("keeps cards for distinct child sessions separate", () => {
+    storeState.sessions = [
+      summary("session-child-a", { title: "First task", parentID: "session-parent" }),
+      summary("session-child-b", { title: "Second task", parentID: "session-parent" })
+    ];
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[
+          toolAssistant("assistant-1", "subagent", { description: "First task" }, { sessionID: "session-child-a" }),
+          { kind: "synthetic", id: "dispatch-b", text: '<subagent id="session-child-b" description="Second task" state="running" />' }
+        ]}
+        busy={false}
+        lastAssistantId={null}
+      />
+    ));
+
+    expect(container.querySelectorAll("[data-component='task-tool-card'], [data-component='subagent-link-card']")).toHaveLength(2);
+  });
+
   it("resolves legacy agent=/prompt= synthetic input to the matching child session", () => {
     storeState.sessions = [summary("session-child", {
       title: "Run the tests",

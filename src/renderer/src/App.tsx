@@ -343,6 +343,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   }, []);
 
   const prevPanelsRef = useRef<SessionInfo[] | null>(null);
+  const sessionSlotsRef = useRef(new Map<string, PanelSlot>());
+  const rememberedSlot = (panel: SessionInfo): PanelSlot | undefined =>
+    sessionSlotsRef.current.get(panel.id) ??
+    (panel.parentID ? sessionSlotsRef.current.get(panel.parentID) : undefined);
   useLayoutEffect(() => {
     const prev = prevPanelsRef.current;
     prevPanelsRef.current = panels;
@@ -361,6 +365,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     }
   }, [panels]);
 
+  useLayoutEffect(() => {
+    for (const panel of panels) {
+      const slot = slots[panel.workspace.id];
+      if (slot) sessionSlotsRef.current.set(panel.id, slot);
+    }
+  }, [panels, slots]);
+
   useEffect(() => {
     setSlots((current) => {
       const anchorId = panels[0]?.workspace.id ?? null;
@@ -371,7 +382,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       let changed = false;
       for (const panel of panels) {
         const id = panel.workspace.id;
-        const existing = current[id];
+        const existing = current[id] ?? rememberedSlot(panel);
         if (existing) {
           next[id] = existing;
           continue;
@@ -397,12 +408,12 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   }, [panels, areaW]);
 
   const slotShown = (panel: SessionInfo): number => {
-    const slot = slots[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 };
+    const slot = slots[panel.workspace.id] ?? rememberedSlot(panel) ?? { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 };
     return slot.open ? slot.width : COLLAPSED_PANEL_W;
   };
   const slotFor = (panel: SessionInfo): PanelSlot => {
     const anchorId = panels[0]?.workspace.id ?? null;
-    const stored = slots[panel.workspace.id];
+    const stored = slots[panel.workspace.id] ?? rememberedSlot(panel);
     if (inAgentMode && panels.length === 1) {
       return {
         open: true,
@@ -464,7 +475,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   useLayoutEffect(() => {
     const current = slotsRef.current;
     const shown = (panel: SessionInfo): number => {
-      const slot = current[panel.workspace.id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 };
+      const slot = current[panel.workspace.id] ?? rememberedSlot(panel) ?? { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 };
       return slot.open ? slot.width : COLLAPSED_PANEL_W;
     };
     if (prevSidebarRef.current !== null) {

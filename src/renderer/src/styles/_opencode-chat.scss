@@ -609,6 +609,26 @@
   font: var(--font-weight-medium) 10px/14px var(--font-family-sans);
 }
 
+[data-slot="task-tool-status-dot"] {
+  width: 5px;
+  height: 5px;
+  display: inline-block;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+}
+
+[data-component="task-tool-status"][data-status="working"] [data-slot="task-tool-status-dot"] {
+  animation: agent-status-pulse 1.6s ease-in-out infinite;
+}
+
+[data-component="task-tool-action"] {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font: var(--font-weight-regular) 11px/16px var(--font-family-sans);
+}
+
 [data-state="running"] [data-component="task-tool-status"] { color: var(--accent); }
 [data-state="failed"] [data-component="task-tool-status"],
 [data-state="error"] [data-component="task-tool-status"],
@@ -751,6 +771,7 @@
 @container (max-width: 400px) {
   [data-component="session-turn"] [data-slot="session-turn-message-container"] { padding-inline: 12px; }
   [data-component="task-tool-status"] { display: none; }
+  [data-component="task-tool-action"] { display: none; }
   [data-component="task-tool-surface"],
   [data-component="subagent-link-surface"] { padding-inline: 9px; }
 }

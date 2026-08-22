@@ -1311,6 +1311,11 @@ export function AgentPanel({
           {(busy || assistantStatus?.isWorking) && assistantStatus?.statusText && (
             <span className="agent-status-text">{assistantStatus.statusText}</span>
           )}
+          {activeSession?.parentID && !(busy || assistantStatus?.isWorking) && (
+            <span className="agent-status-text">
+              Delegated agent{activeSession.agent ? ` · @${activeSession.agent}` : ""} · idle
+            </span>
+          )}
         </div>
         <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">

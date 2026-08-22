@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { BackendMessage, SessionInfo } from "@shared/types";
+import type { BackendMessage, SessionInfo, TranscriptItem } from "@shared/types";
 import App from "./App";
 
 vi.mock("./components/EditorPane", () => ({
@@ -785,6 +785,81 @@ describe("Layout panel sizing", () => {
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
     expect(agentWidths()).toEqual([599, 600]);
     expect(agentLefts()).toEqual([0, 599]);
+  });
+
+  it("preserves an enlarged tray through subagent navigation and back", async () => {
+    const parent = { ...info("/repo", 1), title: "Main agent" };
+    const child = { ...info("/repo", 8), id: "session-child", parentID: parent.id, title: "Inspect renderer", agent: "explore" };
+    const parentTranscript: TranscriptItem[] = [{
+      kind: "assistant",
+      id: "assistant-dispatch",
+      messageID: "assistant-dispatch",
+      completed: true,
+      parts: [{
+        kind: "tool",
+        id: "tool-dispatch",
+        tool: {
+          id: "tool-dispatch",
+          title: "subagent",
+          detail: "",
+          status: "running",
+          input: JSON.stringify({ agent: "explore", description: "Inspect renderer" }),
+          inputValue: { agent: "explore", description: "Inspect renderer" },
+          metadata: { sessionID: child.id }
+        }
+      }]
+    }];
+    let parentOpenCount = 0;
+    window.openshell = {
+      ...api(),
+      state: async () => parent,
+      activeSessions: async () => [parent],
+      sessions: async () => [
+        { id: parent.id, title: "Main agent", directory: "/repo", updatedAt: 2 },
+        { id: child.id, title: child.title!, directory: "/repo", updatedAt: 3, parentID: parent.id, agent: child.agent }
+      ],
+      openSessionById: async (sessionID: string) => {
+        const session = sessionID === child.id
+          ? child
+          : parentOpenCount++ === 0
+            ? parent
+            : { ...info("/repo", 10 + parentOpenCount), id: parent.id, title: "Main agent" };
+        dispatch({ kind: "session", session });
+        return {
+          session,
+          transcript: sessionID === child.id ? [] : parentTranscript,
+          todos: [],
+          usage: null
+        };
+      }
+    };
+
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 40)));
+
+    const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+    await act(async () => {
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 900 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 780 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    const enlarged = agentWidths()[0];
+    expect(enlarged).toBeGreaterThan(280);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>("[data-component='task-tool-surface']")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(container.querySelector(".agent-session-back")).not.toBeNull();
+    expect(agentWidths()).toEqual([enlarged]);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".agent-session-back")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(container.querySelector(".agent-session-back")).toBeNull();
+    expect(agentWidths()).toEqual([enlarged]);
   });
 
   it("closing a quadrant tray restores the default side-by-side trays", async () => {
