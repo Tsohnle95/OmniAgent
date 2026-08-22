@@ -421,7 +421,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     if (inAgentMode && panels.length === 1) {
       return {
         open: true,
-        width: Math.max(COLLAPSED_PANEL_W, winW - COLLAPSED_PANEL_W - fixedPanelChrome),
+        width: Math.max(COLLAPSED_PANEL_W, areaW),
         left: 0,
         top: 0,
         height: 100

@@ -667,6 +667,11 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
+    expect(gridCols()[0]).toBe("280px");
+    expect(agentWidths()).toEqual([1199]);
+    expect(agentLefts()).toEqual([0]);
+    expect(agentLefts()[0] + agentWidths()[0]).toBe(1199);
+
     await act(async () => {
       modeButton().click();
       await new Promise((resolve) => setTimeout(resolve, 20));
