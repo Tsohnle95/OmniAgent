@@ -16,6 +16,7 @@ import {
 import { safeExternalUrl } from "@shared/url-policy";
 import { validateWithW3c } from "./w3c-validation";
 import { resolveAppSource } from "./source-resolver";
+import { InspectPickerState } from "./inspect-picker";
 import type {
   FileWriteIdentity,
   PermissionReply,
@@ -56,11 +57,8 @@ const appIconPath = (() => {
   const fromOut = path.join(__dirname, "../../resources/icon.png");
   return existsSync(fromApp) ? fromApp : fromOut;
 })();
-let inspectPickerActive = false;
-let inspectPickerToken = 0;
+const inspectPicker = new InspectPickerState();
 let overlayEnabled = false;
-let lastPickedNode = 0;
-let lastPickedAt = 0;
 let devToolsKeyPolling = false;
 
 const DEVTOOLS_WATCHER = `
@@ -128,23 +126,25 @@ async function ensureDevToolsOpen(wc: WebContents): Promise<void> {
 }
 
 async function startInspectPicker(wc: WebContents): Promise<void> {
-  const token = ++inspectPickerToken;
-  inspectPickerActive = true;
+  const token = inspectPicker.begin();
   await ensureDevToolsOpen(wc);
-  if (token !== inspectPickerToken) return;
+  if (!inspectPicker.isCurrent(token)) return;
   wc.focus();
   try {
     if (!wc.debugger.isAttached()) wc.debugger.attach("1.3");
     await wc.debugger.sendCommand("DOM.enable");
+    if (!inspectPicker.isCurrent(token)) return;
     await wc.debugger.sendCommand("Overlay.enable");
+    if (!inspectPicker.isCurrent(token)) return;
     overlayEnabled = true;
     await wc.debugger.sendCommand("Overlay.setInspectMode", {
       mode: "searchForNode",
       highlightConfig: INSPECT_HIGHLIGHT
     });
+    if (!inspectPicker.isCurrent(token)) await disableInspectMode(wc);
   } catch (err) {
     console.error("inspect picker failed:", err);
-    inspectPickerActive = false;
+    if (inspectPicker.isCurrent(token)) inspectPicker.cancel();
   }
 }
 
@@ -160,13 +160,14 @@ async function selectPickedNode(wc: WebContents, backendNodeId: number): Promise
   }
 }
 
-function stopInspectPicker(wc: WebContents): void {
-  inspectPickerToken++;
-  inspectPickerActive = false;
+async function disableInspectMode(wc: WebContents): Promise<void> {
   if (!overlayEnabled || !wc.debugger.isAttached()) return;
-  void wc.debugger
-    .sendCommand("Overlay.setInspectMode", { mode: "none", highlightConfig: INSPECT_HIGHLIGHT })
-    .catch((err) => console.error("stopInspectPicker:", err));
+  await wc.debugger.sendCommand("Overlay.setInspectMode", { mode: "none", highlightConfig: INSPECT_HIGHLIGHT });
+}
+
+function stopInspectPicker(wc: WebContents): void {
+  inspectPicker.cancel();
+  void disableInspectMode(wc).catch((err) => console.error("stopInspectPicker:", err));
 }
 
 function createWindow(show = true): BrowserWindow {
@@ -197,8 +198,7 @@ function createWindow(show = true): BrowserWindow {
   });
   win = newWin;
   trustedLocation = location;
-  inspectPickerActive = false;
-  inspectPickerToken++;
+  inspectPicker.cancel();
   const wc = newWin.webContents;
 
   wc.on("console-message", (event) => {
@@ -235,22 +235,17 @@ function createWindow(show = true): BrowserWindow {
   wc.debugger.on("message", (_e, method, params) => {
     if (method === "Overlay.inspectNodeRequested") {
       const backendNodeId = (params as { backendNodeId?: number }).backendNodeId;
-      const now = Date.now();
-      if (
-        typeof backendNodeId === "number" &&
-        (backendNodeId !== lastPickedNode || now - lastPickedAt > 500)
-      ) {
-        lastPickedNode = backendNodeId;
-        lastPickedAt = now;
-        stopInspectPicker(wc);
-        void selectPickedNode(wc, backendNodeId);
+      if (typeof backendNodeId === "number" && inspectPicker.claim()) {
+        void disableInspectMode(wc)
+          .then(() => selectPickedNode(wc, backendNodeId))
+          .catch((err) => console.error("selectPickedNode:", err));
       }
     } else if (method === "Overlay.inspectModeCanceled") {
-      stopInspectPicker(wc);
+      inspectPicker.cancel();
     }
   });
   wc.debugger.on("detach", () => {
-    inspectPickerActive = false;
+    inspectPicker.cancel();
     overlayEnabled = false;
   });
   wc.on("devtools-closed", () => {
@@ -294,7 +289,7 @@ function createWindow(show = true): BrowserWindow {
       }
       if (parsed.key === "F12") {
         wc.closeDevTools();
-      } else if (parsed.key === "Escape" && inspectPickerActive) {
+      } else if (parsed.key === "Escape" && inspectPicker.active) {
         stopInspectPicker(wc);
       }
       if (typeof parsed.source === "string") {
@@ -345,14 +340,14 @@ function createWindow(show = true): BrowserWindow {
       }
       return;
     }
-    if (input.type === "keyDown" && !mod && !input.alt && !input.shift && input.key === "Escape" && inspectPickerActive) {
+    if (input.type === "keyDown" && !mod && !input.alt && !input.shift && input.key === "Escape" && inspectPicker.active) {
       event.preventDefault();
       stopInspectPicker(wc);
       return;
     }
-    if (input.type === "keyDown" && mod && input.shift && !input.alt && input.key.toLowerCase() === "c") {
+    if (input.type === "keyDown" && !input.isAutoRepeat && mod && input.shift && !input.alt && input.key.toLowerCase() === "c") {
       event.preventDefault();
-      if (inspectPickerActive) {
+      if (inspectPicker.active) {
         stopInspectPicker(newWin.webContents);
       } else {
         void startInspectPicker(newWin.webContents);

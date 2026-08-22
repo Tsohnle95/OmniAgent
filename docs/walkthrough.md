@@ -279,7 +279,9 @@ links back to the parent session.
   the renderer. F12 toggles a bottom-docked DevTools; ⌘⇧C toggles live
   element picking — CDP `Overlay.setInspectMode` for the Firefox-style
   hover highlight, with the click routed through `inspectElement` so the
-  Elements panel selects the node. Clicking a rule's source link in the
+  Elements panel selects the node. A picker activation accepts only its first
+  node request and disables inspect mode before selection, preventing duplicate
+  CDP events from bouncing the Elements panel between nodes. Clicking a rule's source link in the
   Styles panel (`styles.scss:12`) sends an `open-source` `ui-command` so
   the file opens in the editor at that exact line. Resolution never searches
   the user's active workspace: an app stylesheet outside that workspace becomes

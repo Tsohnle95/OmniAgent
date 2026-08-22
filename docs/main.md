@@ -325,10 +325,14 @@ outside it before the renderer uses the external-file capability. Terminal ids u
 is capped at 1 MiB per invoke, dimensions are positive integers bounded to
 1000 columns by 500 rows, unknown PTYs fail, and every PTY is owned by the
 workspace identity that created it.
-Picks are deduped (Chromium fires `inspectNodeRequested` twice per
-click, once from pointer events, once from mouse events) and the
-picker lifecycle is token-guarded so stale async arm calls can never
-re-arm or wedge the state. Gotcha: `highlightConfig` is a required
+Each picker activation grants exactly one `inspectNodeRequested` claim, so
+Chromium's duplicate pointer/mouse events cannot start competing selections.
+Main awaits `mode: "none"` before calling `inspectElement`, and the picker
+lifecycle is token-guarded between asynchronous setup commands so a canceled
+activation cannot re-arm or wedge the state. Auto-repeat ⌘⇧C events are ignored.
+Chromium's `inspectModeCanceled` event only clears local state and never echoes
+another `mode: "none"` command back into the protocol.
+Gotcha: `highlightConfig` is a required
 parameter even for `mode: "none"`; omitting it makes Chromium reject
 the command and leaves the overlay stuck in search mode, flashing
 highlights forever.
