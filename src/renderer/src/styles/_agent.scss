@@ -258,8 +258,17 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  padding: 10px 12px;
   z-index: 60;
+}
+
+.agent-usage-scroll {
+  box-sizing: border-box;
+  max-height: calc(100dvh - 84px);
+  padding: 10px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border-radius: inherit;
 }
 
 .agent-usage-popup::before {

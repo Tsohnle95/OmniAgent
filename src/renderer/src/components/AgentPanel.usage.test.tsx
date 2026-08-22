@@ -126,6 +126,7 @@ describe("agent panel usage tracker", () => {
     expect(context.querySelector(".agent-usage-context-counts")!.textContent).toContain("25.0k");
     expect(context.querySelector(".agent-usage-context-counts")!.textContent).toContain("100k tokens");
     expect(container.querySelector(".agent-usage-rows")).not.toBeNull();
+    expect(container.querySelector(".agent-usage-scroll")).not.toBeNull();
   });
 
   it("caps the fill at 100% when input tokens exceed the context limit", async () => {

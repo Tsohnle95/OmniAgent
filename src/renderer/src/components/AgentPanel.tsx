@@ -1343,6 +1343,7 @@ export function AgentPanel({
         </div>
         {usageOpen && (
           <div className="agent-usage-popup">
+            <div className="agent-usage-scroll">
             <div className="agent-usage-head">
               <IconDashboard />
               Session usage
@@ -1441,6 +1442,7 @@ export function AgentPanel({
               ) : (
                 providerUsage.map((result) => <ProviderUsageCard key={result.provider} result={result} />)
               )}
+            </div>
             </div>
           </div>
         )}
