@@ -55,6 +55,12 @@ carry dedupe bookkeeping so a trailing delta already included in a snapshot
 is not applied twice, finished tool cards cannot regress, and history
 hydration (`hydrateChatState`) never shrinks longer live text.
 
+Prompt submission reconciles the returned canonical snapshot once without
+polling, deleting, or rebuilding the live store. Pushed reasoning and text
+deltas therefore remain visible between OpenCode steps, while
+`session.execution.*` stays authoritative for the composer until the terminal
+execution event.
+
 When a delta arrives for an unknown message or part (an incomplete session
 snapshot), the store materializes the session over `shell:session-transcript`
 and merges the authoritative history. `server.connected` /

@@ -33,7 +33,7 @@ import type {
   UserAttachment,
   WorkspaceIdentity
 } from "@shared/types";
-import { hasCompletedPromptResponse, mergeChatHistory, reconcilePromptHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
+import { mergeChatHistory, reconcilePromptHistory, reduceChatStream, type ChatStreamEvent } from "./chat-stream";
 import {
   applyChatEvent,
   attachRetryToLatestAssistant,
@@ -1456,27 +1456,17 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       updateSessionTranscript(panel.id, (prev) => [...prev, userItem]);
       setTodosFor(panel.workspace.id, []);
       setSessionBusy(panel.id, true);
-      const existingRemoteUsers = transcript.filter((item) => item.kind === "user" && !item.id.startsWith("user-") && item.text === promptText).length;
-      const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): boolean => {
+      const applyCanonicalTranscript = (refreshed: Awaited<ReturnType<typeof window.openshell.prompt>>): void => {
         const current = transcriptsBySessionRef.current[panel.id] ?? [];
         const merged = reconcilePromptHistory(refreshed.transcript, current, userItem);
         updateSessionTranscript(panel.id, () => merged);
         lastStreamActivityRef.current[panel.id] = Date.now();
-        chatStatesRef.current.delete(panel.id);
         hydrateChatState(chatStateFor(panel.id), panel.id, merged);
         reconcileStreaming(panel.id);
-        const completed = hasCompletedPromptResponse(refreshed.transcript, promptText, existingRemoteUsers);
-        if (completed) setSessionBusy(panel.id, false);
-        else if (!(panel.id in busyBySessionRef.current)) setSessionBusy(panel.id, true);
-        return completed;
       };
       try {
-        let refreshed = await window.openshell.prompt(target, promptText, files);
-        for (let attempt = 0; attempt < 1200 && panelFor(target); attempt += 1) {
-          if (applyCanonicalTranscript(refreshed)) break;
-          await new Promise((resolve) => setTimeout(resolve, 250));
-          refreshed = await window.openshell.sessionTranscript(panel.id);
-        }
+        const refreshed = await window.openshell.prompt(target, promptText, files);
+        if (panelFor(target)) applyCanonicalTranscript(refreshed);
       } catch (err) {
         if (panelFor(target)) {
           setSessionBusy(panel.id, false);
@@ -2461,7 +2451,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           break;
         }
         case "session.execution.started": {
-          if (targetSessionID) setSessionBusy(targetSessionID, true);
+          if (targetSessionID) {
+            const draft = chatStateFor(targetSessionID);
+            const previous = snapshotChatState(draft);
+            applyChatEvent(draft, targetSessionID, streamEvent);
+            syncStreaming(targetSessionID, previous);
+            setSessionBusy(targetSessionID, true);
+          }
           break;
         }
         case "session.execution.succeeded":

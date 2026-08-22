@@ -218,7 +218,7 @@ describe("store stream settle", () => {
     expect(store.busy).toBe(false);
   });
 
-  it("enters busy immediately on prompt submission and returns idle on its completed response", async () => {
+  it("keeps pushed execution state authoritative after prompt submission without polling history", async () => {
     await act(async () => { vi.advanceTimersByTime(61_500); });
     expect(store.busy).toBe(false);
 
@@ -226,6 +226,7 @@ describe("store stream settle", () => {
     window.openshell.prompt = vi.fn(() => new Promise<SessionTranscript>((resolve) => {
       finishPrompt = resolve;
     }));
+    window.openshell.sessionTranscript = vi.fn(async () => ({ transcript: [], todos: [] }));
 
     let submitted: Promise<void> | undefined;
     await act(async () => {
@@ -249,6 +250,17 @@ describe("store stream settle", () => {
         todos: []
       });
       await submitted;
+    });
+
+    expect(store.busy).toBe(true);
+    expect(window.openshell.sessionTranscript).not.toHaveBeenCalled();
+
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.execution.succeeded",
+        data: { id: "execution-done", created: Date.now(), data: { sessionID: store.activeSessionID } }
+      });
     });
 
     expect(store.busy).toBe(false);

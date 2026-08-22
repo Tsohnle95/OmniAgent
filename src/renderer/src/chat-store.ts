@@ -858,11 +858,16 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       }
       return true;
     }
-    case "session.execution.succeeded":
+    case "session.execution.started":
+      return setChatSessionStatus(draft, sessionID, { type: "busy" });
+    case "session.execution.succeeded": {
+      const completed = completeLatestIncomplete(draft, sessionID);
+      return setChatSessionStatus(draft, sessionID, { type: "idle" }) || completed;
+    }
     case "session.execution.failed":
     case "session.execution.interrupted": {
-      completeLatestIncomplete(draft, sessionID);
-      return true;
+      const completed = completeLatestIncomplete(draft, sessionID);
+      return setChatSessionStatus(draft, sessionID, { type: "error" }) || completed;
     }
     default:
       return false;

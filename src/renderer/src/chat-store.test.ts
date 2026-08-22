@@ -178,6 +178,23 @@ describe("applyChatEvent", () => {
     expect(draft.session_status.s).toEqual({ type: "idle" });
   });
 
+  it("keeps execution busy across tool steps until the execution terminal event", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("execution", "session.execution.started", { sessionID: "s" }));
+    expect(draft.session_status.s).toEqual({ type: "busy" });
+
+    applyChatEvent(draft, "s", event("step", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("tools", "session.step.ended", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      finish: "tool-calls"
+    }));
+    expect(draft.session_status.s).toEqual({ type: "busy" });
+
+    applyChatEvent(draft, "s", event("done", "session.execution.succeeded", { sessionID: "s" }));
+    expect(draft.session_status.s).toEqual({ type: "idle" });
+  });
+
   it("does not duplicate a delta already included in a message part snapshot", () => {
     const draft = state();
     draft.message.s = [{ id: "msg_1", sessionID: "s", role: "assistant", time: { created: 1 } }];

@@ -58,10 +58,10 @@ regressing longer live text.
 | `session.input.admitted` | Buffers user/synthetic input as an internal `pending-input`; it does not create a visible chat row |
 | `session.input.promoted` | Materializes the buffered input as the canonical user/synthetic timeline entry and reconciles an optimistic local user message by text |
 | `session.input.cancelled` | Discards the buffered input by `inputID` without removing a promoted chat message |
-| `session.execution.started` | Sets `busy = true`; activity is shown by the agent header rather than a transcript status bubble |
-| `session.execution.succeeded` | Sets `busy = false`, completes the active assistant, and clears retry state without adding transcript noise |
-| `session.execution.failed` | Sets `busy = false`, completes the active assistant, clears retry state, and adds an error status line |
-| `session.execution.interrupted` | Sets `busy = false`, completes the active assistant, clears retry state, and adds an error status line |
+| `session.execution.started` | Authoritatively marks both the chat session and composer busy; activity is shown by the agent header rather than a transcript status bubble |
+| `session.execution.succeeded` | Authoritatively marks the chat session and composer idle, completes the active assistant, and clears retry state without adding transcript noise |
+| `session.execution.failed` | Authoritatively marks the chat session non-busy with an error state, completes the active assistant, clears retry state, and adds an error status line |
+| `session.execution.interrupted` | Authoritatively marks the chat session non-busy with an error state, completes the active assistant, clears retry state, and adds an error status line |
 | `session.idle` | Sets `busy = false` and completes the active assistant |
 | `session.error` | Sets `busy = false` and completes the active assistant so a failed run cannot leave the composer stuck on the running/stop icon |
 | `session.status` | Mirrors OpenCode `busy` / `idle` / `retry` / `error`; an `error` status clears `busy` (and the chat store records a non-busy `error` status); retry details attach to the latest assistant. A retry carrying a `free_tier_limit` or `account_rate_limit` action appends an error `status` transcript item (`buildRateLimitNotice` in `src/renderer/src/chat-store.ts`) on the first attempt so the user sees the rate-limit reason and resolution link inline |
