@@ -57,6 +57,7 @@ export class DeepSeekStreamProjector {
   private readonly callMessages = new Map<string, string>();
   private readonly callViews = new Map<string, unknown>();
   private readonly blockCalls = new Map<string, string>();
+  private readonly subCalls = new Map<string, Map<string, Record<string, unknown>>>();
 
   project(sessionID: string, event: NativeEvent, view?: unknown): RuntimeEvent[] {
     const created = event.time ?? Date.now();
@@ -102,7 +103,32 @@ export class DeepSeekStreamProjector {
         output: content.filter((item) => item.type === "text").map((item) => String(item.text ?? "")).join("\n"),
         error: data.error,
         resultState: resultView,
-        metadata: { deepseek: { callView: this.callViews.get(callID), resultView } }
+        metadata: { deepseek: { callView: this.callViews.get(callID), resultView, subCalls: this.subCallList(callID) } }
+      }, created)];
+    }
+    if (event.type === "tool/code-dispatch-start" || event.type === "tool/code-dispatch") {
+      const rootCallID = String(data.rootCallId ?? "");
+      const subCallID = String(data.subCallId ?? "");
+      if (!rootCallID || !subCallID) return [];
+      const children = this.subCalls.get(rootCallID) ?? new Map<string, Record<string, unknown>>();
+      const content = blocks(data.content);
+      const failed = data.isError === true;
+      children.set(subCallID, {
+        id: subCallID,
+        title: String(data.name ?? "tool"),
+        detail: "",
+        status: event.type === "tool/code-dispatch-start" ? "running" : failed ? "failed" : "success",
+        inputValue: data.arguments,
+        input: JSON.stringify(data.arguments ?? {}, null, 2),
+        output: content.filter((item) => item.type === "text").map((item) => String(item.text ?? "")).join("\n"),
+        startedAt: created
+      });
+      this.subCalls.set(rootCallID, children);
+      return [stream("session.tool.progress", {
+        assistantMessageID: this.callMessages.get(rootCallID) ?? assistantMessageID,
+        callID: rootCallID,
+        progress: event.type === "tool/code-dispatch-start" ? "Running delegated command" : undefined,
+        metadata: { deepseek: { callView: this.callViews.get(rootCallID), subCalls: this.subCallList(rootCallID) } }
       }, created)];
     }
     if (event.type === "llm/retry") {
@@ -118,6 +144,10 @@ export class DeepSeekStreamProjector {
       ];
     }
     return [];
+  }
+
+  private subCallList(callID: string): Record<string, unknown>[] {
+    return [...(this.subCalls.get(callID)?.values() ?? [])];
   }
 
   private chunk(sessionID: string, assistantMessageID: string, chunk: Record<string, unknown> | null, created: number): RuntimeEvent[] {

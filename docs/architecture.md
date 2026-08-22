@@ -75,7 +75,9 @@ used by OpenCode. Text, reasoning, and tool arguments append through the
 shared renderer store while final records authoritatively reconcile streamed
 parts. Native Tool call/result views remain attached as provider metadata so
 the timeline can honor terminal, read, search, web, and diff intent without
-inferring a weaker approximation. Prompt submission does not poll or repeatedly
+inferring a weaker approximation. Code-dispatch start/result records remain
+nested beneath their root call and use the same themed Tool renderer at every
+depth. Prompt submission does not poll or repeatedly
 hydrate history; snapshots are reserved for open, materialization, and
 reconnect recovery. Its manifest currently advertises only implemented
 features: model selection and session resume. Attachments, commands, steering,

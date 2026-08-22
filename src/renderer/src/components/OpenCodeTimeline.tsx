@@ -754,7 +754,25 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   const presentation = toolPresentation(tool);
   const output = tool.output ?? "";
   const files = tool.content?.filter((item) => item.type === "file") ?? [];
-  const expandable = tool.status !== "running" && (output.length > 0 || files.length > 0);
+  const native = tool.metadata?.deepseek;
+  const nativeRecord = native && typeof native === "object" && !Array.isArray(native) ? native as Record<string, unknown> : null;
+  const subCalls = Array.isArray(nativeRecord?.subCalls) ? nativeRecord.subCalls.flatMap((item): ToolCallView[] => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const value = item as Record<string, unknown>;
+    if (typeof value.id !== "string" || typeof value.title !== "string") return [];
+    const status = value.status === "success" || value.status === "failed" ? value.status : "running";
+    return [{
+      id: value.id,
+      title: value.title,
+      detail: typeof value.detail === "string" ? value.detail : "",
+      status,
+      ...(typeof value.input === "string" ? { input: value.input } : {}),
+      ...(value.inputValue !== undefined ? { inputValue: value.inputValue } : {}),
+      ...(typeof value.output === "string" ? { output: value.output } : {}),
+      ...(typeof value.startedAt === "number" ? { startedAt: value.startedAt } : {})
+    }];
+  }) : [];
+  const expandable = subCalls.length > 0 || tool.status !== "running" && (output.length > 0 || files.length > 0);
   const truncated = output.length > OUTPUT_LIMIT;
   const activateSubtitle = (): void => {
     if (!presentation.path) return;
@@ -821,6 +839,11 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
                     <span data-slot="tool-file-mime">{file.mime}</span>
                   </ExternalLink>
                 ))}
+              </div>
+            )}
+            {subCalls.length > 0 && (
+              <div data-component="nested-tool-calls">
+                {subCalls.map((subCall) => <ToolPart tool={subCall} session={session} key={subCall.id} />)}
               </div>
             )}
           </div>

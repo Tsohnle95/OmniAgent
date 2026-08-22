@@ -273,7 +273,8 @@ Key mechanisms:
   paced while streamed reasoning stays ordered behind a collapsed Thinking
   disclosure and is rendered only when the user expands it; the generic
   TextShimmer Thinking row appears only before any renderable part; adjacent read/glob/grep/list
-  parts group across assistant messages into Exploring/Explored; task calls use
+  parts group across assistant messages into Exploring/Explored; recursive
+  DeepSeek code dispatches stay nested beneath their root call; task calls use
   OpenCode's agent-colored delegation card and todo writes are hidden from the
   transcript in favor of the live prompt-dock checklist; edit/patch parts with
   `metadata.files` render a dedicated diff card (full path, +/− stat chips,

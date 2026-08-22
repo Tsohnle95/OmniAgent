@@ -71,4 +71,42 @@ describe("DeepSeekStreamProjector", () => {
     ]);
     expect(values[1]).toMatchObject({ data: { attempt: 2, at: 530, error: { code: "TRANSPORT", message: "reset" } } });
   });
+
+  it("keeps code dispatches nested under their root tool", () => {
+    const projector = new DeepSeekStreamProjector();
+    projector.project("s1", event("tool/call", 1, {
+      turn: 1,
+      step: 0,
+      callId: "root",
+      name: "run_code",
+      arguments: "{}"
+    }));
+    projector.project("s1", event("tool/code-dispatch-start", 2, {
+      turn: 1,
+      step: 0,
+      rootCallId: "root",
+      parentCallId: "root",
+      subCallId: "child",
+      name: "read",
+      arguments: { file_path: "README.md" }
+    }));
+    const values = projector.project("s1", event("tool/code-dispatch", 3, {
+      turn: 1,
+      step: 0,
+      rootCallId: "root",
+      parentCallId: "root",
+      subCallId: "child",
+      name: "read",
+      arguments: { file_path: "README.md" },
+      content: [{ type: "text", text: "hello" }]
+    }));
+    expect(values[0]).toMatchObject({
+      type: "stream.event",
+      eventType: "session.tool.progress",
+      data: {
+        callID: "root",
+        metadata: { deepseek: { subCalls: [{ id: "child", title: "read", status: "success", output: "hello" }] } }
+      }
+    });
+  });
 });
