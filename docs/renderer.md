@@ -297,8 +297,11 @@ Key mechanisms:
   text on a three-frame visual throttle. Native
   deltas appear immediately; a one-shot summary is never made to resemble token
   streaming. The full accumulated progress is rendered only when the user
-  expands it. Bottom-follow corrections run before paint for transcript changes,
-  with the resize observer retained for asynchronous content layout. The separate
+  expands it. Bottom-follow mirrors Harness semantics: a stable signature follows
+  new business rows and turn-state changes before paint, while a resize observer
+  follows actual streamed height growth only while the reader remains at the
+  floor. Programmatic positions are tracked separately so inertial or deliberate
+  reader scrolling is not mistaken for stream movement. The separate
   `Deep diving...` turn status remains visible for the whole active turn. Adjacent read/glob/grep/list
   parts remain individually visible across assistant messages; recursive
   DeepSeek code dispatches stay nested beneath their root call; task calls use

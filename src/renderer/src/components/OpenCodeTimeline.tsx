@@ -279,6 +279,7 @@ function ReasoningPart({
       >
         <span data-slot="reasoning-part-icon" className="codicon codicon-lightbulb" />
         <span data-slot="reasoning-part-title">Think</span>
+        {summary && <span data-slot="reasoning-part-separator" aria-hidden="true" />}
         {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
         <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
       </button>

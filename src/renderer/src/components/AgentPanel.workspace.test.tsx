@@ -1,9 +1,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionInfo } from "@shared/types";
+import type { SessionInfo, TranscriptItem } from "@shared/types";
 
 let currentSession: SessionInfo;
+let panelTranscript: TranscriptItem[];
+let resizeCallback: ResizeObserverCallback | undefined;
 const selectPanelDirectoryMock = vi.fn(async () => {});
 const reopenSessionMock = vi.fn(async () => {});
 
@@ -34,7 +36,7 @@ vi.mock("../store", () => ({
   usePanel: () => ({
     session: currentSession,
     busy: currentSession.id === "working",
-    transcript: [],
+    transcript: panelTranscript,
     todos: [],
     sessionUsage: null,
     models: [],
@@ -68,6 +70,15 @@ describe("composer workspace continuations", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     currentSession = session("one", 1);
+    panelTranscript = [];
+    resizeCallback = undefined;
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallback = callback;
+      }
+      observe() {}
+      disconnect() {}
+    });
     selectPanelDirectoryMock.mockClear();
     reopenSessionMock.mockClear();
     container = document.createElement("div");
@@ -111,6 +122,30 @@ describe("composer workspace continuations", () => {
 
     expect(container.querySelector(".agent-status-dot.working")).not.toBeNull();
     expect(container.querySelector(".agent-status-text")?.textContent).toBe("running command");
+  });
+
+  it("follows resized stream content only until the reader scrolls away", async () => {
+    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    const scroll = container.querySelector<HTMLDivElement>(".agent-scroll")!;
+    Object.defineProperties(scroll, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 500, writable: true },
+      scrollTop: { configurable: true, value: 0, writable: true }
+    });
+
+    panelTranscript = [{ kind: "user", id: "user-1", text: "Inspect" }];
+    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    expect(scroll.scrollTop).toBe(500);
+
+    Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 700, writable: true });
+    await act(async () => resizeCallback?.([], {} as ResizeObserver));
+    expect(scroll.scrollTop).toBe(700);
+
+    scroll.scrollTop = 300;
+    await act(async () => scroll.dispatchEvent(new Event("scroll")));
+    Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 900, writable: true });
+    await act(async () => resizeCallback?.([], {} as ResizeObserver));
+    expect(scroll.scrollTop).toBe(300);
   });
 
   it("returns from a child agent session to its parent", async () => {

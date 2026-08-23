@@ -1153,8 +1153,8 @@ export function AgentPanel({
   const view = usePanel(activeSession?.workspace);
   const { busy, todos, transcript, sessionUsage, currentModel, turnStartedAt, assistantStatus } = view;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
-  const scrollFrameRef = useRef<number | null>(null);
+  const atBottomRef = useRef(true);
+  const observedTopRef = useRef(0);
   const headerRef = useRef<HTMLDivElement>(null);
   const panelDragRef = useRef<number | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
@@ -1229,45 +1229,45 @@ export function AgentPanel({
     [transcript]
   );
 
-  const scheduleScrollToBottom = (): void => {
-    if (!stickRef.current || scrollFrameRef.current !== null) return;
-    scrollFrameRef.current = requestAnimationFrame(() => {
-      scrollFrameRef.current = null;
-      const el = scrollRef.current;
-      if (!el || !stickRef.current) return;
-      el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
-    });
-  };
-
   const scrollToBottom = (): void => {
     const el = scrollRef.current;
-    if (!el || !stickRef.current) return;
-    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    observedTopRef.current = el.scrollTop;
+    atBottomRef.current = true;
   };
 
+  const transcriptTip = transcript.at(-1);
+  const transcriptTipParts = transcriptTip?.kind === "assistant" ? transcriptTip.parts.length : 0;
+  const followSignature = `${transcript.length}:${transcriptTip?.id ?? ""}:${transcriptTipParts}:${busy ? 1 : 0}`;
+
   useLayoutEffect(() => {
-    scrollToBottom();
-  }, [transcript, busy]);
+    if (atBottomRef.current) scrollToBottom();
+  }, [followSignature]);
 
   useEffect(() => {
     const el = scrollRef.current;
     const content = el?.querySelector<HTMLElement>('[data-slot="session-turn-list"]');
     if (!el || !content || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => scheduleScrollToBottom());
+    const observer = new ResizeObserver(() => {
+      if (atBottomRef.current) scrollToBottom();
+    });
     observer.observe(content);
-    return () => {
-      observer.disconnect();
-      if (scrollFrameRef.current !== null) {
-        cancelAnimationFrame(scrollFrameRef.current);
-        scrollFrameRef.current = null;
-      }
-    };
+    return () => observer.disconnect();
   }, []);
 
   const onScroll = (): void => {
     const el = scrollRef.current;
     if (!el) return;
-    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    const floor = Math.max(0, el.scrollHeight - el.clientHeight);
+    const movedByReader = Math.abs(el.scrollTop - Math.min(observedTopRef.current, floor)) > 0.5;
+    const atBottom = movedByReader ? floor - el.scrollTop <= 25 : atBottomRef.current;
+    if (!movedByReader && atBottom) {
+      scrollToBottom();
+      return;
+    }
+    atBottomRef.current = atBottom;
+    observedTopRef.current = el.scrollTop;
   };
 
   return (
