@@ -80,8 +80,8 @@ export function installApp(options = {}) {
     return { ok: false, message: "Packaging did not produce an OmniAgent.app bundle under release/" };
   }
 
-  run("codesign", ["--force", "--deep", "--sign", "-", built]);
   applyLiveLauncher(built, projectRoot, options.liveLauncherIo);
+  run("codesign", ["--force", "--deep", "--sign", "-", built]);
 
   if (packOnly) {
     return { ok: true, message: `Packaged ${path.relative(projectRoot, built)}` };

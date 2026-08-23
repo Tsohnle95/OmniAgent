@@ -19,8 +19,10 @@ function harness(platform: NodeJS.Platform, existing: Record<string, boolean> = 
   const invocations: Invocation[] = [];
   const removed: string[] = [];
   const launcherOps: string[] = [];
+  const timeline: string[] = [];
   const execFileSync = (file: string, args: string[], options: Invocation["options"]) => {
     invocations.push({ file, args: [...args], options });
+    timeline.push(file);
     return { status: 0, stdout: "", stderr: "" };
   };
   const existsSync = (p: string) => existing[p] ?? p === path.join(root, "release");
@@ -34,16 +36,29 @@ function harness(platform: NodeJS.Platform, existing: Record<string, boolean> = 
     return ["mac-arm64"];
   };
   const liveLauncherIo = {
-    rm: (target: string) => launcherOps.push(`rm ${target}`),
-    mkdir: (target: string) => launcherOps.push(`mkdir ${target}`),
-    copy: (from: string, to: string) => launcherOps.push(`copy ${from} -> ${to}`),
-    write: (target: string) => launcherOps.push(`write ${target}`)
+    rm: (target: string) => {
+      launcherOps.push(`rm ${target}`);
+      timeline.push(`io rm ${path.relative(root, target)}`);
+    },
+    mkdir: (target: string) => {
+      launcherOps.push(`mkdir ${target}`);
+      timeline.push(`io mkdir ${path.relative(root, target)}`);
+    },
+    copy: (from: string, to: string) => {
+      launcherOps.push(`copy ${from} -> ${to}`);
+      timeline.push(`io copy ${path.basename(to)}`);
+    },
+    write: (target: string) => {
+      launcherOps.push(`write ${target}`);
+      timeline.push(`io write ${path.basename(target)}`);
+    }
   };
   return {
     run: (packOnly = false) => installApp({ platform, root, packOnly, execFileSync, existsSync, rmSync, readdirSync, liveLauncherIo }),
     invocations,
     removed,
-    launcherOps
+    launcherOps,
+    timeline
   };
 }
 
@@ -94,6 +109,15 @@ describe("pack and install app script", () => {
     expect(invocations[2].file).toBe("codesign");
     expect(removed).toEqual([]);
     expect(launcherOps).toEqual(expectedLauncherOps());
+  });
+
+  it("swaps in the live launcher before signing so the bundle verifies", () => {
+    const { run, timeline } = harness("darwin", { [builderCli]: true, [builtApp]: true });
+    run(true);
+    const viteBuild = path.join(root, "node_modules", "electron-vite", "bin", "electron-vite.js");
+    expect(timeline.indexOf(viteBuild)).toBeLessThan(timeline.indexOf("codesign"));
+    expect(timeline.indexOf("io copy live-launcher.cjs")).toBeLessThan(timeline.indexOf("codesign"));
+    expect(timeline[timeline.length - 1]).toBe("codesign");
   });
 
   it("does not remove a missing destination before installing", () => {
