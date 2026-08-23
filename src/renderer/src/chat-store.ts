@@ -363,10 +363,19 @@ function basePart(messageID: string, sessionID: string, partID: string, type: st
   };
 }
 
-function textSnapshot(messageID: string, sessionID: string, partID: string, type: "text" | "reasoning", text: string, created: number): ChatPartRecord {
+function textSnapshot(
+  messageID: string,
+  sessionID: string,
+  partID: string,
+  type: "text" | "reasoning",
+  text: string,
+  created: number,
+  state?: Record<string, unknown>
+): ChatPartRecord {
   return {
     ...basePart(messageID, sessionID, partID, type, created),
     text,
+    ...(state ? { state } : {}),
     time: { created, completed: created }
   };
 }
@@ -647,15 +656,26 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       const partID = textPartID(messageID, "text", data.ordinal);
       const parts = draft.part[messageID] ?? [];
       const existing = Binary.search(parts, partID, (part) => part.id);
+      const state = data.state && typeof data.state === "object"
+        ? data.state as Record<string, unknown>
+        : undefined;
       if (!existing.found) {
-        insertPart(draft, textSnapshot(messageID, sessionID, partID, "text", String(data.text ?? ""), event.created));
+        insertPart(draft, textSnapshot(messageID, sessionID, partID, "text", String(data.text ?? ""), event.created, state));
         return true;
       }
       const previous = parts[existing.index];
       const previousText = typeof previous.text === "string" ? previous.text : "";
       const nextText = String(data.text ?? "");
       return upsertPart(draft, {
-        ...textSnapshot(messageID, sessionID, partID, "text", nextText.length >= previousText.length ? nextText : previousText, event.created),
+        ...textSnapshot(
+          messageID,
+          sessionID,
+          partID,
+          "text",
+          nextText.length >= previousText.length ? nextText : previousText,
+          event.created,
+          state ?? previous.state
+        ),
         time: { created: previous.time?.created ?? event.created, completed: event.created }
       });
     }

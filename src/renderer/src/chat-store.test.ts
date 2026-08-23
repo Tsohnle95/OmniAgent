@@ -161,6 +161,38 @@ describe("applyChatEvent", () => {
     });
   });
 
+  it("projects OpenCode commentary text as real Think progress", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("text", "session.text.ended", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      ordinal: 0,
+      text: "Stage 1: Inspecting components",
+      state: { phase: "commentary" }
+    }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "reasoning", text: "Stage 1: Inspecting components", complete: true }]
+    });
+  });
+
+  it("keeps final-answer text out of the Think line", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("text", "session.text.ended", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      ordinal: 0,
+      text: "Final response",
+      state: { phase: "final_answer" }
+    }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "text", text: "Final response", complete: true }]
+    });
+  });
+
   it("uses step and final-message records as authoritative turn status", () => {
     const draft = state();
     applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));

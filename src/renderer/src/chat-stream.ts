@@ -117,8 +117,9 @@ export function partFromProjection(part: Record<string, any>, created: number): 
   const id = String(part.id ?? "");
   if (!id) return null;
   if (part.type === "text" || part.type === "reasoning") {
+    const commentary = part.type === "text" && part.state?.phase === "commentary";
     return {
-      kind: part.type,
+      kind: commentary ? "reasoning" : part.type,
       id,
       text: String(part.text ?? ""),
       complete: Boolean(part.time?.end ?? part.time?.completed)
