@@ -6,9 +6,6 @@ import type { ToolCallView, TranscriptItem, SessionSummary, SessionInfo } from "
 import { ExternalLink } from "./ExternalLink";
 
 const OUTPUT_LIMIT = 6000;
-const TEXT_RENDER_PACE_MS = 24;
-const TEXT_RENDER_IMMEDIATE = 512;
-const TEXT_RENDER_SNAP = /[\s.,!?;:)\]]/;
 
 type AssistantItem = Extract<TranscriptItem, { kind: "assistant" }>;
 type AssistantPart = AssistantItem["parts"][number];
@@ -68,74 +65,6 @@ const TurnStatus = memo(function TurnStatus({ startTime }: { startTime?: number 
   );
 });
 
-function paceStep(size: number): number {
-  if (size <= 12) return 2;
-  if (size <= 48) return 4;
-  if (size <= 96) return 8;
-  return Math.min(256, Math.ceil(size / 4));
-}
-
-function paceEnd(text: string, start: number): number {
-  const end = Math.min(text.length, start + paceStep(text.length - start));
-  const max = Math.min(text.length, end + 8);
-  for (let index = end; index < max; index += 1) {
-    if (TEXT_RENDER_SNAP.test(text[index] ?? "")) return index + 1;
-  }
-  return end;
-}
-
-function usePacedText(text: string, live: boolean): string {
-  const [value, setValue] = useState(text);
-  const sourceRef = useRef(text);
-  const shownRef = useRef(text);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  sourceRef.current = text;
-
-  useEffect(() => {
-    const clear = (): void => {
-      if (timerRef.current === null) return;
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    };
-    const sync = (next: string): void => {
-      shownRef.current = next;
-      setValue(next);
-    };
-    const run = (): void => {
-      timerRef.current = null;
-      const next = sourceRef.current;
-      if (!live || !next.startsWith(shownRef.current) || next.length <= shownRef.current.length) {
-        sync(next);
-        return;
-      }
-      if (next.length - shownRef.current.length <= TEXT_RENDER_IMMEDIATE) {
-        sync(next);
-        return;
-      }
-      const end = paceEnd(next, shownRef.current.length);
-      sync(next.slice(0, end));
-      if (end < next.length) timerRef.current = setTimeout(run, TEXT_RENDER_PACE_MS);
-    };
-
-    if (!live || !text.startsWith(shownRef.current) || text.length < shownRef.current.length) {
-      clear();
-      sync(text);
-      return clear;
-    }
-    if (text.length - shownRef.current.length <= TEXT_RENDER_IMMEDIATE) {
-      clear();
-      sync(text);
-      return clear;
-    }
-    if (text.length !== shownRef.current.length && timerRef.current === null) {
-      timerRef.current = setTimeout(run, TEXT_RENDER_PACE_MS);
-    }
-    return clear;
-  }, [text, live]);
-
-  return value;
-}
-
 const CODE_TOKEN_PATTERN = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|\b(?:as|async|await|break|case|catch|class|const|continue|def|else|export|extends|for|from|function|if|import|in|interface|let|new|of|return|static|switch|throw|try|type|var|while|with|yield)\b|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*(?=\s*\())/g;
 const CODE_KEYWORDS = new Set([
   "as", "async", "await", "break", "case", "catch", "class", "const", "continue", "def", "else", "export",
@@ -190,11 +119,10 @@ const MARKDOWN_COMPONENTS: Components = {
 };
 
 function Markdown({ text, streaming }: { text: string; streaming: boolean }): ReactNode {
-  const value = usePacedText(text, streaming);
-  if (!value) return null;
+  if (!text) return null;
   return (
     <div data-component="markdown" data-streaming={streaming ? "true" : "false"}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{value}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
     </div>
   );
 }
@@ -285,7 +213,7 @@ function ReasoningPart({
       </button>
       {open && (
         <div data-slot="reasoning-part-content" id={contentID} onClick={() => setOpen(false)}>
-          <Markdown text={part.text} streaming={active} />
+          {part.text}
         </div>
       )}
     </div>
@@ -1071,118 +999,69 @@ function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }>
   );
 }
 
-type TurnPart = { item: AssistantItem; part: AssistantPart };
-
-function mergedTurnReasoning(items: AssistantItem[], id: string): Extract<AssistantPart, { kind: "reasoning" }> | null {
-  const reasoning = items
-    .flatMap((item) => item.parts)
-    .filter((part): part is Extract<AssistantPart, { kind: "reasoning" }> => part.kind === "reasoning");
-  const text = reasoning
-    .map((part) => part.text.trim())
-    .filter((part, index, parts) => part && part !== parts[index - 1])
-    .join("\n\n");
-  return reasoning.length > 0 ? {
-    ...reasoning[0],
-    id,
-    text,
-    complete: reasoning.every((part) => part.complete)
-  } : null;
-}
-
-function ReasoningRow({
-  part,
+function AssistantNode({
+  item,
   streaming,
-  previous = false
+  session
 }: {
-  part: Extract<AssistantPart, { kind: "reasoning" }>;
-  streaming: boolean;
-  previous?: boolean;
-}): ReactNode {
-  return (
-    <TimelineRow tag="AssistantPart" previous={previous}>
-      <div data-slot="session-turn-assistant-content">
-        <ReasoningPart part={part} streaming={streaming} />
-      </div>
-    </TimelineRow>
-  );
-}
-
-function AssistantTurn({
-  items,
-  streaming,
-  session,
-  reasoningDeferred = false
-}: {
-  items: AssistantItem[];
+  item: AssistantItem;
   streaming: boolean;
   session: SessionInfo | null;
-  reasoningDeferred?: boolean;
 }): ReactNode {
   const rows: ReactNode[] = [];
-  const parts: TurnPart[] = items.flatMap((item) => item.parts
-    .filter((part) => part.kind === "tool" || Boolean(part.text.trim()))
-    .filter((part) => part.kind !== "tool" || toolKey(part.tool.title) !== "todowrite")
-    .map((part) => ({ item, part })));
-  const mergedReasoning = reasoningDeferred ? null : mergedTurnReasoning(items, `turn-reasoning:${items[0]?.id ?? "assistant"}`);
+  const visibleParts = item.parts.filter((part) =>
+    part.kind === "tool"
+      ? toolKey(part.tool.title) !== "todowrite"
+      : Boolean(part.text.trim())
+  );
+  const lastPart = visibleParts.at(-1);
+  const prose = visibleParts.filter((part) => part.kind !== "tool");
   let previous = false;
-  let reasoningRendered = false;
-  const renderReasoning = (): void => {
-    if (!mergedReasoning || reasoningRendered) return;
-    rows.push(<ReasoningRow part={mergedReasoning} streaming={streaming} previous={previous} key={mergedReasoning.id} />);
+  if (prose.length > 0) {
+    rows.push(
+      <TimelineRow tag="AssistantMessage" key={`${item.id}:message`}>
+        <div data-slot="session-turn-assistant-content" data-component="assistant-message-blocks">
+          {prose.map((part) => part.kind === "reasoning"
+            ? <ReasoningPart part={part} streaming={streaming && part.id === lastPart?.id} key={part.id} />
+            : <TextPart part={part} streaming={streaming} key={part.id} />)}
+        </div>
+      </TimelineRow>
+    );
     previous = true;
-    reasoningRendered = true;
-  };
-  for (let index = 0; index < parts.length; index += 1) {
-    const { item, part } = parts[index];
-    if (part.kind === "tool") {
-      rows.push(
-        <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
-          <div data-slot="session-turn-assistant-content">
-            {isEditCardTool(part.tool)
-              ? <EditToolCard tool={part.tool} session={session} />
-              : <ToolPart tool={part.tool} session={session} />}
-          </div>
-        </TimelineRow>
-      );
-      previous = true;
-      continue;
-    }
-    if (part.kind === "reasoning") {
-      continue;
-    }
-    if (part.kind !== "text" || !part.text) continue;
-    renderReasoning();
+  }
+  for (const part of visibleParts) {
+    if (part.kind !== "tool") continue;
     rows.push(
       <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
         <div data-slot="session-turn-assistant-content">
-          <TextPart part={part} streaming={streaming && item.id === items.at(-1)?.id} />
+          {isEditCardTool(part.tool)
+            ? <EditToolCard tool={part.tool} session={session} />
+            : <ToolPart tool={part.tool} session={session} />}
         </div>
       </TimelineRow>
     );
     previous = true;
   }
-  renderReasoning();
 
-  const latest = items.at(-1);
-  if (latest?.retry) {
+  if (item.retry) {
     rows.push(
-      <TimelineRow tag="Retry" previous key={`${latest.id}:retry`}>
+      <TimelineRow tag="Retry" previous key={`${item.id}:retry`}>
         <div data-slot="session-turn-retry">
           <span className="spinner" />
           <div>
-            <div data-slot="session-turn-retry-message">{latest.retry.message.slice(0, 80)}</div>
-            <div data-slot="session-turn-retry-info">Retrying · attempt {latest.retry.attempt}</div>
+            <div data-slot="session-turn-retry-message">{item.retry.message.slice(0, 80)}</div>
+            <div data-slot="session-turn-retry-info">Retrying · attempt {item.retry.attempt}</div>
           </div>
         </div>
       </TimelineRow>
     );
   }
-  if (latest?.error) {
+  if (item.error) {
     rows.push(
-      <TimelineRow tag="Error" previous key={`${latest.id}:error`}>
+      <TimelineRow tag="Error" previous key={`${item.id}:error`}>
         <div data-component="session-note" data-tone="error">
           <span className="codicon codicon-error" data-slot="session-note-icon" />
-          <span data-slot="session-note-text">{latest.error.replace(/^Error:\s*/, "")}</span>
+          <span data-slot="session-note-text">{item.error.replace(/^Error:\s*/, "")}</span>
         </div>
       </TimelineRow>
     );
@@ -1212,20 +1091,6 @@ function buildTurns(timeline: VisibleTimelineItem[]): TimelineTurn[] {
     current.body.push(item);
   }
   return turns;
-}
-
-function contiguousBodyRuns(body: TimelineTurn["body"]): Array<AssistantItem[] | Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>> {
-  const runs: Array<AssistantItem[] | Exclude<VisibleTimelineItem, { kind: "user" | "assistant" }>> = [];
-  for (const item of body) {
-    if (item.kind !== "assistant") {
-      runs.push(item);
-      continue;
-    }
-    const previous = runs.at(-1);
-    if (Array.isArray(previous)) previous.push(item);
-    else runs.push([item]);
-  }
-  return runs;
 }
 
 function TimelineEvent({
@@ -1407,11 +1272,6 @@ export function OpenCodeTimeline({
     return visible;
   }, [consolidatedTranscript, representedSubagents, store.sessions, activeSession?.id]);
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
-  const activeTurn = busy ? turns.at(-1) : undefined;
-  const activeAssistantItems = activeTurn?.body.filter((item): item is AssistantItem => item.kind === "assistant") ?? [];
-  const activeReasoning = activeTurn && activeAssistantItems.some((item) => item.id === lastAssistantId)
-    ? mergedTurnReasoning(activeAssistantItems, `active-turn-reasoning:${activeTurn.id}`)
-    : null;
 
   return (
     <div data-slot="session-turn-list" className="opencode-timeline">
@@ -1420,19 +1280,17 @@ export function OpenCodeTimeline({
           <div data-component="session-turn-group" key={turn.id}>
             {turn.user && index > 0 && <div data-timeline-row="TurnGap" aria-hidden="true" />}
             {turn.user && <UserMessage item={turn.user} />}
-            {contiguousBodyRuns(turn.body).map((run) => Array.isArray(run)
-              ? <AssistantTurn
-                  items={run}
-                  streaming={busy && run.some((item) => item.id === lastAssistantId)}
+            {turn.body.map((item) => item.kind === "assistant"
+              ? <AssistantNode
+                  item={item}
+                  streaming={busy && item.id === lastAssistantId}
                   session={activeSession}
-                  reasoningDeferred={turn === activeTurn && Boolean(activeReasoning)}
-                  key={`assistant:${run[0].id}`}
+                  key={`assistant:${item.id}`}
                 />
-              : <TimelineEvent item={run} session={activeSession} key={run.id} />)}
+              : <TimelineEvent item={item} session={activeSession} key={item.id} />)}
           </div>
         );
       })}
-      {activeReasoning && <ReasoningRow part={activeReasoning} streaming previous key={activeReasoning.id} />}
       {busy && <TurnStatus key="turn-status" startTime={turnStartedAt} />}
     </div>
   );

@@ -1032,7 +1032,12 @@ export function hydrateChatState(draft: ChatDirectoryState, sessionID: string, t
         const previousStatus = getToolStatus(previous);
         const previousFinished = Boolean(previousStatus && FINAL_TOOL_STATUSES.has(previousStatus));
         next[partResult.index] = previousFinished
-          ? previous
+          ? {
+              ...previous,
+              ...(record.name ? { name: record.name } : {}),
+              state: { ...record.state, ...previous.state },
+              time: { ...record.time, ...previous.time }
+            }
           : { ...previous, ...record, state: { ...previous.state, ...record.state }, time: { ...previous.time, ...record.time } };
       } else if ((previous.type === "text" || previous.type === "reasoning") && record.type === previous.type) {
         next[partResult.index] = {

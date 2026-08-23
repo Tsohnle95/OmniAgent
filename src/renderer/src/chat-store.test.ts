@@ -524,4 +524,40 @@ describe("tool part id aliasing", () => {
     expect(draft.part.msg_1).toHaveLength(1);
     expect(String(draft.part.msg_1[0].state?.output)).toBe("done");
   });
+
+  it("enriches a finished generic live tool with its authoritative history name", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("input", "session.tool.input.started", { sessionID: "s", assistantMessageID: "msg_1", callID: "call_1" }));
+    applyChatEvent(draft, "s", event("done", "session.tool.success", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      callID: "call_1",
+      output: "file contents"
+    }));
+
+    hydrateChatState(draft, "s", [{
+      kind: "assistant",
+      id: "msg_1",
+      messageID: "msg_1",
+      completed: true,
+      parts: [{
+        kind: "tool",
+        id: "call_1",
+        tool: {
+          id: "call_1",
+          title: "read",
+          detail: "README.md",
+          status: "success",
+          input: JSON.stringify({ path: "/repo/README.md" }),
+          inputValue: { path: "/repo/README.md" },
+          output: "file contents"
+        }
+      }]
+    }]);
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "tool", tool: { title: "read", status: "success", output: "file contents" } }]
+    });
+  });
 });

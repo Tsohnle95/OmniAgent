@@ -229,7 +229,7 @@ describe("OpenCodeTimeline chronology", () => {
     vi.useRealTimers();
   });
 
-  it("consolidates adjacent reasoning into one thought without repeating snapshots", () => {
+  it("renders reasoning blocks independently in their assistant node", () => {
     const transcript: TranscriptItem[] = [{
       kind: "assistant",
       id: "assistant-reasoning",
@@ -243,12 +243,16 @@ describe("OpenCodeTimeline chronology", () => {
     }];
     act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
 
-    expect(container.querySelectorAll("[data-component='reasoning-part']")).toHaveLength(1);
-    act(() => container.querySelector<HTMLButtonElement>("[data-slot='reasoning-part-trigger']")!.click());
-    expect(container.querySelector("[data-slot='reasoning-part-content']")?.textContent).toBe("Inspecting the code\nPlanning the fix");
+    const thoughts = container.querySelectorAll("[data-component='reasoning-part']");
+    expect(thoughts).toHaveLength(3);
+    expect(Array.from(thoughts, (thought) => thought.querySelector("[data-slot='reasoning-part-summary']")?.textContent)).toEqual([
+      "Inspecting the code",
+      "Inspecting the code",
+      "Planning the fix"
+    ]);
   });
 
-  it("keeps one stable live thought across tools and assistant steps", () => {
+  it("keeps assistant steps as stable keyed nodes while their own reasoning changes", () => {
     const first: TranscriptItem = {
       kind: "assistant",
       id: "assistant-reasoning",
@@ -268,9 +272,10 @@ describe("OpenCodeTimeline chronology", () => {
     };
     act(() => root.render(<OpenCodeTimeline transcript={[first, second]} busy lastAssistantId="assistant-commentary" />));
 
-    const thought = container.querySelector("[data-component='reasoning-part']");
-    expect(container.querySelectorAll("[data-component='reasoning-part']")).toHaveLength(1);
-    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("After");
+    const thoughts = container.querySelectorAll("[data-component='reasoning-part']");
+    const thought = thoughts[1];
+    expect(thoughts).toHaveLength(2);
+    expect(thought.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("After");
 
     const latest = {
       ...second,
@@ -278,11 +283,12 @@ describe("OpenCodeTimeline chronology", () => {
     };
     act(() => root.render(<OpenCodeTimeline transcript={[first, latest]} busy lastAssistantId="assistant-commentary" />));
 
-    expect(container.querySelector("[data-component='reasoning-part']")).toBe(thought);
-    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Latest");
+    const updatedThoughts = container.querySelectorAll("[data-component='reasoning-part']");
+    expect(updatedThoughts[1]).toBe(thought);
+    expect(updatedThoughts[1].querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Latest");
   });
 
-  it("keeps the active Think row at the bottom as output and events grow", () => {
+  it("keeps reasoning at its chronological node instead of moving it to a synthetic footer", () => {
     const live = assistant("assistant-live") as Extract<TranscriptItem, { kind: "assistant" }>;
     live.completed = false;
     live.parts = [
@@ -296,7 +302,7 @@ describe("OpenCodeTimeline chronology", () => {
 
     const list = container.querySelector("[data-slot='session-turn-list']")!;
     const thought = container.querySelector("[data-component='reasoning-part']");
-    expect(list.children[list.children.length - 2].querySelector("[data-component='reasoning-part']")).toBe(thought);
+    expect(list.firstElementChild?.querySelector("[data-component='reasoning-part']")).toBe(thought);
     expect(list.lastElementChild?.matches("[data-component='turn-status']")).toBe(true);
 
     live.parts = [
@@ -308,8 +314,33 @@ describe("OpenCodeTimeline chronology", () => {
     ));
 
     expect(container.querySelector("[data-component='reasoning-part']")).toBe(thought);
-    expect(list.children[list.children.length - 2].querySelector("[data-component='reasoning-part']")).toBe(thought);
-    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Comparing");
+    expect(list.firstElementChild?.querySelector("[data-component='reasoning-part']")).toBe(thought);
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Inspecting");
+  });
+
+  it("marks reasoning as running only when it is the streaming tail block", () => {
+    const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.parts = [
+      { kind: "reasoning", id: "reasoning-1", text: "Inspecting", complete: false },
+      { kind: "text", id: "text-1", text: "Visible update", complete: false }
+    ];
+    act(() => root.render(<OpenCodeTimeline transcript={[live]} busy lastAssistantId="assistant-reasoning" />));
+
+    expect(container.querySelector("[data-component='reasoning-part']")?.getAttribute("data-state")).toBe("ok");
+    expect(container.querySelector("[data-component='markdown']")?.textContent).toBe("Visible update");
+  });
+
+  it("renders native text updates immediately without a client-side typewriter queue", () => {
+    const live = assistant("assistant-live") as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.completed = false;
+    live.parts = [{ kind: "text", id: "text-live", text: "Start", complete: false }];
+    act(() => root.render(<OpenCodeTimeline transcript={[live]} busy lastAssistantId="assistant-live" />));
+
+    const update = `Start ${"streamed content ".repeat(80)}`;
+    live.parts = [{ kind: "text", id: "text-live", text: update, complete: false }];
+    act(() => root.render(<OpenCodeTimeline transcript={[{ ...live }]} busy lastAssistantId="assistant-live" />));
+
+    expect(container.querySelector("[data-component='markdown']")?.textContent).toBe(update.trim());
   });
 
   it("hides arbitrary generic tool arguments and exposes long details as a tooltip", () => {
@@ -349,7 +380,7 @@ describe("OpenCodeTimeline chronology", () => {
     ));
 
     expect([...container.querySelectorAll("[data-timeline-row]")].map((node) => node.getAttribute("data-timeline-row")))
-      .toEqual(["AssistantPart", row, "AssistantPart"]);
+      .toEqual(["AssistantMessage", row, "AssistantMessage"]);
   });
 
   it("groups only contiguous assistant messages", () => {
