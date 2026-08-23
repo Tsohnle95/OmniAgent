@@ -585,11 +585,10 @@ export const OpenCodeLiveActivity = memo(function OpenCodeLiveActivity({
           <span className={`codicon ${icon}`} />
         </div>
         <div data-slot="live-activity-copy">
-          <div data-slot="live-activity-title">{activity.title}</div>
+          <div data-slot="live-activity-title"><TextShimmer text={activity.title} tone="thinking" /></div>
           {activity.detail && <div data-slot="live-activity-detail">{activity.detail}</div>}
         </div>
         <span data-slot="live-activity-time" aria-label={`${formatRunDuration(elapsed)} elapsed`}>{formatRunDuration(elapsed)}</span>
-        <span data-slot="live-activity-progress" aria-hidden="true" />
       </div>
     </div>
   );

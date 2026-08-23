@@ -101,7 +101,8 @@ settled session (unless a stop is in flight), so a watchdog false-positive
 self-heals on the next delta.
 
 While a turn is active, `AgentPanel` keeps one stable borderless live-activity
-line immediately above the composer. It reports the newest concrete reasoning line,
+line immediately above the composer. Its activity label carries a restrained
+theme-accent shimmer while the concrete detail stays still and readable. It reports the newest concrete reasoning line,
 tool action, shell command, or response line plus elapsed time; before native
 parts arrive it falls back to the derived runtime status. The dock remains
 mounted across the turn, transitions only its contents, and collapses when the

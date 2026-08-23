@@ -225,7 +225,7 @@ describe("OpenCodeTimeline chronology", () => {
       <OpenCodeLiveActivity transcript={[old, user]} busy statusText="connecting" />
     ));
 
-    expect(container.querySelector("[data-slot='live-activity-title']")?.textContent).toBe("Connecting");
+    expect(container.querySelector("[data-slot='live-activity-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Connecting");
     expect(container.querySelector("[data-slot='live-activity-detail']")).toBeNull();
   });
 
