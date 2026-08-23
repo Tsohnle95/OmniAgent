@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -14,6 +14,37 @@ function findBuiltApp(projectRoot, exists, readdir) {
     if (exists(candidate)) return candidate;
   }
   return null;
+}
+
+export function liveLauncherPayload(projectRoot) {
+  return {
+    packageJson: JSON.stringify({
+      name: "omniagent",
+      productName: "OmniAgent",
+      version: "0.1.0",
+      private: true,
+      main: "live-launcher.cjs"
+    }, null, 2),
+    launcherSource: path.join(projectRoot, "scripts", "live-launcher.cjs")
+  };
+}
+
+export const liveLauncherIo = {
+  rm: (target) => rmSync(target, { recursive: true, force: true }),
+  mkdir: (target) => mkdirSync(target, { recursive: true }),
+  copy: (from, to) => copyFileSync(from, to),
+  write: (target, content) => writeFileSync(target, content)
+};
+
+export function applyLiveLauncher(bundlePath, projectRoot, io = liveLauncherIo) {
+  const appDir = path.join(bundlePath, "Contents", "Resources", "app");
+  for (const entry of ["out", "node_modules", "resources"]) {
+    io.rm(path.join(appDir, entry));
+  }
+  io.mkdir(appDir);
+  const payload = liveLauncherPayload(projectRoot);
+  io.copy(payload.launcherSource, path.join(appDir, "live-launcher.cjs"));
+  io.write(path.join(appDir, "package.json"), `${payload.packageJson}\n`);
 }
 
 export function installApp(options = {}) {
@@ -50,6 +81,7 @@ export function installApp(options = {}) {
   }
 
   run("codesign", ["--force", "--deep", "--sign", "-", built]);
+  applyLiveLauncher(built, projectRoot, options.liveLauncherIo);
 
   if (packOnly) {
     return { ok: true, message: `Packaged ${path.relative(projectRoot, built)}` };

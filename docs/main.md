@@ -270,7 +270,12 @@ builds `out/`, packages `release/mac/OmniAgent.app` with electron-builder
 the trusted packaged document stays exactly
 `file://…/OmniAgent.app/Contents/Resources/app/out/renderer/index.html`),
 ad-hoc re-signs the bundle, and — for the install flow — replaces
-`/Applications/OmniAgent.app` with `cp -R`, preserving the signature.
+`/Applications/OmniAgent.app` with `cp -R`, preserving the signature. The
+packaged payload is then swapped for the live launcher
+(`scripts/live-launcher.cjs` plus a minimal `package.json`), so the installed
+app keeps its Electron runtime and icon but always runs the repository's
+latest build, silently auto-rebuilding first when sources are newer than
+`out/`, falling back to the last known good build if that rebuild fails.
 `shell:install-app` runs the script as a child of the Electron binary under
 `ELECTRON_RUN_AS_NODE=1` and parses the JSON result line it prints. The
 renderer gates the button on `window.openshell.isPackaged`: main passes

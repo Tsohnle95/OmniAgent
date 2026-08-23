@@ -80,7 +80,12 @@ npm run pack           # package OmniAgent.app on macOS
 ```
 
 On macOS, **Install app** on the welcome screen builds and installs
-`OmniAgent.app` into `/Applications`.
+`OmniAgent.app` into `/Applications`. The installed app is a live launcher: it
+keeps its own Electron runtime and icon, but loads the app from the repository,
+rebuilding automatically first when repository sources are newer than the last
+build. Clicking the Dock icon therefore always runs the latest code; a failed
+automatic build falls back to the last known good build (see
+`scripts/live-launcher.cjs`).
 
 ## Platform Status
 

@@ -18,6 +18,7 @@ const destination = path.join("/Applications", "OmniAgent.app");
 function harness(platform: NodeJS.Platform, existing: Record<string, boolean> = {}) {
   const invocations: Invocation[] = [];
   const removed: string[] = [];
+  const launcherOps: string[] = [];
   const execFileSync = (file: string, args: string[], options: Invocation["options"]) => {
     invocations.push({ file, args: [...args], options });
     return { status: 0, stdout: "", stderr: "" };
@@ -32,16 +33,36 @@ function harness(platform: NodeJS.Platform, existing: Record<string, boolean> = 
     expect(p).toBe(path.join(root, "release"));
     return ["mac-arm64"];
   };
-  return {
-    run: (packOnly = false) => installApp({ platform, root, packOnly, execFileSync, existsSync, rmSync, readdirSync }),
-    invocations,
-    removed
+  const liveLauncherIo = {
+    rm: (target: string) => launcherOps.push(`rm ${target}`),
+    mkdir: (target: string) => launcherOps.push(`mkdir ${target}`),
+    copy: (from: string, to: string) => launcherOps.push(`copy ${from} -> ${to}`),
+    write: (target: string) => launcherOps.push(`write ${target}`)
   };
+  return {
+    run: (packOnly = false) => installApp({ platform, root, packOnly, execFileSync, existsSync, rmSync, readdirSync, liveLauncherIo }),
+    invocations,
+    removed,
+    launcherOps
+  };
+}
+
+const appPayload = path.join(builtApp, "Contents", "Resources", "app");
+
+function expectedLauncherOps(): string[] {
+  return [
+    `rm ${path.join(appPayload, "out")}`,
+    `rm ${path.join(appPayload, "node_modules")}`,
+    `rm ${path.join(appPayload, "resources")}`,
+    `mkdir ${appPayload}`,
+    `copy ${path.join(root, "scripts", "live-launcher.cjs")} -> ${path.join(appPayload, "live-launcher.cjs")}`,
+    `write ${path.join(appPayload, "package.json")}`
+  ];
 }
 
 describe("pack and install app script", () => {
   it("builds, packages, signs, and installs over an existing copy on darwin", () => {
-    const { run, invocations, removed } = harness("darwin", { [builderCli]: true, [builtApp]: true, [destination]: true });
+    const { run, invocations, removed, launcherOps } = harness("darwin", { [builderCli]: true, [builtApp]: true, [destination]: true });
     const result = run();
 
     expect(result).toEqual({ ok: true, message: `Installed OmniAgent to ${destination}` });
@@ -55,6 +76,7 @@ describe("pack and install app script", () => {
     expect(invocations[3].file).toBe("cp");
     expect(invocations[3].args).toEqual(["-R", builtApp, destination]);
     expect(removed).toEqual([destination]);
+    expect(launcherOps).toEqual(expectedLauncherOps());
     for (const invocation of invocations.slice(0, 2)) {
       expect(invocation.options.cwd).toBe(root);
       expect(invocation.options.env?.ELECTRON_RUN_AS_NODE).toBe("1");
@@ -64,13 +86,14 @@ describe("pack and install app script", () => {
   });
 
   it("skips the copy and install when asked to only pack", () => {
-    const { run, invocations, removed } = harness("darwin", { [builderCli]: true, [builtApp]: true });
+    const { run, invocations, removed, launcherOps } = harness("darwin", { [builderCli]: true, [builtApp]: true });
     const result = run(true);
 
     expect(result).toEqual({ ok: true, message: `Packaged ${path.relative(root, builtApp)}` });
     expect(invocations).toHaveLength(3);
     expect(invocations[2].file).toBe("codesign");
     expect(removed).toEqual([]);
+    expect(launcherOps).toEqual(expectedLauncherOps());
   });
 
   it("does not remove a missing destination before installing", () => {

@@ -39,7 +39,14 @@ syntax. After a manual build you can also launch with `npx electron .`.
 electron-builder (`electron-builder.yml`, `asar: false`, unpacked
 `Contents/Resources/app` layout), and ad-hoc re-signs the bundle;
 `install-app` then replaces `/Applications/OmniAgent.app` (removing any
-existing copy first, `cp -R` preserving the signature). The Welcome screen's
+existing copy first, `cp -R` preserving the signature). The installed bundle is
+a live launcher: `scripts/install-app.mjs` strips the packaged `out/`,
+`node_modules/`, and `resources/` payload and replaces it with
+`scripts/live-launcher.cjs` plus a two-line `package.json`, so the app keeps
+its own Electron runtime and Dock icon but loads the main process from the
+repository's `out/`, rebuilding automatically first when repository sources are
+newer than the build (silently; if the rebuild fails it falls back to the last
+known good build after confirming). The Welcome screen's
 Install app button (macOS, hidden in packaged builds) drives the same script
 over the `shell:install-app` channel and toasts the result. `release/` and
 `build/` are gitignored builder outputs.
