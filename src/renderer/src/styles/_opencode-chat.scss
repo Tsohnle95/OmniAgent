@@ -17,10 +17,10 @@
   --v2-state-fg-danger: var(--red);
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-size-base: 13.5px;
+  --font-size-base: 14px;
   --font-size-small: 12px;
-  --font-weight-regular: 380;
-  --font-weight-medium: 470;
+  --font-weight-regular: 410;
+  --font-weight-medium: 490;
   --line-height-large: 21px;
 }
 
@@ -73,29 +73,14 @@
   width: 100%;
   min-height: 33px;
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
   padding: 0 0 4px;
   overflow: hidden;
 }
 
-[data-component="live-activity"] [data-slot="live-activity-marker"] {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-}
-
-[data-component="live-activity"] [data-slot="live-activity-marker"] .codicon { font-size: 12px; }
-[data-component="live-activity"][data-state="failed"] [data-slot="live-activity-marker"] { color: var(--red); }
-
-[data-slot="live-activity-copy"] { min-width: 0; display: flex; align-items: baseline; gap: 7px; overflow: hidden; }
-[data-slot="live-activity-title"] { flex: 0 0 auto; overflow: hidden; color: var(--v2-text-text-muted); font: var(--font-weight-medium) 11.5px/18px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
-[data-slot="live-activity-detail"] { min-width: 0; overflow: hidden; color: var(--v2-text-text-faint); font: var(--font-weight-regular) 11.5px/18px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
-[data-slot="live-activity-time"] { color: var(--v2-text-text-faint); font: 10px/16px var(--font-family-mono); font-variant-numeric: tabular-nums; }
+[data-slot="live-activity-copy"] { min-width: 0; overflow: hidden; }
+[data-slot="live-activity-title"] { overflow: hidden; color: var(--v2-text-text-muted); font: var(--font-weight-medium) 12.5px/19px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
 
 .opencode-row {
   width: 100%;

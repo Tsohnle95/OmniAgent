@@ -189,7 +189,7 @@ describe("OpenCodeTimeline chronology", () => {
     const status = container.querySelector("[data-component='live-activity']");
     expect(dock?.getAttribute("data-visible")).toBe("true");
     expect(status?.getAttribute("role")).toBe("status");
-    expect(status?.textContent).toContain("Preparing");
+    expect(status?.querySelector("[data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Working");
 
     act(() => root.render(
       <OpenCodeLiveActivity transcript={[]} busy={false} statusText="idle" />
@@ -199,23 +199,24 @@ describe("OpenCodeTimeline chronology", () => {
     expect(dock?.getAttribute("data-visible")).toBe("false");
   });
 
-  it("updates one live activity node from native streamed reasoning", () => {
+  it("keeps one generic Thinking indicator while native reasoning changes", () => {
     const user: TranscriptItem = { kind: "user", id: "user-live", text: "Summarize the lesson" };
     const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
     live.parts = [{ kind: "reasoning", id: "reasoning-live", text: "Inspecting the lesson", complete: false }];
     act(() => root.render(
-      <OpenCodeLiveActivity transcript={[user, live]} busy turnStartedAt={Date.now()} />
+      <OpenCodeLiveActivity transcript={[user, live]} busy />
     ));
     const status = container.querySelector("[data-component='live-activity']");
-    expect(status?.textContent).toContain("Inspecting the lesson");
+    expect(status?.querySelector("[data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Thinking");
+    expect(status?.textContent).not.toContain("Inspecting the lesson");
 
     live.parts = [{ kind: "reasoning", id: "reasoning-live", text: "Inspecting the lesson\nComparing examples", complete: false }];
     act(() => root.render(
-      <OpenCodeLiveActivity transcript={[user, { ...live }]} busy turnStartedAt={Date.now()} />
+      <OpenCodeLiveActivity transcript={[user, { ...live }]} busy />
     ));
 
     expect(container.querySelector("[data-component='live-activity']")).toBe(status);
-    expect(container.querySelector("[data-slot='live-activity-detail']")?.textContent).toBe("Comparing examples");
+    expect(container.querySelector("[data-slot='live-activity-detail']")).toBeNull();
   });
 
   it("starts a new turn without borrowing activity from the previous turn", () => {
@@ -225,21 +226,17 @@ describe("OpenCodeTimeline chronology", () => {
       <OpenCodeLiveActivity transcript={[old, user]} busy statusText="connecting" />
     ));
 
-    expect(container.querySelector("[data-slot='live-activity-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Connecting");
+    expect(container.querySelector("[data-slot='live-activity-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Working");
     expect(container.querySelector("[data-slot='live-activity-detail']")).toBeNull();
   });
 
-  it("shows a truthful elapsed clock for active work", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-22T00:00:00Z"));
+  it("renders only the generic shimmer without an elapsed clock", () => {
     act(() => root.render(
-      <OpenCodeLiveActivity transcript={[]} busy turnStartedAt={Date.now()} />
+      <OpenCodeLiveActivity transcript={[]} busy />
     ));
 
-    expect(container.querySelector("[data-slot='live-activity-time']")?.textContent).toBe("0s");
-    act(() => vi.advanceTimersByTime(15_000));
-    expect(container.querySelector("[data-slot='live-activity-time']")?.textContent).toBe("15s");
-    vi.useRealTimers();
+    expect(container.querySelector("[data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Working");
+    expect(container.querySelector("[data-slot='live-activity-time']")).toBeNull();
   });
 
   it("renders reasoning blocks independently in their assistant node", () => {
@@ -580,17 +577,20 @@ describe("subagent dispatch links", () => {
     const synthetic: TranscriptItem = {
       kind: "synthetic",
       id: "dispatch-child",
-      text: '<subagent id="session-child" agent="build" description="Inspect the renderer" state="running" />'
+      text: '<subagent id="session-child" agent="build" description="Inspect the renderer" state="completed" />'
     };
+    const dispatch = toolAssistant(
+      "assistant-1",
+      "subagent",
+      { agent: "build", description: "Inspect the renderer" },
+      { sessionID: "session-child" }
+    ) as Extract<TranscriptItem, { kind: "assistant" }>;
+    const dispatchPart = dispatch.parts[0];
+    if (dispatchPart?.kind === "tool") dispatchPart.tool.status = "running";
     act(() => root.render(
       <OpenCodeTimeline
         transcript={[
-          toolAssistant(
-            "assistant-1",
-            "subagent",
-            { agent: "build", description: "Inspect the renderer" },
-            { sessionID: "session-child" }
-          ),
+          dispatch,
           synthetic
         ]}
         busy={false}
@@ -603,6 +603,7 @@ describe("subagent dispatch links", () => {
     expect(container.querySelector("[data-slot='delegated-agent-content']")).not.toBeNull();
     expect(container.querySelector("[data-slot='delegated-agent-tail']")).not.toBeNull();
     expect(container.querySelector("[data-slot='task-tool-status-label']")?.textContent).toBe("Complete");
+    expect(container.querySelector("[data-component='task-tool-spinner']")).toBeNull();
     expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")).toBeNull();
     expect(container.querySelector("[data-component='task-tool-surface']")?.getAttribute("aria-label"))
       .toBe("Open delegated agent session: Inspect the renderer");

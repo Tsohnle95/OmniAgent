@@ -38,32 +38,6 @@ function TextShimmer({ text, active = true, tone = "default" }: { text: string; 
   );
 }
 
-function formatRunDuration(elapsedMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
-  if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
-  return `${seconds}s`;
-}
-
-function useElapsed(startTime: number | null | undefined, running: boolean): number {
-  const [mountedAt] = useState(() => Date.now());
-  const anchor = startTime ?? mountedAt;
-  const [elapsed, setElapsed] = useState(() => Date.now() - anchor);
-  useEffect(() => {
-    if (!running) {
-      setElapsed(0);
-      return;
-    }
-    setElapsed(Date.now() - anchor);
-    const timer = setInterval(() => setElapsed(Date.now() - anchor), 1000);
-    return () => clearInterval(timer);
-  }, [anchor, running]);
-  return elapsed;
-}
-
 const CODE_TOKEN_PATTERN = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|\b(?:as|async|await|break|case|catch|class|const|continue|def|else|export|extends|for|from|function|if|import|in|interface|let|new|of|return|static|switch|throw|try|type|var|while|with|yield)\b|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*(?=\s*\())/g;
 const CODE_KEYWORDS = new Set([
   "as", "async", "await", "break", "case", "catch", "class", "const", "continue", "def", "else", "export",
@@ -410,6 +384,27 @@ function consolidateSubagentTools(
   for (const entry of transcript) {
     if (entry.kind !== "assistant") {
       if (entry.kind === "user") represented.clear();
+      if (entry.kind === "synthetic") {
+        const ref = parseSubagentTag(entry.text) ?? parseLegacyTaskText(entry.text);
+        if (ref) {
+          const childID = subagentChildID(ref, sessions, parentID);
+          const key = childID ? `child:${childID}` : refDispatchSignature(ref);
+          const previous = represented.get(key);
+          const existing = previous?.item.parts[previous.partIndex];
+          if (previous && existing?.kind === "tool" && ref.state) {
+            const settledState = ref.state.toLowerCase();
+            const status = ["failed", "error", "cancelled"].includes(settledState)
+              ? "failed"
+              : ["complete", "completed", "success"].includes(settledState)
+                ? "success"
+                : existing.tool.status;
+            previous.item.parts[previous.partIndex] = {
+              ...existing,
+              tool: { ...existing.tool, status }
+            };
+          }
+        }
+      }
       result.push(entry);
       continue;
     }
@@ -559,36 +554,20 @@ function liveActivity(transcript: TranscriptItem[], statusText: string | null | 
 export const OpenCodeLiveActivity = memo(function OpenCodeLiveActivity({
   transcript,
   busy,
-  statusText,
-  turnStartedAt
+  statusText
 }: {
   transcript: TranscriptItem[];
   busy: boolean;
   statusText?: string | null;
-  turnStartedAt?: number | null;
 }): ReactNode {
-  const elapsed = useElapsed(turnStartedAt, busy);
   const activity = useMemo(() => liveActivity(transcript, statusText), [transcript, statusText]);
-  const icon = activity.kind === "reasoning"
-    ? "codicon-lightbulb"
-    : activity.kind === "shell"
-      ? "codicon-terminal"
-      : activity.kind === "tool"
-        ? "codicon-tools"
-        : activity.kind === "text"
-          ? "codicon-edit"
-          : "codicon-sparkle";
+  const label = activity.kind === "reasoning" || statusText?.toLowerCase() === "thinking" ? "Thinking" : "Working";
   return (
     <div data-component="live-activity-dock" data-visible={busy ? "true" : "false"} aria-hidden={!busy}>
       <div data-component="live-activity" data-kind={activity.kind} data-state={activity.state} role="status" aria-live="polite">
-        <div data-slot="live-activity-marker">
-          <span className={`codicon ${icon}`} />
-        </div>
         <div data-slot="live-activity-copy">
-          <div data-slot="live-activity-title"><TextShimmer text={activity.title} tone="thinking" /></div>
-          {activity.detail && <div data-slot="live-activity-detail">{activity.detail}</div>}
+          <div data-slot="live-activity-title"><TextShimmer text={label} tone="thinking" /></div>
         </div>
-        <span data-slot="live-activity-time" aria-label={`${formatRunDuration(elapsed)} elapsed`}>{formatRunDuration(elapsed)}</span>
       </div>
     </div>
   );
