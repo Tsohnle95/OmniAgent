@@ -152,6 +152,11 @@ describe("Layout panel sizing", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
+    const sidebarToggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!;
+    const panelToggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!;
+    expect(sidebarToggle.closest(".titlebar-leading-actions")).not.toBeNull();
+    expect(panelToggle.closest(".titlebar-actions")).not.toBeNull();
+
     const left = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"] svg')!;
     const right = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"] svg')!;
     expect(left.getAttribute("class")).toContain("codicon-sidebar-left");

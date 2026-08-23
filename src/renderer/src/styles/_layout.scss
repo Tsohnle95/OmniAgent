@@ -74,6 +74,12 @@
 
 .titlebar-title .omni-mark { color: var(--accent); --omni-prompt: var(--text); --omni-ground: var(--text-dim); }
 
+.titlebar-leading-actions {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
 .titlebar-actions {
   display: flex;
   align-items: center;
@@ -147,4 +153,3 @@
   border-color: var(--accent);
   color: var(--text);
 }
-

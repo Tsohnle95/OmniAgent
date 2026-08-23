@@ -647,6 +647,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   return (
     <div className="app">
       <div className="titlebar">
+        <span className="titlebar-leading-actions">
+          <button
+            className={`icon-btn ${sideOpen ? "on" : ""}`}
+            data-panel-action="toggle-sidebar"
+            title={sideOpen ? "Hide sidebar" : "Show sidebar"}
+            aria-label={sideOpen ? "Hide sidebar" : "Show sidebar"}
+            aria-pressed={sideOpen}
+            onClick={() => setSidebarOpen(!sideOpen)}
+          >
+            <IconSidebarLeft />
+          </button>
+        </span>
         <span className="titlebar-title"><OmniMark size={16} />OmniAgent</span>
         <span className="titlebar-actions">
           {inAgentMode && (
@@ -661,16 +673,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               <IconAdd />
             </button>
           )}
-          <button
-            className={`icon-btn ${sideOpen ? "on" : ""}`}
-            data-panel-action="toggle-sidebar"
-            title={sideOpen ? "Hide sidebar" : "Show sidebar"}
-            aria-label={sideOpen ? "Hide sidebar" : "Show sidebar"}
-            aria-pressed={sideOpen}
-            onClick={() => setSidebarOpen(!sideOpen)}
-          >
-            <IconSidebarLeft />
-          </button>
           <button
             className={`icon-btn ${anchorOpen ? "on" : ""}`}
             data-panel-action="toggle-agent-panel"
