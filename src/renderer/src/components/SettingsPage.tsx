@@ -11,13 +11,13 @@ const themes: Array<{ id: ThemeId; name: string; description: string; colors: st
     id: "paper",
     name: "Paper Editorial",
     description: "Warm paper surfaces, deep ink and the settled clay accent.",
-    colors: ["#f4eee1", "#fbf7ec", "#2b2119", "#c25f3c", "#587657"]
+    colors: ["#f4eee1", "#fbf7ec", "#2b2119", "#617a68", "#948571"]
   },
   {
     id: "original",
     name: "Original",
     description: "OmniAgent's original warm charcoal color profile.",
-    colors: ["#171412", "#262220", "#e8e3dd", "#e8875f", "#a9cbad"]
+    colors: ["#171412", "#262220", "#e8e3dd", "#9eb4a1", "#a8a29e"]
   }
 ];
 

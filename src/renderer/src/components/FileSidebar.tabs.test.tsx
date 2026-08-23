@@ -146,7 +146,7 @@ describe("FileSidebar tabs and sessions pane", () => {
 
     expect(container.querySelector(".sessions-plugins")).not.toBeNull();
     expect(store.loadSessions).toHaveBeenCalled();
-    expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["false", "false", "false"]);
+    expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["true", "true", "false"]);
   });
 
   it("swaps to the files pane with its changes and explorer sections and back", async () => {
@@ -169,7 +169,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
-    expect(section("Pinned").querySelector(".sessions-section-list")).toBeNull();
+    expect(section("Pinned").querySelector(".sessions-section-list")?.textContent).toContain("No pinned sessions yet.");
 
     const recents = section("Recents");
     await act(async () => recents.querySelector<HTMLButtonElement>(".section-toggle")!.click());
@@ -178,7 +178,6 @@ describe("FileSidebar tabs and sessions pane", () => {
 
     expect(JSON.parse(window.localStorage.getItem("openshell.pinnedSessions") ?? "[]")).toEqual(["s1"]);
     const pinned = section("Pinned");
-    await act(async () => pinned.querySelector<HTMLButtonElement>(".section-toggle")!.click());
     expect(pinned.textContent).toContain("First");
     expect(pinned.querySelector(".sessions-row-pin")?.classList.contains("pinned")).toBe(true);
   });
@@ -189,7 +188,6 @@ describe("FileSidebar tabs and sessions pane", () => {
     await settle();
 
     const sessions = section("Sessions");
-    await act(async () => sessions.querySelector<HTMLButtonElement>(".section-toggle")!.click());
     const project = sessions.querySelector<HTMLElement>(".sessions-project-head")!;
     expect(project.textContent).toContain("Workspace");
     await act(async () => project.click());
@@ -203,7 +201,7 @@ describe("FileSidebar tabs and sessions pane", () => {
 
     const sections = [...container.querySelectorAll<HTMLElement>(".sessions-section")];
     expect(sections).toHaveLength(3);
-    for (const item of sections) await act(async () => item.querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    await act(async () => sections[2].querySelector<HTMLButtonElement>(".section-toggle")!.click());
     expect(sections.map((section) => section.querySelectorAll(":scope > .sessions-section-list").length)).toEqual([1, 1, 1]);
     expect(sections[1].textContent).toContain("Sessions");
   });

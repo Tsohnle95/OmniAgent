@@ -5,7 +5,7 @@
   --bg-elev: #2d2926;
   --bg-active-pill: #37322e;
   --bg-hover: rgba(255, 255, 255, 0.05);
-  --bg-active: rgba(232, 135, 95, 0.13);
+  --bg-active: rgba(148, 174, 151, 0.14);
   --panel-surface-color: #262220;
   --panel-float-color: rgba(38, 34, 32, 0.92);
   --panel-aura-x: 50%;
@@ -21,16 +21,16 @@
   --agent-border-base: rgba(255, 255, 255, 0.08);
   --agent-border-strong: rgba(255, 255, 255, 0.14);
   --agent-chat-ink: #d5cfca;
-  --agent-composer-background: linear-gradient(118deg, rgba(226, 152, 138, 0.035), transparent 34%), linear-gradient(300deg, rgba(178, 92, 166, 0.025), transparent 42%), #262220;
-  --agent-composer-border: rgba(226, 152, 138, 0.16);
-  --agent-composer-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 0 16px rgba(226, 152, 138, 0.025);
-  --agent-composer-focus-border: rgba(226, 152, 138, 0.38);
-  --agent-composer-focus-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(226, 152, 138, 0.06), 0 0 18px rgba(226, 152, 138, 0.05);
-  --agent-send-background: linear-gradient(160deg, #e8875f, #cf7048);
-  --agent-send-hover: linear-gradient(160deg, #eda27f, #d97a52);
-  --agent-send-color: #fff4ec;
-  --agent-send-shadow: 0 5px 14px rgba(232, 135, 95, 0.35);
-  --agent-send-hover-shadow: 0 5px 18px rgba(232, 135, 95, 0.45);
+  --agent-composer-background: linear-gradient(118deg, rgba(148, 174, 151, 0.045), transparent 34%), linear-gradient(300deg, rgba(196, 181, 154, 0.03), transparent 42%), #262220;
+  --agent-composer-border: rgba(148, 174, 151, 0.18);
+  --agent-composer-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 0 16px rgba(148, 174, 151, 0.025);
+  --agent-composer-focus-border: rgba(148, 174, 151, 0.42);
+  --agent-composer-focus-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(148, 174, 151, 0.07), 0 0 18px rgba(148, 174, 151, 0.05);
+  --agent-send-background: linear-gradient(160deg, #9eb4a1, #778f7c);
+  --agent-send-hover: linear-gradient(160deg, #b2c4b4, #89a08d);
+  --agent-send-color: #172019;
+  --agent-send-shadow: 0 5px 14px rgba(119, 143, 124, 0.30);
+  --agent-send-hover-shadow: 0 5px 18px rgba(119, 143, 124, 0.40);
 
   --text: #e8e3dd;
   --text-dim: #a8a29e;
@@ -38,10 +38,10 @@
   --text-base: #e8e3dd;
   --text-weak: #8f8880;
 
-  --accent: #e8875f;
-  --accent-hover: #eda27f;
-  --accent-dim: rgba(232, 135, 95, 0.15);
-  --accent-tint: rgba(232, 135, 95, 0.09);
+  --accent: #9eb4a1;
+  --accent-hover: #b2c4b4;
+  --accent-dim: rgba(158, 180, 161, 0.16);
+  --accent-tint: rgba(158, 180, 161, 0.09);
 
   --green: #a9cbad;
   --red: #e2988a;
@@ -77,7 +77,7 @@
   --bg-elev: #fffaf0;
   --bg-active-pill: #e3d7c4;
   --bg-hover: rgba(43, 33, 25, 0.055);
-  --bg-active: rgba(194, 95, 60, 0.13);
+  --bg-active: rgba(97, 122, 104, 0.13);
   --panel-surface-color: #fbf7ec;
   --panel-float-color: rgba(251, 247, 236, 0.94);
   --agent-bg-base: #fbf7ec;
@@ -89,16 +89,16 @@
   --agent-border-base: rgba(43, 33, 25, 0.09);
   --agent-border-strong: rgba(43, 33, 25, 0.16);
   --agent-chat-ink: #68635d;
-  --agent-composer-background: linear-gradient(118deg, rgba(194, 95, 60, 0.055), transparent 38%), linear-gradient(300deg, rgba(156, 116, 47, 0.035), transparent 45%), #fffaf0;
-  --agent-composer-border: rgba(194, 95, 60, 0.24);
+  --agent-composer-background: linear-gradient(118deg, rgba(97, 122, 104, 0.06), transparent 38%), linear-gradient(300deg, rgba(148, 133, 113, 0.04), transparent 45%), #fffaf0;
+  --agent-composer-border: rgba(97, 122, 104, 0.24);
   --agent-composer-shadow: 0 7px 22px rgba(67, 48, 33, 0.10), inset 0 1px rgba(255, 255, 255, 0.58);
-  --agent-composer-focus-border: rgba(194, 95, 60, 0.52);
-  --agent-composer-focus-shadow: 0 8px 25px rgba(67, 48, 33, 0.11), 0 0 0 3px rgba(194, 95, 60, 0.10);
-  --agent-send-background: linear-gradient(160deg, #c96a48, #ad4f32);
-  --agent-send-hover: linear-gradient(160deg, #d37a58, #b95b3c);
+  --agent-composer-focus-border: rgba(97, 122, 104, 0.50);
+  --agent-composer-focus-shadow: 0 8px 25px rgba(67, 48, 33, 0.11), 0 0 0 3px rgba(97, 122, 104, 0.10);
+  --agent-send-background: linear-gradient(160deg, #708976, #566f5d);
+  --agent-send-hover: linear-gradient(160deg, #7f9985, #627b69);
   --agent-send-color: #fffaf0;
-  --agent-send-shadow: 0 5px 14px rgba(194, 95, 60, 0.24);
-  --agent-send-hover-shadow: 0 6px 18px rgba(194, 95, 60, 0.32);
+  --agent-send-shadow: 0 5px 14px rgba(86, 111, 93, 0.24);
+  --agent-send-hover-shadow: 0 6px 18px rgba(86, 111, 93, 0.32);
 
   --text: #2b2119;
   --text-dim: #6b5f50;
@@ -106,10 +106,10 @@
   --text-base: #2b2119;
   --text-weak: #948571;
 
-  --accent: #c25f3c;
-  --accent-hover: #a94d30;
-  --accent-dim: rgba(194, 95, 60, 0.15);
-  --accent-tint: rgba(194, 95, 60, 0.09);
+  --accent: #617a68;
+  --accent-hover: #4f6757;
+  --accent-dim: rgba(97, 122, 104, 0.15);
+  --accent-tint: rgba(97, 122, 104, 0.09);
 
   --green: #587657;
   --red: #aa624f;
@@ -148,7 +148,7 @@ body {
 #root { position: relative; }
 
 ::selection {
-  background: rgba(232, 135, 95, 0.32);
+  background: rgba(126, 153, 132, 0.32);
 }
 
 :focus-visible {

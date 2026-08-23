@@ -35,7 +35,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(232, 135, 95, 0.5);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
   flex-shrink: 0;
 }
 
@@ -474,7 +474,7 @@
 
 .tree.drop-root {
   background: var(--accent-tint);
-  box-shadow: inset 0 0 0 1px rgba(232, 135, 95, 0.35);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .tree.external-drop-active {
@@ -583,7 +583,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 6px rgba(232, 135, 95, 0.5);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 50%, transparent);
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -648,7 +648,7 @@
   padding: 2px 8px;
   outline: none;
   border-radius: var(--radius-full);
-  box-shadow: 0 0 0 3px rgba(232, 135, 95, 0.14);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .tree-row-actions {

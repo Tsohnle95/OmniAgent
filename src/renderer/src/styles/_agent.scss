@@ -44,8 +44,8 @@
 }
 
 @keyframes pulse-ring {
-  70% { box-shadow: 0 0 0 8px rgba(232, 135, 95, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(232, 135, 95, 0); }
+  70% { box-shadow: 0 0 0 8px rgba(158, 180, 161, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(158, 180, 161, 0); }
 }
 
 .agent-close .codicon { display: none; }
@@ -679,7 +679,7 @@
 
 .agent-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(232, 135, 95, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .agent-input-actions { display: flex; align-items: center; justify-content: space-between; }
