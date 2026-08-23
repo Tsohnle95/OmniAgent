@@ -17,11 +17,11 @@
   --v2-state-fg-danger: var(--red);
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-size-base: 14px;
+  --font-size-base: 13.5px;
   --font-size-small: 12px;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --line-height-large: 20px;
+  --font-weight-regular: 380;
+  --font-weight-medium: 470;
+  --line-height-large: 21px;
 }
 
 .agent-panel .agent-scroll {
@@ -54,7 +54,7 @@
   width: 100%;
   max-height: 0;
   flex: 0 0 auto;
-  padding: 0 10px;
+  padding: 0 18px;
   overflow: hidden;
   opacity: 0;
   background: var(--v2-background-bg-base);
@@ -62,63 +62,57 @@
 }
 
 [data-component="live-activity-dock"][data-visible="true"] {
-  max-height: 72px;
-  padding-top: 4px;
-  padding-bottom: 8px;
+  max-height: 42px;
+  padding-top: 2px;
+  padding-bottom: 7px;
   opacity: 1;
 }
 
 [data-component="live-activity"] {
   position: relative;
   width: 100%;
-  min-height: 50px;
+  min-height: 33px;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
-  padding: 7px 10px 8px;
+  gap: 7px;
+  padding: 0 0 4px;
   overflow: hidden;
-  border: 0.5px solid color-mix(in srgb, var(--accent) 16%, var(--v2-border-border-base));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 4%, var(--v2-background-bg-layer-01));
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.06);
 }
 
 [data-component="live-activity"] [data-slot="live-activity-marker"] {
-  width: 26px;
-  height: 26px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent);
 }
 
-[data-component="live-activity"] [data-slot="live-activity-marker"] .codicon { font-size: 13px; }
-[data-component="live-activity"][data-state="failed"] [data-slot="live-activity-marker"] { background: color-mix(in srgb, var(--red) 9%, transparent); color: var(--red); }
+[data-component="live-activity"] [data-slot="live-activity-marker"] .codicon { font-size: 12px; }
+[data-component="live-activity"][data-state="failed"] [data-slot="live-activity-marker"] { color: var(--red); }
 
-[data-slot="live-activity-copy"] { min-width: 0; }
-[data-slot="live-activity-title"] { overflow: hidden; color: var(--v2-text-text-base); font: var(--font-weight-medium) 12px/17px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
-[data-slot="live-activity-detail"] { overflow: hidden; color: var(--v2-text-text-muted); font: var(--font-weight-regular) 11.5px/16px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
-[data-slot="live-activity-time"] { align-self: start; padding-top: 2px; color: var(--v2-text-text-faint); font: 10.5px/16px var(--font-family-mono); font-variant-numeric: tabular-nums; }
+[data-slot="live-activity-copy"] { min-width: 0; display: flex; align-items: baseline; gap: 7px; overflow: hidden; }
+[data-slot="live-activity-title"] { flex: 0 0 auto; overflow: hidden; color: var(--v2-text-text-muted); font: var(--font-weight-medium) 11.5px/18px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
+[data-slot="live-activity-detail"] { min-width: 0; overflow: hidden; color: var(--v2-text-text-faint); font: var(--font-weight-regular) 11.5px/18px var(--font-family-sans); text-overflow: ellipsis; white-space: nowrap; }
+[data-slot="live-activity-time"] { color: var(--v2-text-text-faint); font: 10px/16px var(--font-family-mono); font-variant-numeric: tabular-nums; }
 
 [data-slot="live-activity-progress"] {
   position: absolute;
   right: 0;
   bottom: 0;
-  left: 0;
-  height: 2px;
+  left: 23px;
+  height: 1px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 [data-slot="live-activity-progress"]::after {
-  width: 34%;
+  width: 28%;
   height: 100%;
   display: block;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
   content: "";
   animation: live-activity-progress 1.8s ease-in-out infinite;
 }
@@ -450,7 +444,9 @@
   color: var(--v2-text-text-base);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-base);
-  line-height: 160%;
+  font-weight: var(--font-weight-regular);
+  line-height: 168%;
+  letter-spacing: 0.002em;
   word-break: normal;
 }
 
