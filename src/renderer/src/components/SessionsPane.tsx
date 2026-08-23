@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import type { CommandOption, ProjectInfo, SessionSummary } from "@shared/types";
 import { ChevronIcon, PlusIcon } from "./FileIcons";
-import { IconCheck, IconClose, IconFile, IconFolder, IconHistory, IconStarFilled, IconSearch } from "./icons";
+import { IconCheck, IconClose, IconFile, IconFolder, IconHistory, IconStarFilled } from "./icons";
 
 const PINNED_KEY = "openshell.pinnedSessions";
 
@@ -14,24 +14,6 @@ function readPinned(): string[] {
   } catch {
     return [];
   }
-}
-
-function formatWhen(ts: number): string {
-  if (!ts) return "";
-  const mins = Math.floor((Date.now() - ts) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
-
-function matches(query: string, ...fields: string[]): boolean {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  return fields.some((field) => field.toLowerCase().includes(q));
 }
 
 function SessionRow({
@@ -66,9 +48,6 @@ function SessionRow({
       )}
       <span className="sessions-row-main">
         <span className="sessions-row-title">{summary.title}</span>
-        <span className="sessions-row-meta">
-          {formatWhen(summary.updatedAt)} · {summary.directory}
-        </span>
       </span>
       <button
         className={`sessions-row-pin ${pinned ? "pinned" : ""}`}
@@ -94,7 +73,6 @@ function SessionRow({
           <IconClose />
         </button>
       )}
-      {running && !busy && <span className="sessions-row-badge">open</span>}
     </div>
   );
 }
@@ -116,11 +94,10 @@ export function SessionsPane(): ReactNode {
     runCommand
   } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
-  const [query, setQuery] = useState("");
   const [pinnedIDs, setPinnedIDs] = useState<string[]>(readPinned);
-  const [pinnedOpen, setPinnedOpen] = useState(true);
-  const [projectsOpen, setProjectsOpen] = useState(true);
-  const [recentOpen, setRecentOpen] = useState(false);
+  const [openNowOpen, setOpenNowOpen] = useState(true);
+  const [workspacesOpen, setWorkspacesOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [plugins, setPlugins] = useState<CommandOption[] | null>(null);
@@ -172,9 +149,9 @@ export function SessionsPane(): ReactNode {
     return [...byID.values(), ...panelSummaries.filter((p) => !seen.has(p.id))];
   }, [sessions, panelSummaries, byID]);
   const recents = useMemo(() => [...known].sort((a, b) => b.updatedAt - a.updatedAt), [known]);
-  const pinned = useMemo(
-    () => pinnedIDs.map((id) => byID.get(id)).filter((s): s is SessionSummary => Boolean(s)),
-    [pinnedIDs, byID]
+  const history = useMemo(
+    () => recents.filter((summary) => !runningPanels.has(summary.id)),
+    [recents, runningPanels]
   );
 
   const togglePin = (id: string): void => {
@@ -202,10 +179,6 @@ export function SessionsPane(): ReactNode {
       return next;
     });
   };
-
-  const filteredProjects = projects.filter((p) => matches(query, p.name, p.directory));
-  const filteredRecents = recents.filter((s) => matches(query, s.title, s.directory));
-  const filteredPinned = pinned.filter((s) => matches(query, s.title, s.directory));
 
   return (
     <div className="sessions-pane">
@@ -252,49 +225,37 @@ export function SessionsPane(): ReactNode {
         )}
       </div>
 
-      <div className="sessions-search">
-        <IconSearch className="sessions-search-icon" />
-        <input
-          className="sessions-search-input"
-          placeholder="Search sessions…"
-          value={query}
-          spellCheck={false}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
       <section className="sessions-section">
         <div className="section-trigger">
           <button
-            className={`section-toggle ${pinnedOpen ? "open" : ""}`}
-            aria-expanded={pinnedOpen}
-            onClick={() => setPinnedOpen((o) => !o)}
+            className={`section-toggle ${openNowOpen ? "open" : ""}`}
+            aria-expanded={openNowOpen}
+            onClick={() => setOpenNowOpen((open) => !open)}
           >
-            <span>Pinned</span>
-            <span className="sidebar-count push">{filteredPinned.length}</span>
+            <span>Open now</span>
             <span className="section-chevron">
-              <ChevronIcon open={pinnedOpen} />
+              <ChevronIcon open={openNowOpen} />
             </span>
           </button>
         </div>
-        {pinnedOpen && (
+        {openNowOpen && (
           <div className="sessions-section-list">
-          {filteredPinned.length === 0 ? (
-            <div className="sessions-empty">No pinned sessions yet.</div>
+          {panelSummaries.length === 0 ? (
+            <div className="sessions-empty">No open sessions.</div>
           ) : (
-            filteredPinned.map((s) => {
-              const panel = runningPanels.get(s.id);
+            panelSummaries.map((summary) => {
+              const panel = runningPanels.get(summary.id);
               return (
                 <SessionRow
-                  key={s.id}
-                  summary={s}
-                  running={Boolean(panel)}
-                  focused={s.id === activeSessionID}
-                  pinned
+                  key={summary.id}
+                  summary={summary}
+                  running
+                  focused={summary.id === activeSessionID}
+                  pinned={pinnedIDs.includes(summary.id)}
                   busy={Boolean(panel && panelViews[panel.workspace.id]?.busy)}
-                  onOpen={() => openRow(s.id)}
-                  onClose={() => closePanel(s.id)}
-                  onTogglePin={() => togglePin(s.id)}
+                  onOpen={() => openRow(summary.id)}
+                  onClose={() => closePanel(summary.id)}
+                  onTogglePin={() => togglePin(summary.id)}
                 />
               );
             })
@@ -306,51 +267,45 @@ export function SessionsPane(): ReactNode {
       <section className="sessions-section">
         <div className="section-trigger">
           <button
-            className={`section-toggle ${projectsOpen ? "open" : ""}`}
-            aria-expanded={projectsOpen}
-            onClick={() => setProjectsOpen((o) => !o)}
+            className={`section-toggle ${workspacesOpen ? "open" : ""}`}
+            aria-expanded={workspacesOpen}
+            onClick={() => setWorkspacesOpen((open) => !open)}
           >
-            <span>Sessions</span>
-            <span className="sidebar-count push">{filteredProjects.length}</span>
+            <span>Workspaces</span>
             <span className="section-chevron">
-              <ChevronIcon open={projectsOpen} />
+              <ChevronIcon open={workspacesOpen} />
             </span>
           </button>
         </div>
-        {projectsOpen && (
+        {workspacesOpen && (
           <div className="sessions-section-list sessions-project-list">
-          {filteredProjects.length === 0 ? (
+          {projects.length === 0 ? (
             <div className="sessions-empty">No saved workspaces found.</div>
           ) : (
-            filteredProjects.map((p) => {
-              const projectSessions = recents.filter(
-                (s) => s.directory === p.directory && matches(query, s.title)
-              );
-              const expanded = expandedProjects.has(p.directory);
+            projects.map((project) => {
+              const projectSessions = recents.filter((summary) => summary.directory === project.directory);
+              const expanded = expandedProjects.has(project.directory);
+              const projectName = project.name.trim()
+                || project.directory.split(/[\\/]/).filter(Boolean).pop()
+                || "workspace";
               return (
-                <div key={p.directory} className="sessions-project">
-                  <div
-                    className={`sessions-project-head ${expanded ? "open" : ""}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => toggleProject(p.directory)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") toggleProject(p.directory);
-                    }}
-                    title={p.directory}
-                  >
-                    <span className="section-chevron"><ChevronIcon open={expanded} /></span>
-                    <IconFolder className="sessions-row-icon" />
-                    <span className="sessions-row-title">{p.name}</span>
-                    <span className="sidebar-count">{projectSessions.length}</span>
+                <div key={project.directory} className="sessions-project">
+                  <div className={`sessions-project-head ${expanded ? "open" : ""}`}>
+                    <button
+                      className="sessions-project-toggle"
+                      aria-expanded={expanded}
+                      onClick={() => toggleProject(project.directory)}
+                      title={project.directory}
+                    >
+                      <span className="section-chevron"><ChevronIcon open={expanded} /></span>
+                      <IconFolder className="sessions-row-icon" />
+                      <span className="sessions-row-title">{projectName}</span>
+                      <span className="sessions-project-count">{projectSessions.length}</span>
+                    </button>
                     <button
                       className="tree-row-action sessions-project-new"
-                      title={`New session in ${p.name}`}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void openSession(p.directory);
-                      }}
+                      title={`New session in ${projectName}`}
+                      onClick={() => void openSession(project.directory)}
                     >
                       <PlusIcon />
                     </button>
@@ -388,35 +343,33 @@ export function SessionsPane(): ReactNode {
       <section className="sessions-section grow">
         <div className="section-trigger">
           <button
-            className={`section-toggle ${recentOpen ? "open" : ""}`}
-            aria-expanded={recentOpen}
-            onClick={() => setRecentOpen((o) => !o)}
+            className={`section-toggle ${historyOpen ? "open" : ""}`}
+            aria-expanded={historyOpen}
+            onClick={() => setHistoryOpen((open) => !open)}
           >
-            <span>Recents</span>
-            <span className="sidebar-count push">{filteredRecents.length}</span>
+            <span>History</span>
             <span className="section-chevron">
-              <ChevronIcon open={recentOpen} />
+              <ChevronIcon open={historyOpen} />
             </span>
           </button>
         </div>
-        {recentOpen && (
+        {historyOpen && (
           <div className="sessions-section-list">
-          {filteredRecents.length === 0 ? (
-            <div className="sessions-empty">No recent sessions yet.</div>
+          {history.length === 0 ? (
+            <div className="sessions-empty">No closed sessions yet.</div>
           ) : (
-            filteredRecents.map((s) => {
-              const panel = runningPanels.get(s.id);
+            history.map((summary) => {
               return (
                 <SessionRow
-                  key={s.id}
-                  summary={s}
-                  running={Boolean(panel)}
-                  focused={s.id === activeSessionID}
-                  pinned={pinnedIDs.includes(s.id)}
-                  busy={Boolean(panel && panelViews[panel.workspace.id]?.busy)}
-                  onOpen={() => openRow(s.id)}
-                  onClose={() => closePanel(s.id)}
-                  onTogglePin={() => togglePin(s.id)}
+                  key={summary.id}
+                  summary={summary}
+                  running={false}
+                  focused={false}
+                  pinned={pinnedIDs.includes(summary.id)}
+                  busy={false}
+                  onOpen={() => openRow(summary.id)}
+                  onClose={() => closePanel(summary.id)}
+                  onTogglePin={() => togglePin(summary.id)}
                 />
               );
             })

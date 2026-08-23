@@ -121,6 +121,48 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector('[title="Open a single file"]')).toBeNull();
   });
 
+  it("toggles the sidebar from the titlebar button without leaving a collapsed strip", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const toggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!;
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector(".sidebar.collapsed")).toBeNull();
+
+    await act(async () => {
+      toggle.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(gridCols()).toEqual(["0px", "minmax(0,1fr)"]);
+    expect(container.querySelector(".sidebar")).toBeNull();
+
+    await act(async () => {
+      toggle.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(gridCols()[0]).toBe("280px");
+    expect(container.querySelector(".sidebar")).not.toBeNull();
+  });
+
+  it("mirrors the panel glyph between the sidebar and agent panel toggles", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const left = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"] svg')!;
+    const right = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"] svg')!;
+    expect(left.getAttribute("class")).toContain("codicon-sidebar-left");
+    expect(right.getAttribute("class")).toContain("codicon-sidebar-right");
+    const leftHalf = left.querySelectorAll("rect")[1];
+    const rightHalf = right.querySelectorAll("rect")[1];
+    expect(leftHalf?.getAttribute("x")).toBe("1.5");
+    expect(rightHalf?.getAttribute("x")).toBe("8");
+    expect(right.querySelectorAll("rect").length).toBe(left.querySelectorAll("rect").length);
+  });
+
   it("settles with both panels fitting when the window is narrower than their combined width", async () => {
     setWidth(500);
     await act(async () => root.render(<App />));
@@ -214,10 +256,10 @@ describe("Layout panel sizing", () => {
     });
 
     expect(agentLefts()[0]).toBe(0);
-    expect(agentWidths()[0]).toBeCloseTo(1435, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1480, 0);
 
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('.sidebar.collapsed .activity-btn[title="Explorer"]')!.click();
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
@@ -227,32 +269,47 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
-  it("snaps the collapsed explorer to its minimum width after drag resistance", async () => {
+  it("reopens the sidebar from the titlebar toggle after closing it", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
       container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
-    expect(gridCols()[0]).toBe("44px");
-
-    const divider = container.querySelector<HTMLElement>(".divider.collapsed")!;
-    await act(async () => {
-      divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 44 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 63 }));
-    });
-    expect(gridCols()[0]).toBe("44px");
+    expect(gridCols()).toEqual(["0px", "minmax(0,1fr)"]);
+    expect(container.querySelector(".sidebar")).toBeNull();
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 65 }));
-    });
-    expect(gridCols()[0]).toBe("280px");
-
-    await act(async () => {
-      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(gridCols()[0]).toBe("280px");
+    expect(container.querySelector(".sidebar")).not.toBeNull();
+  });
+
+  it("keeps the sidebar closed while dragging on the workspace after reopening it", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(gridCols()).toEqual(["0px", "minmax(0,1fr)"]);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(gridCols()[0]).toBe("280px");
+
+    const divider = container.querySelector<HTMLElement>(".divider")!;
+    await act(async () => {
+      divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 280 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(Number.parseFloat(gridCols()[0])).toBeGreaterThanOrEqual(280);
   });
 
   it("keeps the anchored agent against the compact explorer tray", async () => {
@@ -275,7 +332,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()[0]).toBeCloseTo(1435, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1480, 0);
     expect(agentLefts()[0]).toBeCloseTo(0, 0);
   });
 
@@ -330,7 +387,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([639, 919]);
   });
 
-  it("keeps both panels visible when the window is narrower than their combined width", async () => {
+  it("clamps both panels to their minimum width when the window is narrower than their combined width", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -344,9 +401,8 @@ describe("Layout panel sizing", () => {
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     const [first, second] = agentWidths();
-    expect(first + second + 280).toBeLessThanOrEqual(698);
-    expect(first).toBeGreaterThanOrEqual(44);
-    expect(second).toBeGreaterThanOrEqual(44);
+    expect(first).toBeGreaterThanOrEqual(280);
+    expect(second).toBeGreaterThanOrEqual(280);
   });
 
   it("adds a third model panel without disturbing the layout", async () => {
@@ -524,7 +580,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([639, 919]);
   });
 
-  it("reopening a collapsed panel by dragging settles at the 280px minimum", async () => {
+  it("reopens a collapsed agent panel from the titlebar toggle", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -533,39 +589,27 @@ describe("Layout panel sizing", () => {
     });
 
     await act(async () => {
-      container.querySelectorAll<HTMLElement>(".agent-panel .agent-collapse")[0]!.click();
+      container.querySelectorAll<HTMLElement>(".agent-panel .agent-collapse")[1]!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
-    expect(agentWidths()).toEqual([44, 280]);
+    expect(agentWidths()).toEqual([280]);
 
-    const sliver = container.querySelectorAll<HTMLElement>(".agent-sliver")[0]!;
-    await act(async () => {
-      sliver.querySelector<HTMLElement>(".panel-resize-left")!.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, clientX: 669 })
-      );
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 650 }));
-    });
-    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
-    expect(agentWidths()).toEqual([44, 280]);
+    const toggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!;
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 648 }));
-    });
-    expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
-    expect(agentWidths()).toEqual([280, 280]);
-
-    await act(async () => {
-      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      toggle.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentWidths()).toEqual([280, 280]);
-    expect(agentLefts()).toEqual([403, 919]);
+    expect(agentLefts()).toEqual([639, 919]);
   });
 
-  it("repeatedly drags the collapsed single agent tray open after resistance", async () => {
+  it("repeatedly toggles the single agent panel closed and open from the titlebar", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
@@ -575,18 +619,13 @@ describe("Layout panel sizing", () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
       });
       expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
-      expect(agentWidths()).toEqual([44]);
+      expect(container.querySelectorAll(".agent-tray, .agent-sliver")).toHaveLength(0);
 
-      const handle = container.querySelector<HTMLElement>(".agent-tray .panel-resize-left")!;
-      await act(async () => {
-        handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1155 }));
-        window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1136 }));
-      });
-      expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
+      const toggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!;
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
 
       await act(async () => {
-        window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1134 }));
-        window.dispatchEvent(new MouseEvent("mouseup", {}));
+        toggle.click();
         await new Promise((resolve) => setTimeout(resolve, 20));
       });
       expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
@@ -595,7 +634,7 @@ describe("Layout panel sizing", () => {
     }
   });
 
-  it("closes a model panel when its edge is dragged to the app edge", async () => {
+  it("closes a model panel without leaving a collapsed strip behind", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -605,17 +644,18 @@ describe("Layout panel sizing", () => {
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
 
     const handles = container.querySelectorAll<HTMLElement>(".agent-col .agent-panel .panel-resize-right");
+    expect(handles).toHaveLength(1);
+    void handles;
+
     await act(async () => {
-      handles[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 949 }));
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200 }));
-      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      container.querySelectorAll<HTMLElement>(".agent-panel .agent-collapse")[0]!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
-    expect(container.querySelectorAll(".agent-sliver")).toHaveLength(1);
-    expect(agentWidths()).toEqual([44, 280]);
-    expect(agentLefts()).toEqual([639, 919]);
+    expect(container.querySelectorAll(".agent-sliver")).toHaveLength(0);
+    expect(agentWidths()).toEqual([280]);
+    expect(agentLefts()).toEqual([919]);
   });
 
   it("keeps the anchor collapse control and closes only non-anchor panels", async () => {
@@ -649,10 +689,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("44px");
-    expect(container.querySelector(".sidebar.collapsed")).not.toBeNull();
-    expect(agentWidths()).toEqual([717, 718]);
-    expect(agentLefts()).toEqual([0, 717]);
+    expect(agentWidths()).toEqual([740, 740]);
+    expect(agentLefts()).toEqual([0, 740]);
 
     await act(async () => {
       modeButton().click();
@@ -678,8 +716,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([717, 717, 718]);
-    expect(agentLefts()).toEqual([0, 0, 717]);
+    expect(agentWidths()).toEqual([740, 740, 740]);
+    expect(agentLefts()).toEqual([0, 0, 740]);
     expect(agentCols().map((col) => col.style.top)).toEqual(["50%", "0%", "0%"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
@@ -697,10 +735,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("44px");
-    expect(agentWidths()).toEqual([1435]);
+    expect(gridCols()[0]).toBe("0px");
+    expect(agentWidths()).toEqual([1480]);
     expect(agentLefts()).toEqual([0]);
-    expect(agentLefts()[0] + agentWidths()[0]).toBe(1435);
+    expect(agentLefts()[0] + agentWidths()[0]).toBe(1480);
 
     await act(async () => {
       modeButton().click();
@@ -740,7 +778,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(mode.getAttribute("aria-pressed")).toBe("false");
-    expect(gridCols()[0]).toBe("44px");
+    expect(gridCols()[0]).toBe("0px");
   });
 
   it("reopens a collapsed model panel when entering model mode", async () => {
@@ -783,7 +821,7 @@ describe("Layout panel sizing", () => {
     });
     expect(selectFolder).toHaveBeenCalledWith(expect.any(Number));
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
-    expect(agentWidths()).toEqual([717, 718]);
+    expect(agentWidths()).toEqual([740, 740]);
 
     await act(async () => {
       add().click();
@@ -835,7 +873,7 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentWidths()).toEqual([717, 718]);
+    expect(agentWidths()).toEqual([740, 740]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
 
     let resolvePick!: (value: SessionInfo) => void;
@@ -856,8 +894,8 @@ describe("Layout panel sizing", () => {
 
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(2);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
-    expect(agentWidths()).toEqual([717, 718]);
-    expect(agentLefts()).toEqual([0, 717]);
+    expect(agentWidths()).toEqual([740, 740]);
+    expect(agentLefts()).toEqual([0, 740]);
   });
 
   it("preserves an enlarged tray through subagent navigation and back", async () => {
@@ -959,7 +997,7 @@ describe("Layout panel sizing", () => {
 
     expect(agentCols()).toHaveLength(2);
     expect(agentCols().map((col) => col.style.height)).toEqual(["100%", "100%"]);
-    expect(agentWidths()).toEqual([717, 718]);
+    expect(agentWidths()).toEqual([740, 740]);
   });
 
   it("places agent mode beside the collapsed sidebar", async () => {
@@ -975,10 +1013,10 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("44px");
-    expect(container.querySelector(".sidebar.collapsed")).not.toBeNull();
-    expect(agentLefts()).toEqual([0, 717]);
-    expect(agentWidths()).toEqual([717, 718]);
+    expect(gridCols()[0]).toBe("0px");
+    expect(container.querySelector(".sidebar.collapsed")).toBeNull();
+    expect(agentWidths()).toEqual([740, 740]);
+    expect(agentLefts()).toEqual([0, 740]);
   });
 
   it("keeps model quadrants spanning the workspace after a window resize", async () => {
@@ -1001,8 +1039,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "427px", "427px"]);
+    expect(agentCols().map((col) => col.style.left)).toEqual(["0px", "0px", "450px", "450px"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
-    expect(agentWidths()).toEqual([427, 427, 428, 428]);
+    expect(agentWidths()).toEqual([450, 450, 450, 450]);
   });
 });

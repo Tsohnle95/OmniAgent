@@ -586,27 +586,6 @@
 
 .usage-credits-value { color: var(--text); font-weight: 600; }
 
-.agent-tray {
-  --panel-aura-x: 50%;
-  margin: 8px 6px;
-  border-radius: 14px;
-  background-color: var(--panel-surface-color);
-  background-image: none;
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-top: 8px;
-  min-width: 0;
-  overflow: hidden;
-  cursor: col-resize;
-}
-
-.agent-tray-model { position: relative; z-index: 5; flex: 0 0 34px; padding: 0; }
-
-.agent-tray-model .codicon { font-size: 17px; }
-
 .agent-scroll {
   flex: 1;
   width: 100%;

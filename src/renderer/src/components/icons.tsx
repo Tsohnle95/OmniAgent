@@ -331,3 +331,21 @@ export function IconTerminal(props: IconProps): ReactNode {
     </Icon>
   );
 }
+
+export function IconSidebarLeft(props: IconProps): ReactNode {
+  return (
+    <Icon name="sidebar-left" {...props}>
+      <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
+      <rect x="1.5" y="1.5" width="6.5" height="13" rx="2" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function IconSidebarRight(props: IconProps): ReactNode {
+  return (
+    <Icon name="sidebar-right" {...props}>
+      <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
+      <rect x="8" y="1.5" width="6.5" height="13" rx="2" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}

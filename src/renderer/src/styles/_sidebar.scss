@@ -53,19 +53,6 @@
   margin-left: auto;
 }
 
-.sidebar.collapsed {
-  --panel-aura-x: 50%;
-  background-color: var(--panel-surface-color);
-  background-image: var(--panel-surface-image);
-  background-size: var(--panel-surface-size);
-  background-repeat: var(--panel-surface-repeat);
-  align-items: center;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  gap: 4px;
-  overflow: hidden;
-}
-
 .settings-sidebar-header {
   display: flex;
   flex-direction: column;
@@ -267,10 +254,6 @@
 .side-tab + .side-tab::after { left: 13px; right: 13px; }
 
 .side-tab.active::after { background: var(--accent); }
-
-.sidebar.collapsed .activity-btn {
-  flex: 0 0 34px;
-}
 
 .activity-btn {
   position: relative;

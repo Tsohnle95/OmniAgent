@@ -38,9 +38,7 @@
   transition: width 180ms var(--ease), left 180ms var(--ease);
 }
 
-.agent-col > .agent-panel,
-.agent-col > .agent-tray,
-.agent-col > .agent-sliver {
+.agent-col > .agent-panel {
   flex: 1;
   min-width: 0;
 }
@@ -116,10 +114,6 @@
   z-index: 4;
 }
 
-.panel-resize-collapsed {
-  width: 18px;
-}
-
 .panel-resize-left {
   left: 0;
 }
@@ -154,40 +148,3 @@
   color: var(--text);
 }
 
-.agent-sliver {
-  --panel-aura-x: 50%;
-  margin: 8px 6px;
-  border-radius: 14px;
-  background-color: var(--panel-surface-color);
-  background-image: var(--panel-surface-image);
-  background-size: var(--panel-surface-size);
-  background-repeat: var(--panel-surface-repeat);
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-top: 10px;
-  cursor: col-resize;
-}
-
-.agent-sliver .activity-btn {
-  position: relative;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background 120ms var(--ease), color 120ms var(--ease);
-}
-
-.agent-sliver .activity-btn:hover {
-  background: var(--accent-dim);
-  color: var(--accent);
-}

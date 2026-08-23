@@ -1,44 +1,45 @@
 .sessions-pane {
-  --session-list-row-height: 44px;
+  --session-list-row-height: 28px;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 9px 14px;
+  padding: 6px 8px 14px;
 }
 
 .sessions-actions {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 3px 8px;
+  gap: 3px;
+  padding: 2px 4px 8px;
   flex-shrink: 0;
 }
 
 .sessions-new {
   flex: 1;
-  min-height: 34px;
+  min-height: 29px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 7px;
-  padding: 8px 12px;
+  padding: 4px 8px;
   border: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent-dim);
-  color: var(--accent-hover);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent);
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 11.75px;
+  font-weight: 500;
+  text-align: left;
   cursor: pointer;
-  transition: background 120ms var(--ease), color 120ms var(--ease);
+  transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
 .sessions-new:hover {
-  color: var(--agent-send-color);
-  background: var(--agent-send-background);
+  color: var(--accent-hover);
+  background: var(--accent-tint);
 }
 
 .sessions-file,
@@ -47,17 +48,17 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 34px;
-  padding: 7px 9px;
+  min-height: 29px;
+  padding: 4px 7px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text-faint);
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 500;
   cursor: pointer;
-  transition: color 120ms var(--ease), border-color 120ms var(--ease), background 120ms var(--ease);
+  transition: color 100ms var(--ease), background 100ms var(--ease);
 }
 
 .sessions-file:hover,
@@ -67,7 +68,10 @@
   background: var(--bg-hover);
 }
 
-.sessions-file { width: 34px; padding: 0; }
+.sessions-file {
+  width: 29px;
+  padding: 0;
+}
 
 .sessions-plugins-menu {
   position: absolute;
@@ -103,12 +107,14 @@
   transition: background 100ms var(--ease);
 }
 
-.sessions-plugin-item:hover { background: var(--bg-hover); }
+.sessions-plugin-item:hover {
+  background: var(--bg-hover);
+}
 
 .sessions-plugin-kind {
   flex-shrink: 0;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -125,111 +131,152 @@
   white-space: nowrap;
 }
 
-.sessions-plugin-check { flex-shrink: 0; color: var(--accent); }
-
-.sessions-search {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 3px 3px 10px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--bg-inset);
-  color: var(--text-faint);
+.sessions-plugin-check {
   flex-shrink: 0;
-  transition: background 120ms var(--ease), box-shadow 120ms var(--ease);
+  color: var(--accent);
 }
-
-.sessions-search:focus-within {
-  background: var(--bg-elev);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
-}
-
-.sessions-search-icon { flex-shrink: 0; }
-
-.sessions-search-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 12.5px;
-}
-
-.sessions-search-input::placeholder { color: var(--text-faint); }
 
 .sessions-section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   flex-shrink: 0;
-  margin-top: 8px;
+  margin-top: 3px;
 }
 
-.sessions-section.grow { min-height: 0; }
-.sessions-section .section-trigger { padding: 0 4px; }
+.sessions-section.grow {
+  min-height: 0;
+}
+
+.sessions-section .section-trigger {
+  padding: 0 4px;
+}
 
 .sessions-section .section-toggle {
-  min-height: 30px;
-  padding: 5px 2px;
+  min-height: 25px;
+  padding: 3px 8px;
   color: var(--text-faint);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
+.sessions-section .section-toggle:hover,
 .sessions-section .section-toggle.open {
+  color: var(--text-dim);
   background: transparent;
-  color: var(--text);
+}
+
+.sessions-section .section-toggle .section-chevron {
+  margin-left: auto;
+}
+
+.sessions-section .section-toggle .si-chevron.open {
+  transform: rotate(90deg);
 }
 
 .sessions-section-list {
-  max-height: calc(var(--session-list-row-height) * 6);
+  max-height: calc(var(--session-list-row-height) * 7);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   padding: 0;
 }
 
-.sessions-project { display: flex; flex-direction: column; }
+.sessions-project {
+  display: flex;
+  flex-direction: column;
+}
 
 .sessions-project-head {
   display: flex;
   align-items: center;
-  gap: 7px;
+  min-width: 0;
   height: var(--session-list-row-height);
-  margin: 0;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  user-select: none;
+  margin: 0 2px;
+  border-radius: var(--radius-full);
   transition: background 100ms var(--ease);
 }
 
-.sessions-project-head:hover { background: var(--bg-hover); }
-.sessions-project-head .section-chevron { display: inline-flex; color: var(--text-faint); transition: transform 120ms var(--ease); }
-.sessions-project-head.open .section-chevron { transform: rotate(180deg); }
-.sessions-project-head .sidebar-count { margin-left: auto; }
-.sessions-project-new { display: inline-flex; opacity: 0; transition: opacity 100ms var(--ease); }
+.sessions-project-head:hover {
+  background: var(--bg-hover);
+}
+
+.sessions-project-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-faint);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sessions-project-toggle .section-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  transition: transform 120ms var(--ease);
+}
+
+.sessions-project-toggle .si-chevron.open {
+  transform: rotate(90deg);
+}
+
+.sessions-project-toggle .sessions-row-icon {
+  color: var(--text-dim);
+}
+
+.sessions-project-head.open .sessions-project-toggle .sessions-row-icon {
+  color: var(--accent);
+}
+
+.sessions-project-count {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 9.5px;
+  font-weight: 400;
+}
+
+.sessions-project-new {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-right: 4px;
+  opacity: 0;
+  transition: opacity 100ms var(--ease);
+}
+
 .sessions-project-head:hover .sessions-project-new,
-.sessions-project-head:focus-within .sessions-project-new { opacity: 1; }
-.sessions-project-sessions { margin-left: 16px; }
+.sessions-project-head:focus-within .sessions-project-new {
+  opacity: 1;
+}
+
+.sessions-project-sessions {
+  margin-left: 12px;
+}
 
 .sessions-row {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  min-width: 0;
+  height: var(--session-list-row-height);
   min-height: var(--session-list-row-height);
-  padding: 6px 8px;
-  margin: 1px 0;
-  border-radius: var(--radius-md);
+  padding: 4px 8px;
+  margin: 0 2px;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: background 100ms var(--ease), box-shadow 100ms var(--ease);
+  transition: background 100ms var(--ease);
 }
 
 .sessions-row:hover {
@@ -237,37 +284,49 @@
 }
 
 .sessions-row.focused {
-  background: var(--accent-tint);
-  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--text);
 }
 
-.sessions-row .agent-dot { flex: none; }
-.sessions-row .agent-dot.live { background: var(--green); }
-.sessions-row-icon { flex: none; color: var(--text-faint); }
-.sessions-row.focused .sessions-row-icon { color: var(--accent); }
+.sessions-row .agent-dot {
+  flex: none;
+}
+
+.sessions-row .agent-dot.live {
+  background: var(--green);
+}
+
+.sessions-row.focused .agent-dot {
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.sessions-row-icon {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.sessions-row.focused .sessions-row-icon {
+  color: var(--accent);
+}
 
 .sessions-row-main {
   display: flex;
-  flex-direction: column;
   min-width: 0;
   flex: 1;
 }
 
 .sessions-row-title {
-  color: var(--text);
-  font-size: 12.5px;
-  font-weight: 560;
-  white-space: nowrap;
+  min-width: 0;
   overflow: hidden;
+  color: var(--text-faint);
+  font-size: 11.75px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sessions-row-meta {
-  color: var(--text-faint);
-  font-size: 10.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.sessions-row.focused .sessions-row-title {
+  color: var(--text);
 }
 
 .sessions-row-pin,
@@ -276,8 +335,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -287,26 +346,30 @@
   transition: opacity 100ms var(--ease), color 100ms var(--ease), background 100ms var(--ease);
 }
 
-.sessions-row-pin.pinned { color: var(--accent); opacity: 1; }
+.sessions-row-pin.pinned {
+  color: var(--accent);
+  opacity: 1;
+}
+
 .sessions-row:hover .sessions-row-pin,
 .sessions-row:hover .sessions-row-close,
-.sessions-row-pin.pinned { opacity: 1; }
-.sessions-row-pin:hover { background: var(--accent-tint); color: var(--accent); }
-.sessions-row-close:hover { background: var(--interactive-hover); color: var(--text); }
+.sessions-row-pin.pinned {
+  opacity: 1;
+}
 
-.sessions-row-badge {
-  flex: none;
-  padding: 2px 6px;
-  border-radius: var(--radius-full);
-  background: var(--accent-dim);
-  color: var(--accent-hover);
-  font-size: 9px;
-  font-weight: 650;
+.sessions-row-pin:hover {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.sessions-row-close:hover {
+  background: var(--interactive-hover);
+  color: var(--text);
 }
 
 .sessions-empty {
   margin: 0;
-  padding: 6px 8px;
+  padding: 5px 10px;
   color: var(--text-faint);
   font-size: 10.5px;
 }

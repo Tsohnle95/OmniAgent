@@ -69,12 +69,6 @@ vi.mock("../store", () => ({
   useCtxMenu: () => ctxMenuApi
 }));
 
-function type(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  setter.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
 describe("FileSidebar tabs and sessions pane", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -146,6 +140,11 @@ describe("FileSidebar tabs and sessions pane", () => {
 
     expect(container.querySelector(".sessions-plugins")).not.toBeNull();
     expect(store.loadSessions).toHaveBeenCalled();
+    expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.textContent)).toEqual([
+      "Open now",
+      "Workspaces",
+      "History"
+    ]);
     expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["true", "true", "false"]);
   });
 
@@ -164,34 +163,32 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(container.querySelector(".sessions-pane")).not.toBeNull();
   });
 
-  it("pins a recent session, persists it, and lists it under Pinned", async () => {
+  it("pins a history session and persists the quiet pinned state", async () => {
     store.sessions = [summary("s1", "/workspace", "First"), summary("s2", "/other", "Second")];
     await render();
     await settle();
 
-    expect(section("Pinned").querySelector(".sessions-section-list")?.textContent).toContain("No pinned sessions yet.");
-
-    const recents = section("Recents");
-    await act(async () => recents.querySelector<HTMLButtonElement>(".section-toggle")!.click());
-    const pin = recents.querySelectorAll<HTMLButtonElement>(".sessions-row-pin")[0];
+    const history = section("History");
+    await act(async () => history.querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    const pin = history.querySelectorAll<HTMLButtonElement>(".sessions-row-pin")[0];
     await act(async () => pin.click());
 
     expect(JSON.parse(window.localStorage.getItem("openshell.pinnedSessions") ?? "[]")).toEqual(["s1"]);
-    const pinned = section("Pinned");
-    expect(pinned.textContent).toContain("First");
-    expect(pinned.querySelector(".sessions-row-pin")?.classList.contains("pinned")).toBe(true);
+    expect(history.textContent).toContain("First");
+    expect(history.querySelector(".sessions-row-pin")?.classList.contains("pinned")).toBe(true);
   });
 
-  it("lists project folders under Sessions and expands their session history", async () => {
+  it("lists saved folders under Workspaces and expands their session history", async () => {
     store.sessions = [summary("running", "/workspace", "Running row")];
     await render();
     await settle();
 
-    const sessions = section("Sessions");
-    const project = sessions.querySelector<HTMLElement>(".sessions-project-head")!;
+    const workspaces = section("Workspaces");
+    const project = workspaces.querySelector<HTMLButtonElement>(".sessions-project-toggle")!;
     expect(project.textContent).toContain("Workspace");
     await act(async () => project.click());
-    expect(sessions.querySelector(".sessions-project-sessions")?.textContent).toContain("Running row");
+    expect(project.getAttribute("aria-expanded")).toBe("true");
+    expect(workspaces.querySelector(".sessions-project-sessions")?.textContent).toContain("Running row");
   });
 
   it("gives each expanded session group its own scrolling list", async () => {
@@ -203,10 +200,10 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(sections).toHaveLength(3);
     await act(async () => sections[2].querySelector<HTMLButtonElement>(".section-toggle")!.click());
     expect(sections.map((section) => section.querySelectorAll(":scope > .sessions-section-list").length)).toEqual([1, 1, 1]);
-    expect(sections[1].textContent).toContain("Sessions");
+    expect(sections[1].textContent).toContain("Workspaces");
   });
 
-  it("focuses running sessions and reopens closed ones from recents", async () => {
+  it("focuses running sessions from Open now and reopens closed ones from History", async () => {
     store.sessions = [
       summary("running", "/workspace", "Running row"),
       summary("closed", "/other", "Closed row")
@@ -216,16 +213,18 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
-    const recents = section("Recents");
-    await act(async () => recents.querySelector<HTMLButtonElement>(".section-toggle")!.click());
-    const rows = recents.querySelectorAll<HTMLElement>(".sessions-row");
+    const openNow = section("Open now");
+    const runningRow = openNow.querySelector<HTMLElement>(".sessions-row")!;
+    expect(runningRow.querySelector(".agent-dot")?.classList.contains("busy")).toBe(true);
 
-    expect(rows[0].querySelector(".agent-dot")?.classList.contains("busy")).toBe(true);
-
-    await act(async () => rows[0].click());
+    await act(async () => runningRow.click());
     expect(store.focusSession).toHaveBeenCalledWith("running");
 
-    await act(async () => rows[1].click());
+    const history = section("History");
+    await act(async () => history.querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    const closedRow = history.querySelector<HTMLElement>(".sessions-row")!;
+    expect(history.textContent).not.toContain("Running row");
+    await act(async () => closedRow.click());
     expect(store.reopenSession).toHaveBeenCalledWith("closed");
   });
 
@@ -243,7 +242,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(container.querySelector(".sessions-plugins-menu")).toBeNull();
   });
 
-  it("filters all sections by the search query", async () => {
+  it("nests each workspace's sessions under its own dropdown", async () => {
     store.sessions = [summary("s1", "/workspace", "Alpha kernel work"), summary("s2", "/beta", "Beta setup")];
     window.openshell = {
       projects: vi.fn(async () => [{ directory: "/workspace", name: "Workspace" }, { directory: "/beta", name: "Beta" }])
@@ -251,14 +250,18 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
-    const input = container.querySelector<HTMLInputElement>(".sessions-search-input")!;
-    await act(async () => type(input, "alpha"));
-    await settle();
-    await act(async () => section("Recents").querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    const workspaces = section("Workspaces");
+    const projectToggles = workspaces.querySelectorAll<HTMLButtonElement>(".sessions-project-toggle");
+    expect(projectToggles).toHaveLength(2);
 
-    const titles = [...container.querySelectorAll(".sessions-row-title")].map((el) => el.textContent);
-    expect(titles.some((t) => t?.includes("Beta"))).toBe(false);
-    expect(titles.some((t) => t?.includes("Alpha"))).toBe(true);
+    await act(async () => projectToggles[0].click());
+    const firstSessions = workspaces.querySelectorAll<HTMLElement>(".sessions-project-sessions")[0];
+    expect(firstSessions.textContent).toContain("Alpha kernel work");
+    expect(firstSessions.textContent).not.toContain("Beta setup");
+
+    await act(async () => projectToggles[1].click());
+    const nestedSessions = workspaces.querySelectorAll<HTMLElement>(".sessions-project-sessions");
+    expect(nestedSessions[1].textContent).toContain("Beta setup");
   });
 
 });

@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
-import { OmniMark } from "./OmniMark";
 import { IconExpand, IconFolderOpen } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
@@ -525,20 +524,7 @@ export function FileSidebar({
   const changes = [...agentFiles.entries()];
 
   if (collapsed) {
-    return (
-      <div className="sidebar collapsed">
-        <button
-          className="activity-btn"
-          title="Explorer"
-          onClick={() => {
-            setExplorerOpen(true);
-            onCollapse(true);
-          }}
-        >
-          <OmniMark size={20} />
-        </button>
-      </div>
-    );
+    return null;
   }
 
   if (singleFile && session) {
