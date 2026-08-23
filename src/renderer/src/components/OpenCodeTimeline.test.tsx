@@ -282,6 +282,36 @@ describe("OpenCodeTimeline chronology", () => {
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Latest");
   });
 
+  it("keeps the active Think row at the bottom as output and events grow", () => {
+    const live = assistant("assistant-live") as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.completed = false;
+    live.parts = [
+      { kind: "reasoning", id: "reasoning-live", text: "Inspecting", complete: false },
+      { kind: "text", id: "text-live", text: "Growing answer", complete: false }
+    ];
+    const shell: TranscriptItem = { kind: "shell", id: "shell-live", shellID: "shell-live", command: "pwd", status: "running" };
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[live, shell]} busy lastAssistantId="assistant-live" />
+    ));
+
+    const list = container.querySelector("[data-slot='session-turn-list']")!;
+    const thought = container.querySelector("[data-component='reasoning-part']");
+    expect(list.children[list.children.length - 2].querySelector("[data-component='reasoning-part']")).toBe(thought);
+    expect(list.lastElementChild?.matches("[data-component='turn-status']")).toBe(true);
+
+    live.parts = [
+      { kind: "reasoning", id: "reasoning-live", text: "Inspecting\nComparing", complete: false },
+      { kind: "text", id: "text-live", text: "Growing answer with another streamed paragraph", complete: false }
+    ];
+    act(() => root.render(
+      <OpenCodeTimeline transcript={[{ ...live }, shell]} busy lastAssistantId="assistant-live" />
+    ));
+
+    expect(container.querySelector("[data-component='reasoning-part']")).toBe(thought);
+    expect(list.children[list.children.length - 2].querySelector("[data-component='reasoning-part']")).toBe(thought);
+    expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Comparing");
+  });
+
   it("hides arbitrary generic tool arguments and exposes long details as a tooltip", () => {
     const generic = toolAssistant("tool", "tool", { limit: 40, content: "private" }) as Extract<TranscriptItem, { kind: "assistant" }>;
     const transcript: TranscriptItem[] = [{

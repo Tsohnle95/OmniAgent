@@ -1239,8 +1239,14 @@ export function AgentPanel({
     });
   };
 
+  const scrollToBottom = (): void => {
+    const el = scrollRef.current;
+    if (!el || !stickRef.current) return;
+    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+  };
+
   useLayoutEffect(() => {
-    scheduleScrollToBottom();
+    scrollToBottom();
   }, [transcript, busy]);
 
   useEffect(() => {

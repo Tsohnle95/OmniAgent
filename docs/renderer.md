@@ -289,12 +289,16 @@ Key mechanisms:
   stream. It ports the timeline rows and message-part slots to React. User messages
   use the subtle right-aligned layer bubble; assistant markdown is flat and
   paced while streamed reasoning stays ordered behind one collapsed Think
-  disclosure per assistant turn. Its stable fixed-height summary follows the
-  newest native reasoning or OpenCode commentary stage while active and its
-  horizontal scroll follows new text on a three-frame visual throttle. Native
+  disclosure per assistant turn. While active, that stable fixed-height row is
+  deferred to the trailing progress position immediately above `Deep diving...`
+  so later tools and answer text cannot push it out of view; completed turns
+  restore it to chronological placement. Its summary follows the newest native
+  reasoning or OpenCode commentary stage, and its horizontal scroll follows new
+  text on a three-frame visual throttle. Native
   deltas appear immediately; a one-shot summary is never made to resemble token
   streaming. The full accumulated progress is rendered only when the user
-  expands it. The separate
+  expands it. Bottom-follow corrections run before paint for transcript changes,
+  with the resize observer retained for asynchronous content layout. The separate
   `Deep diving...` turn status remains visible for the whole active turn. Adjacent read/glob/grep/list
   parts remain individually visible across assistant messages; recursive
   DeepSeek code dispatches stay nested beneath their root call; task calls use

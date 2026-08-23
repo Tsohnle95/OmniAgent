@@ -1072,36 +1072,62 @@ function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }>
 
 type TurnPart = { item: AssistantItem; part: AssistantPart };
 
-function AssistantTurn({ items, streaming, session }: { items: AssistantItem[]; streaming: boolean; session: SessionInfo | null }): ReactNode {
+function mergedTurnReasoning(items: AssistantItem[], id: string): Extract<AssistantPart, { kind: "reasoning" }> | null {
+  const reasoning = items
+    .flatMap((item) => item.parts)
+    .filter((part): part is Extract<AssistantPart, { kind: "reasoning" }> => part.kind === "reasoning");
+  const text = reasoning
+    .map((part) => part.text.trim())
+    .filter((part, index, parts) => part && part !== parts[index - 1])
+    .join("\n\n");
+  return reasoning.length > 0 ? {
+    ...reasoning[0],
+    id,
+    text,
+    complete: reasoning.every((part) => part.complete)
+  } : null;
+}
+
+function ReasoningRow({
+  part,
+  streaming,
+  previous = false
+}: {
+  part: Extract<AssistantPart, { kind: "reasoning" }>;
+  streaming: boolean;
+  previous?: boolean;
+}): ReactNode {
+  return (
+    <TimelineRow tag="AssistantPart" previous={previous}>
+      <div data-slot="session-turn-assistant-content">
+        <ReasoningPart part={part} streaming={streaming} />
+      </div>
+    </TimelineRow>
+  );
+}
+
+function AssistantTurn({
+  items,
+  streaming,
+  session,
+  reasoningDeferred = false
+}: {
+  items: AssistantItem[];
+  streaming: boolean;
+  session: SessionInfo | null;
+  reasoningDeferred?: boolean;
+}): ReactNode {
   const rows: ReactNode[] = [];
   const parts: TurnPart[] = items.flatMap((item) => item.parts
     .filter((part) => part.kind === "tool" || Boolean(part.text.trim()))
     .filter((part) => part.kind !== "tool" || toolKey(part.tool.title) !== "todowrite")
     .map((part) => ({ item, part })));
-  const reasoning = parts
-    .filter((entry): entry is TurnPart & { part: Extract<AssistantPart, { kind: "reasoning" }> } => entry.part.kind === "reasoning")
-    .map((entry) => entry.part);
-  const reasoningText = reasoning
-    .map((entry) => entry.text.trim())
-    .filter((entry, entryIndex, entries) => entry && entry !== entries[entryIndex - 1])
-    .join("\n\n");
-  const mergedReasoning = reasoning.length > 0 ? {
-    ...reasoning[0],
-    id: `turn-reasoning:${items[0]?.id ?? reasoning[0].id}`,
-    text: reasoningText,
-    complete: reasoning.every((entry) => entry.complete)
-  } : null;
+  const mergedReasoning = reasoningDeferred ? null : mergedTurnReasoning(items, `turn-reasoning:${items[0]?.id ?? "assistant"}`);
   let previous = false;
   let reasoningRendered = false;
   const renderReasoning = (): void => {
     if (!mergedReasoning || reasoningRendered) return;
-    rows.push(
-      <TimelineRow tag="AssistantPart" previous={previous} key={mergedReasoning.id}>
-        <div data-slot="session-turn-assistant-content">
-          <ReasoningPart part={mergedReasoning} streaming={streaming} />
-        </div>
-      </TimelineRow>
-    );
+    rows.push(<ReasoningRow part={mergedReasoning} streaming={streaming} previous={previous} key={mergedReasoning.id} />);
     previous = true;
     reasoningRendered = true;
   };
@@ -1380,6 +1406,11 @@ export function OpenCodeTimeline({
     return visible;
   }, [consolidatedTranscript, representedSubagents, store.sessions, activeSession?.id]);
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
+  const activeTurn = busy ? turns.at(-1) : undefined;
+  const activeAssistantItems = activeTurn?.body.filter((item): item is AssistantItem => item.kind === "assistant") ?? [];
+  const activeReasoning = activeTurn && activeAssistantItems.some((item) => item.id === lastAssistantId)
+    ? mergedTurnReasoning(activeAssistantItems, `active-turn-reasoning:${activeTurn.id}`)
+    : null;
 
   return (
     <div data-slot="session-turn-list" className="opencode-timeline">
@@ -1393,12 +1424,14 @@ export function OpenCodeTimeline({
                   items={run}
                   streaming={busy && run.some((item) => item.id === lastAssistantId)}
                   session={activeSession}
+                  reasoningDeferred={turn === activeTurn && Boolean(activeReasoning)}
                   key={`assistant:${run[0].id}`}
                 />
               : <TimelineEvent item={run} session={activeSession} key={run.id} />)}
           </div>
         );
       })}
+      {activeReasoning && <ReasoningRow part={activeReasoning} streaming previous key={activeReasoning.id} />}
       {busy && <TurnStatus key="turn-status" startTime={turnStartedAt} />}
     </div>
   );
