@@ -71,7 +71,8 @@ function expectedLauncherOps(): string[] {
     `rm ${path.join(appPayload, "resources")}`,
     `mkdir ${appPayload}`,
     `copy ${path.join(root, "scripts", "live-launcher.cjs")} -> ${path.join(appPayload, "live-launcher.cjs")}`,
-    `write ${path.join(appPayload, "package.json")}`
+    `write ${path.join(appPayload, "package.json")}`,
+    `write ${path.join(appPayload, ".omniagent-repo.json")}`
   ];
 }
 

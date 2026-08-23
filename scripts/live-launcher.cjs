@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const MARKER_FILE = ".omniagent-live-build-failed";
+const REPO_CONFIG_FILE = ".omniagent-repo.json";
 const SOURCE_EXTENSIONS = /\.(?:ts|tsx|js|mjs|cjs|scss|sass|css|html|json)$/;
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
@@ -59,11 +60,23 @@ function decideLaunch(options = {}) {
   return { action: "launch" };
 }
 
+function resolveRepository(appRoot = path.resolve(__dirname)) {
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(appRoot, REPO_CONFIG_FILE), "utf8"));
+    if (typeof config.projectRoot === "string") {
+      return { root: config.projectRoot, node: typeof config.node === "string" ? config.node : undefined };
+    }
+  } catch {
+    // development layout: this script lives in the repository itself
+  }
+  return { root: appRoot };
+}
+
 function runBuild(options = {}) {
   const projectRoot = options.projectRoot;
   const spawn = options.spawnSync ?? spawnSync;
   const result = spawn(
-    process.execPath,
+    options.node ?? process.execPath,
     [path.join(projectRoot, "node_modules", "electron-vite", "bin", "electron-vite.js"), "build"],
     {
       cwd: projectRoot,
@@ -95,7 +108,8 @@ function warn(message, buttons, options = {}) {
 }
 
 async function main(options = {}) {
-  const projectRoot = options.projectRoot ?? path.resolve(__dirname, "..");
+  const repository = resolveRepository();
+  const projectRoot = repository.root;
   const dialog = options.dialog ?? (() => {
     try {
       return require("electron").dialog;
@@ -112,7 +126,7 @@ async function main(options = {}) {
   } else {
     const previousFailure = fs.existsSync(marker);
     console.log(`[live-launcher] ${decision.reason}; rebuilding …`);
-    const ok = runBuild({ projectRoot });
+    const ok = runBuild({ projectRoot, node: repository.node });
     if (ok) {
       fs.rmSync(marker, { force: true });
       console.log("[live-launcher] build complete");
@@ -141,4 +155,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { MARKER_FILE, newestSourceMtime, decideLaunch, runBuild, main };
+module.exports = { MARKER_FILE, REPO_CONFIG_FILE, newestSourceMtime, decideLaunch, resolveRepository, runBuild, main };

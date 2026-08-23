@@ -11,3 +11,5 @@ release/
 package-lock.json
 TODO.md
 redesign
+.omniagent-repo.json
+.omniagent-live-build-failed

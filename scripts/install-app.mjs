@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { REPO_CONFIG_FILE } from "./live-launcher.cjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const APP_NAME = "OmniAgent.app";
@@ -25,6 +26,10 @@ export function liveLauncherPayload(projectRoot) {
       private: true,
       main: "live-launcher.cjs"
     }, null, 2),
+    repoConfigJson: `${JSON.stringify({
+      projectRoot,
+      node: process.execPath
+    }, null, 2)}\n`,
     launcherSource: path.join(projectRoot, "scripts", "live-launcher.cjs")
   };
 }
@@ -44,7 +49,8 @@ export function applyLiveLauncher(bundlePath, projectRoot, io = liveLauncherIo) 
   io.mkdir(appDir);
   const payload = liveLauncherPayload(projectRoot);
   io.copy(payload.launcherSource, path.join(appDir, "live-launcher.cjs"));
-  io.write(path.join(appDir, "package.json"), `${payload.packageJson}\n`);
+  io.write(path.join(appDir, "package.json"), payload.packageJson);
+  io.write(path.join(appDir, REPO_CONFIG_FILE), payload.repoConfigJson);
 }
 
 export function installApp(options = {}) {

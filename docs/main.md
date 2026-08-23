@@ -272,7 +272,9 @@ the trusted packaged document stays exactly
 ad-hoc re-signs the bundle, and — for the install flow — replaces
 `/Applications/OmniAgent.app` with `cp -R`, preserving the signature. The
 packaged payload is then swapped for the live launcher
-(`scripts/live-launcher.cjs` plus a minimal `package.json`), so the installed
+(`scripts/live-launcher.cjs` plus a minimal `package.json` and a gitignored
+`.omniagent-repo.json` recording the repository path and Node binary), so the
+installed
 app keeps its Electron runtime and icon but always runs the repository's
 latest build, silently auto-rebuilding first when sources are newer than
 `out/`, falling back to the last known good build if that rebuild fails.

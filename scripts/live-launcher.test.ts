@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyLiveLauncher, liveLauncherPayload } from "./install-app.mjs";
-import { MARKER_FILE, decideLaunch } from "./live-launcher.cjs";
+import { MARKER_FILE, REPO_CONFIG_FILE, decideLaunch, resolveRepository } from "./live-launcher.cjs";
 
 const repoRoot = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "..");
 
@@ -98,5 +98,41 @@ describe("live launcher payload", () => {
     expect(parsed.main).toBe("live-launcher.cjs");
     expect(payload.launcherSource.endsWith(path.join("scripts", "live-launcher.cjs"))).toBe(true);
     expect(existsSync(payload.launcherSource)).toBe(true);
+    const repoConfig = JSON.parse(payload.repoConfigJson);
+    expect(repoConfig.projectRoot).toBe(repoRoot);
+    expect(typeof repoConfig.node).toBe("string");
+  });
+
+  it("prefers the baked repository config over the bundle directory", () => {
+    const fixture = makeFixture();
+    try {
+      writeFileSync(path.join(fixture, REPO_CONFIG_FILE), `${JSON.stringify({ projectRoot: "/somewhere/else", node: "/usr/bin/true" })}\n`);
+      const repository = resolveRepository(fixture);
+      expect(repository.root).toBe("/somewhere/else");
+      expect(repository.node).toBe("/usr/bin/true");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to the script's own repository when no config is present", () => {
+    const fixture = makeFixture();
+    try {
+      expect(resolveRepository(fixture)).toEqual({ root: fixture });
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores a malformed or empty repository config", () => {
+    const fixture = makeFixture();
+    try {
+      writeFileSync(path.join(fixture, REPO_CONFIG_FILE), "{not json");
+      expect(resolveRepository(fixture)).toEqual({ root: fixture });
+      writeFileSync(path.join(fixture, REPO_CONFIG_FILE), "{}\n");
+      expect(resolveRepository(fixture)).toEqual({ root: fixture });
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
   });
 });
