@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" data-theme="paper">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OmniAgent Calm Logo Study</title>
+    <link rel="stylesheet" href="./logos.css" />
+  </head>
+  <body>
+    <main class="review-shell">
+      <header class="review-header">
+        <div class="review-heading">
+          <span class="review-kicker">OmniAgent design study</span>
+          <h1>Calm logo directions</h1>
+          <p>
+            300 distinct marks constrained to the calm paper theme — muted sage and beige,
+            soft geometry, negative space, and quiet metaphors for orchestration.
+          </p>
+        </div>
+        <div class="review-controls">
+          <label class="review-search">
+            <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="3.75" /><path d="m9.75 9.75 3 3" /></svg>
+            <input id="logo-search" type="search" placeholder="Search name, family, concept…" autocomplete="off" />
+          </label>
+          <label class="review-filter">
+            <span>Family</span>
+            <select id="family-filter">
+              <option value="all">All 300</option>
+            </select>
+          </label>
+          <button id="theme-toggle" class="review-button" type="button">Dark preview</button>
+        </div>
+      </header>
+
+      <div class="constraint-line" aria-label="Design constraints">
+        <span>Paper · beige · sage</span>
+        <span>No neon</span>
+        <span>No hard shadows</span>
+        <span>Soft geometry</span>
+        <span>Negative space</span>
+        <span>System UI</span>
+      </div>
+
+      <div class="results-line">
+        <span id="results-count">300 logos</span>
+        <span id="selection-count">Nothing selected</span>
+      </div>
+
+      <section id="logo-gallery" class="design-gallery" aria-live="polite"></section>
+    </main>
+
+    <aside class="selection-tray" aria-label="Shortlisted logos">
+      <span class="selection-label">Shortlist</span>
+      <div id="selection-items" class="selection-items"></div>
+      <button id="selection-clear" type="button">Clear</button>
+    </aside>
+
+    <script type="module" src="./logos.js"></script>
+  </body>
+</html>
