@@ -69,7 +69,7 @@ stream reconnects.
 
 ## Streaming lifecycle (`streaming.ts`, `session-activity.ts`, `assistant-status.ts`)
 
-Ports of OpenChamber's sync streaming stack. `streaming.ts` tracks which
+OmniAgent's synchronized streaming stack tracks which
 message is streaming per session and its lifecycle phase
 (`streaming` / `cooldown` / `completed`) with `startedAt` / `lastUpdateAt` /
 `completedAt` timestamps; `lastUpdateAt` writes are throttled to a 1s
@@ -100,15 +100,19 @@ or a reopened session with a dead tail. Live stream content restores busy on a
 settled session (unless a stop is in flight), so a watchdog false-positive
 self-heals on the next delta.
 
-The active timeline ends with the same persistent turn-status treatment as
-DeepSeek Harness: one stable text node uses its continuous 1.8s gradient
-animation while the turn runs and gains a one-second elapsed clock after 15
-seconds. Text/reasoning deltas cannot remount or restart that status node.
+While a turn is active, `AgentPanel` keeps one stable live-activity edge
+immediately above the composer. It reports the newest concrete reasoning line,
+tool action, shell command, or response line plus elapsed time; before native
+parts arrive it falls back to the derived runtime status. The dock remains
+mounted across the turn, transitions only its contents, and collapses when the
+authoritative activity state becomes idle. A resize observer follows both the
+timeline content and the scroll viewport while the reader remains at the floor,
+so the dock transition and streamed content do not dislodge the live edge.
 `assistant-status.ts` derives the working summary
 every panel exposes: the active model (from the trailing assistant's
 `parentID` back to its user message), the active part (text → "composing",
 reasoning → "thinking", running tool → its tool phrase, editing tools →
-"editing file", otherwise a stable generic phrase), the fully-synthetic
+"editing file", otherwise "preparing response"), the fully-synthetic
 message guard, the forming state, `canAbort`, unacknowledged abort flags set
 by `stop()`, the question overlay (questions are not handled by OmniAgent yet,
 so `pendingQuestions` is always 0), and retry info. `PanelView.activity`,
@@ -286,23 +290,22 @@ Key mechanisms:
 
 - **Runtime-neutral transcript presentation** — `OpenCodeTimeline.tsx` retains
   its historical filename while rendering the shared OpenCode and DeepSeek
-  stream. It ports the timeline rows and message-part slots to React. User messages
-  use the subtle right-aligned layer bubble; assistant markdown is flat and
-  paced while streamed reasoning stays ordered behind one collapsed Think
-  disclosure per assistant turn. While active, that stable fixed-height row is
-  deferred to the trailing progress position immediately above `Deep diving...`
-  so later tools and answer text cannot push it out of view; completed turns
-  restore it to chronological placement. Its summary follows the newest native
-  reasoning or OpenCode commentary stage, and its horizontal scroll follows new
-  text on a three-frame visual throttle. Native
+  stream. User messages use the subtle right-aligned layer bubble and final
+  assistant markdown remains flat. Reasoning and tool calls form one calm work
+  log with a shared vertical rail, uniform markers, and compact disclosures;
+  final prose remains visually separate from that log. Each native step keeps a
+  stable keyed entry and chronological position. A running Thought summary
+  follows the newest native reasoning or OpenCode commentary line, and its
+  horizontal scroll follows new text on a three-frame visual throttle. Native
   deltas appear immediately; a one-shot summary is never made to resemble token
   streaming. The full accumulated progress is rendered only when the user
-  expands it. Bottom-follow mirrors Harness semantics: a stable signature follows
+  expands it. Bottom-follow uses a stable signature to follow
   new business rows and turn-state changes before paint, while a resize observer
-  follows actual streamed height growth only while the reader remains at the
-  floor. Programmatic positions are tracked separately so inertial or deliberate
-  reader scrolling is not mistaken for stream movement. The separate
-  `Deep diving...` turn status remains visible for the whole active turn. Adjacent read/glob/grep/list
+  follows both streamed height growth and live-dock viewport changes only while
+  the reader remains at the floor. Programmatic positions are tracked separately
+  so inertial or deliberate reader scrolling is not mistaken for stream movement.
+  The stable live-activity edge above the composer mirrors the newest concrete
+  native event without duplicating or relocating transcript nodes. Adjacent read/glob/grep/list
   parts remain individually visible across assistant messages; recursive
   DeepSeek code dispatches stay nested beneath their root call; task calls use
   OpenCode's agent-colored delegation card and todo writes are hidden from the
@@ -369,8 +372,8 @@ Key mechanisms:
 | `ProviderSettings` | `ProviderSettings.tsx` | Provider-neutral connection surface backed by the active runtime adapter: 20 featured providers, full-catalog search, write-only API-key forms with runtime-declared fields, secret-free connection labels, credential removal, environment/OAuth availability, and immediate model-catalog refresh after changes |
 | `SessionsPane` | `SessionsPane.tsx` | Sessions tab content styled as a session browser: New Session opens the native folder picker and an adjacent file action opens the native file picker, replacing the redundant titlebar actions; the Plugins menu lists workspace commands + skills from `commands()` and runs them via `runCommand`. A search field filters Pinned (session ids persisted in `localStorage` "openshell.pinnedSessions", star/unstar from any row), Sessions (project folders from `projects()`, expandable to their session history), and Recents (all known sessions newest-first). All three sections start collapsed and gain an independent six-row scroll viewport when expanded while the outer pane remains scrollable on short windows. Session rows show live/busy dots for open panels and either focus them or reopen closed sessions; rows expose pin and close actions |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor` with compact scrollbars and a narrow add/remove overview strip, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
-| `AgentPanel` | `AgentPanel.tsx` | `session`-parameterized panel hosting the OpenCode timeline and V2 prompt dock: todo checklist, exact web placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, compact send/stop button, and smart auto-scroll; the composer resolves `/` into a slash-command picker (built-ins like `/compact` first, then `command.list` + `skill.list`; skills run via `session.skill`, `/compact` via `session.compact`) that runs via `runCommand` (Enter on a leading-`/` prompt runs it too) and `@` into a file-mention picker (`file.find` search, debounced per keystroke) that inserts `@rel` tokens attached to the prompt as `PromptFile`s with mention spans. The responsive header renders the workspace once as its picker, with an idle/working status dot and live activity phrase; narrow panels hide the timer and then status phrase before clipping identity or controls. Child sessions replace the workspace picker with their title and expose a back arrow that reopens the parent. A coin-token toggle opens usage details and its ring tracks context-window fill |
-| `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | Theme-native runtime-neutral chronological agent stream modeled on the Harness node lifecycle: every assistant step remains a stable keyed node, its text and reasoning blocks stay in source order, and only a reasoning block that is the active node's true stream tail receives the running treatment. Running summaries follow the latest native line and settled summaries return to the first line. Nodes never merge into a turn-wide synthetic Think row or move to a footer; the separate trailing turn status owns overall busy state. One-shot summaries remain one-shot summaries, and native text/reasoning deltas render directly without a client-side typewriter queue. OpenCode text parts marked `state.phase = "commentary"` normalize into reasoning blocks, while `final_answer` parts remain ordinary assistant output. Text/tool deltas project immediately with narrow-panel-safe Markdown, tools, permission actions, and composer controls. Both OpenCode and DeepSeek feed the same ordered store; DeepSeek native call/result views enrich the shared cards without importing provider colors. Every read, search, list, shell, edit, and delegated-agent call remains an individually identifiable disclosure row rather than being collapsed behind a generic activity summary, and generic calls expose bounded IN/OUT sections when expanded. Read/edit tool links normalize an absolute path inside the owning session directory to the workspace-relative path required by the file API and address that session's workspace directly. Tool activity uses the active theme's layered surface, accent border, and warm action label instead of bare ledger rows. Edit summaries keep the path, file count, additions, and deletions in one bounded metadata cluster, while long commands and paths truncate with their full value available as a tooltip. Unified diffs derive addition, deletion, and hunk tints from theme tokens rather than fixed dark-theme colors. Projection reconciles stale live/snapshot records sharing a tool call id into one enriched row, preserving a completed live result while accepting an authoritative history name so settled reads and searches never remain labeled as generic tools. Repeated tool snapshots and synthetic dispatch records resolving to the same child session collapse into one stable capped-width delegated-agent card; its grid keeps the role, task, clamped description, and working/completed/failed state legible without becoming a full-width toolbar, reducing the status to its dot only at the narrowest container size. Opening the card and returning through `AgentPanel` preserve the exact panel slot: pending replacement notifications cannot temporarily attach a second tray, and session-lineage slot memory carries geometry across fresh workspace identities. Interleaved shell, compaction, synthetic, skill, status, and divider rows retain their source order |
+| `AgentPanel` | `AgentPanel.tsx` | `session`-parameterized panel hosting the runtime-neutral timeline, stable live-activity edge, and prompt dock: todo checklist, exact web placeholder, attachment picker, approval toggle, agent/model/variant menus, voice input, compact send/stop button, and smart auto-scroll. The live edge remains immediately above the composer throughout active work, reports native activity plus elapsed time, and collapses as soon as the same authoritative activity state returns the stop control to send. The composer resolves `/` into a slash-command picker (built-ins like `/compact` first, then `command.list` + `skill.list`; skills run via `session.skill`, `/compact` via `session.compact`) that runs via `runCommand` (Enter on a leading-`/` prompt runs it too) and `@` into a file-mention picker (`file.find` search, debounced per keystroke) that inserts `@rel` tokens attached to the prompt as `PromptFile`s with mention spans. The responsive header renders the workspace once as its picker, with an idle/working status dot and live activity phrase; narrow panels hide the timer and then status phrase before clipping identity or controls. Child sessions replace the workspace picker with their title and expose a back arrow that reopens the parent. A coin-token toggle opens usage details and its ring tracks context-window fill |
+| `OpenCodeTimeline` | `OpenCodeTimeline.tsx` | OmniAgent's theme-native runtime-neutral chronological stream: reasoning and tool calls share one quiet work-log grammar with a rail and state markers, while final assistant prose stays separate. Every assistant step remains a stable keyed entry in source order, and only a reasoning block that is the active node's true stream tail receives the running treatment. Running Thought summaries follow the latest native line and settled summaries return to the first line. One-shot summaries remain one-shot summaries, and native text/reasoning deltas render directly without a client-side typewriter queue. `OpenCodeLiveActivity` derives the newest concrete line from the current turn only and never borrows completed activity from a previous prompt. OpenCode text parts marked `state.phase = "commentary"` normalize into reasoning blocks, while `final_answer` parts remain ordinary assistant output. Text/tool deltas project immediately with narrow-panel-safe Markdown, tools, permission actions, and composer controls. Both OpenCode and DeepSeek feed the same ordered store; DeepSeek native call/result views enrich the shared cards without importing provider colors. Every read, search, list, shell, edit, and delegated-agent call remains an individually identifiable disclosure entry rather than being collapsed behind a generic activity summary, and generic calls expose bounded IN/OUT sections when expanded. Read/edit tool links normalize an absolute path inside the owning session directory to the workspace-relative path required by the file API and address that session's workspace directly. Edit summaries keep the path, file count, additions, and deletions in one bounded metadata cluster, while long commands and paths truncate with their full value available as a tooltip. Unified diffs derive addition, deletion, and hunk tints from theme tokens rather than fixed dark-theme colors. Projection reconciles stale live/snapshot records sharing a tool call id into one enriched row, preserving a completed live result while accepting an authoritative history name so settled reads and searches never remain labeled as generic tools. Repeated tool snapshots and synthetic dispatch records resolving to the same child session collapse into one stable capped-width delegated-agent card; its grid keeps the role, task, clamped description, and working/completed/failed state legible without becoming a full-width toolbar, reducing the status to its dot only at the narrowest container size. Opening the card and returning through `AgentPanel` preserve the exact panel slot: pending replacement notifications cannot temporarily attach a second tray, and session-lineage slot memory carries geometry across fresh workspace identities. Interleaved shell, compaction, synthetic, skill, status, and divider rows retain their source order |
 | `OpenCodeTodoDock` | `OpenCodeTodoDock.tsx` | Persistent prompt-dock agent-step surface driven only by structured `todo.updated` data and `todowrite` tool-state fallback. Ordinary shell, search, read, and edit calls remain timeline activity and never become checklist steps; `todowrite` calls never appear as transcript tools |
 | `AgentTray` | `AgentTray.tsx` | Shown when the rightmost agent panel is collapsed: transparent 44px strip mirroring the left activity bar, with a busy dot and model icon button that expands the panel back (busy/label come from the addressed panel's view); collapsed inner panels render the equivalent `agent-sliver` |
 | `TerminalTray` | `TerminalTray.tsx` | xterm.js terminal fed by `node-pty`; subscribes to `terminal-data`/`terminal-exit` messages, removes naturally exited tabs and selects a neighbor, bounds startup output awaiting xterm registration, fits + resizes the PTY on layout change, and restarts on session change |
@@ -385,7 +388,7 @@ copy and then leaves only a subdued Omni mark rather than compressing text.
 ## Styles (`src/renderer/src/styles/`)
 
 `main.scss` is the single renderer stylesheet entry and uses ordered Sass
-partials so the cascade stays explicit. OpenCode's source-derived chat tokens,
+partials so the cascade stays explicit. OmniAgent's runtime-neutral chat tokens,
 slots, typography, row geometry, and animations live in
 `_opencode-chat.scss`; other component rules are owned by `_sidebar.scss`,
 `_editor.scss`, `_agent.scss`, `_composer.scss`,

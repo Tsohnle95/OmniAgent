@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionInfo, SessionSummary, TranscriptItem } from "@shared/types";
-import { OpenCodeTimeline } from "./OpenCodeTimeline";
+import { OpenCodeLiveActivity, OpenCodeTimeline } from "./OpenCodeTimeline";
 
 const storeState = vi.hoisted(() => ({
   agents: [] as { id: string; name: string }[],
@@ -96,7 +96,7 @@ describe("OpenCodeTimeline chronology", () => {
     vi.useRealTimers();
   });
 
-  it("renders completed reasoning as a collapsed Think row with its first line", () => {
+  it("renders completed reasoning as a collapsed Thought row with its first line", () => {
     act(() => root.render(
       <OpenCodeTimeline
         transcript={[reasoningAssistant(true)]}
@@ -105,7 +105,7 @@ describe("OpenCodeTimeline chronology", () => {
       />
     ));
 
-    expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Thought");
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Inspecting the code");
     expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
@@ -121,7 +121,7 @@ describe("OpenCodeTimeline chronology", () => {
       />
     ));
 
-    expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Think");
+    expect(container.querySelector("[data-slot='reasoning-part-title']")?.textContent).toBe("Thought");
     expect(container.querySelector("[data-slot='reasoning-part-summary']")?.textContent).toBe("Checking events");
     expect(container.querySelector("[data-slot='reasoning-part-content']")).toBeNull();
   });
@@ -155,7 +155,7 @@ describe("OpenCodeTimeline chronology", () => {
 
     const summary = container.querySelector("[data-slot='reasoning-part-summary']");
     expect(summary?.textContent).toBe("Inspecting plans and lessons");
-    expect(container.querySelector("[data-component='reasoning-part']")?.getAttribute("data-state")).toBe("running");
+    expect(container.querySelector("[data-component='reasoning-part']")?.getAttribute("data-state")).toBe("ok");
   });
 
   it("opens absolute read paths relative to the tool session workspace", () => {
@@ -180,52 +180,65 @@ describe("OpenCodeTimeline chronology", () => {
     expect(storeState.openFile).toHaveBeenCalledWith("docs/README.md", undefined, session.workspace);
   });
 
-  it("shows the harness turn status throughout active work and removes it at completion", () => {
+  it("keeps one live activity dock mounted while its visibility follows the turn", () => {
     act(() => root.render(
-      <OpenCodeTimeline transcript={[]} busy lastAssistantId={null} />
+      <OpenCodeLiveActivity transcript={[]} busy statusText="preparing" />
     ));
 
-    const status = container.querySelector("[data-component='turn-status']");
+    const dock = container.querySelector("[data-component='live-activity-dock']");
+    const status = container.querySelector("[data-component='live-activity']");
+    expect(dock?.getAttribute("data-visible")).toBe("true");
     expect(status?.getAttribute("role")).toBe("status");
-    expect(status?.textContent).toBe("Deep diving...");
+    expect(status?.textContent).toContain("Preparing");
 
     act(() => root.render(
-      <OpenCodeTimeline transcript={[]} busy={false} lastAssistantId={null} />
+      <OpenCodeLiveActivity transcript={[]} busy={false} statusText="idle" />
     ));
 
-    expect(container.querySelector("[data-component='turn-status']")).toBeNull();
+    expect(container.querySelector("[data-component='live-activity-dock']")).toBe(dock);
+    expect(dock?.getAttribute("data-visible")).toBe("false");
   });
 
-  it("keeps one turn-status node while streamed text changes beneath it", () => {
-    const live = assistant("assistant-live") as Extract<TranscriptItem, { kind: "assistant" }>;
-    live.completed = false;
-    live.parts = [{ kind: "text", id: "text-live", text: "First", complete: false }];
+  it("updates one live activity node from native streamed reasoning", () => {
+    const user: TranscriptItem = { kind: "user", id: "user-live", text: "Summarize the lesson" };
+    const live = reasoningAssistant(false) as Extract<TranscriptItem, { kind: "assistant" }>;
+    live.parts = [{ kind: "reasoning", id: "reasoning-live", text: "Inspecting the lesson", complete: false }];
     act(() => root.render(
-      <OpenCodeTimeline transcript={[live]} busy lastAssistantId="assistant-live" />
+      <OpenCodeLiveActivity transcript={[user, live]} busy turnStartedAt={Date.now()} />
     ));
-    const status = container.querySelector("[data-component='turn-status']");
+    const status = container.querySelector("[data-component='live-activity']");
+    expect(status?.textContent).toContain("Inspecting the lesson");
 
-    live.parts = [{ kind: "text", id: "text-live", text: "First streamed update", complete: false }];
+    live.parts = [{ kind: "reasoning", id: "reasoning-live", text: "Inspecting the lesson\nComparing examples", complete: false }];
     act(() => root.render(
-      <OpenCodeTimeline transcript={[{ ...live }]} busy lastAssistantId="assistant-live" />
+      <OpenCodeLiveActivity transcript={[user, { ...live }]} busy turnStartedAt={Date.now()} />
     ));
 
-    expect(container.querySelector("[data-component='turn-status']")).toBe(status);
+    expect(container.querySelector("[data-component='live-activity']")).toBe(status);
+    expect(container.querySelector("[data-slot='live-activity-detail']")?.textContent).toBe("Comparing examples");
   });
 
-  it("adds the harness elapsed clock after fifteen seconds", () => {
+  it("starts a new turn without borrowing activity from the previous turn", () => {
+    const old = reasoningAssistant(true);
+    const user: TranscriptItem = { kind: "user", id: "user-new", text: "New question" };
+    act(() => root.render(
+      <OpenCodeLiveActivity transcript={[old, user]} busy statusText="connecting" />
+    ));
+
+    expect(container.querySelector("[data-slot='live-activity-title']")?.textContent).toBe("Connecting");
+    expect(container.querySelector("[data-slot='live-activity-detail']")).toBeNull();
+  });
+
+  it("shows a truthful elapsed clock for active work", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-22T00:00:00Z"));
     act(() => root.render(
-      <OpenCodeTimeline transcript={[]} busy lastAssistantId={null} turnStartedAt={Date.now()} />
+      <OpenCodeLiveActivity transcript={[]} busy turnStartedAt={Date.now()} />
     ));
 
-    expect(container.querySelector("[data-slot='turn-status-clock']")).toBeNull();
+    expect(container.querySelector("[data-slot='live-activity-time']")?.textContent).toBe("0s");
     act(() => vi.advanceTimersByTime(15_000));
-    expect(container.querySelector("[data-slot='turn-status-clock']")?.textContent).toBe("15s");
-    act(() => root.render(
-      <OpenCodeTimeline transcript={[]} busy={false} lastAssistantId={null} />
-    ));
+    expect(container.querySelector("[data-slot='live-activity-time']")?.textContent).toBe("15s");
     vi.useRealTimers();
   });
 
@@ -268,7 +281,7 @@ describe("OpenCodeTimeline chronology", () => {
       id: "assistant-commentary",
       messageID: "assistant-commentary",
       completed: false,
-      parts: [{ kind: "reasoning", id: "commentary-1", text: "After", complete: true }]
+      parts: [{ kind: "reasoning", id: "commentary-1", text: "After", complete: false }]
     };
     act(() => root.render(<OpenCodeTimeline transcript={[first, second]} busy lastAssistantId="assistant-commentary" />));
 
@@ -279,7 +292,7 @@ describe("OpenCodeTimeline chronology", () => {
 
     const latest = {
       ...second,
-      parts: [{ kind: "reasoning" as const, id: "commentary-1", text: "After\nLatest", complete: true }]
+      parts: [{ kind: "reasoning" as const, id: "commentary-1", text: "After\nLatest", complete: false }]
     };
     act(() => root.render(<OpenCodeTimeline transcript={[first, latest]} busy lastAssistantId="assistant-commentary" />));
 
@@ -303,7 +316,7 @@ describe("OpenCodeTimeline chronology", () => {
     const list = container.querySelector("[data-slot='session-turn-list']")!;
     const thought = container.querySelector("[data-component='reasoning-part']");
     expect(list.firstElementChild?.querySelector("[data-component='reasoning-part']")).toBe(thought);
-    expect(list.lastElementChild?.matches("[data-component='turn-status']")).toBe(true);
+    expect(container.querySelector("[data-component='turn-status']")).toBeNull();
 
     live.parts = [
       { kind: "reasoning", id: "reasoning-live", text: "Inspecting\nComparing", complete: false },
@@ -355,7 +368,7 @@ describe("OpenCodeTimeline chronology", () => {
     }];
     act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
 
-    expect(container.querySelector("[data-slot='basic-tool-tool-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Tool");
+    expect(container.querySelector("[data-slot='basic-tool-tool-title']")?.textContent).toBe("Tool");
     expect(container.textContent).not.toContain("limit=40");
     expect(container.textContent).not.toContain("content=private");
     expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")?.getAttribute("title")).toBe("a very long diagnostic detail");
@@ -417,8 +430,8 @@ describe("OpenCodeTimeline chronology", () => {
     const transcript: TranscriptItem[] = [{ ...read, parts: [...read.parts, ...grep.parts] }];
     act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
 
-    const titles = [...container.querySelectorAll("[data-slot='basic-tool-tool-title'] [data-component='text-shimmer']")]
-      .map((node) => node.getAttribute("aria-label"));
+    const titles = [...container.querySelectorAll("[data-slot='basic-tool-tool-title']")]
+      .map((node) => node.textContent);
     expect(titles).toEqual(["Read", "Grep"]);
     expect(container.textContent).not.toContain("Exploring");
     expect(container.textContent).not.toContain("Explored");

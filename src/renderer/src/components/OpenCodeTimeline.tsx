@@ -48,22 +48,21 @@ function formatRunDuration(elapsedMs: number): string {
   return `${seconds}s`;
 }
 
-const TurnStatus = memo(function TurnStatus({ startTime }: { startTime?: number | null }): ReactNode {
+function useElapsed(startTime: number | null | undefined, running: boolean): number {
   const [mountedAt] = useState(() => Date.now());
   const anchor = startTime ?? mountedAt;
   const [elapsed, setElapsed] = useState(() => Date.now() - anchor);
   useEffect(() => {
+    if (!running) {
+      setElapsed(0);
+      return;
+    }
     setElapsed(Date.now() - anchor);
     const timer = setInterval(() => setElapsed(Date.now() - anchor), 1000);
     return () => clearInterval(timer);
-  }, [anchor]);
-  return (
-    <div data-component="turn-status" role="status" aria-live="polite">
-      Deep diving...
-      {elapsed >= 15_000 && <span data-slot="turn-status-clock" aria-hidden="true">{formatRunDuration(elapsed)}</span>}
-    </div>
-  );
-});
+  }, [anchor, running]);
+  return elapsed;
+}
 
 const CODE_TOKEN_PATTERN = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|\b(?:as|async|await|break|case|catch|class|const|continue|def|else|export|extends|for|from|function|if|import|in|interface|let|new|of|return|static|switch|throw|try|type|var|while|with|yield)\b|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*(?=\s*\())/g;
 const CODE_KEYWORDS = new Set([
@@ -205,8 +204,7 @@ function ReasoningPart({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span data-slot="reasoning-part-icon" className="codicon codicon-lightbulb" />
-        <span data-slot="reasoning-part-title">Think</span>
+        <span data-slot="reasoning-part-title">Thought</span>
         {summary && <span data-slot="reasoning-part-separator" aria-hidden="true" />}
         {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
         <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
@@ -506,6 +504,97 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   return { title, subtitle, path };
 }
 
+function latestVisibleLine(text: string): string {
+  const visible = text.trimEnd();
+  const line = visible.slice(visible.lastIndexOf("\n") + 1);
+  return line.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1");
+}
+
+function liveActivity(transcript: TranscriptItem[], statusText: string | null | undefined): {
+  kind: "reasoning" | "tool" | "text" | "shell" | "working";
+  title: string;
+  detail: string;
+  state: "running" | "complete" | "failed";
+} {
+  for (let itemIndex = transcript.length - 1; itemIndex >= 0; itemIndex -= 1) {
+    const item = transcript[itemIndex];
+    if (item.kind === "user") break;
+    if (item.kind === "shell") {
+      return {
+        kind: "shell",
+        title: item.status === "running" ? "Running command" : item.status === "exited" && (!item.exit || item.exit === 0) ? "Command complete" : "Command failed",
+        detail: item.command ?? "",
+        state: item.status === "running" ? "running" : item.status === "exited" && (!item.exit || item.exit === 0) ? "complete" : "failed"
+      };
+    }
+    if (item.kind !== "assistant") continue;
+    for (let partIndex = item.parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = item.parts[partIndex];
+      if (part.kind === "reasoning" && part.text.trim()) {
+        return { kind: "reasoning", title: "Thinking", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
+      }
+      if (part.kind === "text" && part.text.trim()) {
+        return { kind: "text", title: "Writing response", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
+      }
+      if (part.kind === "tool") {
+        const presentation = toolPresentation(part.tool);
+        const state = part.tool.status === "running" ? "running" : part.tool.status === "failed" ? "failed" : "complete";
+        if (presentation.title === "Tool" && !presentation.subtitle) {
+          return {
+            kind: "tool",
+            title: state === "failed" ? "Action failed" : "Working with tools",
+            detail: "",
+            state: state === "failed" ? "failed" : "running"
+          };
+        }
+        const verb = state === "running" ? presentation.title : state === "failed" ? `${presentation.title} failed` : `${presentation.title} complete`;
+        return { kind: "tool", title: verb, detail: presentation.subtitle, state };
+      }
+    }
+  }
+  const title = statusText ? statusText.charAt(0).toUpperCase() + statusText.slice(1) : "Working";
+  return { kind: "working", title, detail: "", state: "running" };
+}
+
+export const OpenCodeLiveActivity = memo(function OpenCodeLiveActivity({
+  transcript,
+  busy,
+  statusText,
+  turnStartedAt
+}: {
+  transcript: TranscriptItem[];
+  busy: boolean;
+  statusText?: string | null;
+  turnStartedAt?: number | null;
+}): ReactNode {
+  const elapsed = useElapsed(turnStartedAt, busy);
+  const activity = useMemo(() => liveActivity(transcript, statusText), [transcript, statusText]);
+  const icon = activity.kind === "reasoning"
+    ? "codicon-lightbulb"
+    : activity.kind === "shell"
+      ? "codicon-terminal"
+      : activity.kind === "tool"
+        ? "codicon-tools"
+        : activity.kind === "text"
+          ? "codicon-edit"
+          : "codicon-sparkle";
+  return (
+    <div data-component="live-activity-dock" data-visible={busy ? "true" : "false"} aria-hidden={!busy}>
+      <div data-component="live-activity" data-kind={activity.kind} data-state={activity.state} role="status" aria-live="polite">
+        <div data-slot="live-activity-marker">
+          <span className={`codicon ${icon}`} />
+        </div>
+        <div data-slot="live-activity-copy">
+          <div data-slot="live-activity-title">{activity.title}</div>
+          {activity.detail && <div data-slot="live-activity-detail">{activity.detail}</div>}
+        </div>
+        <span data-slot="live-activity-time" aria-label={`${formatRunDuration(elapsed)} elapsed`}>{formatRunDuration(elapsed)}</span>
+        <span data-slot="live-activity-progress" aria-hidden="true" />
+      </div>
+    </div>
+  );
+});
+
 interface EditFileEntry {
   file: string;
   patch?: string;
@@ -618,7 +707,7 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
                 <div data-slot="basic-tool-tool-info-structured">
                   <div data-slot="basic-tool-tool-info-main" data-layout="edit">
                     <span data-slot="basic-tool-tool-title">
-                      <TextShimmer text={titleCase(tool.title)} active={tool.status === "running"} />
+                      {titleCase(tool.title)}
                     </span>
                     <span data-slot="edit-tool-summary">
                       {path && (
@@ -895,7 +984,7 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
                 <div data-slot="basic-tool-tool-info-structured">
                   <div data-slot="basic-tool-tool-info-main">
                     <span data-slot="basic-tool-tool-title">
-                      <TextShimmer text={presentation.title} active={tool.status === "running"} />
+                      {presentation.title}
                     </span>
                     {presentation.subtitle && (
                       <span
@@ -1015,28 +1104,50 @@ function AssistantNode({
       : Boolean(part.text.trim())
   );
   const lastPart = visibleParts.at(-1);
-  const prose = visibleParts.filter((part) => part.kind !== "tool");
+  const activities = visibleParts.filter((part) => part.kind === "reasoning" || part.kind === "tool");
+  const prose = visibleParts.filter((part): part is Extract<AssistantPart, { kind: "text" }> => part.kind === "text");
   let previous = false;
-  if (prose.length > 0) {
+  if (activities.length > 0) {
     rows.push(
-      <TimelineRow tag="AssistantMessage" key={`${item.id}:message`}>
-        <div data-slot="session-turn-assistant-content" data-component="assistant-message-blocks">
-          {prose.map((part) => part.kind === "reasoning"
-            ? <ReasoningPart part={part} streaming={streaming && part.id === lastPart?.id} key={part.id} />
-            : <TextPart part={part} streaming={streaming} key={part.id} />)}
+      <TimelineRow tag="AssistantActivity" key={`${item.id}:activity`}>
+        <div data-slot="session-turn-assistant-content" data-component="assistant-activity-stack">
+          {activities.map((part) => {
+            const running = part.kind === "reasoning"
+              ? streaming && part.id === lastPart?.id && !part.complete
+              : part.tool.status === "running";
+            const failed = part.kind === "tool" && part.tool.status === "failed";
+            const marker = part.kind === "reasoning"
+              ? "codicon-lightbulb"
+              : running
+                ? ""
+                : failed
+                  ? "codicon-error"
+                  : "codicon-check";
+            return (
+              <div data-component="assistant-activity-entry" data-kind={part.kind} data-state={running ? "running" : failed ? "failed" : "complete"} key={part.id}>
+                <span data-slot="assistant-activity-marker" aria-hidden="true">
+                  {marker ? <span className={`codicon ${marker}`} /> : <span data-slot="assistant-activity-pulse" />}
+                </span>
+                <div data-slot="assistant-activity-content">
+                  {part.kind === "reasoning"
+                    ? <ReasoningPart part={part} streaming={running} />
+                    : isEditCardTool(part.tool)
+                      ? <EditToolCard tool={part.tool} session={session} />
+                      : <ToolPart tool={part.tool} session={session} />}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </TimelineRow>
     );
     previous = true;
   }
-  for (const part of visibleParts) {
-    if (part.kind !== "tool") continue;
+  for (const part of prose) {
     rows.push(
-      <TimelineRow tag="AssistantPart" previous={previous} key={part.id}>
+      <TimelineRow tag="AssistantMessage" previous={previous} key={part.id}>
         <div data-slot="session-turn-assistant-content">
-          {isEditCardTool(part.tool)
-            ? <EditToolCard tool={part.tool} session={session} />
-            : <ToolPart tool={part.tool} session={session} />}
+          <TextPart part={part} streaming={streaming} />
         </div>
       </TimelineRow>
     );
@@ -1219,14 +1330,12 @@ export function OpenCodeTimeline({
   transcript,
   busy,
   lastAssistantId,
-  session,
-  turnStartedAt
+  session
 }: {
   transcript: TranscriptItem[];
   busy: boolean;
   lastAssistantId: string | null;
   session?: SessionInfo | null;
-  turnStartedAt?: number | null;
 }): ReactNode {
   const store = useStore();
   const activeSession = session === undefined ? store.session : session;
@@ -1291,7 +1400,6 @@ export function OpenCodeTimeline({
           </div>
         );
       })}
-      {busy && <TurnStatus key="turn-status" startTime={turnStartedAt} />}
     </div>
   );
 }

@@ -78,22 +78,6 @@ const TOOL_STATUS_PHRASES: Record<string, string> = {
   plan_enter: "switching to planning",
   plan_exit: "switching to building"
 };
-const WORKING_PHRASES = [
-  "working",
-  "processing",
-  "preparing",
-  "warming up",
-  "gears turning",
-  "computing",
-  "calculating",
-  "analyzing",
-  "wheels spinning",
-  "calibrating",
-  "synthesizing",
-  "connecting dots",
-  "inspecting logic",
-  "weighing options"
-];
 
 export type ParsedStatusResult = {
   activePartType: "text" | "tool" | "reasoning" | "editing" | undefined;
@@ -104,18 +88,6 @@ export type ParsedStatusResult = {
 
 const getToolStatusPhrase = (toolName: string): string => {
   return TOOL_STATUS_PHRASES[toolName] ?? `using ${toolName}`;
-};
-
-const hashString = (value: string): number => {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-  }
-  return Math.abs(hash);
-};
-
-const getStableWorkingPhrase = (key: string): string => {
-  return WORKING_PHRASES[hashString(key) % WORKING_PHRASES.length] ?? "working";
 };
 
 function getPartTimeInfo(part: ChatPartRecord): { end?: number } | undefined {
@@ -148,7 +120,7 @@ function getLegacyTextContent(part: ChatPartRecord): string | undefined {
   return undefined;
 }
 
-export function createParsedStatus(parts: ChatPartRecord[], genericKey: string): ParsedStatusResult {
+export function createParsedStatus(parts: ChatPartRecord[], _genericKey: string): ParsedStatusResult {
   let activePartType: ParsedStatusResult["activePartType"] = undefined;
   let activeToolName: string | undefined = undefined;
 
@@ -203,7 +175,7 @@ export function createParsedStatus(parts: ChatPartRecord[], genericKey: string):
     if (activePartType === "tool" && activeToolName) return getToolStatusPhrase(activeToolName);
     if (activePartType === "reasoning") return "thinking";
     if (activePartType === "text") return "composing";
-    return getStableWorkingPhrase(genericKey);
+    return "preparing response";
   })();
 
   return { activePartType, activeToolName, statusText, isGenericStatus };

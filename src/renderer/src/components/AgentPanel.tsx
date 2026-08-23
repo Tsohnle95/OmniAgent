@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePanel, useStore } from "../store";
-import { OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
+import { OpenCodeLiveActivity, OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
 import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, TranscriptItem, WorkspaceIdentity } from "@shared/types";
@@ -1253,6 +1253,7 @@ export function AgentPanel({
       if (atBottomRef.current) scrollToBottom();
     });
     observer.observe(content);
+    observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
@@ -1469,9 +1470,15 @@ export function AgentPanel({
           busy={busy}
           lastAssistantId={lastAssistantId}
           session={activeSession}
-          turnStartedAt={turnStartedAt}
         />
       </div>
+
+      <OpenCodeLiveActivity
+        transcript={transcript}
+        busy={busy}
+        statusText={assistantStatus?.statusText}
+        turnStartedAt={turnStartedAt}
+      />
 
       <div data-component="session-prompt-dock">
         {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
