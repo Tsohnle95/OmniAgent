@@ -209,34 +209,22 @@ export function SessionsPane(): ReactNode {
 
   return (
     <div className="sessions-pane">
-      <header className="sessions-intro">
-        <span className="sessions-kicker">Workspace</span>
-        <div className="sessions-intro-line">
-          <strong>Your sessions</strong>
-          <span className="sessions-open-count">{runningPanels.size} open</span>
-        </div>
-        <p>Pick up where you left off, or begin somewhere new.</p>
-      </header>
-
       <div className="sessions-actions" ref={pluginsRef}>
         <button className="sessions-new" onClick={newSession} title="Choose a folder for a new session">
           <PlusIcon />
           New Session
         </button>
-        <div className="sessions-secondary-actions">
-          <button className="sessions-file" onClick={() => void selectFile()} title="Open a file">
-            <IconFile />
-            Open file
-          </button>
-          <button
-            className={`sessions-plugins ${pluginsOpen ? "open" : ""}`}
-            aria-expanded={pluginsOpen}
-            title="Commands and skills"
-            onClick={() => setPluginsOpen((o) => !o)}
-          >
-            Plugins
-          </button>
-        </div>
+        <button className="sessions-file" onClick={() => void selectFile()} title="Open a file" aria-label="Open a file">
+          <IconFile />
+        </button>
+        <button
+          className={`sessions-plugins ${pluginsOpen ? "open" : ""}`}
+          aria-expanded={pluginsOpen}
+          title="Commands and skills"
+          onClick={() => setPluginsOpen((o) => !o)}
+        >
+          Plugins
+        </button>
         {pluginsOpen && (
           <div className="sessions-plugins-menu">
             {plugins === null ? (
