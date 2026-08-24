@@ -9,18 +9,9 @@ set can be browsed, compared, and shortlisted.
 
 ## Viewing the gallery
 
-The gallery is a single static page. Because it loads an ES module
-(`logos.js`), open it through a local server rather than `file://`
-(browsers block module scripts over `file://`):
-
-```sh
-cd design/logos
-python3 -m http.server 8080
-# then open http://localhost:8080/
-```
-
-`index.html` → `logos.css` → `logos.js` (which appends the runtime in
-`logos-runtime.js` at generation time).
+Open `index.html` directly in any browser — no server needed. The page is
+fully self-contained: `index.html` → `logos.css` → `logos.js` (a classic
+script holding both the 300-entry dataset and the gallery runtime).
 
 ### Gallery controls
 
