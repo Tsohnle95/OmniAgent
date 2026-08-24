@@ -1,8 +1,10 @@
-# OmniAgent — Calm Logo Study
+# OmniAgent — App Logo Study
 
-300 distinct logo directions for OmniAgent, constrained to the calm **paper**
-theme: muted sage and beige, soft geometry, negative space, and quiet metaphors
-for orchestration (a coordinator quietly directing many agents).
+300 distinct, app-ready logo directions for **OmniAgent**, constrained to the
+calm **paper** theme: muted sage and beige, soft geometry, negative space.
+Every mark is built around what the product actually is — the OA identity,
+agents orbiting a coordinator, the terminal prompt, code and diff glyphs — so
+shortlisted marks can go straight into an app icon or wordmark.
 
 This is a study, not a brand decision. Every mark is a separate idea so the
 set can be browsed, compared, and shortlisted.
@@ -21,9 +23,30 @@ script holding both the 300-entry dataset and the gallery runtime).
 - **Shortlist** — click any card to add it (max 24); the tray at the bottom
   holds your picks and can be cleared.
 
+## The families
+
+| # | Family | Territory |
+|---|---|---|
+| 1 | **OA Monogram** | O and A interlocked, stacked, punched, ligated. |
+| 2 | **App Icon Tiles** | Full-bleed squircle tiles ready for the Dock. |
+| 3 | **Orbit / Omni** | Cores with rings and satellites — "all-around" agents. |
+| 4 | **Terminal Prompt** | `>_`, cursors, chevrons, shell windows. |
+| 5 | **Code & Brackets** | Angle/curly/square brackets, lambdas, semicolons. |
+| 6 | **Diff & Merge** | Add/remove chips, branches, merges, commit rails. |
+| 7 | **Wordmark & Initials** | Typographic lockups of the two initials. |
+| 8 | **Hub & Spoke** | One coordinator directing many agent nodes. |
+| 9 | **Editor & Window** | Panes, tabs, sidebars, trays — the app's own chrome. |
+| 10 | **Spark & Signal** | Sparks, pulses, broadcasts — intelligence at rest. |
+| 11 | **Hex & Circuit** | Hex badges, chip legs, PCB traces. |
+| 12 | **Omega Marks** | Ω as "Om" — the everything letter. |
+| 13 | **Negative Space** | Marks cut from solid slabs as paper light. |
+| 14 | **Layer Stacks** | Stacked sessions, decks, strata, ziggurats. |
+| 15 | **Seals & Badges** | Coins, shields, rosettes, stamps, plaques. |
+
 ## The data
 
-`logos.js` exports two arrays:
+`logos.js` exports nothing; it defines two arrays used by the appended
+runtime:
 
 - `LOGOS` — 300 entries, each:
   `{ id, name, family, familyId, concept, spec, svg }`.
@@ -38,28 +61,11 @@ hooks so it resolves against the active theme:
 | `.l-sage` | Accent (sage) line / stroke |
 | `.l-dim` | Quiet supporting stroke |
 | `.l-faint` | Faintest stroke / ghost |
+| `.l-paper` | Paper-colored stroke (cut-out lines) |
 | `.l-fill-ink` | Solid primary fill |
 | `.l-fill-sage` | Solid sage fill |
 | `.l-fill-dim` | Quiet fill |
 | `.l-fill-paper` | Paper-colored fill (breaks a shape) |
-
-The 15 families:
-
-1. **Paper & Fold** — sheets, dog-ears, cranes, scrolls, envelopes.
-2. **Zen & Circle** — ensō, concentric rings, segments, orbits.
-3. **Orchestration / Conductor** — batons, convergences, daisies, hubs.
-4. **Terrain / Horizon** — peaks, hills, strata, ripples, islands.
-5. **Monoline Node** — loops, knots, lattices, helixes, meanders.
-6. **Stamp & Seal** — hanko-style seals with marks and grids.
-7. **Window & Portal** — arches, panes, portholes, keyholes.
-8. **Wabi-Sabi** — imperfection: wobble, pebbles, fissures, soft shards.
-9. **Breath & Mindfulness** — inhale rings, lotus, chakra, mandorla.
-10. **Network / Graph** — triads, hubs, meshes, trees, constellations.
-11. **Typographic Monogram** — O and A in many calm arrangements.
-12. **Ink / Brush** — soft tapered brush strokes and blooms.
-13. **Seed & Growth** — sprouts, leaves, flowers, cairns of life.
-14. **Stone & Balance** — cairns, beams, stepping stones, equipoise.
-15. **Moon & Celestial** — crescents, stars, eclipses, comets, phases.
 
 ## Regenerating
 
@@ -74,4 +80,4 @@ node design/logos/generate-logos.mjs
 Editing the study means editing `generate-logos.mjs` (the `FAMILIES` array —
 each family has 20 structurally distinct `variants`), never `logos.js` by hand.
 The generator enforces invariants before writing: exactly 300 entries, all
-ids unique, all names unique, all SVGs unique.
+ids unique, all names unique, all SVGs unique, every family at exactly 20.

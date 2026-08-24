@@ -1,12 +1,12 @@
-// Procedural generator for the OmniAgent calm-logo study.
-// Produces design/logos/logos.js: an array of 300 DISTINCT logo entries.
+// Procedural generator for the OmniAgent app-logo study.
+// Produces design/logos/logos.js: 300 DISTINCT brand-tailored marks.
 // Each entry: { id, name, family, familyId, concept, spec, svg }.
-// Logos are parametric SVGs (viewBox 0 0 64 64) themed via class hooks
-// (.l-ink / .l-sage / .l-dim / .l-faint / .l-fill-*) resolved in logos.css.
-//
-// IMPORTANT: every one of the 300 marks is a structurally distinct composition
-// (different primitives, counts, orientations, open/closed forms) — NOT a
-// jittered re-render of the same concept. 15 families x 20 distinct marks.
+// Marks are parametric SVGs (viewBox 0 0 64 64) themed via class hooks
+// (.l-ink/.l-sage/.l-dim/.l-faint/.l-paper/.l-fill-*) resolved in logos.css.
+// Every mark is a structurally distinct composition built for OmniAgent:
+// OA monograms, app-icon tiles, orbits, terminal prompts, code glyphs,
+// diff/merge marks, wordmarks, orchestration hubs, editor chrome, sparks,
+// hex/circuit badges, omega forms, negative-space cuts, layer stacks, seals.
 
 import { writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,6 @@ import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// ---- deterministic RNG (mulberry32) -----------------------------------------
 function mulberry32(a) {
   return function () {
     a |= 0;
@@ -31,7 +30,6 @@ const pt = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 const jit = (rng, base, amt) => base + (rng() - 0.5) * 2 * amt;
 const choice = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 
-// ---- svg primitives ---------------------------------------------------------
 const line = (x1, y1, x2, y2, cls, w) =>
   `<line class="${cls}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"${w ? ` style="stroke-width:${w}"` : ""}/>`;
 const circ = (cx, cy, r, cls, w) =>
@@ -49,6 +47,8 @@ const arc = (cx, cy, r, a0, a1, cls, w) => {
   const large = (((a1 - a0) % TAU) + TAU) % TAU > Math.PI ? 1 : 0;
   return `<path class="${cls}" d="M ${f(x0)} ${f(y0)} A ${f(r)} ${f(r)} 0 ${large} 1 ${f(x1)} ${f(y1)}"${w ? ` style="stroke-width:${w}"` : ""}/>`;
 };
+const ell = (cx, cy, rx, ry, cls = "l-sage", sw = 1.6, rot = 0) =>
+  `<ellipse class="${cls}" cx="${f(cx)}" cy="${f(cy)}" rx="${f(rx)}" ry="${f(ry)}"${rot ? ` transform="rotate(${rot} ${f(cx)} ${f(cy)})"` : ""} style="stroke-width:${sw}"/>`;
 
 const reg = (cx, cy, r, n, rot = -Math.PI / 2) =>
   Array.from({ length: n }, (_, i) => pt(cx, cy, r, rot + (i * TAU) / n));
@@ -56,488 +56,473 @@ const starPts = (cx, cy, ro, ri, n, rot = -Math.PI / 2) =>
   Array.from({ length: n * 2 }, (_, i) =>
     pt(cx, cy, i % 2 ? ri : ro, rot + (i * Math.PI) / n)
   );
-const ptsStr = (pts) => pts.map((p) => p.map(f).join(",")).join(" ");
 
 const wrap = (inner) =>
   `<svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
 
-// helper: concentric rings (count, ratio step)
-function rings(cx, cy, r0, count, cls, w) {
-  let s = "";
-  for (let i = 0; i < count; i++) s += circ(cx, cy, r0 * (1 - i * 0.22), i === 0 ? cls : "l-sage", i === 0 ? w : Math.max(1.2, w - 0.3));
-  return s;
-}
-// helper: radiating arms
-function arms(cx, cy, n, r0, r1, cls, w) {
-  let s = "";
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU;
-    const [x0, y0] = pt(cx, cy, r0, a);
-    const [x1, y1] = pt(cx, cy, r1, a);
-    s += line(x0, y0, x1, y1, i % 2 ? cls : "l-dim", w || 1.6);
-  }
-  return s;
-}
-// helper: node graph from center
-function spokeGraph(cx, cy, n, r, cls, w) {
+const letterA = (cx, baseY, h, cls = "l-ink", w = 2.2, barCls = "l-sage") => {
+  const half = h * 0.44;
+  const apex = baseY - h;
+  const t = 0.34;
+  const yb = baseY - h * t;
+  const hw = half * (1 - t);
+  return (
+    path(`M${f(cx - half)} ${f(baseY)} L${f(cx)} ${f(apex)} L${f(cx + half)} ${f(baseY)}`, cls, w) +
+    line(cx - hw, yb, cx + hw, yb, barCls, Math.max(1.4, (w || 2.2) - 0.5))
+  );
+};
+
+const omegaArc = (cx, cy, r, gapDeg = 50, cls = "l-ink", w = 2.4, foot = 5) => {
+  const g = (gapDeg * Math.PI) / 180;
+  const [x0, y0] = pt(cx, cy, r, Math.PI / 2 + g);
+  const [x1, y1] = pt(cx, cy, r, Math.PI / 2 - g);
+  return (
+    arc(cx, cy, r, Math.PI / 2 + g, Math.PI / 2 - g, cls, w) +
+    line(x0, y0, x0 + foot, y0, cls, w) +
+    line(x1, y1, x1 - foot, y1, cls, w)
+  );
+};
+
+const tile = (cls = "l-fill-sage", inset = 6, rad = 14) =>
+  rectR(inset, inset, 64 - inset * 2, 64 - inset * 2, rad, cls);
+
+const gt = (x, y, s, cls = "l-ink", sw = 2.6) =>
+  path(`M${f(x)} ${f(y - s)} L${f(x + s * 0.85)} ${f(y)} L${f(x)} ${f(y + s)}`, cls, sw);
+const cursorBar = (x, y, len, cls = "l-sage", sw = 2.8) => line(x, y, x + len, y, cls, sw);
+
+const winFrame = () =>
+  rectR(10, 14, 44, 36, 5, "l-ink", 1.8) +
+  line(10, 23, 54, 23, "l-dim", 1.2) +
+  dot(15.5, 18.5, 1.7, "l-fill-dim") +
+  dot(20.5, 18.5, 1.7, "l-fill-dim") +
+  dot(25.5, 18.5, 1.7, "l-fill-sage");
+
+const codeRows = (x0, y0, rows, step, sw = 2) =>
+  rows
+    .map((wd, i) => line(x0 + (i % 3) * 3, y0 + i * step, x0 + (i % 3) * 3 + wd, y0 + i * step, i % 2 ? "l-sage" : "l-dim", sw))
+    .join("");
+
+const spark4 = (cx, cy, ro, ri, cls = "l-fill-sage") => poly(starPts(cx, cy, ro, ri, 4), cls);
+
+function spokeGraph(cx, cy, n, r, cls = "l-ink", w = 1.3) {
   let s = dot(cx, cy, 3.4, "l-fill-sage");
   for (let i = 0; i < n; i++) {
     const a = (i / n) * TAU + 0.2;
     const [x, y] = pt(cx, cy, r, a);
-    s += line(cx, cy, x, y, "l-dim", w || 1.3);
-    s += circ(x, y, 2.8, "l-ink", 1.3);
+    s += line(cx, cy, x, y, "l-dim", w);
+    s += circ(x, y, 2.8, cls, 1.3);
   }
   return s;
 }
 
-// =============================================================================
-// FAMILY DEFINITIONS — each family has 20 structurally distinct marks.
-// variants: { vname, concept, spec, draw(rng) }  (draw returns inner SVG)
-// =============================================================================
-
 const FAMILIES = [
-  // 1. PAPER & FOLD -----------------------------------------------------------
   {
-    id: "paper-fold",
-    name: "Paper & Fold",
-    seed: 11,
+    id: "oa-monogram",
+    name: "OA Monogram",
+    seed: 101,
     variants: [
-      { vname: "Dogear", concept: "A calm sheet with one corner turned down — the page kept.", spec: "Folded corner, paper-fill flap over ink outline.", draw: () => path(`M15 13 H44 L49 18 V51 H15 Z`, "l-ink") + poly([[44,13],[49,18],[44,18]], "l-fill-paper") + path(`M44 13 L49 18 L44 18 Z`, "l-dim") },
-      { vname: "Crane", concept: "An origami form from one continuous triangle.", spec: "Equilateral fold, sage spine, dim stem.", draw: (rng) => { const ax=jit(rng,32,3); return poly([[ax,18],[15,45],[49,45]], "l-ink") + path(`M${ax} 18 L49 45`, "l-sage") + line(ax,45,ax,52,"l-dim"); } },
-      { vname: "Stack", concept: "Three sheets offset like a resting manuscript.", spec: "Three parallelograms, ink/sage/dim.", draw: () => poly([[14,48],[40,30],[54,37],[28,55]], "l-dim") + poly([[18,45],[44,27],[52,33],[26,51]], "l-sage") + poly([[22,42],[48,24],[50,30],[24,48]], "l-ink") },
-      { vname: "Stack Tall", concept: "Four sheets, a small quiet ream.", spec: "Four offset leaves, alternating.", draw: () => poly([[18,50],[40,34],[52,40],[30,56]], "l-faint") + poly([[20,47],[42,31],[50,36],[28,52]], "l-sage") + poly([[22,44],[44,28],[49,32],[27,48]], "l-dim") + poly([[24,41],[46,25],[48,29],[26,45]], "l-ink") },
-      { vname: "Accordion", concept: "A bellows of parallel folds, breath held in pleats.", spec: "Five pleats alternating ink and sage.", draw: () => { let s=""; const n=5; for(let i=0;i<n;i++){const x=16+i*(32/n);const x2=x+32/n; s+=path(`M${x} 16 L${x2} 26 L${x} 36 L${x2} 46 L${x} 52`, i%2?"l-sage":"l-ink");} return s; } },
-      { vname: "Accordion Six", concept: "A tighter bellows, six pleats.", spec: "Six pleats, ink/sage alternation.", draw: () => { let s=""; const n=6; for(let i=0;i<n;i++){const x=15+i*(34/n);const x2=x+34/n; s+=path(`M${x} 18 L${x2} 27 L${x} 36 L${x2} 45 L${x} 50`, i%2?"l-sage":"l-ink", 1.8);} return s; } },
-      { vname: "Sail", concept: "A folded sail and a still waterline.", spec: "Triangle sail on dim mast above sage waterline.", draw: (rng) => { const mx=jit(rng,32,2); return line(mx,12,mx,50,"l-dim") + poly([[mx,16],[mx+14,44],[mx,44]], "l-ink") + line(12,52,52,52,"l-sage",1.6) + path(`M18 50 q4 -3 8 0 t8 0 t8 0`,"l-faint",1.2); } },
-      { vname: "Envelope", concept: "A calm envelope, the message at rest.", spec: "Rectangle with sage flap diagonals.", draw: () => rectR(16,18,32,28,3,"l-ink",2) + path(`M16 19 L32 35 L48 19`,"l-sage",1.8) },
-      { vname: "Envelope Open", concept: "An opened envelope, flap lifted.", spec: "Rect with upward sage flap.", draw: () => rectR(16,22,32,24,3,"l-ink",2) + path(`M16 22 L32 12 L48 22`,"l-sage",1.8) },
-      { vname: "Page Curl", concept: "A sheet with a soft curling corner.", spec: "Rounded rect with curled base corner.", draw: () => path(`M16 14 H47 Q49 14 49 16 V45 Q49 51 43 51 H17 Q16 51 16 50 Z`,"l-ink") + path(`M43 51 Q49 51 49 45 Q44 47 43 51 Z`,"l-fill-sage") },
-      { vname: "Scroll", concept: "A rolled scroll, the kept record.", spec: "Two end rolls with a sheet between.", draw: () => rectR(20,22,24,20,2,"l-ink",1.8) + circ(20,32,6,"l-sage",2) + circ(44,32,6,"l-sage",2) },
-      { vname: "Map Fold", concept: "A folded map, creased into four.", spec: "Rect with sage cross creases.", draw: () => rectR(16,18,32,28,2,"l-ink",2) + line(32,18,32,46,"l-sage",1.2) + line(16,32,48,32,"l-sage",1.2) },
-      { vname: "Book", concept: "An open book, two calm pages.", spec: "Two pages meeting at a spine.", draw: () => path(`M14 20 Q22 16 32 20 V46 Q22 42 14 46 Z`,"l-ink") + path(`M50 20 Q42 16 32 20 V46 Q42 42 50 46 Z`,"l-sage") + line(32,20,32,46,"l-dim",1.2) },
-      { vname: "Paper Plane", concept: "A folded plane, the small dispatch.", spec: "Triangle with sage center fold.", draw: () => poly([[12,40],[52,14],[34,46],[24,46]],"l-ink") + path(`M12 40 L52 14 L34 46 Z`,"l-sage") },
-      { vname: "Torn Edge", concept: "A sheet with a torn bottom, honesty of paper.", spec: "Rect with jagged sage base.", draw: () => path(`M16 16 H48 V42 L44 46 L40 42 L36 47 L32 42 L28 47 L24 42 L20 46 L16 42 Z`,"l-ink") + path(`M16 16 H48 V42`,"l-sage",1.8) },
-      { vname: "Quire", concept: "A bound quire, stitched at the spine.", spec: "Rect with sage binding ticks.", draw: () => rectR(18,16,28,32,2,"l-ink",2) + line(18,32,46,32,"l-sage",1.4) + [22,28,32,36,40].map((y)=>line(22,y,42,y,"l-dim",1)).join("") },
-      { vname: "Fan Fold", concept: "A folded fan, the measured spread.", spec: "Sector with sage ribs.", draw: () => path(`M32 50 L14 22 A22 22 0 0 1 50 22 Z`,"l-ink") + [0.25,0.5,0.75].map((t)=>{const a=Math.PI*(1+t);const [x,y]=pt(32,50,30,a); return line(32,50,x,y,"l-sage",1.2);}).join("") },
-      { vname: "Ticket", concept: "A ticket stub, notched and kept.", spec: "Rounded rect with two notch dots.", draw: () => rectR(15,22,34,20,4,"l-ink",2) + circ(15,32,2.4,"l-sage") + circ(49,32,2.4,"l-sage") + line(32,22,32,42,"l-dim",1.2) },
-      { vname: "Tag", concept: "A luggage tag, the marker of belonging.", spec: "Rounded tag with sage hole.", draw: () => path(`M20 18 H46 Q50 18 50 22 V46 Q50 50 46 50 H20 Q16 50 16 46 V22 Q16 18 20 18 Z`,"l-ink") + circ(33,26,3,"l-sage") + line(33,29,33,44,"l-dim",1.2) },
-      { vname: "Letter", concept: "A sealed letter, the calm correspondence.", spec: "Rect with wax-sage seal dot.", draw: () => rectR(16,18,32,28,3,"l-ink",2) + path(`M16 19 L32 33 L48 19`,"l-dim",1.4) + dot(32,38,4,"l-fill-sage") },
+      { vname: "O Hosts A", concept: "The O holds the A — one identity containing the other.", spec: "Ink O ring, sage A seated in the counter.", draw: () => circ(32, 33, 17, "l-ink", 2.2) + letterA(32, 42, 18, "l-sage", 2) },
+      { vname: "A Crowns O", concept: "The A stands over the O like a peak over a pool.", spec: "Ink A above a sage O basin.", draw: () => letterA(32, 30, 20, "l-ink", 2.2) + circ(32, 45, 10, "l-sage", 2) },
+      { vname: "Side By Side", concept: "Two letters shoulder to shoulder, equal partners.", spec: "Ink O left, sage A right, shared baseline.", draw: () => circ(21, 36, 9.5, "l-ink", 2.2) + letterA(43, 45, 20, "l-sage", 2) },
+      { vname: "Underline Pair", concept: "The pair bound by one shared baseline stroke.", spec: "O and A over a full sage underline.", draw: () => circ(21, 31, 10, "l-ink", 2.2) + letterA(44, 41, 19, "l-ink", 2.2) + line(12, 47, 52, 47, "l-sage", 2) },
+      { vname: "Interlock", concept: "A steps through the O; the overlap is the bond.", spec: "Overlapping O and A, crossing strokes kept.", draw: () => circ(26, 34, 13, "l-ink", 2.4) + letterA(39, 46, 22, "l-sage", 2.4) },
+      { vname: "Counter Ring", concept: "The A's counter is a perfect small O.", spec: "Open A triangle, sage ring as counter.", draw: () => path("M16 50 L32 14 L48 50", "l-ink", 2.4) + circ(32, 40, 6, "l-sage", 2) },
+      { vname: "Tilted Partner", concept: "The A leans into the steady O.", spec: "Upright O with a ten-degree tilted A.", draw: () => circ(32, 35, 16, "l-ink", 2.2) + path("M20 46 L28.8 23.1 L42 42", "l-sage", 2.2) + line(25.5, 37.5, 36, 37.5, "l-sage", 1.7) },
+      { vname: "Bold Thin Duo", concept: "Weight contrast carries the pairing.", spec: "Heavy-stroke O beside hairline A.", draw: () => circ(22, 34, 11, "l-ink", 4.2) + letterA(44, 45, 21, "l-sage", 1.5) },
+      { vname: "Capsule Mark", concept: "Both initials sealed in one stadium.", spec: "Stadium outline holding miniature o and a.", draw: () => rectR(12, 24, 40, 16, 8, "l-ink", 2) + circ(23, 32, 4.2, "l-sage", 1.8) + circ(38, 33, 3.6, "l-ink", 1.7) + line(41.6, 29, 41.6, 37, "l-ink", 1.7) },
+      { vname: "Diagonal Rule", concept: "One slash divides the field; each side keeps a letter.", spec: "Dim diagonal between O and A corners.", draw: () => circ(21, 22, 8.5, "l-ink", 2.1) + letterA(43, 52, 18, "l-sage", 2.1) + line(15, 51, 49, 15, "l-dim", 1.3) },
+      { vname: "Tangent Pair", concept: "The A's leg rests tangent on the O's rim.", spec: "O with A leaning at its right edge.", draw: () => circ(24, 34, 12, "l-ink", 2.2) + path("M34 46 L44 22 L52 44", "l-sage", 2.2) + line(38.6, 36, 48, 36, "l-sage", 1.7) },
+      { vname: "Registry Coin", concept: "Initials struck like a quiet commemorative coin.", spec: "Double coin rings around tiny O and A.", draw: () => circ(32, 32, 19, "l-dim", 1.4) + circ(32, 32, 15.5, "l-ink", 1.9) + circ(26, 33.5, 3.4, "l-sage", 1.5) + path("M36 37.5 L40.5 27.5 L45 37.5", "l-sage", 1.5) + line(37.8, 34, 43.2, 34, "l-sage", 1.2) },
+      { vname: "Apex Over Pool", concept: "A mountain-A mirrored in a still oval O.", spec: "Sage A above a flat ink ellipse.", draw: () => ell(32, 46, 13, 5, "l-ink", 2) + path("M24 40 L32 14 L40 40", "l-sage", 2.1) + line(27.5, 33, 36.5, 33, "l-sage", 1.6) },
+      { vname: "Mirror Fold", concept: "Two As folded apex to apex around an O hinge.", spec: "Mirrored triangles meeting at center ring.", draw: () => poly([[10, 46], [24, 20], [24, 46]], "l-ink") + poly([[54, 46], [40, 20], [40, 46]], "l-ink") + circ(32, 38, 5.5, "l-sage", 2) },
+      { vname: "Script Loop", concept: "One continuous gesture writes o then a.", spec: "Single cursive stroke, no lifts.", draw: () => path("M18 46 C22 28 34 20 40 28 C44 34 41 43 34 44 C28 45 25 40 29 35 C33 30 40 32 46 40", "l-ink", 2.2) },
+      { vname: "Corner Frame", concept: "Four ticks frame the initials like plate marks.", spec: "Corner brackets around centered O A.", draw: () => path("M14 22 V16 H20", "l-dim", 2) + path("M44 16 H50 V22", "l-dim", 2) + path("M50 42 V48 H44", "l-dim", 2) + path("M20 48 H14 V42", "l-dim", 2) + circ(25, 32, 6.5, "l-ink", 2) + path("M38 39 L43.5 25.5 L49 39", "l-sage", 2) + line(40.4, 34.5, 46.6, 34.5, "l-sage", 1.5) },
+      { vname: "Totem Stack", concept: "O above A — a totem of the two names.", spec: "Vertical stack, faint connector tick.", draw: () => circ(32, 20, 8, "l-ink", 2.1) + line(32, 30.5, 32, 33.5, "l-faint", 1.6) + letterA(32, 50, 15, "l-sage", 2.1) },
+      { vname: "Punched O", concept: "The disc remembers the O as a cut of paper light.", spec: "Solid ink disc, paper ring punched out.", draw: () => dot(32, 32, 17, "l-fill-ink") + circ(32, 32, 9, "l-paper", 3.4) },
+      { vname: "Punched A", concept: "The A survives as negative light in the slab.", spec: "Solid ink disc, A cut in paper strokes.", draw: () => dot(32, 32, 17, "l-fill-ink") + path("M24 41 L32 22 L40 41", "l-paper", 3) + line(27.4, 34.5, 36.6, 34.5, "l-paper", 2.6) },
+      { vname: "Signature Block", concept: "Initials over the ruled lines of a signed record.", spec: "O A mark above three registry rules.", draw: () => circ(23, 24, 7.5, "l-ink", 2) + path("M34 29 L39.5 16 L45 29", "l-sage", 2) + line(36.9, 25, 42.1, 25, "l-sage", 1.5) + line(14, 40, 50, 40, "l-dim", 1.4) + line(14, 46, 44, 46, "l-faint", 1.4) + line(14, 52, 50, 52, "l-faint", 1.4) },
     ],
   },
-
-  // 2. ZEN & CIRCLE -----------------------------------------------------------
   {
-    id: "zen-circle",
-    name: "Zen & Circle",
-    seed: 22,
+    id: "app-tiles",
+    name: "App Icon Tiles",
+    seed: 202,
     variants: [
-      { vname: "Enso Open", concept: "An open brush ring, whole enough.", spec: "≈300° open ring, sage start node.", draw: () => arc(32,32,18,-Math.PI/2+0.5,-Math.PI/2-0.5+TAU,"l-ink",3) + dot(...pt(32,32,18,-Math.PI/2+0.5),2.4,"l-fill-sage") },
-      { vname: "Enso Wide", concept: "A wider-open ensō, more breath.", spec: "≈210° open ring.", draw: () => arc(32,32,17,-Math.PI/2+1.2,-Math.PI/2-1.2+TAU,"l-ink",3) + dot(...pt(32,32,17,-Math.PI/2+1.2),2.4,"l-fill-sage") },
-      { vname: "Concentric", concept: "Two calm rings sharing one center.", spec: "Outer ink ring, inner sage ring.", draw: () => circ(32,32,18,"l-ink") + circ(32,32,11,"l-sage",1.8) },
-      { vname: "Triple Ring", concept: "Three nested rings, deepening attention.", spec: "Three concentric rings ink/sage/ink.", draw: () => circ(32,32,19,"l-ink") + circ(32,32,13,"l-sage",1.8) + circ(32,32,7,"l-ink",1.8) },
-      { vname: "Dot Offset", concept: "A ring holding one quiet mark off-center.", spec: "Ink ring with an offset sage dot.", draw: (rng) => { const dx=jit(rng,32,5),dy=jit(rng,32,5); return circ(32,32,17,"l-ink") + dot(dx,dy,3,"l-fill-sage"); } },
-      { vname: "Segmented", concept: "A ring broken into resting arcs.", spec: "Three broken arc segments with sage gaps.", draw: () => { let s=""; const segs=3, span=(TAU/segs)*0.62; for(let i=0;i<segs;i++){const a=(i*TAU)/segs+0.2; s+=arc(32,32,17,a,a+span,i%2?"l-sage":"l-ink",2.6);} return s; } },
-      { vname: "Segmented Five", concept: "Five resting arc segments.", spec: "Five arc segments, sage gaps.", draw: () => { let s=""; const segs=5, span=(TAU/segs)*0.58; for(let i=0;i<segs;i++){const a=(i*TAU)/segs+0.15; s+=arc(32,32,17,a,a+span,i%2?"l-sage":"l-ink",2.4);} return s; } },
-      { vname: "Mark", concept: "A closed circle bearing one horizontal line.", spec: "Ink ring with a centered sage stroke.", draw: (rng) => { const ly=jit(rng,32,6); return circ(32,32,17,"l-ink") + line(24,ly,40,ly,"l-sage",2); } },
-      { vname: "Half Ring", concept: "A calm semicircle, half of whole.", spec: "Upper half-ring ink + sage base.", draw: () => arc(32,32,17,Math.PI,0,"l-ink",2.6) + line(15,32,49,32,"l-sage",1.6) },
-      { vname: "Quarter Ring", concept: "A quarter arc, the corner of the circle.", spec: "Quarter arc with sage radius.", draw: () => arc(32,32,17,0,Math.PI/2,"l-ink",2.6) + line(32,32,49,32,"l-sage",1.4) + line(32,32,32,49,"l-sage",1.4) },
-      { vname: "Intersect", concept: "Two circles overlapping, the shared space.", spec: "Two ink rings intersecting.", draw: () => circ(26,32,14,"l-ink") + circ(38,32,14,"l-sage",1.6) },
-      { vname: "Dot Grid", concept: "A ring cradling a small field of dots.", spec: "Ink ring with inner sage dot grid.", draw: () => { let s=circ(32,32,18,"l-ink"); for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++) s+=dot(32+i*7,32+j*7,(i+j)%2?2.2:1.6,i%2?"l-fill-sage":"l-fill-dim"); return s; } },
-      { vname: "Spiral Ring", concept: "A ring curling inward at its end.", spec: "Open ring with inward spiral tail.", draw: () => { let d="M50 32 "; for(let i=0;i<=30;i++){const t=i/30;const a=t*2.4*Math.PI;const r=18*(1-t)+3;const [x,y]=pt(32,32,r,a);d+=`L${f(x)} ${f(y)} `;} return path(d,"l-ink",2); } },
-      { vname: "Double Offset", concept: "Two rings offset, echoing.", spec: "Ink ring + sage ring beside it.", draw: () => circ(28,32,13,"l-ink") + circ(40,32,9,"l-sage",1.8) },
-      { vname: "Ticks", concept: "A ring marked by four quiet ticks.", spec: "Ring with four sage tick marks.", draw: () => { let s=circ(32,32,17,"l-ink"); for(let i=0;i<4;i++){const a=(i/4)*TAU;const [x0,y0]=pt(32,32,14,a);const [x1,y1]=pt(32,32,19,a); s+=line(x0,y0,x1,y1,"l-sage",1.6);} return s; } },
-      { vname: "Crossbar", concept: "A ring split by a vertical sage line.", spec: "Ink ring with vertical sage bar.", draw: () => circ(32,32,17,"l-ink") + line(32,15,32,49,"l-sage",1.8) },
-      { vname: "Trail", concept: "A ring with a dot travelling its edge.", spec: "Ink ring with three sage edge dots.", draw: () => { let s=circ(32,32,17,"l-ink"); for(let i=0;i<3;i++){const a=-Math.PI/2+i*1.1;const [x,y]=pt(32,32,17,a); s+=dot(x,y,2.4,"l-fill-sage");} return s; } },
-      { vname: "Eclipse", concept: "Two circles overlapping, calm eclipse.", spec: "Ink ring overlapped by sage disc.", draw: (rng) => { const dx=jit(rng,8,2); return circ(32-dx,32,14,"l-ink") + dot(32+dx,32,14,"l-fill-sage"); } },
-      { vname: "Crescent Ring", concept: "A ring thinned to a crescent.", spec: "Filled crescent from two arcs.", draw: (rng) => { const r=jit(rng,16,2); return path(`M${32+r*0.5} 15 A${r} ${r} 0 1 0 ${32+r*0.5} 49 A${r*0.78} ${r*0.78} 0 1 1 ${32+r*0.5} 15 Z`,"l-fill-ink"); } },
-      { vname: "Orbit", concept: "A dot orbiting a quiet ring.", spec: "Ring with a sage dot on its path.", draw: () => circ(32,32,16,"l-ink") + dot(...pt(32,32,16,-Math.PI/2),3.4,"l-fill-sage") + dot(32,32,2.4,"l-fill-dim") },
+      { vname: "Sage Tile O", concept: "Dock-ready tile; the O floats as paper light.", spec: "Full-bleed sage squircle, thick paper O.", draw: () => tile() + circ(32, 32, 11, "l-paper", 3.6) },
+      { vname: "Prompt Tile", concept: "The terminal prompt, embossed in paper.", spec: "Ink squircle with paper >_ .", draw: () => tile("l-fill-ink") + gt(26, 31, 7, "l-paper", 3) + cursorBar(31.5, 38, 9, "l-paper", 3) },
+      { vname: "Split Tile Spark", concept: "Two worlds, agent and human, meet at a spark.", spec: "Diagonal sage/ink split, paper spark.", draw: () => poly([[6, 6], [58, 6], [58, 58]], "l-fill-sage") + poly([[6, 6], [58, 58], [6, 58]], "l-fill-ink") + spark4(32, 32, 9, 3.4, "l-paper") },
+      { vname: "Orbit Tile", concept: "Agents orbit the core on a paper ellipse.", spec: "Sage tile, paper orbit and satellites.", draw: () => tile() + ell(32, 32, 15, 9, "l-paper", 2.6) + dot(45.5, 26, 2.8, "l-paper") + dot(32, 32, 4, "l-paper") },
+      { vname: "Outline Tile A", concept: "Hairline tile for light chrome surfaces.", spec: "Outlined squircle, sage A inside.", draw: () => rectR(8, 8, 48, 48, 14, "l-ink", 2.4) + letterA(32, 42, 18, "l-sage", 2.2) },
+      { vname: "Nested Tiles", concept: "Sessions within sessions, receding inward.", spec: "Three nested rounded squares, ink core.", draw: () => rectR(8, 8, 48, 48, 13, "l-faint", 1.7) + rectR(15, 15, 34, 34, 10, "l-sage", 2) + dot(32, 32, 4, "l-fill-ink") },
+      { vname: "Notch Tile", concept: "A corner of light notched from the slab.", spec: "Ink tile with paper corner cut, sage dot.", draw: () => tile("l-fill-ink") + poly([[58, 6], [58, 26], [38, 6]], "l-fill-paper") + dot(32, 34, 5, "l-fill-sage") },
+      { vname: "Window Tile", concept: "The app window itself, reduced to essence.", spec: "Sage tile, paper window with titlebar.", draw: () => tile() + rectR(16, 18, 32, 27, 4, "l-paper", 2.6) + line(16, 26, 48, 26, "l-paper", 2.2) },
+      { vname: "Ring Inset Tile", concept: "Concentric focus — the core drawn inward.", spec: "Two inset paper rings on sage tile.", draw: () => tile() + circ(32, 32, 14, "l-paper", 2.7) + circ(32, 32, 8, "l-paper", 2.3) },
+      { vname: "Spark Tile", concept: "Intelligence struck into a dark tile.", spec: "Ink squircle, large paper four-point spark.", draw: () => tile("l-fill-ink") + spark4(32, 32, 13, 4.8, "l-paper") },
+      { vname: "Duo Tiles", concept: "Front-of-front: layered app surfaces.", spec: "Offset sage tile behind ink tile, paper dot.", draw: () => rectR(14, 14, 44, 44, 13, "l-fill-sage") + rectR(8, 8, 42, 42, 12, "l-fill-ink") + dot(29, 29, 5, "l-fill-paper") },
+      { vname: "Hex Tile", concept: "The badge hexagon set into the icon tile.", spec: "Sage tile, outlined paper hexagon.", draw: () => tile() + poly(reg(32, 33, 13, 6), "l-paper", 2.6) + dot(32, 33, 3, "l-paper") },
+      { vname: "Terminal Tile", concept: "Where the work happens, carried on the icon.", spec: "Dim tile, sage prompt and cursor.", draw: () => tile("l-fill-dim") + gt(24, 30, 6, "l-sage", 2.6) + cursorBar(29.5, 36.5, 10, "l-sage", 2.6) },
+      { vname: "Layers Tile", concept: "Stacked sessions rendered as paper bars.", spec: "Sage tile, three paper layer bars.", draw: () => tile() + rectR(18, 21, 28, 5, 2.5, "l-paper") + rectR(18, 31, 22, 5, 2.5, "l-paper") + rectR(18, 41, 28, 5, 2.5, "l-paper") },
+      { vname: "Aperture Tile", concept: "An open aperture — seeing across every workspace.", spec: "Ink tile, two opposite paper wedges.", draw: () => tile("l-fill-ink") + path("M32 32 L32 13 A19 19 0 0 1 51 32 Z", "l-paper") + path("M32 32 L32 51 A19 19 0 0 1 13 32 Z", "l-paper") },
+      { vname: "Commit Tile", concept: "A history line with its commits, pocket-sized.", spec: "Tile with paper commit dots on a rail.", draw: () => tile() + line(18, 32, 46, 32, "l-paper", 2.6) + dot(22, 32, 3, "l-paper") + dot(32, 32, 4.4, "l-paper") + dot(42, 32, 3, "l-paper") },
+      { vname: "Frame Duo Tile", concept: "Frame within frame, stillness at center.", spec: "Ink outer, sage inner squircle, ink core.", draw: () => rectR(8, 8, 48, 48, 14, "l-ink", 2.4) + rectR(16, 16, 32, 32, 9, "l-sage", 2) + dot(32, 32, 3, "l-fill-ink") },
+      { vname: "Half Fill Tile", concept: "Half committed, half open — the working icon.", spec: "Left sage fill inside outlined tile, ink O.", draw: () => { let s = rectR(6, 6, 52, 52, 14, "l-ink", 2.4); s += `<clipPath id="ht"><rect x="6" y="6" width="26" height="52" rx="14"/></clipPath><rect class="l-fill-sage" x="6" y="6" width="26" height="52" clip-path="url(#ht)"/>`; return s + circ(38, 32, 9, "l-ink", 2.4); } },
+      { vname: "Omega Tile", concept: "Om — the omega pressed into the tile.", spec: "Sage squircle, paper omega.", draw: () => tile() + omegaArc(32, 34, 11, 55, "l-paper", 3, 4) },
+      { vname: "Beacon Tile", concept: "The tile that answers when called.", spec: "Ink tile, paper broadcast arcs and core.", draw: () => tile("l-fill-ink") + dot(32, 40, 3.6, "l-paper") + arc(32, 40, 8, -Math.PI * 0.78, -Math.PI * 0.22, "l-paper", 2.4) + arc(32, 40, 13, -Math.PI * 0.74, -Math.PI * 0.26, "l-paper", 2.2) },
     ],
   },
-
-  // 3. ORCHESTRATION / CONDUCTOR ---------------------------------------------
   {
-    id: "orchestration",
-    name: "Orchestration / Conductor",
-    seed: 33,
+    id: "orbit-omni",
+    name: "Orbit / Omni",
+    seed: 303,
     variants: [
-      { vname: "Baton", concept: "A lifted baton drawing arcs.", spec: "Diagonal baton with sage arc sweep.", draw: (rng) => { const bx=jit(rng,32,3); return line(bx,14,bx+6,46,"l-ink",2.4) + arc(32,40,16,Math.PI*1.05,Math.PI*1.95,"l-sage",1.8) + dot(bx+6,46,2.4,"l-fill-sage"); } },
-      { vname: "Podium", concept: "A stand from which lines rise.", spec: "Trapezoid podium with five gesture lines.", draw: () => { const px=32; let s=poly([[px-9,50],[px+9,50],[px+5,40],[px-5,40]],"l-ink"); for(let i=-2;i<=2;i++) s+=line(px,40,px+i*7,18,i===0?"l-sage":"l-dim",i===0?2.2:1.4); return s; } },
-      { vname: "Converge", concept: "Several agents' paths meeting one point.", spec: "Five converging strokes into a sage hub.", draw: () => { const cx=32,cy=34; let s=dot(cx,cy,3,"l-fill-sage"); const n=5; for(let i=0;i<n;i++){const a=(i/n)*TAU+rng0(); const [x,y]=pt(cx,cy,22,a); s+=line(x,y,cx,cy,i%2?"l-dim":"l-ink",1.5);} return s; function rng0(){return Math.random()*0;} } },
-      { vname: "Converge Six", concept: "Six paths gathering to a cue.", spec: "Six converging strokes, sage hub.", draw: () => { const cx=32,cy=32; let s=dot(cx,cy,3.2,"l-fill-sage"); const n=6; for(let i=0;i<n;i++){const a=(i/n)*TAU; const [x,y]=pt(cx,cy,21,a); s+=line(x,y,cx,cy,i%2?"l-dim":"l-ink",1.4);} return s; } },
-      { vname: "Gesture", concept: "An upraised curve with small motions.", spec: "Curved arm stroke ending in a sage flick.", draw: (rng) => { const bx=jit(rng,24,3); return path(`M${bx} 50 Q${bx+8} 30 ${bx+22} 22`,"l-ink",2.4) + path(`M${bx+22} 22 q6 -4 10 2`,"l-sage",2) + dot(bx+32,24,2,"l-fill-dim"); } },
-      { vname: "Radiate", concept: "A center sending calm arms outward.", spec: "Six radiating arms from an ink hub.", draw: () => { let s=dot(32,32,3.2,"l-fill-ink"); for(let i=0;i<6;i++){const a=(i/6)*TAU;const [x1,y1]=pt(32,32,9,a);const [x2,y2]=pt(32,32,20,a); s+=line(x1,y1,x2,y2,i%2?"l-sage":"l-dim",1.6);} return s; } },
-      { vname: "Radiate Eight", concept: "Eight calm arms, the quiet sun.", spec: "Eight radiating arms, sage/dim.", draw: () => { let s=dot(32,32,3,"l-fill-sage"); for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x1,y1]=pt(32,32,8,a);const [x2,y2]=pt(32,32,20,a); s+=line(x1,y1,x2,y2,i%2?"l-sage":"l-dim",1.5);} return s; } },
-      { vname: "Score", concept: "A staff of lines with a single note.", spec: "Five? no — four staff lines with sage note.", draw: () => { let s=""; for(let i=0;i<4;i++) s+=line(14,22+i*5,50,22+i*5,"l-dim",1.1); const ny=22+((Math.floor(3*0.7))*5); return s + dot(36,ny,3,"l-fill-sage") + line(36,ny,36,16,"l-sage",1.4); } },
-      { vname: "Notes", concept: "Two notes on a calm staff.", spec: "Staff with two sage note dots.", draw: () => { let s=""; for(let i=0;i<3;i++) s+=line(16,26+i*6,48,26+i*6,"l-dim",1.1); return s + dot(28,38,3,"l-fill-sage") + dot(40,26,3,"l-fill-sage") + line(28,38,28,24,"l-sage",1.3) + line(40,26,40,16,"l-sage",1.3); } },
-      { vname: "Fan Out", concept: "Lines fanning from a point like a cue.", spec: "Seven gesture lines from a pivot.", draw: () => { const px=32,py=50; let s=dot(px,py,2.6,"l-fill-sage"); for(let i=-3;i<=3;i++){const a=-Math.PI/2+i*0.22;const [x,y]=pt(px,py,30,a); s+=line(px,py,x,y,i===0?"l-sage":"l-ink",i===0?2:1.4);} return s; } },
-      { vname: "Daisy", concept: "A ring of agents around one leader.", spec: "Center sage dot ringed by ink dots.", draw: () => { let s=dot(32,32,4,"l-fill-sage"); const n=7; for(let i=0;i<n;i++){const a=(i/n)*TAU;const [x,y]=pt(32,32,15,a); s+=dot(x,y,3,"l-ink");} return s; } },
-      { vname: "Hub", concept: "One coordinator linked to many.", spec: "Sage hub with five ink satellites.", draw: () => spokeGraph(32,32,5,20,2) },
-      { vname: "Hub Seven", concept: "A coordinator with seven links.", spec: "Sage hub with seven satellites.", draw: () => spokeGraph(32,32,7,19,2) },
-      { vname: "Triangle Ensemble", concept: "Three agents in a triangle.", spec: "Triangle of nodes with a sage lead.", draw: () => { const p=reg(32,34,16,3); let s=""; for(let i=0;i<3;i++) s+=line(p[i][0],p[i][1],p[(i+1)%3][0],p[(i+1)%3][1],"l-dim",1.5); p.forEach((q,i)=>s+=circ(q[0],q[1],4,i===0?"l-fill-sage":"l-ink",1.5)); return s; } },
-      { vname: "Arrow In", concept: "Arrows converging to a mark.", spec: "Three sage arrows into an ink point.", draw: () => { let s=dot(32,38,3.2,"l-fill-ink"); const n=3; for(let i=0;i<n;i++){const a=-Math.PI/2+(i-1)*0.7;const [x,y]=pt(32,38,20,a); s+=line(x,y,32,36,i===0?"l-sage":"l-dim",1.6);} return s; } },
-      { vname: "Branching", concept: "A tree of intents from one root.", spec: "Single stem branching to four sage tips.", draw: () => { let s=path(`M32 52 V30`,"l-ink",2); const tips=[[20,18],[32,14],[44,18],[32,24]]; tips.forEach((t,i)=>{s+=path(`M32 34 Q${32+(t[0]-32)/2} ${28} ${t[0]} ${t[1]}`,"l-sage",1.6); s+=dot(t[0],t[1],2.4,"l-fill-sage");}); return s; } },
-      { vname: "Woven", concept: "Two threads woven, the intertwined team.", spec: "Two interlaced sage/ink sine strands.", draw: () => { let s=path(`M12 24 Q24 14 32 24 T52 24`,"l-ink",2)+path(`M12 40 Q24 50 32 40 T52 40`,"l-ink",2); s+=path(`M12 24 Q24 34 32 24 T52 24`,"l-sage",1.6)+path(`M12 40 Q24 30 32 40 T52 40`,"l-sage",1.6); return s; } },
-      { vname: "Paired Batons", concept: "Two batons crossing, the duet.", spec: "Two diagonal batons with sage arc.", draw: () => line(20,14,36,50,"l-ink",2.2)+line(44,14,28,50,"l-dim",1.8)+arc(32,32,12,Math.PI*1.1,Math.PI*1.9,"l-sage",1.6) },
-      { vname: "Pulse Orbit", concept: "Pulses circling a calm center.", spec: "Ink ring with three orbiting sage dots.", draw: () => { let s=circ(32,32,15,"l-ink"); for(let i=0;i<3;i++){const a=-Math.PI/2+i*2.1;const [x,y]=pt(32,32,15,a);s+=dot(x,y,2.6,"l-fill-sage");} return s; } },
-      { vname: "Conductor Star", concept: "A star of coordinated points.", spec: "Eight-point star burst in sage/ink.", draw: () => { let s=""; for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x0,y0]=pt(32,32,6,a);const [x1,y1]=pt(32,32,20,a); s+=line(x0,y0,x1,y1,i%2?"l-sage":"l-dim",1.5);} s+=dot(32,32,3.4,"l-fill-ink"); return s; } },
+      { vname: "Quiet Core", concept: "One agent at center, one calm boundary.", spec: "Sage core dot inside an ink ring.", draw: () => dot(32, 32, 5, "l-fill-sage") + circ(32, 32, 15, "l-ink", 2) },
+      { vname: "Twin Rings", concept: "Inner discipline, outer reach.", spec: "Two rings, satellite on the outer track.", draw: () => circ(32, 32, 9.5, "l-sage", 1.8) + circ(32, 32, 16.5, "l-ink", 2) + dot(pt(32, 32, 16.5, -Math.PI / 4)[0], pt(32, 32, 16.5, -Math.PI / 4)[1], 3, "l-fill-sage") },
+      { vname: "Ellipse Path", concept: "The orbit slightly squashed, like real paths are.", spec: "Ink ellipse around a sage core.", draw: () => ell(32, 32, 17, 10, "l-ink", 2) + dot(32, 32, 4, "l-fill-sage") },
+      { vname: "Three Moons", concept: "Three agents in step around one hub.", spec: "Core, ring, three even satellites.", draw: () => { let s = dot(32, 32, 4.5, "l-fill-sage") + circ(32, 32, 14, "l-ink", 1.9); for (const a of [Math.PI / 2, Math.PI / 2 + (TAU / 3), Math.PI / 2 + (2 * TAU) / 3]) { const [x, y] = pt(32, 32, 14, a); s += dot(x, y, 2.8, "l-fill-ink"); } return s; } },
+      { vname: "Crossed Orbits", concept: "Two planes of work crossing at the core.", spec: "Rotated ellipse pair intersecting center.", draw: () => ell(32, 32, 17, 8, "l-ink", 1.8, 28) + ell(32, 32, 17, 8, "l-sage", 1.8, -28) + dot(32, 32, 3.6, "l-fill-ink") },
+      { vname: "Gap Ring", concept: "The orbit left deliberately unfinished.", spec: "Open ring with a comet head at the gap.", draw: () => arc(32, 32, 15, 0.35, TAU - 0.35, "l-ink", 2.2) + dot(pt(32, 32, 15, TAU - 0.35)[0], pt(32, 32, 15, TAU - 0.35)[1], 3.4, "l-fill-sage") },
+      { vname: "Station Keeping", concept: "A satellite held precisely on its mark.", spec: "Ring, four ticks, satellite on station.", draw: () => circ(32, 32, 14, "l-ink", 1.9) + [0, 90, 180, 270].map((d) => { const a = (d * Math.PI) / 180; const [x1, y1] = pt(32, 32, 11.5, a); const [x2, y2] = pt(32, 32, 14, a); return line(x1, y1, x2, y2, "l-dim", 1.4); }).join("") + dot(pt(32, 32, 14, -Math.PI / 3)[0], pt(32, 32, 14, -Math.PI / 3)[1], 3.2, "l-fill-sage") },
+      { vname: "Wide Ring Core", concept: "A heavy world wearing a thin bright ring.", spec: "Filled ink core under a flat sage ring.", draw: () => dot(32, 32, 9, "l-fill-ink") + ell(32, 32, 18, 6, "l-sage", 2) },
+      { vname: "Signal Arcs Up", concept: "Quiet transmission rising from the source.", spec: "Nested upward arcs over a core dot.", draw: () => dot(32, 44, 4, "l-fill-sage") + arc(32, 46, 10, -Math.PI * 0.75, -Math.PI * 0.25, "l-dim", 1.8) + arc(32, 46, 16, -Math.PI * 0.72, -Math.PI * 0.28, "l-ink", 2) },
+      { vname: "Binary Pair", concept: "Two agents sharing one common track.", spec: "Twin dots on a single shared ellipse.", draw: () => dot(24, 32, 4, "l-fill-ink") + dot(40, 32, 4, "l-fill-sage") + ell(32, 32, 15, 8.5, "l-ink", 1.8) },
+      { vname: "Halo Stack", concept: "Attention narrowing to a single point.", spec: "Faint halo, sage ring, ink core.", draw: () => circ(32, 32, 19, "l-faint", 1.3) + circ(32, 32, 13.5, "l-sage", 1.9) + dot(32, 32, 5, "l-fill-ink") },
+      { vname: "Moonrise Line", concept: "An agent cresting the workspace horizon.", spec: "Horizon rule, dome arc, rising moon dot.", draw: () => line(10, 46, 54, 46, "l-ink", 1.8) + arc(32, 46, 18, Math.PI, TAU, "l-dim", 1.6) + dot(32, 28, 4, "l-fill-sage") },
+      { vname: "Gyroscope", concept: "Balanced motion on every axis at once.", spec: "Ring plus vertical ellipse around core.", draw: () => circ(32, 32, 16, "l-ink", 2) + ell(32, 32, 6.5, 16, "l-sage", 1.7) + dot(32, 32, 3, "l-fill-ink") },
+      { vname: "Loose Swarm", concept: "Independent agents, loosely held.", spec: "Five satellites at varied radii and angles.", draw: () => { let s = dot(32, 32, 3.6, "l-fill-sage"); [[10, 2.6], [-70, 3], [140, 2.4], [250, 2.8], [305, 2.2]].forEach(([deg, r]) => { const [x, y] = pt(32, 32, r + 9, (deg * Math.PI) / 180); s += dot(x, y, 2.4, "l-fill-ink"); }); return s; } },
+      { vname: "Comet Circuit", concept: "Momentum along the arc, tail behind.", spec: "Three-quarter ring, head dot, dash trail.", draw: () => arc(32, 32, 15, -Math.PI * 0.25, Math.PI * 1.3, "l-ink", 2.2) + dot(pt(32, 32, 15, Math.PI * 1.3)[0], pt(32, 32, 15, Math.PI * 1.3)[1], 3.6, "l-fill-sage") + line(14, 20, 19, 24, "l-faint", 1.6) },
+      { vname: "Watch Works", concept: "Rings like a movement, hands like a watch.", spec: "Three alternating rings, hand to satellite.", draw: () => circ(32, 32, 5, "l-fill-ink") + circ(32, 32, 10.5, "l-sage", 1.7) + circ(32, 32, 16.5, "l-ink", 1.9) + line(32, 32, pt(32, 32, 16.5, -Math.PI / 3)[0], pt(32, 32, 16.5, -Math.PI / 3)[1], "l-sage", 1.7) + dot(pt(32, 32, 16.5, -Math.PI / 3)[0], pt(32, 32, 16.5, -Math.PI / 3)[1], 2.6, "l-fill-sage") },
+      { vname: "Vertical Weave", concept: "Two narrow orbits woven upright.", spec: "Crossing tall ellipses, core at center.", draw: () => ell(32, 32, 7, 17, "l-ink", 1.8) + ell(32, 32, 7, 17, "l-sage", 1.8, 62) + dot(32, 32, 3.4, "l-fill-ink") },
+      { vname: "Drift Trail", concept: "Motion remembered as fading arcs.", spec: "Dot with two trailing arc echoes.", draw: () => dot(44, 24, 4, "l-fill-sage") + arc(30, 34, 14, Math.PI * 0.95, Math.PI * 1.55, "l-dim", 1.7) + arc(30, 34, 19, Math.PI * 0.98, Math.PI * 1.42, "l-faint", 1.4) },
+      { vname: "All Directions", concept: "Omni — reaching everywhere at once, calmly.", spec: "Four arc segments at the cardinal points.", draw: () => { let s = dot(32, 32, 4, "l-fill-sage"); for (let i = 0; i < 4; i++) { const a0 = -Math.PI / 2 + (i * TAU) / 4 + 0.42; s += arc(32, 32, 15, a0, a0 + TAU / 4 - 0.84, "l-ink", 2.1); } return s; } },
+      { vname: "Chronometer", concept: "Twelve marks, one deliberate hand.", spec: "Ticked ring with sage hand and node.", draw: () => { let s = circ(32, 32, 16, "l-ink", 2); for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; const [x1, y1] = pt(32, 32, 13.5, a); const [x2, y2] = pt(32, 32, 16, a); s += line(x1, y1, x2, y2, "l-dim", 1.3); } const ha = -Math.PI / 3; return s + line(32, 32, pt(32, 32, 10, ha)[0], pt(32, 32, 10, ha)[1], "l-sage", 1.9) + dot(32, 32, 2.6, "l-fill-ink"); } },
     ],
   },
-
-  // 4. TERRAIN / HORIZON ------------------------------------------------------
   {
-    id: "terrain",
-    name: "Terrain / Horizon",
-    seed: 44,
+    id: "terminal",
+    name: "Terminal Prompt",
+    seed: 404,
     variants: [
-      { vname: "Mountain", concept: "Two still peaks under open sky.", spec: "Two overlapping peaks, ink front / sage behind.", draw: (rng) => { const h=jit(rng,30,4); return path(`M10 50 L${24+h/4} ${50-h} L${38-h/6} 50 Z`,"l-ink") + path(`M28 50 L44 ${50-h*0.7} L58 50 Z`,"l-sage"); } },
-      { vname: "Three Peaks", concept: "A range of three calm summits.", spec: "Three peaks, ink/sage/ink.", draw: () => path(`M8 50 L20 34 L30 50 Z`,"l-dim") + path(`M24 50 L36 28 L48 50 Z`,"l-ink") + path(`M44 50 L54 36 L60 50 Z`,"l-sage") },
-      { vname: "Hill", concept: "A soft rise holding a low sun.", spec: "Sage disc resting on an ink hill curve.", draw: (rng) => { const sy=jit(rng,24,4); return circ(40,sy,8,"l-fill-sage") + path(`M8 50 Q24 36 40 48 T60 46`,"l-ink",2.2); } },
-      { vname: "Strata", concept: "Layered horizon lines, quiet geology.", spec: "Four wavy horizon strata.", draw: () => { let s=""; const lines=4; for(let i=0;i<lines;i++){const y=20+i*8; s+=path(`M10 ${y} Q22 ${y-6} 32 ${y} T54 ${y} T60 ${y-2}`,i%2?"l-sage":"l-ink",1.8-i*0.2);} return s; } },
-      { vname: "Ripple", concept: "A single wave drawn calm, water remembering.", spec: "Twin sine waves, ink over sage.", draw: (rng) => { const amp=jit(rng,7,2); return path(`M8 34 Q18 ${34-amp} 28 34 T48 34 T60 ${34-amp/2}`,"l-ink",2.2)+path(`M8 44 Q18 ${44+amp} 28 44 T48 44 T60 ${44+amp/2}`,"l-sage",1.6); } },
-      { vname: "Valley", concept: "A V of land cradling the middle ground.", spec: "Ink V meeting a sage baseline at the node.", draw: (rng) => { const vx=jit(rng,32,4); return path(`M10 18 L${vx} 50 L58 18`,"l-ink",2.2) + line(10,50,58,50,"l-sage",1.6) + dot(vx,50,2.4,"l-fill-sage"); } },
-      { vname: "Dune", concept: "A single wind-shaped dune.", spec: "Sage dune curve on ink baseline.", draw: () => path(`M8 50 Q26 30 40 46 Q50 54 58 50 Z`,"l-sage") + line(8,50,58,50,"l-ink",1.6) },
-      { vname: "Archipelago", concept: "Small islands scattered on calm water.", spec: "Three sage dots as islets on ink water.", draw: () => { let s=line(8,46,58,46,"l-ink",1.6); [[20,42],[36,38],[48,43]].forEach((p,i)=>s+=circ(p[0],p[1],3+i,"l-fill-sage")); return s; } },
-      { vname: "Peninsula", concept: "Land reaching into water.", spec: "Ink land form with sage shore.", draw: () => path(`M8 50 Q20 44 30 50 L30 30 Q40 22 50 30 L50 50 Z`,"l-ink") + path(`M30 50 Q40 44 50 50`,"l-sage",1.6) },
-      { vname: "River Bend", concept: "A river curving through calm land.", spec: "Sage curve flanked by ink banks.", draw: () => path(`M8 20 Q32 32 20 44 Q12 52 30 56`,"l-sage",2) + path(`M8 16 Q34 30 22 46`,"l-ink",1.4) + path(`M24 50 Q40 40 56 48`,"l-ink",1.4) },
-      { vname: "Island", concept: "One island alone on still water.", spec: "Sage island disc on ink baseline.", draw: () => path(`M14 46 Q32 30 50 46 Z`,"l-sage") + line(8,46,58,46,"l-ink",1.8) },
-      { vname: "Plateau", concept: "A flat-topped calm mesa.", spec: "Ink mesa with sage cap line.", draw: () => path(`M14 50 L18 34 L46 34 L50 50 Z`,"l-ink") + line(18,34,46,34,"l-sage",1.8) },
-      { vname: "Cliff", concept: "A vertical drop to water.", spec: "Ink cliff with sage waterline.", draw: () => path(`M14 18 L30 18 L30 50 L14 50 Z`,"l-ink") + line(14,50,58,50,"l-sage",1.6) + path(`M30 50 Q44 44 58 50`,"l-dim",1.2) },
-      { vname: "Canyon", concept: "A narrow V cut into land.", spec: "Ink V with sage floor line.", draw: () => path(`M12 20 L32 48 L52 20`,"l-ink",2.2) + line(12,20,52,20,"l-dim",1.2) + line(20,40,44,40,"l-sage",1.4) },
-      { vname: "Twin Hills", concept: "Two soft rises, the balanced land.", spec: "Two ink/sage hills.", draw: () => path(`M8 50 Q22 38 36 50 Z`,"l-ink") + path(`M30 50 Q44 36 58 50 Z`,"l-sage") },
-      { vname: "Range", concept: "A low silhouette of distant peaks.", spec: "Five small peaks, sage wash.", draw: () => { let s=""; const xs=[10,20,30,40,50]; xs.forEach((x,i)=>{s+=path(`M${x-7} 50 L${x} ${50-8-i*1.5} L${x+7} 50 Z`,i%2?"l-sage":"l-ink");}); return s; } },
-      { vname: "Delta", concept: "A river splitting into channels.", spec: "Ink trunk splitting to sage mouths.", draw: () => path(`M32 14 V34`,"l-ink",2) + path(`M32 34 L18 50`,"l-sage",1.8) + path(`M32 34 L46 50`,"l-sage",1.8) + path(`M32 34 L32 50`,"l-dim",1.4) },
-      { vname: "Lagoon", concept: "A still pool inside a shore.", spec: "Ink shore ring with sage pool.", draw: () => circ(32,34,18,"l-ink",2) + circ(32,34,9,"l-sage",1.6) },
-      { vname: "Mesa", concept: "A broad flat summit.", spec: "Wide ink cap on a sage base.", draw: () => path(`M16 50 L20 30 L44 30 L48 50 Z`,"l-ink") + rectR(20,28,24,4,2,"l-sage",1.8) },
-      { vname: "Coastline", concept: "Land meeting sea in a long curve.", spec: "Ink land mass with sage sea edge.", draw: () => path(`M8 50 L8 30 Q24 20 40 32 Q52 40 58 30 L58 50 Z`,"l-ink") + path(`M8 40 Q24 32 40 42`,"l-sage",1.6) },
+      { vname: "Classic Prompt", concept: "The two characters that mean: your move.", spec: "Ink chevron over sage underscore.", draw: () => gt(24, 31, 9) + cursorBar(32, 39, 12) },
+      { vname: "Block Cursor", concept: "A cursor you can hold in your hand.", spec: "Chevron beside a filled cursor block.", draw: () => gt(23, 30, 8) + rectR(33, 34, 10, 8, 1.5, "l-fill-sage") },
+      { vname: "Double Tap", concept: "Momentum — the command already running.", spec: "Two chevrons ink then sage, short cursor.", draw: () => gt(17, 31, 7, "l-ink", 2.4) + gt(27, 31, 7, "l-sage", 2.4) + cursorBar(36, 38, 10) },
+      { vname: "Roundel Prompt", concept: "The prompt sealed in a quiet circle.", spec: "Ring containing centered >_ .", draw: () => circ(32, 32, 17, "l-ink", 2) + gt(26, 30, 6.5, "l-sage", 2.3) + cursorBar(33, 36.5, 8, "l-sage", 2.3) },
+      { vname: "Shell Window", concept: "A whole terminal reduced to its titlebar and sign.", spec: "Window frame with prompt line inside.", draw: () => winFrame() + gt(18, 35, 5, "l-ink", 2) + cursorBar(24, 39.5, 9, "l-sage", 2.1) },
+      { vname: "Triple Echo", concept: "Commands fading back into history.", spec: "Three chevrons faint to bold, trailing cursor.", draw: () => gt(13, 31, 5.5, "l-faint", 1.9) + gt(23, 31, 6.5, "l-dim", 2.1) + gt(34, 31, 7.5, "l-ink", 2.4) + cursorBar(44, 38.5, 7) },
+      { vname: "Caret Rise", concept: "The caret as a small mountain of intent.", spec: "Circumflex above a resting underscore.", draw: () => path("M22 34 L32 23 L42 34", "l-ink", 2.5) + cursorBar(24, 43, 16) },
+      { vname: "Squircle Shell", concept: "The prompt wearing the app's own rounded frame.", spec: "Squircle outline holding >_ .", draw: () => rectR(10, 10, 44, 44, 13, "l-ink", 2.2) + gt(25, 30, 8, "l-sage", 2.5) + cursorBar(33.5, 37.5, 10, "l-sage", 2.5) },
+      { vname: "Blink Half", concept: "The cursor caught mid-blink.", spec: "Cursor split into two dashes with a gap.", draw: () => gt(22, 31, 8) + line(33, 39, 38, 39, "l-sage", 2.8) + line(42, 39, 46, 39, "l-sage", 2.8) },
+      { vname: "Slash First", concept: "The path separator promoted to first class.", spec: "Dim slash leading into a sage cursor.", draw: () => line(26, 22, 19, 40, "l-dim", 2.2) + cursorBar(29, 40, 13) },
+      { vname: "Run Triangle", concept: "Press run; the underscore waits for output.", spec: "Open play triangle over a baseline rule.", draw: () => path("M23 21 L41 32 L23 43 Z", "l-sage", 2.3) + line(20, 50, 44, 50, "l-ink", 2.4) },
+      { vname: "Bracketed Shell", concept: "The prompt held between square brackets.", spec: "[ >_ ] drawn with corner strokes.", draw: () => path("M22 22 H16 V42 H22", "l-dim", 2.2) + path("M42 22 H48 V42 H42", "l-dim", 2.2) + gt(26, 31, 6, "l-ink", 2.3) + cursorBar(32.5, 37, 6.5) },
+      { vname: "Ghost Cursor", concept: "Where the cursor was; where it is.", spec: "Faint block behind a solid sage block.", draw: () => gt(20, 30, 7.5) + rectR(30, 34, 11, 9, 1.5, "l-fill-faint") + rectR(37, 34, 11, 9, 1.5, "l-fill-sage") },
+      { vname: "Tall Glyph", concept: "One enormous chevron, quietly monumental.", spec: "Frame-high chevron with low short cursor.", draw: () => gt(22, 30, 15, "l-ink", 3) + cursorBar(38, 45, 8, "l-sage", 3) },
+      { vname: "History Twin", concept: "This command, and the one before it.", spec: "Stacked underscores, dim above sage.", draw: () => gt(22, 28, 7) + line(32, 35, 44, 35, "l-dim", 2.3) + line(32, 43, 44, 43, "l-sage", 2.6) },
+      { vname: "Period End", concept: "The command finished — a full stop kept.", spec: "Chevron with a period dot as terminator.", draw: () => gt(24, 30, 8.5) + dot(40, 39, 3.4, "l-fill-sage") },
+      { vname: "Stepped Depth", concept: "Nesting shown as growing chevrons.", spec: "Three chevrons scaled up from one origin.", draw: () => gt(20, 30, 4.5, "l-faint", 1.8) + gt(20, 31, 7, "l-sage", 2.1) + gt(20, 32, 9.5, "l-ink", 2.4) },
+      { vname: "Pipe Cursor", concept: "The insertion point standing upright.", spec: "Chevron beside a tall bar cursor.", draw: () => gt(24, 30, 8) + line(37, 22, 37, 40, "l-sage", 3) },
+      { vname: "Echo Output", concept: "Prompt above, calm output below.", spec: ">_ line plus two dim response rules.", draw: () => gt(20, 24, 6) + cursorBar(28, 30, 12) + line(16, 40, 48, 40, "l-dim", 1.8) + line(16, 47, 38, 47, "l-faint", 1.8) },
+      { vname: "Minified Shell", concept: "Vast empty space around a tiny prompt.", spec: "Small >_ low-center in open field.", draw: () => gt(27, 40, 5.5, "l-ink", 2) + cursorBar(33, 45, 7, "l-sage", 2) + circ(32, 32, 21, "l-faint", 1.2) },
     ],
   },
-
-  // 5. MONOLINE NODE ----------------------------------------------------------
   {
-    id: "monoline",
-    name: "Monoline Node",
-    seed: 55,
+    id: "code-brackets",
+    name: "Code & Brackets",
+    seed: 505,
     variants: [
-      { vname: "Loop", concept: "One line drawn as a closed loop.", spec: "Single continuous loop, 2.2 stroke.", draw: () => path(`M32 16 C48 16 48 48 32 48 C16 48 16 16 32 16 Z`,"l-ink",2.2) },
-      { vname: "Knot", concept: "A line threading a small ring.", spec: "Sage ring with an ink line looping through.", draw: () => circ(32,24,7,"l-sage",2) + path(`M20 44 C20 28 44 28 44 44 C44 54 18 52 18 40`,"l-ink",2.2) },
-      { vname: "Zig", concept: "A calm zigzag held by a node.", spec: "Three-step monoline zigzag with sage ends.", draw: () => { const n=3; let d=`M14 40 `; for(let i=0;i<n;i++) d+=`L${14+(36/n)*(i+0.5)} ${i%2?22:44} L${14+(36/n)*(i+1)} 40 `; return path(d,"l-ink",2.2)+dot(14,40,2.4,"l-fill-sage")+dot(50,40,2.4,"l-fill-sage"); } },
-      { vname: "Zig Five", concept: "A five-step monoline zigzag.", spec: "Five-step zig with sage end nodes.", draw: () => { const n=5; let d=`M10 38 `; for(let i=0;i<n;i++) d+=`L${10+(44/n)*(i+0.5)} ${i%2?22:42} L${10+(44/n)*(i+1)} 38 `; return path(d,"l-ink",2.2)+dot(10,38,2.4,"l-fill-sage")+dot(54,38,2.4,"l-fill-sage"); } },
-      { vname: "Spiral In", concept: "A line curling inward.", spec: "Inward monoline spiral, ~2.4 turns.", draw: () => { let d="M50 32 "; for(let i=0;i<=40;i++){const t=i/40;const a=t*2.4*TAU;const r=20*(1-t)+2;const [x,y]=pt(32,32,r,a);d+=`L${f(x)} ${f(y)} `;} return path(d,"l-ink",2); } },
-      { vname: "Spiral Out", concept: "A line unfurling outward.", spec: "Outward monoline spiral.", draw: () => { let d="M32 32 "; for(let i=0;i<=40;i++){const t=i/40;const a=t*2.4*TAU;const r=2+t*20;const [x,y]=pt(32,32,r,a);d+=`L${f(x)} ${f(y)} `;} return path(d,"l-ink",2); } },
-      { vname: "Thread", concept: "A line stringing quiet beads.", spec: "Four nodes strung on one monoline.", draw: () => { const n=4; const pts=[]; for(let i=0;i<n;i++) pts.push([14+i*(36/(n-1)),18+i*10]); let d=`M${pts[0][0]} ${pts[0][1]} `; pts.forEach((p)=>d+=`L${f(p[0])} ${f(p[1])} `); let s=path(d,"l-ink",1.8); pts.forEach((p,i)=>s+=dot(p[0],p[1],i%2?2.6:2,i%2?"l-fill-sage":"l-fill-dim")); return s; } },
-      { vname: "Infinity", concept: "A calm infinity loop.", spec: "Sideways figure-eight monoline.", draw: () => path(`M16 32 C16 20 28 20 32 32 C36 44 48 44 48 32 C48 20 36 20 32 32 C28 44 16 44 16 32 Z`,"l-ink",2.2) },
-      { vname: "Figure Eight", concept: "A vertical figure-eight.", spec: "Upright woven loop.", draw: () => path(`M32 14 C44 14 44 30 32 32 C20 34 20 50 32 50 C44 50 44 34 32 32 C20 30 20 14 32 14 Z`,"l-ink",2.2) },
-      { vname: "Lattice", concept: "A tidy 3x3 monoline grid.", spec: "Three-by-three grid, sage nodes.", draw: () => { let s=""; for(let i=0;i<3;i++){const x=18+i*14; s+=line(x,18,x,46,"l-ink",1.4); const y=18+i*14; s+=line(18,y,46,y,"l-ink",1.4);} for(let i=0;i<3;i++)for(let j=0;j<3;j++) s+=dot(18+i*14,18+j*14,1.8,"l-fill-sage"); return s; } },
-      { vname: "Hex", concept: "A calm hexagon outline.", spec: "Six-sided monoline, sage nodes.", draw: () => { const p=reg(32,32,18,6); let s=poly(p,"l-ink",2.2); p.forEach(q=>s+=dot(q[0],q[1],2,"l-fill-sage")); return s; } },
-      { vname: "Triangle", concept: "A calm triangle outline.", spec: "Three-sided monoline, sage nodes.", draw: () => { const p=reg(32,34,18,3); let s=poly(p,"l-ink",2.2); p.forEach(q=>s+=dot(q[0],q[1],2.2,"l-fill-sage")); return s; } },
-      { vname: "Square Soft", concept: "A rounded square outline.", spec: "Rounded rect monoline, sage nodes.", draw: () => { let s=rectR(16,16,32,32,8,"l-ink",2.2); [[16,16],[48,16],[16,48],[48,48]].forEach(q=>s+=dot(q[0],q[1],2,"l-fill-sage")); return s; } },
-      { vname: "Sine", concept: "A single calm wave, monoline.", spec: "One sine period, sage endpoints.", draw: () => path(`M10 32 Q22 16 32 32 T54 32`,"l-ink",2.2)+dot(10,32,2.4,"l-fill-sage")+dot(54,32,2.4,"l-fill-sage") },
-      { vname: "Square Wave", concept: "A calm square wave.", spec: "Two steps monoline with sage nodes.", draw: () => { let d="M10 36 H22 V20 H42 V36 H54"; return path(d,"l-ink",2.2)+dot(10,36,2.4,"l-fill-sage")+dot(54,36,2.4,"l-fill-sage"); } },
-      { vname: "Helix", concept: "A coiled line, the gentle spring.", spec: "Two-turn helix monoline.", draw: () => { let d="M32 14 "; for(let i=0;i<=40;i++){const t=i/40;const a=t*4*Math.PI;const y=14+t*36;const x=32+10*Math.sin(a); d+=`L${f(x)} ${f(y)} `;} return path(d,"l-ink",2); } },
-      { vname: "Braid", concept: "Three strands woven, the braided intent.", spec: "Three interlaced monoline strands.", draw: () => { let s=""; for(let k=0;k<3;k++){let d=`M10 ${20+k*6} `; for(let i=0;i<=20;i++){const t=i/20;const x=10+t*44;const y=20+k*6+6*Math.sin(t*Math.PI*3+k); d+=`L${f(x)} ${f(y)} `;} s+=path(d,k===1?"l-sage":"l-dim",1.8);} return s; } },
-      { vname: "Orbit Loop", concept: "A loop with an orbiting node.", spec: "Monoline loop with sage traveling dot.", draw: () => { let s=path(`M32 16 C46 16 46 48 32 48 C18 48 18 16 32 16 Z`,"l-ink",2.2); const [x,y]=pt(32,32,16,-Math.PI/2); return s+dot(x,y,2.8,"l-fill-sage"); } },
-      { vname: "Pulse Line", concept: "A flat line with one calm pulse.", spec: "Monoline with a single sage bump.", draw: () => path(`M10 34 H26 Q32 22 38 34 H54`,"l-ink",2.2)+dot(32,28,2.4,"l-fill-sage") },
-      { vname: "Meander", concept: "A Greek-key meander, the steady path.", spec: "Single meander turn monoline.", draw: () => path(`M14 46 V26 H40 V40 H26 V32`,"l-ink",2.2) + dot(14,46,2.2,"l-fill-sage") },
+      { vname: "Angle Diamond", concept: "Opening and closing held apart by one idea.", spec: "< and > facing outward, dot at center.", draw: () => path("M24 20 L12 32 L24 44", "l-ink", 2.4) + path("M40 20 L52 32 L40 44", "l-ink", 2.4) + dot(32, 32, 3.4, "l-fill-sage") },
+      { vname: "Curly Embrace", concept: "Braces that hold everything together.", spec: "{ } curves enclosing a center dot.", draw: () => path("M26 16 C20 16 20 22 20 26 C20 30 17 32 15 32 C17 32 20 34 20 38 C20 42 20 48 26 48", "l-ink", 2.2) + path("M38 16 C44 16 44 22 44 26 C44 30 47 32 49 32 C47 32 44 34 44 38 C44 42 44 48 38 48", "l-ink", 2.2) + dot(32, 32, 3.4, "l-fill-sage") },
+      { vname: "Self Closing", concept: "Complete in itself — element opened and closed.", spec: "< / > with a sage slash.", draw: () => path("M22 20 L10 32 L22 44", "l-ink", 2.4) + path("M42 20 L54 32 L42 44", "l-ink", 2.4) + line(37, 18, 27, 46, "l-sage", 2.4) },
+      { vname: "Square Node", concept: "Array literal as an emblem: brackets around value.", spec: "[ • ] with heavy corner strokes.", draw: () => path("M24 18 H14 V46 H24", "l-ink", 2.6) + path("M40 18 H50 V46 H40", "l-ink", 2.6) + dot(32, 32, 4, "l-fill-sage") },
+      { vname: "Lens Parens", concept: "Wide parentheses focusing on the core.", spec: "( ) arcs forming a lens around a dot.", draw: () => arc(-6, 32, 34, -0.62, 0.62, "l-ink", 2.3) + arc(70, 32, 34, Math.PI - 0.62, Math.PI + 0.62, "l-ink", 2.3) + dot(32, 32, 3.6, "l-fill-sage") },
+      { vname: "Nested Braces", concept: "Scope inside scope — depth made visible.", spec: "Double braces receding inward.", draw: () => path("M24 14 C19 14 19 20 19 25 C19 29 16 32 14 32 C16 32 19 35 19 39 C19 44 19 50 24 50", "l-dim", 2) + path("M30 18 C26 18 26 23 26 27 C26 30 23.5 32 22 32 C23.5 32 26 34 26 37 C26 41 26 46 30 46", "l-ink", 2.2) + path("M34 18 C38 18 38 23 38 27 C38 30 40.5 32 42 32 C40.5 32 38 34 38 37 C38 41 38 46 34 46", "l-ink", 2.2) + path("M40 14 C45 14 45 20 45 25 C45 29 48 32 50 32 C48 32 45 35 45 39 C45 44 45 50 40 50", "l-dim", 2) },
+      { vname: "Tag Wrap Bar", concept: "Markup holding content: tags around the bar.", spec: "< bar > with a sage content rule.", draw: () => path("M22 20 L12 32 L22 44", "l-ink", 2.4) + path("M42 20 L52 32 L42 44", "l-ink", 2.4) + line(27, 32, 37, 32, "l-sage", 2.6) },
+      { vname: "Indent Block", concept: "Structure read from indentation alone.", spec: "Staggered code lines with closing brace.", draw: () => codeRows(14, 22, [14, 10, 12], 7, 2) + path("M46 20 C51 20 51 25 51 29 C51 32 53 33.5 54.5 33.5 C53 33.5 51 35 51 38 C51 42 51 47 46 47", "l-ink", 2) },
+      { vname: "Angle Peak", concept: "Chevrons stacked into a quiet summit.", spec: "^ over v meeting near the middle.", draw: () => path("M18 30 L32 16 L46 30", "l-ink", 2.4) + path("M18 38 L32 52 L46 38", "l-sage", 2.4) },
+      { vname: "Backtick Pair", concept: "Inline code marks floating above the line.", spec: "Two angled ticks high, dot below.", draw: () => path("M22 24 L27 18", "l-ink", 2.6) + path("M37 24 L42 18", "l-ink", 2.6) + dot(32, 42, 3.6, "l-fill-sage") + line(18, 50, 46, 50, "l-faint", 1.6) },
+      { vname: "Pipe Columns", concept: "Two uprights bridged mid-height.", spec: "| | with a dim connecting dash.", draw: () => line(24, 18, 24, 46, "l-ink", 2.6) + line(40, 18, 40, 46, "l-ink", 2.6) + line(29, 32, 35, 32, "l-sage", 2.4) },
+      { vname: "Lone Angle", concept: "One bracket left open — work in progress.", spec: "Single large < with a dot in its mouth.", draw: () => path("M40 14 L14 32 L40 50", "l-ink", 2.6) + dot(31, 32, 3.6, "l-fill-sage") },
+      { vname: "Fragment Slash", concept: "Just the slash, the divider that ends tags.", spec: "Large slash with faint angle echoes.", draw: () => line(38, 14, 26, 50, "l-ink", 2.8) + path("M18 22 L10 32 L18 42", "l-faint", 1.8) + path("M46 22 L54 32 L46 42", "l-faint", 1.8) },
+      { vname: "Header Corners", concept: "Only the top corners remain; content below.", spec: "Top brackets plus a row of content dots.", draw: () => path("M18 26 V18 H26", "l-ink", 2.4) + path("M38 18 H46 V26", "l-ink", 2.4) + dot(22, 38, 2.6, "l-fill-dim") + dot(32, 38, 2.6, "l-fill-sage") + dot(42, 38, 2.6, "l-fill-dim") + line(18, 48, 46, 48, "l-faint", 1.6) },
+      { vname: "Lambda Form", concept: "The function letter, drawn in one breath.", spec: "Single λ stroke with sage leg.", draw: () => path("M20 16 C26 26 28 32 30 38", "l-ink", 2.4) + path("M44 16 C36 28 30 40 24 48", "l-ink", 2.4) + path("M30 38 C34 44 38 47 44 48", "l-sage", 2.4) },
+      { vname: "Statement End", concept: "The semicolon — where thoughts conclude.", spec: "Giant period and comma paired.", draw: () => dot(28, 24, 5.5, "l-fill-ink") + path("M33.5 36 C33.5 46 28 50 22 52 C27 45 27.5 40 27 36 Z", "l-fill-sage") },
+      { vname: "Staggered Equals", concept: "Assignment and comparison, offset in time.", spec: "== pairs displaced diagonally.", draw: () => line(18, 24, 32, 24, "l-ink", 2.4) + line(18, 31, 32, 31, "l-ink", 2.4) + line(32, 38, 46, 38, "l-sage", 2.4) + line(32, 45, 46, 45, "l-sage", 2.4) },
+      { vname: "Ampersand Loop", concept: "The joiner of names, simplified to loops.", spec: "Reduced & built from two arcs.", draw: () => path("M42 18 C32 24 24 34 22 44 C21 49 26 51 30 47 C36 40 40 32 44 26", "l-ink", 2.3) + path("M22 26 C28 30 38 38 46 46", "l-sage", 2.3) },
+      { vname: "Hook Circle", concept: "An angle that never closes — it curls instead.", spec: "< flowing into three-quarters of a ring.", draw: () => path("M26 20 L14 32 L24 42", "l-ink", 2.4) + arc(34, 32, 12, Math.PI * 0.82, Math.PI * 2.4, "l-sage", 2.4) },
+      { vname: "Embraced Spark", concept: "Brackets tight around the spark of work.", spec: "Close pair hugging a four-point spark.", draw: () => path("M25 22 H19 V42 H25", "l-ink", 2.5) + path("M39 22 H45 V42 H39", "l-ink", 2.5) + spark4(32, 32, 7.5, 2.8, "l-fill-sage") },
     ],
   },
-
-  // 6. STAMP & SEAL -----------------------------------------------------------
   {
-    id: "stamp-seal",
-    name: "Stamp & Seal",
-    seed: 66,
+    id: "diff-merge",
+    name: "Diff & Merge",
+    seed: 606,
     variants: [
-      { vname: "Hanko", concept: "A rounded square seal bearing a centered mark.", spec: "Rounded seal with a sage triangle (A) and crossbar.", draw: () => rectR(16,16,32,32,8,"l-ink",2) + path(`M32 24 L40 42 L24 42 Z`,"l-sage",2) + line(28,38,36,38,"l-ink",1.4) },
-      { vname: "Ringseal", concept: "A seal framing an open circle.", spec: "Square seal enclosing a sage ring.", draw: () => rectR(16,16,32,32,9,"l-ink",2) + circ(32,32,10,"l-sage",2) },
-      { vname: "Pluseal", concept: "A seal crossed by one calm plus.", spec: "Square seal with a sage plus mark.", draw: () => { let s=rectR(16,16,32,32,9,"l-ink",2); s+=line(32,22,32,42,"l-sage",2.2); s+=line(22,32,42,32,"l-sage",2.2); return s; } },
-      { vname: "Bars Two", concept: "A seal ruled by two even lines.", spec: "Square seal with two dim ledger lines.", draw: () => { let s=rectR(16,16,32,32,9,"l-ink",2); for(let i=0;i<2;i++) s+=line(22,28+i*8,42,28+i*8,"l-dim",1.6); return s; } },
-      { vname: "Bars Three", concept: "A seal ruled by three even lines.", spec: "Square seal with three dim ledger lines.", draw: () => { let s=rectR(16,16,32,32,9,"l-ink",2); for(let i=0;i<3;i++) s+=line(22,26+i*6,42,26+i*6,"l-dim",1.6); return s; } },
-      { vname: "Matrix", concept: "A seal filled with a tidy dot grid.", spec: "3x3 grid of ink/sage dots in a seal.", draw: () => { let s=rectR(16,16,32,32,9,"l-ink",2); for(let i=0;i<3;i++)for(let j=0;j<3;j++) s+=dot(24+i*8,24+j*8,1.8,(i+j)%2?"l-fill-sage":"l-fill-dim"); return s; } },
-      { vname: "Monogram Seal", concept: "A seal bearing an O and A.", spec: "Rounded seal with sage O and ink A.", draw: () => rectR(16,16,32,32,8,"l-ink",2) + circ(32,32,9,"l-sage",1.8) + path(`M32 26 L38 42 L26 42 Z`,"l-ink",1.8) },
-      { vname: "Star Seal", concept: "A seal bearing a calm star.", spec: "Rounded seal with sage four-point star.", draw: () => { let s=rectR(16,16,32,32,9,"l-ink",2); const p=starPts(32,32,11,4,4); return s+poly(p,"l-sage",1.8); } },
-      { vname: "Dot Seal", concept: "A seal centered on one mark.", spec: "Rounded seal with a sage center dot.", draw: () => rectR(16,16,32,32,9,"l-ink",2) + dot(32,32,6,"l-fill-sage") },
-      { vname: "Scallop", concept: "A seal with a scalloped edge.", spec: "Circle seal with sage scallop ticks.", draw: () => { let s=circ(32,32,16,"l-ink",2); for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x1,y1]=pt(32,32,16,a);const [x2,y2]=pt(32,32,12,a); s+=line(x1,y1,x2,y2,"l-sage",1.4);} return s; } },
-      { vname: "Double Ring", concept: "A seal of two concentric frames.", spec: "Two nested square seals, sage inner.", draw: () => rectR(14,14,36,36,10,"l-ink",2) + rectR(22,22,20,20,6,"l-sage",1.6) },
-      { vname: "Hex Seal", concept: "A hexagonal seal, the wax mark.", spec: "Hex outline seal with sage core.", draw: () => { let s=poly(reg(32,32,18,6),"l-ink",2); s+=dot(32,32,4,"l-fill-sage"); return s; } },
-      { vname: "Tri Seal", concept: "A triangular seal.", spec: "Triangle seal with sage center.", draw: () => { let s=poly(reg(32,34,18,3),"l-ink",2); s+=dot(32,34,4,"l-fill-sage"); return s; } },
-      { vname: "Quartered", concept: "A seal split into four calm fields.", spec: "Square seal with sage cross quarters.", draw: () => rectR(16,16,32,32,8,"l-ink",2) + line(32,16,32,48,"l-sage",1.4) + line(16,32,48,32,"l-sage",1.4) },
-      { vname: "Concentric Seal", concept: "A seal of nested rings.", spec: "Square seal with two concentric sage rings.", draw: () => rectR(16,16,32,32,9,"l-ink",2) + circ(32,32,9,"l-sage",1.6) + circ(32,32,5,"l-sage",1.4) },
-      { vname: "Chevron Seal", concept: "A seal marked by a calm chevron.", spec: "Rounded seal with sage chevron.", draw: () => rectR(16,16,32,32,8,"l-ink",2) + path(`M24 26 L32 36 L40 26`,"l-sage",2) + line(24,40,40,40,"l-dim",1.4) },
-      { vname: "Arc Seal", concept: "A seal bearing a rising arc.", spec: "Rounded seal with sage arc.", draw: () => rectR(16,16,32,32,8,"l-ink",2) + arc(32,40,14,Math.PI*1.15,Math.PI*1.85,"l-sage",2) },
-      { vname: "Plus Minus", concept: "A seal of balanced marks.", spec: "Rounded seal with sage plus and dim minus.", draw: () => { let s=rectR(16,16,32,32,8,"l-ink",2); s+=line(32,24,32,38,"l-sage",2)+line(25,31,39,31,"l-sage",2); s+=line(25,42,39,42,"l-dim",1.6); return s; } },
-      { vname: "Initial O", concept: "A seal framing a single O.", spec: "Rounded seal with sage O.", draw: () => rectR(16,16,32,32,8,"l-ink",2) + circ(32,32,9,"l-sage",2) },
-      { vname: "Flower Seal", concept: "A seal bearing a small bloom.", spec: "Rounded seal with sage petal flower.", draw: () => { let s=rectR(16,16,32,32,9,"l-ink",2); const p=reg(32,32,9,6); p.forEach(q=>s+=dot(q[0],q[1],2.4,"l-fill-sage")); s+=dot(32,32,2.6,"l-fill-ink"); return s; } },
+      { vname: "Add Remove", concept: "The two verbs of every change.", spec: "Sage plus over an ink minus.", draw: () => line(24, 24, 40, 24, "l-sage", 2.4) + line(32, 16, 32, 32, "l-sage", 2.4) + line(24, 42, 40, 42, "l-ink", 2.4) },
+      { vname: "Feature Branch", concept: "Work peels off the trunk and returns changed.", spec: "Main rail with a curving branch to a node.", draw: () => line(14, 40, 50, 40, "l-ink", 2.2) + dot(20, 40, 3, "l-fill-ink") + path("M32 40 C32 28 40 28 40 20", "l-sage", 2.2) + dot(40, 17, 3.4, "l-fill-sage") },
+      { vname: "Merge Knot", concept: "Two histories becoming one.", spec: "Lines converging into a single node.", draw: () => path("M14 20 C26 20 30 32 40 32", "l-ink", 2.2) + path("M14 44 C26 44 30 32 40 32", "l-sage", 2.2) + line(40, 32, 52, 32, "l-ink", 2.2) + dot(40, 32, 3.6, "l-fill-ink") },
+      { vname: "Commit Chain", concept: "Three moments linked in a row.", spec: "Hollow-filled-hollow commits on a rail.", draw: () => line(12, 32, 52, 32, "l-dim", 1.7) + circ(18, 32, 4, "l-ink", 2) + dot(32, 32, 4.4, "l-fill-sage") + circ(46, 32, 4, "l-ink", 2) },
+      { vname: "Sync Pair", concept: "Two arrows chasing each other around a loop.", spec: "Counter-rotating arc arrows.", draw: () => arc(32, 32, 13, Math.PI * 0.6, Math.PI * 1.75, "l-ink", 2.3) + arc(32, 32, 13, Math.PI * 1.6 + TAU / 2, Math.PI * 0.75 + TAU / 2, "l-sage", 2.3) + poly([[pt(32,32,13,Math.PI*0.72)[0]-2, pt(32,32,13,Math.PI*0.72)[1]], [pt(32,32,13,Math.PI*0.72)[0]+4, pt(32,32,13,Math.PI*0.72)[1]-1.5], [pt(32,32,13,Math.PI*0.72)[0]+1, pt(32,32,13,Math.PI*0.72)[1]+4.5]], "l-ink") + dot(pt(32, 32, 13, Math.PI * 1.68)[0], pt(32, 32, 13, Math.PI * 1.68)[1], 2.8, "l-fill-sage") },
+      { vname: "Diff Gutters", concept: "Changed lines ranked by weight.", spec: "Tall sage, medium ink, short dim bars.", draw: () => rectR(16, 16, 8, 32, 2, "l-fill-sage") + rectR(28, 22, 8, 26, 2, "l-fill-ink") + rectR(40, 30, 8, 18, 2, "l-fill-dim") },
+      { vname: "Add Chip", concept: "An addition, boxed and labeled.", spec: "Outlined square with a sage plus.", draw: () => rectR(16, 16, 32, 32, 7, "l-ink", 2.2) + line(24, 32, 40, 32, "l-sage", 2.4) + line(32, 24, 32, 40, "l-sage", 2.4) },
+      { vname: "Remove Chip", concept: "A deletion, boxed and accepted.", spec: "Outlined square with an ink minus.", draw: () => rectR(16, 16, 32, 32, 7, "l-ink", 2.2) + line(24, 32, 40, 32, "l-ink", 2.4) },
+      { vname: "Fork Y", concept: "One way becomes two ways.", spec: "Y fork with nodes at both tips.", draw: () => path("M32 52 L32 34", "l-ink", 2.3) + path("M32 34 C32 26 22 26 18 18", "l-ink", 2.3) + path("M32 34 C32 26 42 26 46 18", "l-sage", 2.3) + dot(18, 16, 3, "l-fill-ink") + dot(46, 16, 3, "l-fill-sage") },
+      { vname: "Rebase Slide", concept: "A commit lifted onto newer ground.", spec: "Dashed lift arc from lower to upper rail.", draw: () => line(12, 44, 52, 44, "l-dim", 1.9) + line(12, 26, 52, 26, "l-ink", 2.2) + dot(26, 44, 3.4, "l-fill-sage") + path("M26 40 C26 33 26 31 26 30.5", "l-faint", 1.5) + dot(26, 26, 3.4, "l-fill-sage") },
+      { vname: "Side By Side", concept: "Before and after, aligned for the eye.", spec: "Two panes: dim rows left, sage rows right.", draw: () => rectR(10, 18, 20, 28, 3, "l-faint", 1.5) + rectR(34, 18, 20, 28, 3, "l-sage", 1.8) + [[15, 25], [15, 32], [15, 39]].map(([x, y]) => line(x, y, x + 10, y, "l-dim", 1.6)).join("") + [[39, 25], [39, 32], [39, 39]].map(([x, y]) => line(x, y, x + 10, y, "l-sage", 1.8)).join("") },
+      { vname: "Cherry Pick", concept: "One commit chosen out of the line.", spec: "Chain of dots, one lifted by a dashed thread.", draw: () => line(14, 40, 50, 40, "l-dim", 1.7) + dot(20, 40, 3, "l-fill-dim") + dot(32, 40, 3, "l-fill-dim") + dot(44, 40, 3, "l-fill-dim") + line(32, 36, 32, 26, "l-faint", 1.5) + dot(32, 22, 4, "l-fill-sage") },
+      { vname: "Squash Point", concept: "Many moments pressed into one.", spec: "Arrow from three dots to one large dot.", draw: () => dot(16, 24, 2.6, "l-fill-dim") + dot(16, 32, 2.6, "l-fill-dim") + dot(16, 40, 2.6, "l-fill-dim") + line(22, 32, 36, 32, "l-sage", 2.2) + poly([[36, 27], [44, 32], [36, 37]], "l-sage") + dot(50, 32, 5, "l-fill-ink") },
+      { vname: "Stash Hold", concept: "Changes put away but kept in reach.", spec: "Bracket pair storing two dots.", draw: () => path("M22 16 H14 V48 H22", "l-ink", 2.3) + path("M42 16 H50 V48 H42", "l-ink", 2.3) + dot(27, 32, 3.4, "l-fill-sage") + dot(37, 32, 3.4, "l-fill-dim") },
+      { vname: "Conflict Meet", concept: "Two intents arriving at the same place.", spec: "Opposing arrows stopped at a shared node.", draw: () => line(10, 32, 24, 32, "l-ink", 2.3) + poly([[24, 27], [30, 32], [24, 37]], "l-ink") + line(54, 32, 40, 32, "l-sage", 2.3) + poly([[40, 27], [34, 32], [40, 37]], "l-sage") + circ(32, 32, 3.4, "l-ink", 2) },
+      { vname: "History Rail", concept: "Time running down a single rail.", spec: "Vertical rail with alternating commit ticks.", draw: () => line(32, 12, 32, 52, "l-dim", 1.8) + dot(32, 18, 3.2, "l-fill-ink") + dot(32, 30, 3.2, "l-fill-sage") + dot(32, 42, 3.2, "l-fill-ink") + line(38, 18, 46, 18, "l-faint", 1.5) + line(38, 42, 44, 42, "l-faint", 1.5) },
+      { vname: "Patch Page", concept: "The change as a page you can hold.", spec: "Page outline with plus and minus rows.", draw: () => rectR(16, 12, 32, 40, 3, "l-ink", 2) + line(22, 22, 32, 22, "l-sage", 2) + line(27, 17, 27, 27, "l-sage", 2) + line(22, 32, 34, 32, "l-ink", 2) + line(22, 42, 30, 42, "l-dim", 1.8) },
+      { vname: "Blame Bars", concept: "Who changed what, as a quiet skyline.", spec: "Five vertical bars of varying height on a rail.", draw: () => [[14, 14, "l-dim"], [23, 26, "l-sage"], [32, 19, "l-ink"], [41, 30, "l-dim"], [50, 23, "l-sage"]].map(([x, top, c]) => line(x, top, x, 48, c, 3)).join("") + line(10, 49, 54, 49, "l-faint", 1.4) },
+      { vname: "Fast Forward", concept: "Everything between skipped, cleanly.", spec: "Rail through dots ending in double chevrons.", draw: () => line(10, 32, 34, 32, "l-dim", 2) + dot(16, 32, 2.8, "l-fill-dim") + dot(28, 32, 2.8, "l-fill-dim") + path("M36 24 L46 32 L36 40", "l-ink", 2.3) + path("M46 24 L56 32 L46 40", "l-sage", 2.3) },
+      { vname: "Release Tag", concept: "A version pinned like a luggage tag.", spec: "Tag shape with hole dot and string.", draw: () => poly([[14, 26], [34, 26], [50, 38], [34, 50], [14, 50]], "l-ink", 2.2) + dot(22, 38, 3, "l-fill-sage") + path("M22 38 C22 26 30 20 40 16", "l-faint", 1.5) },
     ],
   },
-
-  // 7. WINDOW & PORTAL --------------------------------------------------------
   {
-    id: "window-portal",
-    name: "Window & Portal",
-    seed: 77,
+    id: "wordmark-oa",
+    name: "Wordmark & Initials",
+    seed: 707,
     variants: [
-      { vname: "Arch", concept: "An arched opening onto calm.", spec: "Rounded arch window with a sage sill.", draw: (rng) => { const span=jit(rng,22,3); return path(`M21 ${52-span/2} V32 A11 11 0 0 1 43 32 V${52-span/2}`,"l-ink",2.2) + line(21,52-span/2,43,52-span/2,"l-sage",1.8); } },
-      { vname: "Quads", concept: "A window split into four calm panes.", spec: "Square window with a dim mullion cross.", draw: () => { let s=rectR(18,18,28,28,4,"l-ink",2); s+=line(32,18,32,46,"l-dim",1.4); s+=line(18,32,46,32,"l-dim",1.4); return s; } },
-      { vname: "Portal", concept: "A round opening, the soft circle.", spec: "Circular portal, sage inner ring.", draw: (rng) => { const r=jit(rng,16,2); return circ(32,32,r,"l-ink",2.2) + circ(32,32,r*0.62,"l-sage",1.6); } },
-      { vname: "Lattice", concept: "A window braced by a single bar.", spec: "Square window with a single sage mullion.", draw: () => rectR(18,18,28,28,4,"l-ink",2) + line(32,18,32,46,"l-sage",1.8) },
-      { vname: "Vista", concept: "A portal crossed by a low horizon.", spec: "Circular portal with a sage horizon and dim sun.", draw: () => circ(32,32,17,"l-ink",2.2) + path(`M15 40 Q24 34 32 40 T49 40`,"l-sage",1.6) + dot(40,26,3,"l-fill-dim") },
-      { vname: "Two Bars", concept: "A window with two calm mullions.", spec: "Square window with two sage bars.", draw: () => rectR(18,18,28,28,4,"l-ink",2) + line(25,18,25,46,"l-sage",1.4) + line(39,18,39,46,"l-sage",1.4) },
-      { vname: "Arched Sill", concept: "An arched window on a sill.", spec: "Arch with sage sill and side jambs.", draw: () => path(`M20 48 V30 A12 12 0 0 1 44 30 V48`,"l-ink",2.2) + line(16,48,48,48,"l-sage",1.8) },
-      { vname: "Octagon", concept: "An eight-sided window, the calm lantern.", spec: "Octagon window with sage inner.", draw: () => { const p=reg(32,32,18,8,Math.PI/8); let s=poly(p,"l-ink",2); s+=circ(32,32,7,"l-sage",1.6); return s; } },
-      { vname: "Porthole", concept: "A round window with a cross.", spec: "Circular porthole with sage cross.", draw: () => { let s=circ(32,32,17,"l-ink",2.2); s+=line(32,15,32,49,"l-sage",1.4); s+=line(15,32,49,32,"l-sage",1.4); return s; } },
-      { vname: "Bay", concept: "A three-pane bay window.", spec: "Three panes with sage center.", draw: () => { let s=rectR(14,20,10,24,3,"l-ink",1.8); s+=rectR(27,16,10,28,3,"l-sage",1.8); s+=rectR(40,20,10,24,3,"l-ink",1.8); return s; } },
-      { vname: "Three Col", concept: "A window in three columns.", spec: "Three vertical panes, dim mullions.", draw: () => { let s=rectR(16,20,32,24,4,"l-ink",2); for(let i=1;i<3;i++) s+=line(16+i*10.6,20,16+i*10.6,44,"l-dim",1.2); return s; } },
-      { vname: "Three Row", concept: "A window in three rows.", spec: "Three horizontal panes, dim rails.", draw: () => { let s=rectR(20,16,24,32,4,"l-ink",2); for(let i=1;i<3;i++) s+=line(20,16+i*10.6,44,16+i*10.6,"l-dim",1.2); return s; } },
-      { vname: "Diamond", concept: "A diamond window, the quiet facet.", spec: "Rotated square window with sage core.", draw: () => { const p=reg(32,32,18,4,0); let s=poly(p,"l-ink",2); s+=dot(32,32,3,"l-fill-sage"); return s; } },
-      { vname: "Pill", concept: "A tall pill window.", spec: "Rounded-tall window with sage sill.", draw: () => rectR(22,14,20,36,10,"l-ink",2) + line(22,50,42,50,"l-sage",1.6) },
-      { vname: "Hex Win", concept: "A hexagonal window.", spec: "Hex outline with sage inner hex.", draw: () => { let s=poly(reg(32,32,18,6),"l-ink",2); s+=poly(reg(32,32,9,6,Math.PI/6),"l-sage",1.6); return s; } },
-      { vname: "Keyhole", concept: "A keyhole, the doorway mark.", spec: "Circle over a sage trapezoid.", draw: () => circ(32,26,10,"l-ink",2) + poly([[28,30],[36,30],[34,46],[30,46]],"l-sage") },
-      { vname: "Lantern", concept: "A hanging lantern window.", spec: "Rounded-top window with sage glow.", draw: () => path(`M22 22 Q22 14 32 14 Q42 14 42 22 V48 H22 Z`,"l-ink",2) + circ(32,34,7,"l-fill-sage") },
-      { vname: "Framed", concept: "A circle framed by a square.", spec: "Square frame around a sage ring.", draw: () => rectR(16,16,32,32,6,"l-ink",2) + circ(32,32,10,"l-sage",1.8) },
-      { vname: "Lattice 2x2", concept: "A window with a 2x2 mullion grid.", spec: "Square window with four panes.", draw: () => { let s=rectR(18,18,28,28,4,"l-ink",2); s+=line(32,18,32,46,"l-dim",1.4); s+=line(18,32,46,32,"l-dim",1.4); s+=rectR(22,22,20,20,3,"l-sage",1.4); return s; } },
-      { vname: "Open Book Win", concept: "A window like an open book.", spec: "Two arched panes meeting at center.", draw: () => path(`M14 46 V32 A9 9 0 0 1 32 32`,"l-ink",2) + path(`M50 46 V32 A9 9 0 0 0 32 32`,"l-sage",2) + line(32,23,32,46,"l-dim",1.2) },
+      { vname: "Tight Lockup", concept: "The two letters kerned until they touch.", spec: "O and A set close, sage A.", draw: () => circ(23, 35, 9.5, "l-ink", 2.2) + path("M33.5 44 L42 23 L50.5 44", "l-sage", 2.2) + line(37.3, 37.5, 46.7, 37.5, "l-sage", 1.7) },
+      { vname: "Underlined Lockup", concept: "Initials with the confidence of a baseline bar.", spec: "OA over a full-width rule.", draw: () => circ(24, 31, 8.5, "l-ink", 2.1) + letterA(43, 39, 17, "l-sage", 2.1) + line(12, 47, 52, 47, "l-ink", 2.4) },
+      { vname: "Stadium Badge", concept: "The initials inside the softest possible box.", spec: "Stadium outline containing small O A.", draw: () => rectR(10, 22, 44, 20, 10, "l-ink", 2) + circ(23, 32, 4.6, "l-ink", 1.9) + path("M38 38 L43 26 L48 38", "l-sage", 1.9) + line(40.2, 34.6, 45.8, 34.6, "l-sage", 1.4) },
+      { vname: "Totem Column", concept: "Stacked initials like a carved marker.", spec: "O over A, centered and even.", draw: () => circ(32, 19, 7.5, "l-ink", 2.1) + path("M22 52 L32 30 L42 52", "l-sage", 2.1) + line(25.6, 45.5, 38.4, 45.5, "l-sage", 1.6) },
+      { vname: "Full Stop", concept: "The brand stated, then a period — done.", spec: "OA followed by an accent dot.", draw: () => circ(21, 32, 8.5, "l-ink", 2.1) + letterA(40, 40, 17, "l-sage", 2.1) + dot(52, 39, 3, "l-fill-sage") },
+      { vname: "Spaced Dot Pair", concept: "A middle dot pacing the two letters apart.", spec: "O · A with generous tracking.", draw: () => circ(18, 32, 8, "l-ink", 2.1) + dot(32, 32, 2.6, "l-fill-dim") + letterA(46, 40, 16, "l-sage", 2.1) },
+      { vname: "Outline Solid Mix", concept: "One letter outlined, one filled — tension kept.", spec: "Outline O beside solid sage A.", draw: () => circ(22, 33, 9, "l-ink", 2.2) + poly([[36, 43], [44.5, 23], [53, 43]], "l-fill-sage") + line(39.6, 37, 49.4, 37, "l-fill-paper") },
+      { vname: "Solid Outline Mix", concept: "The mirror of the mix: solid O, drawn A.", spec: "Filled ink O beside outline A.", draw: () => dot(22, 33, 9, "l-fill-ink") + path("M36 43 L44.5 23 L53 43", "l-sage", 2.2) + line(39.6, 37, 49.4, 37, "l-sage", 1.7) },
+      { vname: "Slashed Divider", concept: "A slash between initials, code style.", spec: "O / A with dim slash between.", draw: () => circ(20, 32, 8, "l-ink", 2.1) + line(34, 20, 28, 44, "l-dim", 2) + letterA(46, 40, 16, "l-sage", 2.1) },
+      { vname: "Lowercase Duet", concept: "Softer voice: lowercase o and a.", spec: "Small o plus single-story a with stem.", draw: () => circ(24, 36, 6.5, "l-ink", 2.1) + circ(41, 37.5, 5, "l-sage", 2) + line(46, 27, 46, 43, "l-sage", 2) + path("M46 40 C46 43 43 44.5 40.5 43.5", "l-sage", 1.8) },
+      { vname: "Chip Monogram", concept: "The monogram struck into a rounded chip.", spec: "Small rounded chip holding tiny O A.", draw: () => rectR(14, 20, 36, 24, 7, "l-ink", 2.1) + circ(25, 32, 3.6, "l-sage", 1.7) + path("M36 37 L39.5 27.5 L43 37", "l-ink", 1.7) + line(37.4, 34.2, 41.6, 34.2, "l-ink", 1.3) },
+      { vname: "Arrow Crossbar", concept: "The A's crossbar fired left as an arrow into O.", spec: "Crossbar extended through to ring center.", draw: () => circ(22, 33, 9, "l-ink", 2.1) + line(22, 33, 44, 33, "l-sage", 2) + poly([[44, 29], [51, 33], [44, 37]], "l-fill-sage") + path("M40 44 L47 24 L54 44", "l-ink", 2.1) },
+      { vname: "Serif Feet", concept: "A classical A with quiet feet, beside its O.", spec: "Footed serif A next to plain O.", draw: () => circ(21, 33, 8.5, "l-ink", 2.1) + path("M34 42 L43 21 L52 42", "l-sage", 2.1) + line(30.5, 42, 37.5, 42, "l-sage", 2.1) + line(48.5, 42, 55.5, 42, "l-sage", 2.1) + line(37.2, 35.5, 48.8, 35.5, "l-sage", 1.6) },
+      { vname: "Leaning Set", concept: "Both letters leaning forward, in motion.", spec: "Italic-slanted OA pair.", draw: () => { const sk = (x, y) => [x + (46 - y) * 0.24, y]; const c = sk(23, 33); let s = circ(c[0], c[1], 8.5, "l-ink", 2.1); const a = [[38, 43], [45.5, 23], [53, 43]].map(([x, y]) => sk(x, y)); s += path(`M${f(a[0][0])} ${f(a[0][1])} L${f(a[1][0])} ${f(a[1][1])} L${f(a[2][0])} ${f(a[2][1])}`, "l-sage", 2.1); s += line(sk(40.6, 36.5)[0], 36.5, sk(49.6, 36.5)[0], 36.5, "l-sage", 1.6); return s; } },
+      { vname: "Swash Tail", concept: "The A's leg sweeps under the O in one flourish.", spec: "Sage swash connecting A base under O.", draw: () => circ(23, 30, 8.5, "l-ink", 2.1) + path("M38 42 L45.5 22 L53 42 C54 47 48 49 42 47 C34 44 26 45 20 48", "l-sage", 2.1) + line(40.3, 35.5, 50.7, 35.5, "l-sage", 1.6) },
+      { vname: "Geometric Single Story", concept: "An 'a' built from pure circles and a stem.", spec: "Circle-plus-stem lowercase a by an o.", draw: () => circ(23, 35, 7, "l-ink", 2.1) + circ(42, 36.5, 5.5, "l-sage", 2.1) + line(47.5, 26, 47.5, 43.5, "l-sage", 2.1) },
+      { vname: "Offset Baseline", concept: "Playful misregistration of the two initials.", spec: "O raised, A lowered, faint guide rules.", draw: () => line(12, 26, 52, 26, "l-faint", 1.1) + line(12, 46, 52, 46, "l-faint", 1.1) + circ(23, 27, 8, "l-ink", 2.1) + letterA(42, 45, 17, "l-sage", 2.1) },
+      { vname: "Corner Framed", concept: "Registration ticks claiming the corner space.", spec: "Four outer ticks around centered OA.", draw: () => path("M12 20 V12 H20", "l-faint", 1.8) + path("M44 12 H52 V20", "l-faint", 1.8) + path("M52 44 V52 H44", "l-faint", 1.8) + path("M20 52 H12 V44", "l-faint", 1.8) + circ(25, 32, 7, "l-ink", 2.1) + path("M38 39 L44 24.5 L50 39", "l-sage", 2.1) + line(40.2, 34.8, 47.8, 34.8, "l-sage", 1.5) },
+      { vname: "Vast Field", concept: "Tiny initials in enormous quiet — scale as luxury.", spec: "Micro OA centered in a wide faint ring.", draw: () => circ(32, 32, 21, "l-faint", 1.2) + circ(27.5, 32.5, 3.4, "l-ink", 1.7) + path("M36.5 36 L39.5 28 L42.5 36", "l-sage", 1.6) + line(37.7, 33.6, 41.3, 33.6, "l-sage", 1.1) },
+      { vname: "Stamp Pair", concept: "Initials rubber-stamped with a dashed ring.", spec: "Dashed circle seal around OA.", draw: () => `<circle class="l-ink" cx="32" cy="32" r="18" stroke-width="2" style="stroke-width:2;stroke-dasharray:4 4"/>` + circ(26, 33, 4.6, "l-ink", 1.8) + path("M36 38.5 L41 26.5 L46 38.5", "l-sage", 1.8) + line(37.7, 35, 44.3, 35, "l-sage", 1.4) },
     ],
   },
-
-  // 8. WABI-SABI --------------------------------------------------------------
   {
-    id: "wabi-sabi",
-    name: "Wabi-Sabi",
-    seed: 88,
+    id: "hub-spoke",
+    name: "Hub & Spoke",
+    seed: 808,
     variants: [
-      { vname: "Wobble", concept: "A circle that will not be perfect.", spec: "Imperfect closed curve, gentle wobble.", draw: () => { let d="M32 14 "; const n=18; for(let i=0;i<=n;i++){const a=(i/n)*TAU; const r=18+Math.sin(a*3)*1.8+Math.cos(a*5)*1.2; const [x,y]=pt(32,32,r,a); d+=`L${f(x)} ${f(y)} `;} return path(d+"Z","l-ink",2.2); } },
-      { vname: "Blob", concept: "An asymmetric soft shape that grew.", spec: "Asymmetric organic blob in sage.", draw: () => path(`M24 18 C40 14 52 26 48 40 C44 52 28 54 18 46 C10 38 12 24 24 18 Z`,"l-sage",2.2) },
-      { vname: "Fissure", concept: "A single line that breaks, the honest crack.", spec: "Broken ink stroke with a sage fracture node.", draw: (rng) => { const y=jit(rng,32,6); return path(`M14 ${y} q8 -4 14 0 t14 2`,"l-ink",2.2)+path(`M46 ${y+3} q5 3 6 6`,"l-dim",2)+dot(46,y+3,2,"l-fill-sage"); } },
-      { vname: "Pebbles Two", concept: "Two uneven stones resting together.", spec: "Two irregular stones, ink and sage.", draw: (rng) => { const oy=jit(rng,36,3); return path(`M16 ${oy} q8 -10 18 -3 q6 6 -4 9 q-12 4 -14 -6 Z`,"l-ink",2.2)+path(`M34 ${oy-4} q7 -7 14 -1 q4 5 -4 8 q-9 3 -10 -7 Z`,"l-sage",2); } },
-      { vname: "Pebbles Three", concept: "Three uneven stones, the paired quiet.", spec: "Three stones, ink/sage/dim.", draw: () => path(`M14 44 q7 -9 15 -3 q5 5 -3 8 q-10 3 -12 -5 Z`,"l-ink",2)+path(`M30 46 q7 -8 13 -2 q4 5 -3 7 q-8 2 -10 -5 Z`,"l-sage",2)+path(`M44 44 q6 -7 11 -2 q3 4 -3 6 q-7 2 -8 -4 Z`,"l-dim",1.8) },
-      { vname: "Stray", concept: "One loose stroke beside a calm field.", spec: "Faint field circle with one ink stray stroke.", draw: (rng) => { const x=jit(rng,30,4); return circ(32,32,17,"l-faint",1.4)+path(`M${x-8} 40 q6 -14 16 -10`,"l-ink",2.4); } },
-      { vname: "Cracked Vessel", concept: "A vessel with a hairline crack.", spec: "Sage vessel outline with ink fracture.", draw: () => { let s=path(`M22 18 Q22 14 28 14 H36 Q42 14 42 18 Q48 30 44 44 Q40 52 32 52 Q24 52 20 44 Q16 30 22 18 Z`,"l-sage",2); s+=path(`M32 22 q-3 10 2 18 q4 6 1 14`,"l-ink",1.6); return s; } },
-      { vname: "Uneven Arch", concept: "An arch that leans, the human hand.", spec: "Asymmetric arch in ink.", draw: () => path(`M20 48 V30 Q20 18 34 18 Q46 18 46 32 V48`,"l-ink",2.2) },
-      { vname: "Asym Leaf", concept: "A leaf that is not quite symmetric.", spec: "Asymmetric sage leaf with ink vein.", draw: () => path(`M32 50 V22`,"l-ink",2)+path(`M32 40 C44 38 46 22 32 16 C30 28 30 36 32 40 Z`,"l-fill-sage")+line(32,40,38,30,"l-dim",1) },
-      { vname: "Tilted Square", concept: "A square that will not sit straight.", spec: "Rotated rounded square, ink.", draw: () => { const p=[[20,20],[46,16],[50,42],[24,46]]; let s=poly(p,"l-ink",2.2); s+=dot(33,33,2.4,"l-fill-sage"); return s; } },
-      { vname: "Drip", concept: "A single drop, the slow release.", spec: "Sage teardrop with ink stem.", draw: () => path(`M32 16 C36 26 40 32 32 40 C24 32 28 26 32 16 Z`,"l-fill-sage")+line(32,40,32,50,"l-ink",1.6) },
-      { vname: "Knotted String", concept: "A loose knot, the untidy tie.", spec: "Ink loop knotted with sage slip.", draw: () => path(`M18 32 C18 20 46 20 46 32 C46 44 18 44 18 34 C18 28 30 28 32 34`,"l-ink",2.2)+dot(32,34,2.4,"l-fill-sage") },
-      { vname: "Moss Dot", concept: "A dot softened by a halo.", spec: "Sage dot with faint ink halo.", draw: () => circ(32,32,12,"l-faint",1.2)+dot(32,32,6,"l-fill-sage") },
-      { vname: "Broken Ring", concept: "A ring with a missing arc, the worn circle.", spec: "Three-quarter ink ring with sage gap node.", draw: () => arc(32,32,16,0.4,TAU-0.4,"l-ink",2.4)+dot(...pt(32,32,16,TAU-0.4),2.4,"l-fill-sage") },
-      { vname: "Soft Triangle", concept: "A triangle with soft unequal sides.", spec: "Asymmetric triangle, ink/sage.", draw: () => { const p=[[18,46],[48,44],[34,18]]; let s=poly(p,"l-ink",2.2); s+=dot(34,18,2.6,"l-fill-sage"); return s; } },
-      { vname: "Stone Ripple", concept: "A stone with a single calm ring.", spec: "Ink stone above a sage ripple arc.", draw: () => path(`M24 44 q8 -10 16 0 q-3 5 -8 5 q-5 0 -8 -5 Z`,"l-ink",2.2)+arc(32,46,12,Math.PI*1.15,Math.PI*1.85,"l-sage",1.5) },
-      { vname: "Brush Dot", concept: "A soft filled dot, the ink breath.", spec: "Ink filled circle, soft.", draw: () => circ(32,32,14,"l-fill-ink") },
-      { vname: "Organic Cross", concept: "A cross of four uneven arms, the calm plus.", spec: "Four tapered arms meeting at a sage center.", draw: () => path(`M27 18 C31 27 31 35 27 48 C36 38 36 28 33 18 Z`,"l-fill-ink")+path(`M16 27 C25 31 33 31 48 27 C38 36 28 36 16 27 Z`,"l-fill-sage")+dot(32,32,2.6,"l-fill-sage") },
-      { vname: "Uneven Stack", concept: "A stack that lists to one side.", spec: "Three offset stones, listing.", draw: () => path(`M18 50 q12 -8 24 0 q-4 5 -12 5 q-8 0 -12 -5 Z`,"l-ink",2)+path(`M20 40 q10 -7 19 0 q-3 5 -9 5 q-6 0 -10 -5 Z`,"l-sage",2)+path(`M24 31 q7 -6 13 0 q-2 4 -6 4 q-4 0 -7 -4 Z`,"l-dim",1.8) },
-      { vname: "Moon Reflect", concept: "A calm crescent beside its glow.", spec: "Sage crescent with faint ink halo.", draw: () => circ(32,32,18,"l-faint",1.2)+path(`M40 16 A16 16 0 1 0 40 48 A12.5 12.5 0 1 1 40 16 Z`,"l-fill-sage") },
+      { vname: "Hub Four", concept: "One coordinator, four agents, nothing extra.", spec: "Center hub with four spoke nodes.", draw: () => spokeGraph(32, 32, 4, 13) },
+      { vname: "Hub Six", concept: "The team grows; the hub stays calm.", spec: "Six evenly spaced spokes from center.", draw: () => spokeGraph(32, 32, 6, 15) },
+      { vname: "Rim Team", concept: "Agents seated around one shared table edge.", spec: "Nodes on a rim circle linked to center.", draw: () => { let s = circ(32, 32, 14, "l-faint", 1.3) + dot(32, 32, 3.4, "l-fill-sage"); for (let i = 0; i < 4; i++) { const a = -Math.PI / 2 + (i * TAU) / 4; const [x, y] = pt(32, 32, 14, a); s += line(32, 32, x, y, "l-dim", 1.3) + circ(x, y, 3, "l-ink", 1.4); } return s; } },
+      { vname: "Two Tier Tree", concept: "Delegation in two calm hops.", spec: "Hub to two mids to four leaves.", draw: () => { let s = dot(32, 14, 3.2, "l-fill-sage"); [[22, 28], [42, 28]].forEach(([x]) => { s += line(32, 14, x, 28, "l-dim", 1.3) + circ(x, 28, 2.6, "l-ink", 1.3); }); [[14, 44], [26, 44], [38, 44], [50, 44]].forEach(([x], i) => { const px = i < 2 ? 22 : 42; s += line(px, 28, x, 44, "l-faint", 1.2) + circ(x, 44, 2.2, "l-ink", 1.2); }); return s; } },
+      { vname: "Daisy Eight", concept: "Petals of work arranged around a still center.", spec: "Eight petal ellipses rotating about core.", draw: () => { let s = dot(32, 32, 4, "l-fill-sage"); for (let i = 0; i < 8; i++) s += ell(32, 20.5, 3.6, 7.5, i % 2 ? "l-dim" : "l-sage", 1.5, (i * 360) / 8); return s; } },
+      { vname: "Mesh Four", concept: "Everyone talks to everyone — four only.", spec: "Fully connected square of nodes.", draw: () => { const P = [[18, 18], [46, 18], [46, 46], [18, 46]]; let s = ""; for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) s += line(P[i][0], P[i][1], P[j][0], P[j][1], "l-faint", 1.2); P.forEach(([x, y], i) => (s += dot(x, y, i === 0 ? 3.6 : 2.8, i === 0 ? "l-fill-sage" : "l-fill-ink"))); return s; } },
+      { vname: "Open Constellation", concept: "Some links made, some left to chance.", spec: "Five irregular nodes, selective links.", draw: () => { const P = [[14, 40], [26, 16], [40, 30], [52, 14], [46, 48]]; const L = [[0, 1], [1, 2], [2, 3], [2, 4]]; let s = ""; L.forEach(([a, b]) => (s += line(P[a][0], P[a][1], P[b][0], P[b][1], "l-dim", 1.2))); P.forEach(([x, y], i) => (s += dot(x, y, i === 2 ? 3.4 : 2.4, i % 2 ? "l-fill-ink" : "l-fill-sage"))); return s; } },
+      { vname: "One Chosen", concept: "Same ring, one agent highlighted for the task.", spec: "Six ring nodes, one enlarged and filled sage.", draw: () => { let s = circ(32, 32, 13, "l-faint", 1.3) + dot(32, 32, 2.8, "l-fill-ink"); for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; const [x, y] = pt(32, 32, 13, a); s += i === 1 ? dot(x, y, 4.2, "l-fill-sage") : circ(x, y, 2.6, "l-ink", 1.3); } return s; } },
+      { vname: "Broadcast Corner", concept: "Announcing outward from one point.", spec: "Corner core with three widening arcs.", draw: () => dot(20, 44, 3.6, "l-fill-sage") + arc(20, 44, 9, -Math.PI * 0.75, -Math.PI * 0.05, "l-dim", 1.7) + arc(20, 44, 15, -Math.PI * 0.72, -Math.PI * 0.08, "l-ink", 1.9) + arc(20, 44, 21, -Math.PI * 0.68, -Math.PI * 0.12, "l-faint", 1.5) },
+      { vname: "Single Delegation", concept: "The simplest orchestration: one to one.", spec: "Long arrow from hub to a single node.", draw: () => dot(18, 32, 4.4, "l-fill-sage") + line(24, 32, 42, 32, "l-dim", 1.7) + poly([[42, 27.5], [50, 32], [42, 36.5]], "l-fill-ink") },
+      { vname: "Fan Blades Three", concept: "Three directions fanned from one hinge.", spec: "120-degree fan lines with end dots.", draw: () => { let s = dot(32, 46, 3.4, "l-fill-ink"); [-90, 30, 150].forEach((deg) => { const a = (deg * Math.PI) / 180; const [x, y] = pt(32, 46, 22, a); s += line(32, 46, x, y, "l-sage", 1.9) + circ(x, y, 3, "l-ink", 1.4); }); return s; } },
+      { vname: "Cartwheel", concept: "A wheel of agents, hub at the middle.", spec: "Rim plus eight bare spokes plus hub.", draw: () => { let s = circ(32, 32, 16, "l-ink", 2) + dot(32, 32, 3.4, "l-fill-sage"); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; const [x1, y1] = pt(32, 32, 3.4, a); const [x2, y2] = pt(32, 32, 16, a); s += line(x1, y1, x2, y2, "l-dim", 1.2); } return s; } },
+      { vname: "Tri Clusters", concept: "Three small teams, each with its own lead.", spec: "Three mini-hubs with paired leaves.", draw: () => { let s = ""; [[32, 14], [15, 42], [49, 42]].forEach(([hx, hy], k) => { s += dot(hx, hy, 3, "l-fill-sage"); for (let i = 0; i < 2; i++) { const a = Math.PI / 2 + (i ? 0.7 : -0.7) + (k * TAU) / 3; const [x, y] = pt(hx, hy, 9, a); s += line(hx, hy, x, y, "l-faint", 1.2) + circ(x, y, 2.2, "l-ink", 1.2); } }); return s; } },
+      { vname: "Relay Line", concept: "Work passed hand to hand along a line.", spec: "Four nodes; the passing gap highlighted.", draw: () => { const ys = [20, 20]; return line(12, 32, 52, 32, "l-faint", 1.4) + dot(16, 32, 3, "l-fill-dim") + dot(28, 32, 3, "l-fill-ink") + arc(40, 32, 6, Math.PI * 0.6, Math.PI * 1.4, "l-sage", 2) + dot(48, 32, 3, "l-fill-dim"); } },
+      { vname: "Star Core", concept: "The hub drawn as a spark among points.", spec: "Ten-point outline star with core dot.", draw: () => poly(starPts(32, 32, 17, 7, 5), "l-ink", 1.8) + dot(32, 32, 3.4, "l-fill-sage") },
+      { vname: "Hex Flower", concept: "Seven seats: one lead, six around.", spec: "Center node plus hexagonal ring nodes.", draw: () => { let s = dot(32, 32, 3.6, "l-fill-sage"); reg(32, 32, 13, 6).forEach(([x, y]) => (s += line(32, 32, x, y, "l-faint", 1.2) + circ(x, y, 2.7, "l-ink", 1.3))); return s; } },
+      { vname: "Orbit Team Plus One", concept: "Two circling, one waiting outside.", spec: "Dashed orbit with two dots, one outside.", draw: () => `<circle class="l-faint" cx="30" cy="32" r="12" stroke-width="1.3" style="stroke-width:1.3;stroke-dasharray:3 4"/>` + dot(30, 32, 3.2, "l-fill-sage") + dot(pt(30, 32, 12, 0.9)[0], pt(30, 32, 12, 0.9)[1], 2.8, "l-fill-ink") + dot(51, 32, 2.8, "l-fill-dim") },
+      { vname: "Node Pyramid", concept: "Hierarchy as a triangle of peers.", spec: "Three levels of dots fully connected down.", draw: () => { const rows = [[[32, 14]], [[20, 34], [44, 34]], [[12, 50], [32, 50], [52, 50]]]; let s = ""; rows[0].forEach(([x, y]) => { s += dot(x, y, 3.4, "l-fill-sage"); rows[1].forEach(([x2, y2]) => (s += line(x, y, x2, y2, "l-dim", 1.2))); }); rows[1].forEach(([x, y], i) => { s += i === 0 ? dot(x, y, 2.8, "l-fill-ink") : circ(x, y, 2.8, "l-ink", 1.3); rows[2].forEach(([x2, y2]) => (s += line(x, y, x2, y2, "l-faint", 1.1))); }); rows[2].forEach(([x, y]) => (s += dot(x, y, 2.4, "l-fill-dim"))); return s; } },
+      { vname: "Hanging Mobile", concept: "Structure suspended, balanced from above.", spec: "Line down to hub fanning three below.", draw: () => line(32, 10, 32, 24, "l-dim", 1.5) + line(26, 10, 38, 10, "l-faint", 1.4) + dot(32, 28, 3.4, "l-fill-sage") + [[18, 46], [32, 48], [46, 46]].map(([x, y]) => line(32, 28, x, y, "l-faint", 1.2) + circ(x, y, 2.6, "l-ink", 1.3)).join("") },
+      { vname: "Radar Sweep", concept: "One sweep, two returns.", spec: "Circle, sweep radius, two contact blips.", draw: () => circ(32, 32, 17, "l-ink", 1.9) + line(32, 32, pt(32, 32, 17, -Math.PI / 3)[0], pt(32, 32, 17, -Math.PI / 3)[1], "l-sage", 1.8) + dot(24, 24, 2.6, "l-fill-sage") + dot(42, 38, 2.2, "l-fill-dim") },
     ],
   },
-
-  // 9. BREATH & MINDFULNESS ---------------------------------------------------
   {
-    id: "breath",
-    name: "Breath & Mindfulness",
-    seed: 99,
+    id: "editor-panes",
+    name: "Editor & Window",
+    seed: 909,
     variants: [
-      { vname: "Inhale", concept: "Concentric rings expanding outward.", spec: "Three expanding rings around a sage core.", draw: (rng) => { const n=3; let s=""; for(let i=0;i<n;i++) s+=circ(32,32,8+i*6,i===n-1?"l-ink":"l-sage",i===n-1?2.2:1.4); return s+dot(32,32,2.6,"l-fill-sage"); } },
-      { vname: "Lungs", concept: "A soft paired shape opening like breath.", spec: "Central stem with two symmetric sage lobes.", draw: () => path(`M32 16 V40`,"l-ink",2)+path(`M32 26 C22 26 18 36 22 46 C26 52 32 48 32 40`,"l-sage",2)+path(`M32 26 C42 26 46 36 42 46 C38 52 32 48 32 40`,"l-sage",2) },
-      { vname: "Expand", concept: "Arcs opening upward like a slow exhale.", spec: "Three upward arcs, sage to ink.", draw: () => { let s=""; const n=3; for(let i=0;i<n;i++) s+=arc(32,46,8+i*7,Math.PI*1.15,Math.PI*1.85,i===n-1?"l-ink":"l-sage",i===n-1?2.2:1.5); return s; } },
-      { vname: "Wavebreath", concept: "A wave that rises and falls once.", spec: "One ink breath wave with a sage undertow.", draw: (rng) => { const amp=jit(rng,10,3); return path(`M10 34 Q22 ${34-amp} 32 34 Q42 ${34+amp} 54 34`,"l-ink",2.2)+path(`M16 44 Q28 40 32 44 Q40 48 48 44`,"l-sage",1.6); } },
-      { vname: "Pulse", concept: "A center dot breathing within rings.", spec: "Sage core within dim and faint rings.", draw: () => circ(32,32,18,"l-faint",1.3)+circ(32,32,12,"l-dim",1.6)+dot(32,32,4,"l-fill-sage") },
-      { vname: "Single Ring", concept: "One ring, the held breath.", spec: "Ink ring with a sage center dot.", draw: () => circ(32,32,18,"l-ink",2.2)+dot(32,32,3,"l-fill-sage") },
-      { vname: "Double Breath", concept: "Two rings sharing a breath.", spec: "Two concentric sage rings, ink outer.", draw: () => circ(32,32,19,"l-ink",2)+circ(32,32,12,"l-sage",1.6)+dot(32,32,3,"l-fill-sage") },
-      { vname: "Lotus", concept: "A bloom of calm petals.", spec: "Eight sage petals around a core.", draw: () => { let s=""; const p=reg(32,32,10,8); p.forEach(q=>s+=path(`M32 32 Q${q[0]} ${q[1]} ${pt(32,32,16,Math.atan2(q[1]-32,q[0]-32))[0]} ${pt(32,32,16,Math.atan2(q[1]-32,q[0]-32))[1]} Z`,"l-sage",1.6)); s+=dot(32,32,3,"l-fill-ink"); return s; } },
-      { vname: "Lotus Five", concept: "A five-petal calm flower.", spec: "Five sage petals around a core.", draw: () => { const p=reg(32,32,9,5); let s=""; p.forEach(q=>{const a=Math.atan2(q[1]-32,q[0]-32);const [x,y]=pt(32,32,15,a); s+=path(`M32 32 Q${q[0]} ${q[1]} ${x} ${y} Z`,"l-sage",1.6);}); s+=dot(32,32,3.4,"l-fill-ink"); return s; } },
-      { vname: "Chakra", concept: "A vertical column of calm dots.", spec: "Four sage dots stacked on a dim line.", draw: () => { let s=line(32,16,32,50,"l-dim",1.2); for(let i=0;i<4;i++) s+=dot(32,20+i*9,3,i===1||i===3?"l-fill-sage":"l-fill-dim"); return s; } },
-      { vname: "Om Curve", concept: "A calm curve suggesting the sacred sound.", spec: "Sage semicircle with ink tail.", draw: () => arc(32,34,12,Math.PI,0,"l-sage",2.2)+line(20,34,32,46,"l-ink",2)+dot(32,46,2.6,"l-fill-ink") },
-      { vname: "Calm Field", concept: "A soft field of resting dots.", spec: "Five sage dots in a gentle arc.", draw: () => { let s=""; for(let i=0;i<5;i++){const a=Math.PI*0.8+i*(Math.PI*0.4/4);const [x,y]=pt(32,38,16,a); s+=dot(x,y,i%2?3:2.2,"l-fill-sage");} return s; } },
-      { vname: "Exhale", concept: "Lines flowing downward, release.", spec: "Three sage downward exhale lines.", draw: () => { let s=""; for(let i=-1;i<=1;i++) s+=line(32+i*10,16,32+i*10,46,i===0?"l-sage":"l-dim",i===0?2:1.4); return s; } },
-      { vname: "Breathe Square", concept: "A rounded square breathing.", spec: "Rounded square with sage inset ring.", draw: () => rectR(18,18,28,28,10,"l-ink",2)+circ(32,32,8,"l-sage",1.6) },
-      { vname: "Mandorla", concept: "Two arcs meeting, the almond of light.", spec: "Two sage arcs forming a vesica.", draw: () => arc(32,32,18,-Math.PI/3,Math.PI/3,"l-sage",2)+arc(32,32,18,Math.PI*2/3,Math.PI*4/3,"l-sage",2) },
-      { vname: "Petal Single", concept: "One petal, the smallest bloom.", spec: "Single sage petal on an ink stem.", draw: () => path(`M32 50 V30`,"l-ink",2)+path(`M32 30 C40 28 42 16 32 12 C22 16 24 28 32 30 Z`,"l-sage",1.8) },
-      { vname: "Seed Life", concept: "Six circles around one, the seed of life.", spec: "Six sage rings around a core.", draw: () => { let s=dot(32,32,3,"l-fill-ink"); const p=reg(32,32,11,6); p.forEach(q=>s+=circ(q[0],q[1],7,"l-sage",1.4)); return s; } },
-      { vname: "Ripples Out", concept: "Ripples spreading from a point.", spec: "Three sage ripple arcs from a core.", draw: () => { let s=dot(32,40,3,"l-fill-sage"); for(let i=1;i<=3;i++) s+=arc(32,40,6*i,Math.PI*1.1,Math.PI*1.9,i===3?"l-ink":"l-sage",i===3?2:1.4); return s; } },
-      { vname: "Centered Cross", concept: "A calm cross of breath, four directions.", spec: "Four arms meeting at a sage center.", draw: () => { let s=dot(32,32,3.4,"l-fill-sage"); [[-1,0],[1,0],[0,-1],[0,1]].forEach(d=>s+=line(32,32,32+d[0]*18,32+d[1]*18,"l-dim",1.6)); return s; } },
-      { vname: "Wave Stack", concept: "Three stacked calm waves.", spec: "Three sage waves, ink baseline.", draw: () => { let s=line(10,50,54,50,"l-ink",1.8); for(let i=0;i<3;i++) s+=path(`M10 ${20+i*9} Q22 ${14+i*9} 32 ${20+i*9} T54 ${20+i*9}`,"l-sage",1.5); return s; } },
+      { vname: "Explorer Pane", concept: "Files on the left, work on the right.", spec: "Window with sidebar rail and active file tick.", draw: () => winFrame() + line(20, 23, 20, 50, "l-dim", 1.2) + line(24, 30, 32, 30, "l-sage", 2) + line(24, 36, 30, 36, "l-faint", 1.6) + line(24, 42, 31, 42, "l-faint", 1.6) + codeRows(26, 32, [16, 12, 14, 9], 6, 1.6) },
+      { vname: "Traffic Lights", concept: "Three dots and nothing else — macOS at rest.", spec: "Minimal titlebar with prominent dots.", draw: () => rectR(12, 22, 40, 22, 5, "l-ink", 1.8) + dot(19, 28, 2.2, "l-fill-dim") + dot(25, 28, 2.2, "l-fill-dim") + dot(31, 28, 2.2, "l-fill-sage") },
+      { vname: "Vertical Split", concept: "Two files side by side, one wall between.", spec: "Window divided by a vertical rule.", draw: () => winFrame() + line(32, 23, 32, 50, "l-dim", 1.3) + codeRows(15, 30, [12, 9], 6, 1.5) + codeRows(37, 30, [11, 13], 6, 1.5) },
+      { vname: "Horizontal Split", concept: "Editor above, its output below.", spec: "Window divided by a horizontal rule.", draw: () => winFrame() + line(10, 38, 54, 38, "l-dim", 1.3) + codeRows(15, 29, [16, 12], 6, 1.5) + line(15, 44, 29, 44, "l-sage", 1.7) + line(15, 48, 24, 48, "l-faint", 1.6) },
+      { vname: "Tab Row", concept: "Three open files, one in focus.", spec: "Tabs along the titlebar, active filled.", draw: () => rectR(10, 14, 44, 36, 5, "l-ink", 1.8) + rectR(13, 16, 12, 7, 2, "l-fill-sage") + rectR(27, 16, 12, 7, 2, "l-faint") + rectR(41, 16, 10, 7, 2, "l-faint") + line(10, 25, 54, 25, "l-dim", 1.2) + codeRows(15, 31, [16, 11, 13], 6, 1.6) },
+      { vname: "Activity Rail", concept: "The tall thin rail that anchors everything.", spec: "Far-left icon column, editor lines right.", draw: () => winFrame() + line(17, 23, 17, 50, "l-dim", 1.1) + dot(13.5, 29, 1.8, "l-fill-sage") + dot(13.5, 36, 1.8, "l-fill-dim") + dot(13.5, 43, 1.8, "l-fill-dim") + codeRows(23, 30, [18, 13, 15, 9], 6, 1.6) },
+      { vname: "Docked Tray", concept: "The terminal tray tucked under the editor.", spec: "Editor lines over a separated tray strip.", draw: () => winFrame() + codeRows(15, 29, [15, 11], 6, 1.6) + rectR(13, 41, 38, 6, 2, "l-fill-dim") + gt(17, 44, 2.2, "l-paper", 1.6) + cursorBar(21.5, 46, 7, "l-paper", 1.6) },
+      { vname: "Cascade Pair", concept: "Two sessions overlapping, both alive.", spec: "Offset window pair, front one brighter.", draw: () => rectR(16, 10, 36, 28, 4, "l-faint", 1.5) + rectR(12, 18, 36, 28, 4, "l-ink", 1.9) + line(12, 25, 48, 25, "l-dim", 1.1) + dot(17, 21.5, 1.5, "l-fill-sage") + codeRows(17, 31, [14, 10, 12], 5.5, 1.4) },
+      { vname: "Zen Caret", concept: "Everything hidden but the insertion point.", spec: "Hairline top border and lone caret.", draw: () => line(14, 18, 50, 18, "l-faint", 1.2) + line(32, 30, 32, 42, "l-sage", 2.6) },
+      { vname: "Quad Grid", concept: "Four panes, four concurrent views.", spec: "Window crossed into quadrants.", draw: () => rectR(10, 14, 44, 36, 5, "l-ink", 1.8) + line(32, 14, 32, 50, "l-dim", 1.2) + line(10, 32, 54, 32, "l-dim", 1.2) + dot(21, 23, 1.8, "l-fill-sage") + dot(43, 23, 1.8, "l-fill-dim") + dot(21, 41, 1.8, "l-fill-dim") + dot(43, 41, 1.8, "l-fill-dim") },
+      { vname: "File Rail Active", concept: "One file expanded, the rest asleep.", spec: "Sidebar list with indented active block.", draw: () => winFrame() + line(22, 23, 22, 50, "l-dim", 1.2) + line(25, 30, 33, 30, "l-dim", 1.6) + rectR(25, 33, 12, 4, 1, "l-fill-sage") + line(29, 42, 37, 42, "l-faint", 1.5) + line(29, 47, 34, 47, "l-faint", 1.5) + codeRows(41, 30, [9, 8], 5, 1.4) },
+      { vname: "Inspector Panel", concept: "The object on the left, its dials on the right.", spec: "Main pane plus slider stack in side panel.", draw: () => winFrame() + line(36, 23, 36, 50, "l-dim", 1.2) + codeRows(15, 30, [14, 10, 12], 6, 1.5) + [[42, 30], [42, 38], [42, 46]].map(([x, y], i) => line(x, y, x + 14, y, "l-faint", 1.4) + dot(x + 4 + i * 3, y, 2, "l-fill-sage")).join("") },
+      { vname: "Floating Card", concept: "Detail lifted above the page it came from.", spec: "Dimmed window behind an offset card.", draw: () => rectR(10, 12, 40, 34, 4, "l-faint", 1.4) + rectR(18, 22, 34, 26, 4, "l-ink", 1.8) + line(23, 30, 40, 30, "l-sage", 1.9) + line(23, 37, 35, 37, "l-dim", 1.5) + line(23, 43, 38, 43, "l-dim", 1.5) },
+      { vname: "Status Strip", concept: "One quiet line reporting all is well.", spec: "Window with bottom strip and status dot.", draw: () => winFrame() + codeRows(15, 29, [16, 12, 14], 5.5, 1.5) + rectR(10, 44, 44, 6, 2, "l-fill-dim") + dot(15, 47, 1.8, "l-fill-sage") + line(20, 47, 34, 47, "l-paper", 1.4) },
+      { vname: "Breadcrumb Trail", concept: "Where you are, written as a dotted path.", spec: "Chevron breadcrumb above content rules.", draw: () => winFrame() + dot(17, 29, 1.8, "l-fill-sage") + gt(22, 29, 2.4, "l-faint", 1.5) + dot(30, 29, 1.8, "l-fill-dim") + gt(35, 29, 2.4, "l-faint", 1.5) + dot(43, 29, 1.8, "l-fill-dim") + codeRows(15, 37, [18, 13, 15], 5, 1.5) },
+      { vname: "Diff Panes", concept: "Removed left, added right — no colors needed.", spec: "Split window: dim rows vs sage rows.", draw: () => winFrame() + line(32, 23, 32, 50, "l-dim", 1.2) + [29, 35, 41, 47].map((y) => line(15, y, 28, y, "l-dim", 1.6)).join("") + [29, 35, 41, 47].map((y) => line(36, y, 49, y, "l-sage", 1.8)).join("") },
+      { vname: "Command Bar", concept: "One input floating above everything.", spec: "Centered palette bar with caret over dim pane.", draw: () => rectR(10, 14, 44, 36, 5, "l-faint", 1.3) + line(14, 22, 50, 22, "l-faint", 1.2) + rectR(14, 30, 36, 8, 3, "l-ink", 1.8) + cursorBar(19, 34, 9, "l-sage", 2) + line(19, 43, 33, 43, "l-faint", 1.4) },
+      { vname: "Badge Dot", concept: "Something finished, quietly noted.", spec: "Window titlebar with corner badge dot.", draw: () => winFrame() + codeRows(15, 30, [16, 12], 6, 1.6) + dot(49, 18, 2.6, "l-fill-sage") },
+      { vname: "Focus Solo", concept: "Neighbors dashed away; one pane matters.", spec: "Solid main pane between dashed ghosts.", draw: () => rectR(6, 10, 16, 20, 3, "l-faint", 1.2) + rectR(42, 10, 16, 20, 3, "l-faint", 1.2) + rectR(14, 34, 36, 22, 4, "l-ink", 2) + codeRows(19, 40, [16, 11, 13], 5, 1.5) },
+      { vname: "Slide Drawer", concept: "A panel mid-slide, caught by its arrow notch.", spec: "Drawer panel entering with tab notch.", draw: () => winFrame() + rectR(34, 26, 20, 22, 3, "l-fill-sage") + poly([[34, 33], [28, 37], [34, 41]], "l-fill-sage") + line(39, 33, 49, 33, "l-paper", 1.6) + line(39, 41, 46, 41, "l-paper", 1.6) },
     ],
   },
-
-  // 10. NETWORK / GRAPH -------------------------------------------------------
   {
-    id: "network",
-    name: "Network / Graph",
-    seed: 110,
+    id: "spark-signal",
+    name: "Spark & Signal",
+    seed: 1010,
     variants: [
-      { vname: "Triad", concept: "Three agents in a triangle, the smallest ensemble.", spec: "Three nodes in a triangle with a sage lead.", draw: () => { const p=reg(32,34,16,3); let s=""; for(let i=0;i<3;i++) s+=line(p[i][0],p[i][1],p[(i+1)%3][0],p[(i+1)%3][1],"l-dim",1.5); p.forEach((q,i)=>s+=circ(q[0],q[1],4,i===0?"l-fill-sage":"l-ink",1.5)); s+=dot(32,34,2.6,"l-fill-dim"); return s; } },
-      { vname: "Quad", concept: "Four agents on a square, the balanced panel.", spec: "Four nodes on a square, alternating.", draw: () => { const p=[[22,22],[42,22],[42,42],[22,42]]; let s=""; for(let i=0;i<4;i++) s+=line(p[i][0],p[i][1],p[(i+1)%4][0],p[(i+1)%4][1],"l-dim",1.4); p.forEach((q,i)=>s+=circ(q[0],q[1],3.4,i%2?"l-fill-sage":"l-ink",1.4)); return s; } },
-      { vname: "Hub", concept: "One coordinator linked to many.", spec: "Sage hub with five ink satellites.", draw: () => spokeGraph(32,32,5,20,2)+circ(32,32,15,"l-faint",1.2) },
-      { vname: "Scatter", concept: "Agents placed without a grid.", spec: "Six scattered nodes linked by proximity.", draw: () => { const pts=[[18,20],[44,18],[50,40],[30,50],[16,42],[38,32]]; let s=""; for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++) if(Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1])<26) s+=line(pts[i][0],pts[i][1],pts[j][0],pts[j][1],"l-faint",1.1); pts.forEach((p,i)=>s+=circ(p[0],p[1],3,i===0?"l-fill-sage":"l-ink",1.3)); return s; } },
-      { vname: "Grid 3x3", concept: "A tidy lattice of agents, the orchestrated field.", spec: "3x3 node grid with sage dots and dim links.", draw: () => { const g=3,cells=36/(g-1); const pts=[]; for(let i=0;i<g;i++)for(let j=0;j<g;j++) pts.push([14+i*cells,14+j*cells]); let s=""; for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++) if((Math.abs(pts[i][0]-pts[j][0])<cells+1&&Math.abs(pts[i][1]-pts[j][1])<cells+1)&&(pts[i][0]===pts[j][0]||pts[i][1]===pts[j][1])) s+=line(pts[i][0],pts[i][1],pts[j][0],pts[j][1],"l-dim",1.2); pts.forEach((p)=>s+=circ(p[0],p[1],2.6,"l-fill-sage")); return s; } },
-      { vname: "Chain", concept: "A chain of agents in a line.", spec: "Five nodes in a chain, sage ends.", draw: () => { const pts=[[12,32],[23,32],[34,32],[45,32],[54,32]]; let s=""; for(let i=0;i<pts.length-1;i++) s+=line(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1],"l-dim",1.5); pts.forEach((p,i)=>s+=circ(p[0],p[1],3,i===0||i===4?"l-fill-sage":"l-ink",1.4)); return s; } },
-      { vname: "Star Net", concept: "One center, four around it.", spec: "Central sage node with four ink satellites.", draw: () => { let s=dot(32,32,4,"l-fill-sage"); [[32,16],[48,32],[32,48],[16,32]].forEach((p)=>{s+=line(32,32,p[0],p[1],"l-dim",1.4);s+=circ(p[0],p[1],3,"l-ink",1.4);}); return s; } },
-      { vname: "Ring of Dots", concept: "A circle of agents around the center.", spec: "Six ink dots on a ring with sage hub.", draw: () => { let s=dot(32,32,3.4,"l-fill-sage"); for(let i=0;i<6;i++){const a=(i/6)*TAU;const [x,y]=pt(32,32,16,a); s+=line(32,32,x,y,"l-dim",1.2)+circ(x,y,2.8,"l-ink",1.3);} return s; } },
-      { vname: "Binary Tree", concept: "A branching tree of agents.", spec: "Root with two children each branching.", draw: () => { let s=dot(32,14,3.4,"l-fill-sage"); const l1=[20,30],r1=[44,30]; s+=line(32,14,l1[0],l1[1],"l-dim",1.4)+line(32,14,r1[0],r1[1],"l-dim",1.4); [l1,r1].forEach(p=>{const c1=[p[0]-8,46],c2=[p[0]+8,46]; s+=line(p[0],p[1],c1[0],c1[1],"l-dim",1.2)+line(p[0],p[1],c2[0],c2[1],"l-dim",1.2)+circ(c1[0],c1[1],2.6,"l-ink",1.3)+circ(c2[0],c2[1],2.6,"l-ink",1.3);}); return s; } },
-      { vname: "Mesh", concept: "An irregular mesh of links.", spec: "Five nodes fully linked, sage hub.", draw: () => { const p=reg(32,33,15,5); let s=dot(32,33,3,"l-fill-sage"); for(let i=0;i<5;i++)for(let j=i+1;j<5;j++) s+=line(p[i][0],p[i][1],p[j][0],p[j][1],"l-faint",1); p.forEach(q=>s+=circ(q[0],q[1],2.8,"l-ink",1.3)); return s; } },
-      { vname: "Hub Seven", concept: "A coordinator with seven links.", spec: "Sage hub with seven satellites.", draw: () => spokeGraph(32,32,7,19,2)+circ(32,32,17,"l-faint",1.1) },
-      { vname: "Cluster", concept: "Two clusters loosely linked.", spec: "Left and right node groups joined.", draw: () => { let s=dot(22,30,3.4,"l-fill-sage")+dot(22,38,2.8,"l-ink",1.3)+dot(20,34,2.8,"l-ink",1.3)+line(20,34,22,30,"l-dim",1.3)+line(20,34,22,38,"l-dim",1.3); s+=dot(44,30,3.4,"l-fill-sage")+dot(46,38,2.8,"l-ink",1.3)+dot(44,34,2.8,"l-ink",1.3)+line(44,34,44,30,"l-dim",1.3)+line(44,34,46,38,"l-dim",1.3); s+=line(22,38,44,30,"l-dim",1.2); return s; } },
-      { vname: "Path Nodes", concept: "A meandering path of agents.", spec: "Five nodes along a curve.", draw: () => { const pts=[[14,46],[26,34],[34,40],[44,24],[52,32]]; let s=path(`M14 46 Q26 34 34 40 T52 32`,"l-dim",1.4); pts.forEach((p,i)=>s+=circ(p[0],p[1],3,i%2?"l-fill-sage":"l-ink",1.3)); return s; } },
-      { vname: "Radial Eight", concept: "Eight agents around one.", spec: "Sage hub with eight satellites.", draw: () => { let s=dot(32,32,3,"l-fill-sage"); for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x,y]=pt(32,32,18,a); s+=line(32,32,x,y,"l-dim",1.1)+circ(x,y,2.6,"l-ink",1.2);} return s; } },
-      { vname: "Triangle Mesh", concept: "Agents on a triangle, fully linked.", spec: "Three nodes with all three links.", draw: () => { const p=reg(32,33,16,3); let s=""; for(let i=0;i<3;i++)for(let j=i+1;j<3;j++) s+=line(p[i][0],p[i][1],p[j][0],p[j][1],"l-dim",1.3); p.forEach(q=>s+=circ(q[0],q[1],3,"l-ink",1.3)); s+=dot(32,33,3.2,"l-fill-sage"); return s; } },
-      { vname: "Ladder", concept: "Two rails with rungs of agents.", spec: "Two rails linked by three rungs.", draw: () => { let s=line(22,16,22,50,"l-dim",1.4)+line(42,16,42,50,"l-dim",1.4); for(let i=0;i<3;i++) s+=line(22,24+i*10,42,24+i*10,"l-sage",1.4); s+=dot(22,16,2.6,"l-fill-sage")+dot(42,16,2.6,"l-fill-sage"); return s; } },
-      { vname: "Spiral Graph", concept: "Nodes arranged on a spiral.", spec: "Five nodes on an inward spiral, sage core.", draw: () => { let s=dot(32,32,3,"l-fill-sage"); for(let i=1;i<=5;i++){const t=i/6;const a=t*2.4*Math.PI;const r=20*(1-t)+3;const [x,y]=pt(32,32,r,a); s+=circ(x,y,2.6,"l-ink",1.2);} return s; } },
-      { vname: "Web Corner", concept: "A web anchored at one corner.", spec: "Radial links from a top-left anchor.", draw: () => { const a=[10,10]; let s=dot(a[0],a[1],3.4,"l-fill-sage"); const nodes=[[50,12],[52,50],[14,52],[40,30],[26,40]]; nodes.forEach(n=>{s+=line(a[0],a[1],n[0],n[1],"l-dim",1.2)+circ(n[0],n[1],2.6,"l-ink",1.2);}); return s; } },
-      { vname: "Paired Clusters", concept: "Two small groups, the conversation.", spec: "Two pairs of nodes, sage leads.", draw: () => { let s=""; [[24,30],[24,38]].forEach((p,i)=>{s+=circ(p[0],p[1],3,i?"l-ink":"l-fill-sage",1.3)+line(24,30,24,38,"l-dim",1.2);}); [[40,30],[40,38]].forEach((p,i)=>{s+=circ(p[0],p[1],3,i?"l-ink":"l-fill-sage",1.3)+line(40,30,40,38,"l-dim",1.2);}); s+=line(24,34,40,34,"l-dim",1.2); return s; } },
-      { vname: "Constellation", concept: "A loose star map of agents.", spec: "Seven nodes joined sparsely, sage core.", draw: () => { const pts=[[14,18],[30,14],[48,22],[52,42],[36,50],[18,44],[32,32]]; let s=dot(32,32,3.4,"l-fill-sage"); for(let i=0;i<pts.length-1;i++){if(Math.hypot(pts[i][0]-pts[i+1][0],pts[i][1]-pts[i+1][1])<30) s+=line(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1],"l-faint",1);} pts.forEach((p,i)=>{if(i!==6)s+=circ(p[0],p[1],2.6,"l-ink",1.2);}); return s; } },
+      { vname: "Four Point Spark", concept: "The single spark of an agent waking up.", spec: "Classic filled four-point star.", draw: () => spark4(32, 32, 15, 5.5) },
+      { vname: "Ringed Spark", concept: "A spark kept within its own boundary.", spec: "Spark centered in a thin ring.", draw: () => circ(32, 32, 17, "l-ink", 1.9) + spark4(32, 32, 9, 3.2) },
+      { vname: "Calm Pulse", concept: "Steady work with one bright spike.", spec: "Flatline rising to one ECG peak.", draw: () => path("M10 36 H22 L29 20 L36 46 L41 36 H54", "l-ink", 2.3) + dot(29, 20, 2.6, "l-fill-sage") },
+      { vname: "Air Waves", concept: "A signal leaving quietly from a corner.", spec: "Three arcs from a lower-left source.", draw: () => dot(18, 46, 3.4, "l-fill-sage") + arc(18, 46, 9, -Math.PI * 0.5, 0, "l-dim", 1.7) + arc(18, 46, 16, -Math.PI * 0.5, 0, "l-ink", 1.9) + arc(18, 46, 23, -Math.PI * 0.48, -0.04, "l-faint", 1.5) },
+      { vname: "Node Triad", concept: "Three points of intelligence, evenly bound.", spec: "Triangle nodes on connecting hairlines.", draw: () => { const P = reg(32, 34, 14, 3); let s = ""; P.forEach(([x, y], i) => s += line(x, y, P[(i + 1) % 3][0], P[(i + 1) % 3][1], "l-faint", 1.3)); P.forEach(([x, y], i) => s += dot(x, y, i === 0 ? 3.6 : 2.8, i === 0 ? "l-fill-sage" : "l-fill-ink")); return s; } },
+      { vname: "North Spark", concept: "Direction found: the spark marks true north.", spec: "Spark atop a mast over a baseline.", draw: () => line(12, 50, 52, 50, "l-dim", 1.6) + line(32, 50, 32, 38, "l-ink", 1.9) + spark4(32, 30, 8, 2.8) },
+      { vname: "Uneven Radiate", concept: "Energy spent unevenly, honestly.", spec: "Rays of alternating length and class.", draw: () => { let s = dot(32, 32, 3.6, "l-fill-ink"); for (let i = 0; i < 7; i++) { const a = (i / 7) * TAU + 0.3; const r = i % 2 ? 9 : 13; const [x1, y1] = pt(32, 32, 5.5, a); const [x2, y2] = pt(32, 32, r, a); s += line(x1, y1, x2, y2, i % 2 ? "l-sage" : "l-dim", 1.7); } return s; } },
+      { vname: "Twin Pulses", concept: "Two agents' heartbeats side by side.", spec: "Mirrored small pulses facing a gap.", draw: () => path("M8 34 H16 L21 26 L26 40 L29 34 H36", "l-ink", 2.1) + path("M30 34 H36 L41 42 L46 28 L49 34 H56", "l-sage", 2.1) },
+      { vname: "Signal Steps", concept: "Capability arriving one bar at a time.", spec: "Ascending bars, sage at each new height.", draw: () => [[16, 40, 8, "l-dim"], [25, 34, 14, "l-dim"], [34, 28, 20, "l-sage"], [43, 22, 26, "l-ink"]].map(([x, y, h, c]) => rectR(x, y, 6, h, 1.5, c)).join("") },
+      { vname: "Inner Eye", concept: "Attention itself — the watching agent.", spec: "Almond eye shape around an iris dot.", draw: () => path("M12 32 C22 20 42 20 52 32 C42 44 22 44 12 32 Z", "l-ink", 2) + circ(32, 32, 5.5, "l-sage", 1.9) + dot(32, 32, 2, "l-fill-ink") },
+      { vname: "Spark Trail", concept: "Motion implied by three fading dashes.", spec: "Spark with diagonal echo dashes behind.", draw: () => spark4(42, 24, 10, 3.6) + line(24, 40, 31, 33, "l-dim", 1.8) + line(16, 46, 20, 42, "l-faint", 1.6) },
+      { vname: "Mast Antenna", concept: "A tiny station broadcasting on all sides.", spec: "Mast, tripod base, paired side arcs.", draw: () => line(32, 18, 32, 44, "l-ink", 2) + line(24, 50, 32, 42, "l-dim", 1.6) + line(40, 50, 32, 42, "l-dim", 1.6) + arc(24, 30, 7, -Math.PI * 0.45, Math.PI * 0.45, "l-sage", 1.7) + arc(40, 30, 7, Math.PI * 0.55, Math.PI * 1.45, "l-sage", 1.7) },
+      { vname: "Thin Burst Eight", concept: "Radiance without weight.", spec: "Eight hairline rays around open center.", draw: () => { let s = ""; for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; const [x1, y1] = pt(32, 32, 7, a); const [x2, y2] = pt(32, 32, 16, a); s += line(x1, y1, x2, y2, i % 2 ? "l-dim" : "l-ink", 1.4); } return s + circ(32, 32, 3.4, "l-sage", 1.5); } },
+      { vname: "Uplink Half Halo", concept: "Sending up only — nothing coming back yet.", spec: "Dot under stacked upper arcs.", draw: () => dot(32, 44, 3.8, "l-fill-ink") + arc(32, 47, 9, -Math.PI * 0.72, -Math.PI * 0.28, "l-sage", 1.9) + arc(32, 47, 15, -Math.PI * 0.68, -Math.PI * 0.32, "l-faint", 1.5) },
+      { vname: "Synapse Gap", concept: "Thought jumping between two points.", spec: "Two dots bridged by a small zigzag.", draw: () => dot(16, 32, 3.6, "l-fill-ink") + dot(48, 32, 3.6, "l-fill-ink") + path("M21 32 L27 27 L33 35 L39 29 L43 32", "l-sage", 1.9) },
+      { vname: "Beam Tower", concept: "Light thrown far from a small tower.", spec: "Trapezoid mast with outward beam lines.", draw: () => poly([[26, 50], [29, 26], [35, 26], [38, 50]], "l-ink", 1.9) + line(20, 20, 28, 26, "l-sage", 1.8) + line(44, 20, 36, 26, "l-sage", 1.8) + line(12, 50, 52, 50, "l-dim", 1.5) },
+      { vname: "Echo Fade Rings", concept: "Presence fading politely into the room.", spec: "Core dot with rings stepping down classes.", draw: () => dot(32, 32, 4.4, "l-fill-ink") + circ(32, 32, 10, "l-sage", 1.8) + circ(32, 32, 15.5, "l-dim", 1.4) + circ(32, 32, 20.5, "l-faint", 1.1) },
+      { vname: "Contained Spark", concept: "Power held inside a soft container.", spec: "Rounded square outline holding a spark.", draw: () => rectR(13, 13, 38, 38, 10, "l-ink", 2.1) + spark4(32, 32, 10, 3.6) },
+      { vname: "Fade Row", concept: "Attention tapering off to rest.", spec: "Five dots shrinking toward quiet.", draw: () => [[14, 3.4, "l-fill-ink"], [23, 2.9, "l-fill-ink"], [32, 2.4, "l-fill-sage"], [41, 1.9, "l-fill-sage"], [50, 1.4, "l-fill-dim"]].map(([x, r, c]) => dot(x, 32, r, c)).join("") },
+      { vname: "Flare Cross", concept: "One vertical ambition, one horizontal reach.", spec: "Elongated thin cross flare plus core.", draw: () => line(32, 10, 32, 54, "l-ink", 1.6) + line(16, 32, 48, 32, "l-ink", 1.6) + line(25, 20, 39, 44, "l-faint", 1.1) + line(39, 20, 25, 44, "l-faint", 1.1) + dot(32, 32, 3.4, "l-fill-sage") },
     ],
   },
-
-  // 11. TYPOGRAPHIC MONOGRAM ------------------------------------------------
   {
-    id: "monogram",
-    name: "Typographic Monogram",
-    seed: 121,
+    id: "hex-circuit",
+    name: "Hex & Circuit",
+    seed: 1111,
     variants: [
-      { vname: "O in A", concept: "An O holding an A, the OmniAgent mark at rest.", spec: "Ink O enclosing a sage A with crossbar.", draw: (rng) => { const r=jit(rng,16,2); return circ(32,32,r,"l-ink",2.4)+path(`M32 ${32-r*0.6} L${32+r*0.5} ${32+r*0.5} L${32-r*0.5} ${32+r*0.5} Z`,"l-sage",2)+line(32-r*0.28,32+r*0.22,32+r*0.28,32+r*0.22,"l-sage",1.6); } },
-      { vname: "Interlock", concept: "O and A sharing a stroke, the joined identity.", spec: "Ink O interlocked with a sage A to the right.", draw: () => circ(28,32,13,"l-ink",2.2)+path(`M40 20 L52 46 L28 46`,"l-sage",2.2)+line(34,38,46,38,"l-sage",1.6) },
-      { vname: "A in O", concept: "An A set inside a thin circle, the mark framed.", spec: "Faint ring framing an ink A with sage bar.", draw: (rng) => { const r=jit(rng,18,1); return circ(32,32,r,"l-faint",1.4)+path(`M32 22 L44 44 L20 44 Z`,"l-ink",2.2)+line(26,36,38,36,"l-sage",1.8); } },
-      { vname: "Stacked", concept: "O above A, the calm vertical monogram.", spec: "Ink O over a sage A, vertically stacked.", draw: () => circ(32,22,9,"l-ink",2.2)+path(`M22 40 L32 30 L42 40 Z`,"l-sage",2)+line(27,36,37,36,"l-sage",1.6) },
-      { vname: "Monoline OA", concept: "O and A drawn in one line weight.", spec: "Monoline O and A at equal stroke.", draw: () => path(`M26 24 a6 6 0 1 0 0.1 0`,"l-ink",2.2)+path(`M26 44 L32 30 L38 44 M28 39 L36 39`,"l-sage",2.2) },
-      { vname: "OA Overlap", concept: "O and A overlapping, the blended mark.", spec: "Ink O overlapped by a sage A.", draw: () => circ(30,32,12,"l-ink",2.2)+path(`M34 22 L48 46 L26 46 Z`,"l-sage",1.8) },
-      { vname: "O with Bar", concept: "An O bearing a calm bar, the anchored O.", spec: "Ink O with a sage horizontal bar.", draw: () => circ(32,32,16,"l-ink",2.2)+line(22,32,42,32,"l-sage",2) },
-      { vname: "A Circle", concept: "An A with a sage dot above, the aimed A.", spec: "Ink A with a sage node apex.", draw: () => path(`M24 46 L32 22 L40 46 M27 38 L37 38`,"l-ink",2.2)+dot(32,18,2.6,"l-fill-sage") },
-      { vname: "O in Square", concept: "An O set in a calm frame.", spec: "Rounded square framing an ink O.", draw: () => rectR(16,16,32,32,8,"l-ink",2)+circ(32,32,11,"l-sage",1.8) },
-      { vname: "AO Vertical", concept: "A over O, the flipped stack.", spec: "Sage A above an ink O.", draw: () => path(`M22 30 L32 18 L42 30 Z`,"l-sage",2)+line(27,26,37,26,"l-sage",1.6)+circ(32,40,9,"l-ink",2.2) },
-      { vname: "Double O", concept: "Two O's side by side, the paired O.", spec: "Two ink rings, sage between.", draw: () => circ(24,32,11,"l-ink",2.2)+circ(42,32,11,"l-ink",2.2)+dot(33,32,2.6,"l-fill-sage") },
-      { vname: "A Triangle", concept: "An A within a triangle, the grounded A.", spec: "Ink triangle with a sage A.", draw: () => poly(reg(32,34,17,3),"l-ink",2)+path(`M32 26 L40 42 L24 42 Z`,"l-sage",1.8) },
-      { vname: "O Dotted", concept: "An O with a dotted sage interior.", spec: "Ink O with sage dot field.", draw: () => circ(32,32,16,"l-ink",2.2)+dot(32,32,3,"l-fill-sage")+dot(26,32,2,"l-fill-sage")+dot(38,32,2,"l-fill-sage") },
-      { vname: "A Pennant", concept: "An A as a pennant, the banner A.", spec: "Sage A on a dim staff.", draw: () => line(20,16,20,50,"l-dim",1.6)+path(`M20 18 L46 26 L20 34 Z`,"l-sage",2) },
-      { vname: "O Coronet", concept: "An O crowned by a small mark.", spec: "Ink O with a sage crown arc.", draw: () => circ(32,34,14,"l-ink",2.2)+arc(32,20,10,Math.PI*1.1,Math.PI*1.9,"l-sage",2) },
-      { vname: "A Mirror", concept: "An A mirrored, the reflected identity.", spec: "Ink A with a sage mirrored A.", draw: () => path(`M22 44 L32 24 L42 44 M26 37 L38 37`,"l-ink",2)+path(`M22 44 L32 24 L42 44`,"l-sage",1.4) },
-      { vname: "O Halo", concept: "An O with a soft halo, the lit O.", spec: "Ink O with a faint outer ring.", draw: () => circ(32,32,16,"l-ink",2.2)+circ(32,32,21,"l-faint",1.2) },
-      { vname: "Monogram Tile", concept: "An O and A within a seal.", spec: "Rounded seal with sage O and ink A.", draw: () => rectR(16,16,32,32,8,"l-ink",2)+circ(32,32,8,"l-sage",1.6)+path(`M32 27 L37 39 L27 39 Z`,"l-ink",1.6) },
-      { vname: "A Stroke", concept: "A single A stroke, the minimal mark.", spec: "One ink A stroke with sage bar.", draw: () => path(`M24 46 L32 20 L40 46`,"l-ink",2.4)+line(27,38,37,38,"l-sage",2) },
-      { vname: "O Stack", concept: "Two O's stacked, the doubled O.", spec: "Two ink rings stacked with sage dot.", draw: () => circ(32,22,10,"l-ink",2.2)+circ(32,42,10,"l-ink",2.2)+dot(32,32,2.6,"l-fill-sage") },
+      { vname: "Hex Badge", concept: "The engineering badge, plain and proud.", spec: "Hexagon outline with center dot.", draw: () => poly(reg(32, 32, 17, 6), "l-ink", 2.2) + dot(32, 32, 3.4, "l-fill-sage") },
+      { vname: "Hex Nut", concept: "Hardware honesty: a nut drawn as identity.", spec: "Hexagon with circular bore.", draw: () => poly(reg(32, 32, 17, 6), "l-ink", 2.2) + circ(32, 32, 7, "l-sage", 1.9) },
+      { vname: "Honeycomb Trio", concept: "Three cells working as one structure.", spec: "Clustered hexagons sharing edges.", draw: () => poly(reg(24, 24, 11, 6), "l-ink", 1.9) + poly(reg(40, 24, 11, 6), "l-sage", 1.9) + poly(reg(32, 39, 11, 6), "l-ink", 1.9) },
+      { vname: "Chip Legs", concept: "The processor portrait, pins and all.", spec: "Square die with stub pins on four sides.", draw: () => rectR(20, 20, 24, 24, 3, "l-ink", 2.1) + [26, 32, 38].map((p) => line(p, 14, p, 19, "l-dim", 1.7) + line(p, 45, p, 50, "l-dim", 1.7) + line(14, p, 19, p, "l-dim", 1.7) + line(45, p, 50, p, "l-dim", 1.7)).join("") + dot(32, 32, 2.6, "l-fill-sage") },
+      { vname: "Round Die", concept: "A softer silicon story.", spec: "Circular die with cardinal pins.", draw: () => circ(32, 32, 12, "l-ink", 2.1) + [[32, 14, 32, 19], [32, 45, 32, 50], [14, 32, 19, 32], [45, 32, 50, 32]].map(([x1, y1, x2, y2]) => line(x1, y1, x2, y2, "l-dim", 1.7)).join("") + dot(32, 32, 3, "l-fill-sage") },
+      { vname: "Trace Elbow", concept: "A route with two considered turns.", spec: "PCB trace with pads at both ends.", draw: () => path("M12 46 V30 H34 V18 H52", "l-ink", 2.1) + dot(12, 46, 2.8, "l-fill-sage") + dot(52, 18, 2.8, "l-fill-sage") },
+      { vname: "Trace Fork", concept: "One signal politely becoming two.", spec: "Splitting trace with via dots.", draw: () => path("M12 32 H28 C34 32 34 22 40 22 H52", "l-ink", 1.9) + path("M28 32 C34 32 34 42 40 42 H52", "l-sage", 1.9) + dot(12, 32, 2.6, "l-fill-ink") + dot(52, 22, 2.2, "l-fill-sage") + dot(52, 42, 2.2, "l-fill-sage") },
+      { vname: "Circuit Hex", concept: "The badge with its wiring showing.", spec: "Hexagon with traces from vertices inward.", draw: () => { let s = poly(reg(32, 32, 17, 6), "l-ink", 2); [0, 2, 4].forEach((i) => { const [x, y] = reg(32, 32, 17, 6)[i]; s += line(x, y, pt(32, 32, 6.5, -Math.PI / 2 + (i * TAU) / 6)[0], pt(32, 32, 6.5, -Math.PI / 2 + (i * TAU) / 6)[1], "l-dim", 1.4); }); return s + dot(32, 32, 2.6, "l-fill-sage"); } },
+      { vname: "Board Corner", concept: "Traces fanning off the board edge.", spec: "Corner origin with three routed lines.", draw: () => path("M12 12 V52", "l-faint", 1.4) + path("M12 12 H52", "l-faint", 1.4) + [[44, 20, "l-ink"], [36, 30, "l-sage"], [44, 42, "l-dim"]].map(([ex, ey, c]) => path(`M16 ${f(ex === 44 ? 18 : 24)} H28 L${f(ex - 8)} ${f(ey)} H${f(ex)}`, c, 1.6) + dot(ex, ey, 2, "l-fill-sage")).join("") },
+      { vname: "Socket Cradle", concept: "The slot waiting for its module.", spec: "U bracket cradling a small square die.", draw: () => path("M16 16 V44 Q16 50 22 50 H42 Q48 50 48 44 V16", "l-ink", 2.1) + rectR(24, 26, 16, 16, 2.5, "l-sage", 1.9) + dot(32, 34, 2.2, "l-fill-ink") },
+      { vname: "Pad Grid", concept: "A field of contacts, one chosen.", spec: "Nine pads, center emphasized.", draw: () => { let s = ""; for (let ry = 0; ry < 3; ry++) for (let rx = 0; rx < 3; rx++) { const x = 20 + rx * 12, y = 20 + ry * 12; s += rx === 1 && ry === 1 ? dot(x, y, 4, "l-fill-sage") : circ(x, y, 2.6, "l-dim", 1.3); } return s; } },
+      { vname: "Offset Hex Pair", concept: "Two modules overlapping in cooperation.", spec: "Offset hexes, sage over ink.", draw: () => poly(reg(26, 28, 14, 6), "l-ink", 2) + poly(reg(38, 36, 14, 6), "l-sage", 2) },
+      { vname: "Via Run", concept: "A stitched path of connections.", spec: "Dotted vias between terminal pads.", draw: () => line(12, 32, 52, 32, "l-faint", 1.4) + dot(14, 32, 3, "l-fill-ink") + [24, 32, 40].map((x) => dot(x, 32, 2, "l-fill-sage")).join("") + dot(50, 32, 3, "l-fill-ink") },
+      { vname: "Diamond Die", concept: "Silicon turned on its corner.", spec: "Rotated square chip, corner pins.", draw: () => poly([[32, 16], [48, 32], [32, 48], [16, 32]], "l-ink", 2.1) + [[32, 16], [48, 32], [32, 48], [16, 32]].map(([x, y]) => line(x, y, x + (x - 32) * 0.18, y + (y - 32) * 0.18, "l-dim", 1.6)).join("") + dot(32, 32, 2.6, "l-fill-sage") },
+      { vname: "Hex Annulus", concept: "Depth inside the badge — a hole in the hexagon.", spec: "Hexagon outline with inner hex void.", draw: () => poly(reg(32, 32, 17, 6), "l-ink", 2.2) + poly(reg(32, 32, 8.5, 6), "l-faint", 1.4) },
+      { vname: "Bus Trio", concept: "Three lanes running together, dropping off.", spec: "Parallel traces with stubs and pads.", draw: () => [22, 32, 42].map((y, i) => line(12, y, 40, y, i === 1 ? "l-sage" : "l-ink", 1.8) + line(40, y, 46, y + (i - 1) * 4, i === 1 ? "l-sage" : "l-ink", 1.6) + dot(48, y + (i - 1) * 4, 2, "l-fill-sage")).join("") },
+      { vname: "Hub Pad", concept: "One large contact feeding three small.", spec: "Big pad linked by traces to three pads.", draw: () => dot(20, 32, 6, "l-fill-ink") + [[44, 18], [46, 32], [44, 46]].map(([x, y]) => path(`M26 32 C34 32 34 ${f(y)} ${f(x - 6)} ${f(y)}`, "l-dim", 1.5) + dot(x, y, 2.6, "l-fill-sage")).join("") },
+      { vname: "Coil Bumps", concept: "An inductor resting between its pads.", spec: "Three semicircular bumps on a line.", draw: () => line(10, 36, 16, 36, "l-ink", 2) + arc(21, 36, 5, Math.PI, TAU, "l-ink", 2) + arc(31, 36, 5, Math.PI, TAU, "l-ink", 2) + arc(41, 36, 5, Math.PI, TAU, "l-ink", 2) + line(46, 36, 54, 36, "l-ink", 2) + dot(10, 36, 2.2, "l-fill-sage") + dot(54, 36, 2.2, "l-fill-sage") },
+      { vname: "Resistor Zig", concept: "Resistance acknowledged with calm geometry.", spec: "Zigzag stroke between two pads.", draw: () => line(8, 32, 16, 32, "l-dim", 1.8) + path("M16 32 L20 25 L27 39 L34 25 L41 39 L46 32", "l-ink", 1.9) + line(46, 32, 56, 32, "l-dim", 1.8) + dot(8, 32, 2.4, "l-fill-sage") + dot(56, 32, 2.4, "l-fill-sage") },
+      { vname: "Grounded Trace", concept: "Every circuit needs somewhere to rest.", spec: "Vertical trace into ground symbol.", draw: () => line(32, 10, 32, 36, "l-ink", 2) + dot(32, 10, 2.6, "l-fill-sage") + line(20, 38, 44, 38, "l-ink", 2) + line(24, 43, 40, 43, "l-dim", 1.8) + line(28, 48, 36, 48, "l-faint", 1.6) },
     ],
   },
-
-  // 12. INK / BRUSH (softened) ------------------------------------------------
   {
-    id: "ink-brush",
-    name: "Ink / Brush",
-    seed: 132,
+    id: "omega-marks",
+    name: "Omega Marks",
+    seed: 1212,
     variants: [
-      { vname: "Stroke", concept: "One soft brush stroke, the deliberate single mark.", spec: "Tapered filled brush stroke, soft ends.", draw: (rng) => { const x=jit(rng,30,3); return path(`M${x-12} 44 C${x-4} 40 ${x+2} 22 ${x+14} 18 C${x+6} 26 ${x+2} 40 ${x-12} 44 Z`,"l-fill-ink"); } },
-      { vname: "River", concept: "Two strokes flowing side by side, the quiet current.", spec: "Pair of tapered strokes, sage and ink.", draw: () => path(`M18 46 C26 36 22 24 30 16 C24 26 28 38 22 48 Z`,"l-fill-sage")+path(`M34 48 C42 38 38 26 46 18 C40 28 44 40 38 50 Z`,"l-fill-ink") },
-      { vname: "Comma", concept: "A single brush comma, the ensō tail at rest.", spec: "Filled brush comma with soft taper.", draw: (rng) => { const x=jit(rng,30,3); return path(`M${x} 18 C${x+14} 22 ${x+14} 40 ${x} 46 C${x+8} 40 ${x+6} 28 ${x-4} 26 C${x+2} 26 ${x+2} 22 ${x} 18 Z`,"l-fill-ink"); } },
-      { vname: "Vertical", concept: "A calm vertical brush, the upright mark.", spec: "Tapered vertical sage brush stroke.", draw: (rng) => { const x=jit(rng,32,3); return path(`M${x} 14 C${x+6} 20 ${x+4} 30 ${x+2} 44 C${x+4} 50 ${x-4} 50 ${x-4} 44 C${x-2} 30 ${x-4} 22 ${x} 14 Z`,"l-fill-sage"); } },
-      { vname: "Cross", concept: "Two soft strokes crossing, the gentle mark made twice.", spec: "Crossed tapered strokes, ink over sage.", draw: () => path(`M22 20 C28 26 30 34 26 46 C32 36 30 28 26 22 Z`,"l-fill-ink")+path(`M44 18 C38 24 36 32 40 46 C34 36 36 26 42 20 Z`,"l-fill-sage") },
-      { vname: "Enso Tail", concept: "An ensō tail, the open brush ring.", spec: "Filled brush arc, soft open end.", draw: () => { let d="M44 22 "; for(let i=0;i<=24;i++){const t=i/24;const a=Math.PI*0.15+t*Math.PI*1.5;const r=18-t*2;const [x,y]=pt(32,34,r,a);d+=`L${f(x)} ${f(y)} `;} return path(d+"Z","l-fill-ink"); } },
-      { vname: "Sweep", concept: "A single broad sweep, the confident mark.", spec: "Wide tapered ink sweep.", draw: () => path(`M12 40 C24 30 40 30 52 22 C44 36 30 44 16 48 C14 46 12 44 12 40 Z`,"l-fill-ink") },
-      { vname: "Double Sweep", concept: "Two sweeps echoing, the paired stroke.", spec: "Two ink sweeps, sage between.", draw: () => path(`M12 30 C26 22 42 22 52 16 C46 30 32 38 16 40 Z`,"l-fill-ink")+path(`M14 48 C28 42 42 42 52 36 C46 48 32 52 16 52 Z`,"l-fill-sage") },
-      { vname: "Brush Dot", concept: "A soft brush dot, the ink breath.", spec: "Sage filled circle, soft.", draw: () => circ(32,32,14,"l-fill-sage") },
-      { vname: "Brush Arc", concept: "A soft brush arc, the moon stroke.", spec: "Filled sage arc with tapered ends.", draw: () => { let d="M16 40 "; for(let i=0;i<=20;i++){const t=i/20;const a=Math.PI+ t*Math.PI;const [x,y]=pt(32,32,18,a);d+=`L${f(x)} ${f(y)} `;} return path(d+"Z","l-fill-sage"); } },
-      { vname: "Brush Leaf", concept: "A brush leaf, the botanical stroke.", spec: "Sage filled leaf with ink vein.", draw: () => path(`M32 50 V24`,"l-ink",2)+path(`M32 42 C46 40 48 22 32 16 C30 28 30 38 32 42 Z`,"l-fill-sage") },
-      { vname: "Brush Mountain", concept: "A brush triangle, the ink peak.", spec: "Filled ink triangle, soft.", draw: () => poly([[16,48],[32,20],[48,48]],"l-fill-ink") },
-      { vname: "Brush Wave", concept: "A brush wave, the ink tide.", spec: "Filled ink wave shape.", draw: () => path(`M10 34 Q20 22 30 34 T54 34 Q44 44 30 38 T10 44 Z`,"l-fill-ink") },
-      { vname: "Brush Spiral", concept: "A brush spiral, the curling ink.", spec: "Filled inward spiral.", draw: () => { let d="M50 32 "; for(let i=0;i<=40;i++){const t=i/40;const a=t*2.6*Math.PI;const r=20*(1-t)+2;const [x,y]=pt(32,32,r,a);d+=`L${f(x)} ${f(y)} `;} return path(d+"Z","l-fill-sage"); } },
-      { vname: "Brush Fork", concept: "A brush that splits, the branching ink.", spec: "Ink stroke splitting to two tips.", draw: () => path(`M24 50 C24 36 30 28 34 18 C36 28 34 36 32 50 Z`,"l-fill-ink")+path(`M34 30 C40 26 46 22 50 16 C46 28 42 34 36 40 Z`,"l-fill-sage") },
-      { vname: "Brush Star", concept: "A soft brush star, the ink bloom.", spec: "Filled sage four-point star.", draw: () => poly(starPts(32,32,16,5,4),"l-fill-sage") },
-      { vname: "Brush Triangle", concept: "A brush triangle, the grounded ink.", spec: "Filled ink triangle with sage base.", draw: () => poly([[18,46],[32,22],[46,46]],"l-fill-ink")+line(18,46,46,46,"l-sage",3) },
-      { vname: "Brush Crescent", concept: "A brush crescent, the ink moon.", spec: "Filled ink crescent.", draw: () => path(`M40 16 A16 16 0 1 0 40 48 A12.5 12.5 0 1 1 40 16 Z`,"l-fill-ink") },
-      { vname: "Brush Loop", concept: "A brush loop, the tied ink.", spec: "Filled sage loop.", draw: () => path(`M32 14 C46 14 48 50 32 50 C18 50 18 14 32 14 Z`,"l-fill-sage") },
-      { vname: "Brush Burst", concept: "A brush burst, the sudden ink.", spec: "Sage filled star with ink center.", draw: () => poly(starPts(32,32,17,6,5),"l-fill-sage")+circ(32,32,4,"l-ink",1.4) },
+      { vname: "Omega Plain", concept: "Om — the sound of everything, drawn once.", spec: "Stroke omega with short feet.", draw: () => omegaArc(32, 32, 15) },
+      { vname: "Heavy Omega", concept: "The same word said with more weight.", spec: "Thick-stroke omega.", draw: () => omegaArc(32, 33, 14, 55, "l-ink", 5.5, 6) },
+      { vname: "Ringed Omega", concept: "The omega kept inside its own boundary.", spec: "Small omega centered in a ring.", draw: () => circ(32, 32, 18, "l-ink", 1.9) + omegaArc(32, 33, 10, 60, "l-sage", 2.1, 3.5) },
+      { vname: "Wide Feet Omega", concept: "Standing wider, standing calmer.", spec: "Open omega with long flat feet.", draw: () => omegaArc(32, 31, 14, 70, "l-ink", 2.3, 8) },
+      { vname: "Narrow Gap Omega", concept: "Nearly closed — attention almost complete.", spec: "Tight-gap omega.", draw: () => omegaArc(32, 32, 15, 34, "l-ink", 2.4, 4) },
+      { vname: "Slit Omega", concept: "Closed except for one honest slit.", spec: "Minimal gap omega.", draw: () => omegaArc(32, 32, 15.5, 22, "l-ink", 2.5, 3.5) },
+      { vname: "Twin Omegas", concept: "Said twice, meaning company.", spec: "Two small omegas side by side.", draw: () => omegaArc(21, 34, 9, 60, "l-ink", 2.1, 3) + omegaArc(43, 34, 9, 60, "l-sage", 2.1, 3) },
+      { vname: "Counter Dot Omega", concept: "The omega holding one point of light.", spec: "Omega with a sage counter dot.", draw: () => omegaArc(32, 33, 14, 55, "l-ink", 2.3, 4.5) + dot(32, 27, 2.6, "l-fill-sage") },
+      { vname: "Baseline Omega", concept: "Set down gently on a rule.", spec: "Omega seated on a baseline bar.", draw: () => line(12, 50, 52, 50, "l-dim", 1.6) + omegaArc(32, 36, 14, 55, "l-ink", 2.3, 4.5) },
+      { vname: "Bare Arc Feet Dots", concept: "Deconstructed: arc above, dots beneath.", spec: "Open arc with detached foot dots.", draw: () => { const g = (58 * Math.PI) / 180; return arc(32, 32, 14, Math.PI / 2 + g, Math.PI / 2 - g, "l-ink", 2.3) + dot(pt(32, 32, 14, Math.PI / 2 + g)[0] + 2, pt(32, 32, 14, Math.PI / 2 + g)[1] + 1, 2, "l-fill-sage") + dot(pt(32, 32, 14, Math.PI / 2 - g)[0] - 2, pt(32, 32, 14, Math.PI / 2 - g)[1] + 1, 2, "l-fill-sage"); } },
+      { vname: "Squared Omega", concept: "Geometry first: the omega squared off.", spec: "Rounded-rect arch with legs.", draw: () => path("M20 46 V30 Q20 18 32 18 Q44 18 44 30 V46", "l-ink", 2.4) + line(16, 46, 26, 46, "l-ink", 2.4) + line(38, 46, 48, 46, "l-ink", 2.4) },
+      { vname: "Descending Omega", concept: "The omega allowed to sink below the line.", spec: "Baseline crossing through lower third.", draw: () => line(10, 42, 54, 42, "l-dim", 1.5) + omegaArc(32, 37, 14, 55, "l-ink", 2.3, 4.5) },
+      { vname: "Halo Omega", concept: "A quiet halo behind the word.", spec: "Faint ring behind smaller omega.", draw: () => circ(32, 32, 19, "l-faint", 1.2) + omegaArc(32, 34, 11, 55, "l-ink", 2.2, 3.5) },
+      { vname: "Slit Crown", concept: "Cut clean through the top — openness declared.", spec: "Omega with paper vertical cut at crown.", draw: () => omegaArc(32, 33, 14, 55, "l-ink", 2.3, 4.5) + line(32, 12.8, 32, 21.5, "l-paper", 3.2) },
+      { vname: "Raised Mark Rule", concept: "Small mark held high above its underline.", spec: "Compact omega over a wide rule.", draw: () => omegaArc(32, 24, 9, 60, "l-ink", 2.1, 3) + line(14, 46, 50, 46, "l-sage", 2.2) },
+      { vname: "Wave Crest Omega", concept: "The crown doubled like a calm wave.", spec: "Double-bump top over straight feet.", draw: () => path("M18 44 V32 Q18 20 26 24 Q29 26 32 22 Q35 26 38 24 Q46 20 46 32 V44", "l-ink", 2.3) + line(14, 44, 24, 44, "l-ink", 2.3) + line(40, 44, 50, 44, "l-ink", 2.3) },
+      { vname: "Anchor Omega", concept: "The omega given a keel — held steady.", spec: "Stem descending from the opening.", draw: () => omegaArc(32, 30, 13, 55, "l-ink", 2.3, 4.5) + line(32, 43, 32, 52, "l-sage", 2.1) + line(26, 52, 38, 52, "l-sage", 2.1) },
+      { vname: "Coin Omega", concept: "Struck like currency: omega on a coin.", spec: "Double coin ring with tiny omega.", draw: () => circ(32, 32, 18, "l-ink", 1.9) + circ(32, 32, 14.5, "l-faint", 1.1) + omegaArc(32, 33.5, 7.5, 60, "l-sage", 1.9, 2.5) },
+      { vname: "Ribbon Omega", concept: "The last stroke let loose as a tail.", spec: "Omega with tail sweeping right.", draw: () => omegaArc(30, 32, 13, 55, "l-ink", 2.3, 4) + path("M43 40 C50 40 52 34 50 28", "l-sage", 2) },
+      { vname: "Minimal Curve", concept: "Almost nothing: curve and two points.", spec: "Hairline arc with detached dot feet.", draw: () => { const g = (62 * Math.PI) / 180; return arc(32, 33, 14, Math.PI / 2 + g, Math.PI / 2 - g, "l-ink", 1.8) + line(pt(32, 33, 14, Math.PI / 2 + g)[0] + 1, pt(32, 33, 14, Math.PI / 2 + g)[1], pt(32, 33, 14, Math.PI / 2 + g)[0] + 5, pt(32, 33, 14, Math.PI / 2 + g)[1], "l-faint", 1.8) + line(pt(32, 33, 14, Math.PI / 2 - g)[0] - 5, pt(32, 33, 14, Math.PI / 2 - g)[1], pt(32, 33, 14, Math.PI / 2 - g)[0] - 1, pt(32, 33, 14, Math.PI / 2 - g)[1], "l-faint", 1.8); } },
     ],
   },
-
-  // 13. SEED & GROWTH ---------------------------------------------------------
   {
-    id: "seed-growth",
-    name: "Seed & Growth",
-    seed: 143,
+    id: "negative-space",
+    name: "Negative Space",
+    seed: 1313,
     variants: [
-      { vname: "Sprout", concept: "A seed cracked by a single shoot, the first arising.", spec: "Dim seed with an ink stem and two sage leaves.", draw: (rng) => { const x=jit(rng,32,3); return path(`M${x-9} 50 q9 -4 18 0 q-2 6 -9 6 q-7 0 -9 -6 Z`,"l-fill-dim")+path(`M${x} 50 V30`,"l-ink",2.2)+path(`M${x} 36 q-8 -6 -10 -14 q9 2 10 14 Z`,"l-fill-sage")+path(`M${x} 32 q8 -5 12 -12 q-9 1 -12 12 Z`,"l-fill-sage"); } },
-      { vname: "Leaf", concept: "A single leaf on a stem, the calm botanical.", spec: "Ink stem with a sage leaf and dim vein.", draw: (rng) => { const x=jit(rng,30,3); return path(`M${x} 50 V26`,"l-ink",2)+path(`M${x} 40 C${x+14} 38 ${x+16} 22 ${x} 18 C${x-2} 28 ${x-2} 36 ${x} 40 Z`,"l-fill-sage")+line(x,40,x+4,30,"l-dim",1); } },
-      { vname: "Twin", concept: "Two leaves opening, the symmetrical beginning.", spec: "Ink stem with paired sage and dim leaves.", draw: () => path(`M32 50 V34`,"l-ink",2)+path(`M32 40 C20 38 18 24 32 20 C32 30 32 36 32 40 Z`,"l-fill-sage")+path(`M32 40 C44 38 46 24 32 20 C32 30 32 36 32 40 Z`,"l-fill-dim") },
-      { vname: "Seed", concept: "A seed alone, the held potential.", spec: "Filled seed silhouette with a paper center line.", draw: (rng) => { const x=jit(rng,32,3); return path(`M${x} 20 C${x+8} 26 ${x+8} 42 ${x} 48 C${x-8} 42 ${x-8} 26 ${x} 20 Z`,"l-fill-ink")+line(x,24,x,44,"l-fill-paper",1.4); } },
-      { vname: "Branch", concept: "A slender branch with small buds, the patient growth.", spec: "Ink branch with a sage twig and bud nodes.", draw: (rng) => { const x=jit(rng,28,3); return path(`M${x} 50 C${x+6} 40 ${x+2} 30 ${x+10} 16`,"l-ink",2)+path(`M${x+4} 38 q8 -4 12 -12`,"l-sage",1.8)+dot(x+10,16,2.4,"l-fill-sage")+dot(x+16,26,2,"l-fill-dim"); } },
-      { vname: "Bud", concept: "A single bud, the promise before bloom.", spec: "Ink stem with a sage bud.", draw: () => path(`M32 50 V30`,"l-ink",2)+path(`M32 30 C26 28 26 18 32 14 C38 18 38 28 32 30 Z`,"l-fill-sage") },
-      { vname: "Vine", concept: "A curling vine with small leaves.", spec: "Ink vine with two sage leaves.", draw: () => path(`M20 50 C20 34 44 34 44 18`,"l-ink",2)+path(`M30 36 C24 34 24 28 30 26 C32 30 32 34 30 36 Z`,"l-fill-sage")+path(`M38 28 C44 26 44 20 38 18 C36 22 36 26 38 28 Z`,"l-fill-sage") },
-      { vname: "Flower", concept: "A small flower, the open bloom.", spec: "Five sage petals around an ink core.", draw: () => { const p=reg(32,32,10,5); let s=""; p.forEach(q=>{const a=Math.atan2(q[1]-32,q[0]-32);const [x,y]=pt(32,32,15,a); s+=path(`M32 32 Q${q[0]} ${q[1]} ${x} ${y} Z`,"l-fill-sage");}); s+=circ(32,32,3.4,"l-ink",1.4); return s; } },
-      { vname: "Fern", concept: "A fern frond, the feathered leaf.", spec: "Ink stem with paired sage leaflets.", draw: () => { let s=path(`M32 50 V18`,"l-ink",2); for(let i=0;i<5;i++){const y=22+i*6; s+=path(`M32 ${y} q-8 -2 -10 -8 q8 2 10 8 Z`,"l-fill-sage")+path(`M32 ${y} q8 -2 10 -8 q-8 2 -10 8 Z`,"l-fill-sage");} return s; } },
-      { vname: "Tree", concept: "A simple tree, the small woodland.", spec: "Ink trunk with sage crown.", draw: () => path(`M32 50 V34`,"l-ink",2.4)+path(`M20 34 Q32 14 44 34 Q32 28 20 34 Z`,"l-fill-sage") },
-      { vname: "Seedling", concept: "A sprout in soil, the first soil.", spec: "Sage sprout above a dim soil line.", draw: () => path(`M32 36 V24`,"l-ink",2)+path(`M32 30 C26 28 26 20 32 16 C38 20 38 28 32 30 Z`,"l-fill-sage")+line(14,40,50,40,"l-dim",1.6) },
-      { vname: "Two Seeds", concept: "Two seeds resting, the doubled potential.", spec: "Two ink seeds, sage between.", draw: (rng) => { const x=jit(rng,28,3); return path(`M${x} 22 C${x+7} 27 ${x+7} 39 ${x} 44 C${x-7} 39 ${x-7} 27 ${x} 22 Z`,"l-fill-ink")+path(`M${x+12} 22 C${x+19} 27 ${x+19} 39 ${x+12} 44 C${x+5} 39 ${x+5} 27 ${x+12} 22 Z`,"l-fill-sage"); } },
-      { vname: "Grain", concept: "A single grain, the held harvest.", spec: "Ink grain with sage awns.", draw: () => path(`M32 46 C28 38 28 26 32 18 C36 26 36 38 32 46 Z`,"l-fill-ink")+line(32,18,32,10,"l-sage",1.6)+line(32,18,28,12,"l-sage",1.4)+line(32,18,36,12,"l-sage",1.4) },
-      { vname: "Blossom", concept: "A blossom of circles, the open face.", spec: "Five sage circles around an ink center.", draw: () => { const p=reg(32,32,11,5); let s=""; p.forEach(q=>s+=circ(q[0],q[1],5,"l-fill-sage")); s+=circ(32,32,4,"l-ink",1.4); return s; } },
-      { vname: "Cactus", concept: "A rounded cactus, the desert calm.", spec: "Sage cactus with ink arms.", draw: () => path(`M28 50 V26 Q28 18 32 18 Q36 18 36 26 V50 Z`,"l-fill-sage")+path(`M28 34 q-6 0 -6 -6 q0 -4 4 -4`,"l-ink",2)+path(`M36 30 q6 0 6 -6 q0 -4 -4 -4`,"l-ink",2) },
-      { vname: "Mushroom", concept: "A small mushroom, the quiet fungus.", spec: "Sage cap with ink stem.", draw: () => path(`M18 32 Q32 14 46 32 Z`,"l-fill-sage")+rectR(28,32,8,14,3,"l-ink",2) },
-      { vname: "Clover", concept: "A three-leaf clover, the small luck.", spec: "Three sage leaf circles and a stem.", draw: () => path(`M32 50 V36`,"l-ink",2)+circ(32,24,7,"l-fill-sage")+circ(25,32,7,"l-fill-sage")+circ(39,32,7,"l-fill-sage") },
-      { vname: "Hanging", concept: "A hanging plant, the suspended growth.", spec: "Ink pot with sage trails.", draw: () => { let s=path(`M22 20 H42 L38 30 H26 Z`,"l-ink",2); s+=path(`M26 30 C20 40 22 48 26 52`,"l-sage",1.8)+path(`M38 30 C44 40 42 48 38 52`,"l-sage",1.8)+path(`M32 30 V50`,"l-sage",1.8); return s; } },
-      { vname: "Rooted Arrow", concept: "An arrow taking root, the directed growth.", spec: "Ink arrow with sage roots.", draw: () => path(`M22 16 L38 16 L38 28 L48 28 L32 44 L16 28 L26 28 L26 16 Z`,"l-ink",2)+path(`M32 44 V52`,"l-sage",1.8)+path(`M32 48 q-4 2 -6 0`,"l-sage",1.6)+path(`M32 48 q4 2 6 0`,"l-sage",1.6) },
-      { vname: "Vine Heart", concept: "A leaf pair forming a calm heart.", spec: "Two sage leaves meeting at a point.", draw: () => path(`M32 46 C20 38 20 22 32 28 C44 22 44 38 32 46 Z`,"l-fill-sage")+line(32,28,32,46,"l-ink",1.4) },
+      { vname: "Ring Cut Disc", concept: "The O remembered as light cut from a sage field.", spec: "Solid sage disc, wide paper ring punched out.", draw: () => dot(32, 32, 17, "l-fill-sage") + circ(32, 32, 9, "l-paper", 3.8) },
+      { vname: "Slab Letter Cut", concept: "The A survives as paper light in a slab.", spec: "Ink rounded slab with A cut in paper.", draw: () => rectR(14, 14, 36, 36, 7, "l-fill-ink") + path("M24 40 L32 22 L40 40", "l-paper", 3) + line(27.4, 34.5, 36.6, 34.5, "l-paper", 2.6) },
+      { vname: "Prompt Slot Tile", concept: "The prompt pressed through the icon.", spec: "Sage squircle, prompt cut in paper.", draw: () => tile() + gt(26, 30, 7, "l-paper", 3) + cursorBar(31.5, 37, 9, "l-paper", 3) },
+      { vname: "Channel Disc", concept: "One clean channel crossing the mass.", spec: "Disc with a horizontal paper channel.", draw: () => dot(32, 32, 16, "l-fill-ink") + line(14, 32, 50, 32, "l-paper", 3.2) },
+      { vname: "Keyhole Disc", concept: "A keyhole — access granted quietly.", spec: "Disc with paper circle and wedge cut.", draw: () => dot(32, 30, 15, "l-fill-ink") + dot(32, 26, 5, "l-fill-paper") + poly([[27, 28], [37, 28], [34, 42], [30, 42]], "l-fill-paper") },
+      { vname: "Bitten Disc", concept: "A bite taken from a full form.", spec: "Offset paper disc cutting the edge.", draw: () => dot(30, 32, 16, "l-fill-ink") + `<circle cx="44" cy="26" r="10" fill="var(--bg-elev)" stroke="none"/>` },
+      { vname: "Quarter Release", concept: "A corner of pressure released as a quarter arc.", spec: "Square slab with quarter-circle void.", draw: () => rectR(14, 14, 36, 36, 6, "l-fill-sage") + path("M50 32 A18 18 0 0 0 32 14 L50 14 Z", "l-fill-paper") },
+      { vname: "Slot Gate", concept: "A gate of light through the bar.", spec: "Rect slab with thin horizontal slot.", draw: () => rectR(14, 20, 36, 24, 6, "l-fill-ink") + rectR(14, 29.5, 36, 5, 2.5, "l-fill-paper") },
+      { vname: "Perforated Disc", concept: "A field of small lights through the dark.", spec: "Disc with a 3x3 paper dot matrix.", draw: () => dot(32, 32, 17, "l-fill-ink") + [24, 32, 40].map((y) => [24, 32, 40].map((x) => dot(x, y, 1.8, "l-fill-paper")).join("")).join("") },
+      { vname: "Escape Parallelogram", concept: "Motion leaving the shape that held it.", spec: "Tilted slab with paper arrow cut.", draw: () => poly([[16, 46], [30, 18], [48, 18], [34, 46]], "l-fill-sage") + poly([[33, 24], [41, 31], [31, 39], [35, 31]], "l-fill-paper") },
+      { vname: "Halves Apart", concept: "Two halves holding a breath between them.", spec: "Half-discs split by an even gap.", draw: () => path("M32 16 A16 16 0 0 0 32 48 Z", "l-fill-ink") + path("M38 16 A16 16 0 0 1 38 48 Z", "l-fill-sage") },
+      { vname: "Notched Ring", concept: "The boundary interrupted at one place.", spec: "Heavy ring with a rectangular notch.", draw: () => circ(32, 32, 13, "l-ink", 7) + rectR(28, 12, 8, 10, 1, "l-fill-paper") },
+      { vname: "Fold Reveal Square", concept: "A corner turned back shows what's under.", spec: "Sage slab with folded paper corner.", draw: () => rectR(14, 14, 36, 36, 6, "l-fill-sage") + poly([[50, 32], [50, 50], [32, 50]], "l-fill-paper") + line(50, 32, 32, 50, "l-dim", 1.4) },
+      { vname: "Window Punch Tile", concept: "A window opened in the icon wall.", spec: "Ink tile with paper window punch.", draw: () => tile("l-fill-ink") + rectR(19, 21, 26, 22, 3, "l-fill-paper") + rectR(19, 21, 26, 5, 3, "l-fill-dim") },
+      { vname: "Diamond Slit", concept: "Precision split through the gem.", spec: "Diamond slab with vertical paper slit.", draw: () => poly([[32, 12], [52, 32], [32, 52], [12, 32]], "l-fill-ink") + rectR(30.5, 12, 3, 40, 1.5, "l-fill-paper") },
+      { vname: "Eclipse Edge", concept: "One body passing before another.", spec: "Paper disc cutting the ink disc's edge.", draw: () => dot(28, 32, 16, "l-fill-ink") + `<circle cx="42" cy="32" r="13" fill="var(--bg-elev)" stroke="none"/>` },
+      { vname: "Comb Slots", concept: "Rhythm cut as even teeth of light.", spec: "Rect slab with three vertical slots.", draw: () => rectR(14, 16, 36, 32, 5, "l-fill-sage") + [23, 32, 41].map((x) => rectR(x - 1.75, 22, 3.5, 20, 1.75, "l-fill-paper")).join("") },
+      { vname: "Spiral Groove", concept: "A path worn into the surface, circling home.", spec: "Disc with paper spiral groove inside.", draw: () => dot(32, 32, 17, "l-fill-ink") + path("M32 24 A8 8 0 1 1 24 32 A11 11 0 1 0 43 32", "l-paper", 2.6) },
+      { vname: "Stair Ascent Cut", concept: "Steps rising through the block.", spec: "Slab with paper staircase cut rising.", draw: () => rectR(14, 16, 36, 32, 5, "l-fill-dim") + poly([[20, 42], [20, 36], [26, 36], [26, 30], [32, 30], [32, 24], [38, 24], [38, 42]], "l-fill-paper") },
+      { vname: "Lightning Slab", concept: "Energy struck through still material.", spec: "Parallelogram slab with bolt cut.", draw: () => poly([[18, 48], [30, 16], [46, 16], [34, 48]], "l-fill-ink") + poly([[36, 22], [29, 33], [34, 33], [30, 42], [39, 30], [33.5, 30]], "l-fill-paper") },
     ],
   },
-
-  // 14. STONE & BALANCE -------------------------------------------------------
   {
-    id: "stone-balance",
-    name: "Stone & Balance",
-    seed: 154,
+    id: "layer-stacks",
+    name: "Layer Stacks",
+    seed: 1414,
     variants: [
-      { vname: "Cairn", concept: "Three stones stacked, the calm tower of attention.", spec: "Three stacked stones, ink/sage/ink.", draw: (rng) => { const x=jit(rng,32,3); return path(`M${x-12} 50 q12 -8 24 0 q-4 5 -12 5 q-8 0 -12 -5 Z`,"l-ink",2.2)+path(`M${x-9} 38 q9 -7 18 0 q-3 5 -9 5 q-6 0 -9 -5 Z`,"l-sage",2)+path(`M${x-6} 28 q6 -6 12 0 q-2 4 -6 4 q-4 0 -6 -4 Z`,"l-ink",2); } },
-      { vname: "Pair Stones", concept: "Two stones resting, the balanced couple.", spec: "Two resting stones, ink and sage.", draw: (rng) => { const x=jit(rng,30,3); return path(`M${x-12} 50 q12 -9 24 0 q-4 5 -12 5 q-8 0 -12 -5 Z`,"l-ink",2.2)+path(`M${x+2} 44 q8 -8 16 0 q-2 5 -8 5 q-6 0 -8 -5 Z`,"l-sage",2); } },
-      { vname: "Drop", concept: "A stone dropping into rings, the cause and the calm.", spec: "Stone above two sage/dim ripple arcs.", draw: () => path(`M26 46 q6 -6 12 0 q-2 4 -6 4 q-4 0 -6 -4 Z`,"l-ink",2.2)+arc(32,48,13,Math.PI*1.1,Math.PI*1.9,"l-sage",1.5)+arc(32,48,19,Math.PI*1.15,Math.PI*1.85,"l-dim",1.2) },
-      { vname: "Tower", concept: "A slender tower of stones, the patient stack.", spec: "Four diminishing stones, alternating ink/sage.", draw: (rng) => { const x=jit(rng,32,2); const ys=[50,42,35,29], ws=[13,10,8,6]; let s=""; ys.forEach((y,i)=>s+=path(`M${x-ws[i]} ${y} q${ws[i]} -${ws[i]*0.6} ${ws[i]*2} 0 q-${ws[i]*0.4} ${ws[i]*0.4} -${ws[i]} 0 Z`,i%2?"l-sage":"l-ink",2)); return s; } },
-      { vname: "Beam", concept: "A stone balanced on a line, the still point of equipoise.", spec: "Ink stone balanced on a dim beam with sage node.", draw: (rng) => { const x=jit(rng,32,3); return line(12,44,52,44,"l-dim",1.6)+path(`M${x-8} 44 q8 -12 16 0 q-3 4 -8 4 q-5 0 -8 -4 Z`,"l-ink",2.2)+dot(x,36,2,"l-fill-sage"); } },
-      { vname: "Single Stone", concept: "One stone alone, the quiet weight.", spec: "Filled ink stone, soft.", draw: () => path(`M18 44 Q18 30 32 30 Q48 30 48 44 Q48 52 32 52 Q18 52 18 44 Z`,"l-fill-ink") },
-      { vname: "Stack Two", concept: "Two stones stacked, the simple cairn.", spec: "Two stacked stones, ink over sage.", draw: () => path(`M18 50 q14 -8 28 0 q-5 5 -14 5 q-9 0 -14 -5 Z`,"l-ink",2.2)+path(`M22 40 q10 -7 20 0 q-4 5 -10 5 q-6 0 -10 -5 Z`,"l-sage",2) },
-      { vname: "Stack Five", concept: "Five diminishing stones, the tall cairn.", spec: "Five stones, alternating ink/sage.", draw: () => { const ys=[50,43,37,32,28], ws=[14,11,9,7,5]; let s=""; ys.forEach((y,i)=>s+=path(`M${32-ws[i]} ${y} q${ws[i]} -${ws[i]*0.55} ${ws[i]*2} 0 q-${ws[i]*0.4} ${ws[i]*0.45} -${ws[i]} 0 Z`,i%2?"l-sage":"l-ink",1.8)); return s; } },
-      { vname: "Tilted Beam", concept: "A stone balanced on a tilted beam.", spec: "Ink stone on a dim slanted beam, sage node.", draw: () => line(14,40,50,48,"l-dim",1.6)+path(`M28 38 q8 -10 16 0 q-3 4 -8 4 q-5 0 -8 -4 Z`,"l-ink",2.2)+dot(36,30,2,"l-fill-sage") },
-      { vname: "Stone Arch", concept: "Two stones forming an arch, the gateway.", spec: "Two ink stones meeting at a sage keystone.", draw: () => path(`M18 50 V32 q0 -8 8 -8`,"l-ink",2.2)+path(`M46 50 V32 q0 -8 -8 -8`,"l-ink",2.2)+poly([[28,24],[36,24],[34,30],[30,30]],"l-sage") },
-      { vname: "Stone Circle", concept: "Three stones in a row, the calm row.", spec: "Three ink/sage/dim stones in a line.", draw: () => path(`M14 48 q8 -9 16 0 q-3 4 -8 4 q-5 0 -8 -4 Z`,"l-ink",2)+path(`M26 48 q8 -9 16 0 q-3 4 -8 4 q-5 0 -8 -4 Z`,"l-sage",2)+path(`M38 48 q8 -9 16 0 q-3 4 -8 4 q-5 0 -8 -4 Z`,"l-dim",1.8) },
-      { vname: "Pebble Line", concept: "A row of small pebbles, the shoreline.", spec: "Four small stones, alternating.", draw: () => { let s=""; [[18,46],[28,47],[38,46],[48,47]].forEach((p,i)=>s+=path(`M${p[0]-6} ${p[1]} q6 -7 12 0 q-2 3 -6 3 q-4 0 -6 -3 Z`,i%2?"l-sage":"l-ink",1.8)); return s; } },
-      { vname: "Stone Shadow", concept: "A stone with a soft shadow, the grounded weight.", spec: "Ink stone with a sage shadow ellipse.", draw: () => path(`M20 40 Q20 28 32 28 Q44 28 44 40 Q44 48 32 48 Q20 48 20 40 Z`,"l-fill-ink")+ellipse(32,52,14,3) },
-      { vname: "Egg", concept: "An oval stone, the smooth weight.", spec: "Sage oval with ink highlight.", draw: () => { const p=[]; for(let i=0;i<=24;i++){const a=(i/24)*TAU; const rx=15,ry=19; p.push([32+rx*Math.cos(a),34+ry*Math.sin(a)]);} let s=poly(p,"l-fill-sage"); s+=ellipse(26,28,4,6); return s; } },
-      { vname: "Boulder", concept: "A large rounded boulder, the settled mass.", spec: "Ink boulder with sage cap.", draw: () => path(`M14 48 Q14 30 32 30 Q50 30 50 48 Q50 54 32 54 Q14 54 14 48 Z`,"l-fill-ink")+path(`M14 48 Q14 30 32 30 Q50 30 50 48`,"l-sage",2) },
-      { vname: "Stepping", concept: "Three stepping stones across water.", spec: "Three stones with sage ripples.", draw: () => { let s=line(10,46,54,46,"l-sage",1.4); [[20,40],[34,44],[46,40]].forEach((p,i)=>s+=path(`M${p[0]-7} ${p[1]} q7 -8 14 0 q-3 4 -7 4 q-4 0 -7 -4 Z`,i%2?"l-ink":"l-dim",1.8)); return s; } },
-      { vname: "Zen Rock", concept: "A single rock with raked lines, the garden.", spec: "Ink rock with three sage rake lines.", draw: () => path(`M22 44 Q22 30 34 30 Q46 30 46 44 Q46 50 34 50 Q22 50 22 44 Z`,"l-ink",2)+line(16,40,50,40,"l-sage",1.2)+line(14,46,52,46,"l-sage",1.2)+line(18,52,48,52,"l-sage",1.2) },
-      { vname: "Balanced Tri", concept: "A triangle of stones, the stable set.", spec: "Three stones in a triangle, sage apex.", draw: () => path(`M16 50 q10 -9 20 0 q-4 4 -10 4 q-6 0 -10 -4 Z`,"l-ink",2)+path(`M34 50 q10 -9 20 0 q-4 4 -10 4 q-6 0 -10 -4 Z`,"l-ink",2)+path(`M26 36 q6 -7 12 0 q-2 4 -6 4 q-4 0 -6 -4 Z`,"l-sage",2) },
-      { vname: "Monolith", concept: "A single standing stone, the marker.", spec: "Tall ink monolith with sage base line.", draw: () => path(`M26 50 V20 Q26 14 32 14 Q38 14 38 20 V50 Z`,"l-ink",2)+line(18,50,46,50,"l-sage",1.8) },
-      { vname: "Resting Shard", concept: "A leaning shard, the broken whole at rest.", spec: "Asymmetric stone shard, sage base.", draw: () => poly([[22,48],[34,22],[46,32],[40,50]],"l-fill-ink")+line(16,50,50,50,"l-sage",1.6) },
+      { vname: "Drift Trio", concept: "Three sessions drifting gently apart.", spec: "Offset rounded rects, back to front.", draw: () => rectR(8, 8, 36, 28, 5, "l-faint", 1.4) + rectR(14, 14, 36, 28, 5, "l-dim", 1.7) + rectR(20, 20, 36, 28, 5, "l-ink", 2.1) },
+      { vname: "Iso Slabs", concept: "Slabs stacked isometrically — depth without perspective.", spec: "Three parallelograms in vertical rhythm.", draw: () => poly([[12, 40], [32, 30], [52, 40], [32, 50]], "l-faint", 1.4) + poly([[12, 32], [32, 22], [52, 32], [32, 42]], "l-sage", 1.7) + poly([[12, 24], [32, 14], [52, 24], [32, 34]], "l-ink", 1.9) },
+      { vname: "Strata Disc", concept: "Sediment layers inside a circular frame.", spec: "Ring crossed by three chords.", draw: () => circ(32, 32, 17, "l-ink", 2) + line(19, 26, 45, 26, "l-dim", 1.5) + line(16, 33, 48, 33, "l-sage", 1.7) + line(21, 40, 43, 40, "l-dim", 1.5) },
+      { vname: "Card Fan", concept: "Options fanned like held cards.", spec: "Three cards rotated around a low pivot.", draw: () => { const rot = (deg) => { const a = (deg * Math.PI) / 180; return (x, y) => { const dx = x - 32, dy = y - 48; return [32 + dx * Math.cos(a) - dy * Math.sin(a), 48 + dx * Math.sin(a) + dy * Math.cos(a)]; }; }; const card = (r, cls) => { const t = rot(r); const p = [[22, 16], [42, 16], [42, 44], [22, 44]].map(([x, y]) => t(x, y)); return poly(p, cls, 1.7); }; return card(-18, "l-faint") + card(0, "l-dim") + card(18, "l-ink"); } },
+      { vname: "Lit Top Slab", concept: "Only the active layer is lit.", spec: "Stack of outlines, top filled sage.", draw: () => rectR(16, 38, 32, 10, 3, "l-faint", 1.4) + rectR(16, 27, 32, 10, 3, "l-faint", 1.4) + rectR(16, 16, 32, 10, 3, "l-fill-sage") },
+      { vname: "Book Pile", concept: "Finished work stacked like read books.", spec: "Side-view spines of varying width.", draw: () => rectR(12, 40, 40, 8, 1.5, "l-ink") + rectR(16, 31, 32, 8, 1.5, "l-fill-sage") + rectR(20, 22, 22, 8, 1.5, "l-fill-dim") + line(46, 24, 46, 29, "l-paper", 1.4) },
+      { vname: "Panel Depth", concept: "Panels receding into the screen's quiet dark? light.", spec: "Three vertical panels shrinking backward.", draw: () => rectR(10, 12, 12, 40, 3, "l-faint", 1.3) + rectR(25, 16, 13, 36, 3, "l-dim", 1.6) + rectR(41, 20, 13, 32, 3, "l-ink", 1.9) },
+      { vname: "Terrace Steps", concept: "Progress as wide calm steps.", spec: "Centered bars widening downward.", draw: () => rectR(24, 16, 16, 8, 2, "l-ink") + rectR(18, 28, 28, 8, 2, "l-fill-sage") + rectR(12, 40, 40, 8, 2, "l-fill-dim") },
+      { vname: "Levitating Sheet", concept: "One layer lifted, hovering on its shadow.", spec: "Floating bar above stack with gap shadow.", draw: () => rectR(18, 14, 28, 8, 2.5, "l-ink") + rectR(18, 32, 28, 8, 2.5, "l-fill-sage") + rectR(18, 44, 28, 8, 2.5, "l-fill-dim") },
+      { vname: "Coin Roll", concept: "Discs stacked on edge — saved sessions.", spec: "Three ellipses in vertical offset.", draw: () => ell(32, 18, 15, 6, "l-ink", 1.9) + ell(32, 31, 15, 6, "l-sage", 1.9) + ell(32, 44, 15, 6, "l-ink", 1.9) },
+      { vname: "Ascend Arrow", concept: "The stack beside the arrow that leaves it.", spec: "Small layer pair with upward arrow.", draw: () => rectR(10, 34, 22, 8, 2, "l-fill-dim") + rectR(10, 23, 22, 8, 2, "l-fill-sage") + line(45, 48, 45, 18, "l-ink", 2.2) + poly([[39.5, 24], [45, 15.5], [50.5, 24]], "l-fill-ink") },
+      { vname: "Foundation Slabs", concept: "Wide at the base, precise at the top.", spec: "Pyramid of centered slabs.", draw: () => rectR(12, 40, 40, 9, 2, "l-fill-dim") + rectR(18, 28, 28, 9, 2, "l-fill-sage") + rectR(25, 16, 14, 9, 2, "l-fill-ink") },
+      { vname: "Pinwheel Blades", concept: "Four blades layered by rotation.", spec: "Rotational parallelogram pinwheel.", draw: () => { let s = ""; for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 2; const t = (x, y) => { const dx = x - 32, dy = y - 32; return [32 + dx * Math.cos(a) - dy * Math.sin(a), 32 + dx * Math.sin(a) + dy * Math.cos(a)]; }; s += poly([[32, 32], [32, 12], [48, 18]].map(([x, y]) => t(x, y)), i % 2 ? "l-sage" : "l-ink", 1.6); } return s; } },
+      { vname: "Sediment Waves", concept: "Time settling in wavy strata.", spec: "Disc with two wavy internal strata.", draw: () => circ(32, 32, 17, "l-ink", 1.9) + path("M17 28 Q24 24 32 28 T47 28", "l-sage", 1.7) + path("M18 37 Q25 33 32 37 T46 37", "l-dim", 1.5) },
+      { vname: "Neat Deck", concept: "A deck squared and ready to deal.", spec: "Aligned stack with binding tick and edges.", draw: () => rectR(18, 14, 28, 36, 4, "l-ink", 2.1) + line(18, 20, 14, 20, "l-dim", 1.6) + line(18, 32, 14, 32, "l-dim", 1.6) + line(18, 44, 14, 44, "l-dim", 1.6) + line(42, 18, 42, 46, "l-faint", 1.3) },
+      { vname: "Mid Selected", concept: "One layer called out from the pile.", spec: "Middle layer bold sage, others faint.", draw: () => rectR(16, 12, 32, 11, 3, "l-faint", 1.3) + rectR(16, 26.5, 32, 11, 3, "l-sage", 2.2) + rectR(16, 41, 32, 11, 3, "l-faint", 1.3) },
+      { vname: "Ziggurat", concept: "The oldest stable shape for building up.", spec: "Three symmetric shrinking tiers.", draw: () => rectR(14, 40, 36, 9, 1.5, "l-fill-dim") + rectR(20, 28, 24, 9, 1.5, "l-fill-sage") + rectR(26, 16, 12, 9, 1.5, "l-fill-ink") },
+      { vname: "Cast Shadow Pair", concept: "Every layer carries its soft double.", spec: "Layers with faint offset duplicates.", draw: () => rectR(20, 18, 28, 20, 4, "l-faint", 1.2) + rectR(16, 14, 28, 20, 4, "l-ink", 1.9) + rectR(24, 42, 28, 8, 2, "l-faint", 1.1) + rectR(20, 38, 28, 8, 2, "l-fill-sage") },
+      { vname: "Pivot Fan Cards", concept: "History fanned from its first moment.", spec: "Four cards sweeping from a left pivot.", draw: () => { let s = ""; [-6, 8, 22, 36].forEach((deg, i) => { const a = (deg * Math.PI) / 180; const cxp = 16, cyp = 50; const pts = [[cxp, cyp - 30], [cxp + 20, cyp - 30], [cxp + 20, cyp], [cxp, cyp]].map(([x, y]) => { const dx = x - cxp, dy = y - cyp; return [cxp + dx * Math.cos(a) - dy * Math.sin(a), cyp + dx * Math.sin(a) + dy * Math.cos(a)]; }); s += poly(pts, i === 3 ? "l-ink" : i === 2 ? "l-sage" : "l-faint", i === 3 ? 1.8 : 1.2); }); return s; } },
+      { vname: "Swap Between Layers", concept: "Two layers trading places mid-flight.", spec: "Curved swap arrows between slabs.", draw: () => rectR(16, 14, 32, 10, 3, "l-fill-dim") + rectR(16, 40, 32, 10, 3, "l-fill-sage") + path("M40 30 C46 30 46 24 42 22", "l-ink", 1.8) + poly([[44.5, 20], [39.5, 20.5], [42.5, 25]], "l-fill-ink") + path("M24 34 C18 34 18 40 22 42", "l-ink", 1.8) + poly([[19.5, 44], [24.5, 43.5], [21.5, 39]], "l-fill-ink") },
     ],
   },
-
-  // 15. MOON & CELESTIAL ------------------------------------------------------
   {
-    id: "moon-celestial",
-    name: "Moon & Celestial",
-    seed: 165,
+    id: "seal-badge",
+    name: "Seals & Badges",
+    seed: 1515,
     variants: [
-      { vname: "Crescent", concept: "A thin crescent, the calm of the waning night.", spec: "Filled crescent from two offset arcs.", draw: (rng) => { const r=jit(rng,16,2); return path(`M${32+r*0.5} 15 A${r} ${r} 0 1 0 ${32+r*0.5} 49 A${r*0.78} ${r*0.78} 0 1 1 ${32+r*0.5} 15 Z`,"l-fill-ink"); } },
-      { vname: "Starlet", concept: "A crescent with one small companion, the quiet sky.", spec: "Ink crescent with a sage companion dot.", draw: () => path(`M38 16 A16 16 0 1 0 38 48 A12.5 12.5 0 1 1 38 16 Z`,"l-fill-ink")+dot(20,20,2.4,"l-fill-sage") },
-      { vname: "Fullmoon", concept: "A soft full circle, the settled light.", spec: "Sage disc with a paper inner field and dim craters.", draw: (rng) => { const r=jit(rng,16,2); return circ(32,32,r,"l-fill-sage")+circ(32,32,r*0.7,"l-fill-paper")+dot(28,28,1.6,"l-fill-sage")+dot(37,35,1.2,"l-fill-sage"); } },
-      { vname: "Softsun", concept: "A disc with short calm rays, the gentle warmth.", spec: "Sage disc with eight dim soft rays.", draw: () => { let s=circ(32,32,11,"l-fill-sage"); for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x1,y1]=pt(32,32,15,a);const [x2,y2]=pt(32,32,20,a); s+=line(x1,y1,x2,y2,"l-dim",1.6);} return s; } },
-      { vname: "Eclipse", concept: "Two circles overlapping, the calm eclipse.", spec: "Ink ring overlapped by a sage disc.", draw: (rng) => { const dx=jit(rng,8,2); return circ(32-dx,32,14,"l-ink")+dot(32+dx,32,14,"l-fill-sage"); } },
-      { vname: "Star Four", concept: "A four-point star, the calm spark.", spec: "Filled sage four-point star.", draw: () => poly(starPts(32,32,16,4,4),"l-fill-sage") },
-      { vname: "Star Five", concept: "A five-point star, the quiet beacon.", spec: "Filled ink five-point star with sage center.", draw: () => poly(starPts(32,32,17,7,5),"l-fill-ink")+dot(32,32,3,"l-fill-sage") },
-      { vname: "Star Six", concept: "A six-point star, the balanced light.", spec: "Filled sage six-point star.", draw: () => { const o=starPts(32,32,17,7,6), i2=starPts(32,32,17,7,6).map((p,i)=>p); let s=""; const a=reg(32,32,17,6); for(let k=0;k<3;k++){const p1=a[k],p2=a[(k+2)%6]; s+=poly([p1,[32,32],p2],"l-fill-sage");} return s; } },
-      { vname: "Ring Dots", concept: "A ring of dots, the constellation.", spec: "Eight sage dots on a faint ring.", draw: () => { let s=circ(32,32,18,"l-faint",1.2); for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x,y]=pt(32,32,18,a); s+=dot(x,y,2.2,"l-fill-sage");} return s; } },
-      { vname: "Comet", concept: "A comet, the travelling light.", spec: "Sage head with a dim trailing tail.", draw: () => { let s=dot(44,20,5,"l-fill-sage"); s+=path(`M44 20 Q30 30 16 46`,"l-dim",1.6); return s; } },
-      { vname: "Ringed Planet", concept: "A planet with a calm ring, the orbited world.", spec: "Sage disc with an ink ring.", draw: () => circ(32,32,11,"l-fill-sage")+ellipse(32,32,19,7) },
-      { vname: "Phases", concept: "Three moon phases, the passing month.", spec: "Full, half, crescent in a row.", draw: () => circ(18,32,8,"l-fill-sage")+path(`M32 24 A8 8 0 1 0 32 40 A4 8 0 1 1 32 24 Z`,"l-fill-ink")+path(`M46 24 A8 8 0 1 0 46 40 A6 8 0 1 1 46 24 Z`,"l-fill-dim") },
-      { vname: "Sun Long", concept: "A sun with long calm rays.", spec: "Sage disc with six long dim rays.", draw: () => { let s=circ(32,32,10,"l-fill-sage"); for(let i=0;i<6;i++){const a=(i/6)*TAU;const [x1,y1]=pt(32,32,15,a);const [x2,y2]=pt(32,32,22,a); s+=line(x1,y1,x2,y2,"l-dim",1.6);} return s; } },
-      { vname: "Half Moon", concept: "A clean half moon, the balanced night.", spec: "Half-filled ink disc, sage flat edge.", draw: () => circ(32,32,16,"l-ink",2)+rectR(32,16,16,32,0,"l-fill-ink")+line(32,16,32,48,"l-sage",1.6) },
-      { vname: "Quarter Moon", concept: "A quarter moon, the corner of night.", spec: "Quarter ink disc with sage edge.", draw: () => circ(32,32,16,"l-ink",2)+path(`M32 16 A16 16 0 0 1 48 32 L32 32 Z`,"l-fill-ink")+line(32,16,32,32,"l-sage",1.6)+line(32,32,48,32,"l-sage",1.6) },
-      { vname: "Star Burst", concept: "A burst of light, the sudden star.", spec: "Eight-ray sage burst with ink center.", draw: () => { let s=""; for(let i=0;i<8;i++){const a=(i/8)*TAU;const [x1,y1]=pt(32,32,6,a);const [x2,y1b]=pt(32,32,20,a); s+=line(x1,y1,x2,y1b,i%2?"l-sage":"l-dim",1.5);} s+=circ(32,32,4,"l-ink",1.4); return s; } },
-      { vname: "Galaxy", concept: "A spiral galaxy, the turning light.", spec: "Sage spiral with ink core.", draw: () => { let d="M32 32 "; for(let i=0;i<=40;i++){const t=i/40;const a=t*3*Math.PI;const r=2+t*18;const [x,y]=pt(32,32,r,a);d+=`L${f(x)} ${f(y)} `;} let s=path(d,"l-sage",1.8); s+=circ(32,32,3.4,"l-ink",1.4); return s; } },
-      { vname: "Shooting Star", concept: "A star with a trail, the falling light.", spec: "Sage star with a dim trail.", draw: () => poly(starPts(40,24,9,4,5),"l-fill-sage")+path(`M40 24 Q26 34 14 46`,"l-dim",1.6) },
-      { vname: "Moon Cloud", concept: "A moon above a calm cloud.", spec: "Ink crescent above a sage cloud.", draw: () => path(`M40 18 A14 14 0 1 0 40 44 A11 11 0 1 1 40 18 Z`,"l-fill-ink")+path(`M14 46 Q14 38 24 38 Q26 32 34 38 Q46 38 46 46 Z`,"l-fill-sage") },
-      { vname: "Moon Horizon", concept: "A moon above a low horizon.", spec: "Sage disc above an ink horizon line.", draw: () => circ(32,24,11,"l-fill-sage")+line(10,46,54,46,"l-ink",1.8)+path(`M16 46 Q24 40 32 46 T48 46`,"l-dim",1.2) },
+      { vname: "Double Ring Seal", concept: "The simplest seal: two rings and a mark.", spec: "Nested rings around a center dot.", draw: () => circ(32, 32, 18, "l-ink", 2) + circ(32, 32, 13.5, "l-dim", 1.3) + dot(32, 32, 3.4, "l-fill-sage") },
+      { vname: "Scalloped Seal", concept: "Edge scallops pressed around a still center.", spec: "Twelve bump arcs ringing an inner disc.", draw: () => { let s = ""; for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; const [x, y] = pt(32, 32, 16, a); s += arc(x, y, 3.2, a + Math.PI * 0.55, a - Math.PI * 0.55, i % 2 ? "l-dim" : "l-ink", 1.4); } return s + circ(32, 32, 10.5, "l-sage", 1.7); } },
+      { vname: "Shield Chevron", concept: "Protection drawn as one falling chevron.", spec: "Shield outline with inner sage chevron.", draw: () => path("M16 14 H48 V34 Q48 48 32 54 Q16 48 16 34 Z", "l-ink", 2.1) + path("M22 30 L32 40 L42 30", "l-sage", 2.2) },
+      { vname: "Reeded Coin", concept: "A coin's milled edge around a plain face.", spec: "Circle with radial reeding ticks.", draw: () => circ(32, 32, 17, "l-ink", 2) + Array.from({ length: 20 }, (_, i) => { const a = (i / 20) * TAU; const [x1, y1] = pt(32, 32, 14.5, a); const [x2, y2] = pt(32, 32, 17, a); return line(x1, y1, x2, y2, "l-faint", 1.1); }).join("") + dot(32, 32, 3.2, "l-fill-sage") },
+      { vname: "Petal Rosette", concept: "Award-rosette petals, softly drawn.", spec: "Eight petal circles about a core.", draw: () => { let s = dot(32, 32, 4, "l-fill-sage"); reg(32, 32, 11, 8).forEach(([x, y], i) => (s += circ(x, y, 4.6, i % 2 ? "l-dim" : "l-ink", 1.4))); return s; } },
+      { vname: "Grid Stamp", concept: "An official stamp reduced to grid and mark.", spec: "Square stamp with inner grid lines.", draw: () => rectR(14, 14, 36, 36, 4, "l-ink", 2) + line(14, 32, 50, 32, "l-faint", 1.2) + line(32, 14, 32, 50, "l-faint", 1.2) + rectR(25, 25, 14, 14, 2, "l-sage", 1.8) },
+      { vname: "Banner Emblem", concept: "A medal with its ribbon caught mid-hang.", spec: "Disc emblem above a notched banner.", draw: () => circ(32, 24, 9, "l-ink", 2) + dot(32, 24, 3, "l-fill-sage") + poly([[16, 38], [48, 38], [48, 50], [32, 44], [16, 50]], "l-sage", 1.9) },
+      { vname: "Wax Blob", concept: "Hand-pressed wax, imperfect on purpose.", spec: "Irregular blob disc with emboss ring.", draw: () => path("M32 13 C42 12 51 20 50 31 C49 43 42 51 31 50 C20 49 12 42 14 30 C15.5 20 22 14 32 13 Z", "l-fill-ink") + circ(32, 32, 9.5, "l-paper", 1.6) + dot(32, 32, 2.6, "l-fill-sage") },
+      { vname: "Branch Arcs Wreath", concept: "A wreath suggested by two dashed arcs.", spec: "Dashed laurel arcs flanking a dot.", draw: () => `<path class="l-dim" d="M 18.87 45.87 A 18 18 0 0 1 18.87 18.13" stroke-width="1.8" style="stroke-width:1.8;stroke-dasharray:3 4"/>` + `<path class="l-dim" d="M 45.13 18.13 A 18 18 0 0 1 45.13 45.87" stroke-width="1.8" style="stroke-width:1.8;stroke-dasharray:3 4"/>` + spark4(32, 32, 7.5, 2.8, "l-fill-sage") },
+      { vname: "Rotated Passport Stamp", concept: "The entry stamp, always slightly crooked.", spec: "Rotated rounded stamp with rule lines.", draw: () => `<g transform="rotate(-8 32 32)">` + rectR(16, 22, 32, 20, 3, "l-ink", 2) + line(21, 29, 43, 29, "l-dim", 1.6) + line(21, 35, 37, 35, "l-faint", 1.5) + `</g>` },
+      { vname: "Medal Ribbon", concept: "First place, worn quietly.", spec: "V ribbon under a hanging disc.", draw: () => poly([[22, 10], [32, 26], [42, 10]], "l-sage", 1.9) + circ(32, 36, 10, "l-ink", 2) + spark4(32, 36, 5, 1.8) },
+      { vname: "Check Badge", concept: "Verified — the check as the whole story.", spec: "Circle badge with sage checkmark.", draw: () => circ(32, 32, 17, "l-ink", 2.1) + path("M22 33 L29 40 L43 24", "l-sage", 2.6) },
+      { vname: "Notary Cross", concept: "Crosshair precision, certified round.", spec: "Circled crosshair with center dot.", draw: () => circ(32, 32, 16, "l-ink", 1.9) + line(32, 12, 32, 52, "l-dim", 1.4) + line(12, 32, 52, 32, "l-dim", 1.4) + dot(32, 32, 2.8, "l-fill-sage") },
+      { vname: "Wing Emblem", concept: "Speed suggested by three feathers aside.", spec: "Core circle with stacked wing arcs.", draw: () => circ(24, 32, 8, "l-ink", 2) + dot(24, 32, 2.4, "l-fill-sage") + [[36, 26], [40, 32], [36, 38]].map(([x, y], i) => line(33, y, x + 8, y, i === 1 ? "l-sage" : "l-dim", 1.8)).join("") },
+      { vname: "Dashed Ring Seal", concept: "Perforated edge like a sticker about to be used.", spec: "Dashed outer ring, solid inner ring.", draw: () => `<circle class="l-dim" cx="32" cy="32" r="18" stroke-width="1.8" style="stroke-width:1.8;stroke-dasharray:2.5 4"/>` + circ(32, 32, 12, "l-ink", 1.9) + dot(32, 32, 3, "l-fill-sage") },
+      { vname: "Halved Crest", concept: "Two identities sharing one shield.", spec: "Shield split: sage field over outline.", draw: () => { let s = path("M16 14 H32 V54 Q16 48 16 34 Z", "l-fill-sage"); s += path("M16 14 H48 V34 Q48 48 32 54 V14", "l-ink", 2.1).replace('class="l-ink"', 'class="l-ink" fill="none"'); return s; } },
+      { vname: "Ticket Stub", concept: "Admission granted — keep this part.", spec: "Notched ticket with perforation dashes.", draw: () => rectR(12, 22, 40, 20, 4, "l-ink", 2) + dot(12, 32, 3, "l-fill-paper").replace('class="l-fill-paper"', 'class="l-fill-bg" stroke="var(--bg-elev)" stroke-width="3"').replace('fill="var(--bg-elev)"', "") + `<line class="l-faint" x1="40" y1="24" x2="40" y2="40" stroke-width="1.4" style="stroke-width:1.4;stroke-dasharray:2.5 3"/>` + line(18, 32, 32, 32, "l-sage", 2) },
+      { vname: "Starburst Coin Edge", concept: "Sixteen points pressing outward.", spec: "Fine-toothed star outline with core.", draw: () => poly(starPts(32, 32, 18, 15.5, 16), "l-ink", 1.5) + circ(32, 32, 9, "l-sage", 1.7) },
+      { vname: "Engraved Rings", concept: "Micro-engraving between two close rings.", spec: "Tight ring pair with radial micro ticks.", draw: () => circ(32, 32, 17, "l-ink", 1.8) + circ(32, 32, 14, "l-ink", 1.1) + Array.from({ length: 12 }, (_, i) => { const a = (i / 12) * TAU; const [x1, y1] = pt(32, 32, 14.5, a); const [x2, y2] = pt(32, 32, 16.5, a); return line(x1, y1, x2, y2, "l-faint", 1); }).join("") + dot(32, 32, 2.6, "l-fill-sage") },
+      { vname: "Corner Plaque", concept: "Mounted like a plaque, screws and all.", spec: "Plaque plate with corner screws and rule.", draw: () => rectR(12, 18, 40, 28, 5, "l-ink", 2) + dot(17.5, 23.5, 1.6, "l-fill-dim") + dot(46.5, 23.5, 1.6, "l-fill-dim") + dot(17.5, 40.5, 1.6, "l-fill-dim") + dot(46.5, 40.5, 1.6, "l-fill-dim") + line(20, 32, 44, 32, "l-sage", 2) },
     ],
   },
 ];
 
-// tiny local ellipse helper (used a few places above)
-function ellipse(cx, cy, rx, ry) {
-  return `<ellipse cx="${f(cx)}" cy="${f(cy)}" rx="${f(rx)}" ry="${f(ry)}" fill="${""}" stroke="${""}" class="l-sage" style="fill:none;stroke-width:1.4"/>`;
-}
-
-// ---- assemble ---------------------------------------------------------------
 let NEXT = 1;
 const LOGOS = [];
 const usedNames = new Set();
@@ -561,21 +546,24 @@ FAMILIES.forEach((fam) => {
   });
 });
 
-if (LOGOS.length !== 300) throw new Error(`Expected 300 logos, got ${LOGOS.length}`);
 const ids = new Set(LOGOS.map((l) => l.id));
-if (ids.size !== 300) throw new Error(`Duplicate ids: ${ids.size}`);
-const names = new Set(LOGOS.map((l) => l.name));
-if (names.size !== 300) throw new Error(`Duplicate names: ${names.size}`);
+if (ids.size !== 300) throw new Error(`Expected 300 logos, got ${ids.size}`);
+if (LOGOS.length !== 300) throw new Error(`Family counts sum to ${LOGOS.length}`);
+const svgSet = new Set(LOGOS.map((l) => l.svg));
+if (svgSet.size !== 300) throw new Error(`Duplicate SVGs: ${300 - svgSet.size} collisions`);
+LOGOS.forEach((l) => {
+  if (!l.svg.includes("<svg")) throw new Error(`Bad svg in ${l.name}`);
+});
+const famCounts = FAMILIES.map((fam) => ({ id: fam.id, name: fam.name, count: fam.variants.length }));
+famCounts.forEach((fc) => {
+  if (fc.count !== 20) throw new Error(`Family ${fc.id} has ${fc.count} variants`);
+});
 
 const header = `// AUTO-GENERATED by generate-logos.mjs — do not edit by hand.
-// 300 DISTINCT calm logo entries for the OmniAgent logo study.
+// 300 DISTINCT OmniAgent app-logo directions for the logo study.
 // Fields: id, name, family, familyId, concept, spec, svg.
 const LOGOS = ${JSON.stringify(LOGOS, null, 0)};
-const FAMILIES = ${JSON.stringify(
-  FAMILIES.map((f) => ({ id: f.id, name: f.name, count: f.variants.length })),
-  null,
-  0
-)};
+const FAMILIES = ${JSON.stringify(famCounts, null, 0)};
 `;
 
 const runtime = readFileSync(join(__dirname, "logos-runtime.js"), "utf8");
