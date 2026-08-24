@@ -1,6 +1,6 @@
-# OmniAgent — App Logo Study (Iteration 4)
+# Orbit — App Logo Study (Iteration 4)
 
-300 **living** marks for **OmniAgent** in the calm **paper** theme. The brief
+300 **living** marks for **Orbit** in the calm **paper** theme. The brief
 for this iteration: stop repeating flat geometric SVG, add life. The
 shortlisted DNA (hex cells, honeycomb pyramids, crossed planes, vitals
 pulses, omega tiles) is kept — but rendered with organic blobs, tapered

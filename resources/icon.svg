@@ -5,16 +5,17 @@
       <stop offset="1" stop-color="#eee5d4"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
-      <stop stop-color="#c25f3c" stop-opacity="0.14"/>
-      <stop offset="1" stop-color="#c25f3c" stop-opacity="0"/>
+      <stop stop-color="#617a68" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#617a68" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect x="88" y="88" width="848" height="848" rx="194" fill="url(#paper)"/>
   <rect x="88" y="88" width="848" height="848" rx="194" fill="url(#glow)"/>
   <rect x="88.5" y="88.5" width="847" height="847" rx="193.5" fill="none" stroke="#2b2119" stroke-opacity="0.12"/>
-  <g transform="translate(0 4) scale(13.1) translate(7.1 5.1)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="14" y="18" width="36" height="24" rx="4" stroke="#c25f3c" stroke-width="3.2"/>
-    <path d="M22 48h20" stroke="#6b5f50" stroke-width="3"/>
-    <path d="m22 26 5 4-5 4m9 0h8" stroke="#2b2119" stroke-width="3.2"/>
+  <g transform="translate(214.4 214.4) scale(6.2)" fill="none" stroke-linecap="round">
+    <ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(24 48 48)" stroke="#9eb4a1" stroke-width="4.5"/>
+    <ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(-24 48 48)" stroke="#617a68" stroke-width="5"/>
+    <circle cx="48" cy="48" r="9" fill="#46584b" stroke="none"/>
+    <circle cx="62.1" cy="28.3" r="6" fill="#9eb4a1" stroke="none"/>
   </g>
 </svg>

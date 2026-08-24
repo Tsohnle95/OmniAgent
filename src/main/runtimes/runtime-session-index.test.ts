@@ -12,7 +12,7 @@ afterEach(async () => {
 
 describe("RuntimeSessionIndex", () => {
   it("persists runtime identity across instances", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "omniagent-runtime-index-"));
+    const root = await mkdtemp(path.join(os.tmpdir(), "orbit-runtime-index-"));
     roots.push(root);
     const file = path.join(root, "sessions.json");
     const index = new RuntimeSessionIndex(file);

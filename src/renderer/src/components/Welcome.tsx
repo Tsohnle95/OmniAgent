@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import { OmniMark } from "./OmniMark";
+import { OrbitMark } from "./OrbitMark";
 import { IconArrowRight, IconCloudDownload, IconFile, IconFolder, IconFolderOpen, IconHistory } from "./icons";
 import { droppedFilePaths } from "../drop";
 import type { ProjectInfo, RuntimeID, SessionSummary } from "@shared/types";
@@ -105,9 +105,9 @@ export function Welcome(): ReactNode {
         <div className="welcome-inner">
           <section className="welcome-hero">
             <div className="welcome-mark" aria-hidden>
-              <OmniMark />
+              <OrbitMark />
             </div>
-            <h1 className="welcome-title">OmniAgent</h1>
+            <h1 className="welcome-title">Orbit</h1>
             <p className="welcome-eyebrow">Every agent. One surface.</p>
             <p className="welcome-sub">
               Open a repository, connect the agent you trust, and watch every file change

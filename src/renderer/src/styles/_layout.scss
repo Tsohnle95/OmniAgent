@@ -72,7 +72,7 @@
   color: var(--text-dim);
 }
 
-.titlebar-title .omni-mark { color: var(--accent); --omni-prompt: var(--text); --omni-ground: var(--text-dim); }
+.titlebar-title .orbit-mark { flex-shrink: 0; }
 
 .titlebar-leading-actions {
   display: flex;

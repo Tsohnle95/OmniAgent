@@ -8,9 +8,9 @@ export interface RuntimeSessionRecord extends SessionSummary {
 }
 
 function defaultPath(): string {
-  if (process.platform === "darwin") return path.join(homedir(), "Library", "Application Support", "OmniAgent", "runtime-sessions.json");
-  if (process.platform === "win32" && process.env.APPDATA) return path.join(process.env.APPDATA, "OmniAgent", "runtime-sessions.json");
-  return path.join(process.env.XDG_STATE_HOME ?? path.join(homedir(), ".local", "state"), "omniagent", "runtime-sessions.json");
+  if (process.platform === "darwin") return path.join(homedir(), "Library", "Application Support", "Orbit", "runtime-sessions.json");
+  if (process.platform === "win32" && process.env.APPDATA) return path.join(process.env.APPDATA, "Orbit", "runtime-sessions.json");
+  return path.join(process.env.XDG_STATE_HOME ?? path.join(homedir(), ".local", "state"), "orbit", "runtime-sessions.json");
 }
 
 function valid(value: unknown): value is RuntimeSessionRecord {

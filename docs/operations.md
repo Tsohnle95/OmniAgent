@@ -22,7 +22,7 @@ npm test         # Vitest unit/component tests in jsdom
 npm run test:platform # launcher tests and real Electron-hosted PTY smoke
 npm run build    # compile then launch the production app (one command)
 npm run build:compile # compile only -> out/ (no launch)
-npm run pack     # build + package a real macOS app -> release/mac/OmniAgent.app
+npm run pack     # build + package a real macOS app -> release/mac/Orbit.app
 npm run install-app # CLI equivalent of the Welcome screen Install app button
 npm run check    # typecheck, tests, docs check, and compile-only build
 npm start        # launch the existing production build with electron-vite preview
@@ -38,7 +38,7 @@ syntax. After a manual build you can also launch with `npx electron .`.
 `scripts/install-app.mjs`, which builds `out/`, packages the app with
 electron-builder (`electron-builder.yml`, `asar: false`, unpacked
 `Contents/Resources/app` layout), and ad-hoc re-signs the bundle;
-`install-app` then replaces `/Applications/OmniAgent.app` (removing any
+`install-app` then replaces `/Applications/Orbit.app` (removing any
 existing copy first, `cp -R` preserving the signature). The installed bundle is
 a live launcher: `scripts/install-app.mjs` strips the packaged `out/`,
 `node_modules/`, and `resources/` payload and replaces it with
@@ -60,7 +60,7 @@ untrusted-document IPC rejection without external network access. `npm run typec
 runs `tsc --noEmit` for both node and web configs. `npm run check` is the
 canonical local and CI verification gate.
 
-OmniAgent is macOS-first with supported development/runtime launch on macOS,
+Orbit is macOS-first with supported development/runtime launch on macOS,
 Linux, and Windows. CI runs launcher configuration tests and a real
 Electron-hosted `node-pty` input/output/exit smoke on all three. This verifies
 the native module and shell path but is not a GUI smoke test; window behavior
@@ -121,14 +121,14 @@ median or jsdom timing as a cross-machine browser benchmark.
 
 1. `which opencode2` — binary present.
 2. `npm run build` (compiles then launches) with output captured to a log:
-   `nohup npm run build > /tmp/omniagent-smoke.log 2>&1 &`
-3. After ~10s check the log for `[omniagent]` console.error lines
-   (`[omniagent] event loop error:` means the SSE subscription failed).
+   `nohup npm run build > /tmp/orbit-smoke.log 2>&1 &`
+3. After ~10s check the log for `[orbit]` console.error lines
+   (`[orbit] event loop error:` means the SSE subscription failed).
 4. Verify the backend spawned its service:
    `pgrep -fl "opencode2 serve"` and
    `lsof -nP -iTCP -sTCP:LISTEN | grep -i opencode`.
 5. On macOS, verify the Electron window is alive:
-   `pgrep -f "OmniAgent.app/Contents/MacOS/Electron"`. Use Task Manager or the
+   `pgrep -f "Orbit.app/Contents/MacOS/Electron"`. Use Task Manager or the
    platform process monitor on Windows/Linux.
 6. GUI pass (needs a human): open a folder, send a prompt, confirm the
    agent dot turns green / titlebar says "working", text streams, tool
@@ -137,11 +137,11 @@ median or jsdom timing as a cross-machine browser benchmark.
 
 ## Manual recovery
 
-OmniAgent stores save and file-rename transactions in
+Orbit stores save and file-rename transactions in
 `<workspace>/.openshell-recovery/`. Explorer and file watching intentionally
 hide this directory. Each transaction contains `manifest.json` plus one or more
 artifacts named `original`, `temporary`, `proposed`, or `source`. On
-activation, OmniAgent purges settled transactions (`complete`, `failed`,
+activation, Orbit purges settled transactions (`complete`, `failed`,
 acknowledged) older than 24 hours and interrupted ones (`source-held`,
 `held-validated`) older than 7 days. Younger artifacts are never removed
 automatically, and Acknowledge never deletes bytes on its own.
@@ -158,7 +158,7 @@ automatically, and Acknowledge never deletes bytes on its own.
 
 Activation may hard-link a held original back to a missing canonical path only
 for an interrupted `source-held` or `held-validated` transaction, where
-OmniAgent is known to have removed that path. It never overwrites an existing
+Orbit is known to have removed that path. It never overwrites an existing
 path and never replays completed, failed, or acknowledged history. If both
 canonical and recovery versions exist, manual comparison is required. Normal
 successful transactions retain their bytes but are acknowledged automatically,
@@ -210,7 +210,7 @@ call "should work" but something fails — probe the raw API.
 - Endpoints: `GET /api/model`, `GET /api/model/default`,
   `GET /api/fs/list?<query>`.
 - **Query-serialization gotcha**: nested params use bracket notation —
-  `location[directory]=/Users/ty/omniagent`. A JSON-stringified
+  `location[directory]=/Users/ty/orbit`. A JSON-stringified
   `location={"directory":...}` is rejected with
   `Expected object | undefined, got string at ["location"]`. The
   `@opencode-ai/client` does this correctly itself

@@ -54,7 +54,7 @@ function adapter(directory: string): RuntimeAdapter {
 
 describe("runtime routing", () => {
   it("keeps workspace services in core and routes agent operations by session runtime", async () => {
-    const directory = await mkdtemp(path.join(os.tmpdir(), "omniagent-runtime-"));
+    const directory = await mkdtemp(path.join(os.tmpdir(), "orbit-runtime-"));
     roots.push(directory);
     const runtime = adapter(directory);
     const backend = new OpenShellBackend(() => {}, () => runtime, new RuntimeSessionIndex(path.join(directory, "runtime-sessions.json")));

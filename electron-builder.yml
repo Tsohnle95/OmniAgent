@@ -1,5 +1,5 @@
-appId: dev.openshell.app
-productName: OmniAgent
+appId: app.orbit.desktop
+productName: Orbit
 directories:
   output: release
 files:

@@ -164,7 +164,7 @@ describe("concurrent session contexts", () => {
 
   it("repairs a session directory after its project folder is renamed", async () => {
     const parent = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-renamed-")));
-    const current = path.join(parent, "omniagent");
+    const current = path.join(parent, "orbit");
     const previous = path.join(parent, "openshell");
     await mkdir(current);
     roots.push(parent);

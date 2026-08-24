@@ -2,8 +2,8 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const MARKER_FILE = ".omniagent-live-build-failed";
-const REPO_CONFIG_FILE = ".omniagent-repo.json";
+const MARKER_FILE = ".orbit-live-build-failed";
+const REPO_CONFIG_FILE = ".orbit-repo.json";
 const SOURCE_EXTENSIONS = /\.(?:ts|tsx|js|mjs|cjs|scss|sass|css|html|json)$/;
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
@@ -92,7 +92,7 @@ function warn(message, buttons, options = {}) {
     try {
       const choice = options.dialog.showMessageBoxSync({
         type: "warning",
-        title: "OmniAgent",
+        title: "Orbit",
         message,
         buttons,
         defaultId: 0,
@@ -133,8 +133,8 @@ async function main(options = {}) {
     } else {
       fs.writeFileSync(marker, "");
       const message = previousFailure
-        ? `The automatic OmniAgent build failed again (${decision.reason}). Start the last known good build instead?`
-        : `The automatic OmniAgent build failed (${decision.reason}). Start the last known good build instead? Fix the build or delete ${MARKER_FILE} in the repository to stop seeing this prompt.`;
+        ? `The automatic Orbit build failed again (${decision.reason}). Start the last known good build instead?`
+        : `The automatic Orbit build failed (${decision.reason}). Start the last known good build instead? Fix the build or delete ${MARKER_FILE} in the repository to stop seeing this prompt.`;
       const choice = warn(message, ["Use last working build", "Quit"], { dialog });
       if (choice === 1) return 1;
     }
@@ -142,7 +142,7 @@ async function main(options = {}) {
 
   const entryPoint = path.join(projectRoot, "out", "main", "index.js");
   if (!fs.existsSync(entryPoint)) {
-    warn("No OmniAgent build exists yet and the automatic build failed.", ["Quit"], { dialog });
+    warn("No Orbit build exists yet and the automatic build failed.", ["Quit"], { dialog });
     return 1;
   }
   require(entryPoint);

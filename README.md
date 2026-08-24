@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="resources/icon.svg" width="104" alt="OmniAgent logo">
-  <h1>OmniAgent</h1>
+  <img src="resources/icon.svg" width="104" alt="Orbit logo">
+  <h1>Orbit</h1>
   <p>A desktop interface for working with coding agents, project files, diffs, and terminals.</p>
 </div>
 
-OmniAgent keeps the agent, repository, diffs, and terminal in one native
+Orbit keeps the agent, repository, diffs, and terminal in one native
 workspace. Ask for a change, follow the steps as they happen, inspect the files
 touched, and continue working without switching between several applications.
 
@@ -43,7 +43,7 @@ to keep the code in focus.
 | Monaco editor with tabs and autosave | Multiple models and concurrent panels | Permission requests and recovery flows |
 | Integrated PTY terminal | Prompt queue, attachments, and `@` context | W3C HTML/CSS validation |
 
-OmniAgent is an Electron, React, and Monaco application with a versioned runtime
+Orbit is an Electron, React, and Monaco application with a versioned runtime
 adapter boundary. It supports [`opencode2`](https://opencode.ai/v2) and the
 DeepSeek Harness `dsh` CLI; each adapter declares its capabilities so the UI
 does not offer unsupported controls. The Electron main process owns all runtime
@@ -66,7 +66,7 @@ npm install
 npm run dev
 ```
 
-Clone this repository, run those commands from its root, and OmniAgent will
+Clone this repository, run those commands from its root, and Orbit will
 discover the installed runtimes and start the selected one automatically.
 Choose a runtime and **Open a folder** on the welcome screen to begin.
 
@@ -76,11 +76,11 @@ Choose a runtime and **Open a folder** on the welcome screen to begin.
 npm run build          # compile and launch
 npm run build:compile  # compile only
 npm start              # launch the existing build
-npm run pack           # package OmniAgent.app on macOS
+npm run pack           # package Orbit.app on macOS
 ```
 
 On macOS, **Install app** on the welcome screen builds and installs
-`OmniAgent.app` into `/Applications`. The installed app is a live launcher: it
+`Orbit.app` into `/Applications`. The installed app is a live launcher: it
 keeps its own Electron runtime and icon, but loads the app from the repository,
 rebuilding automatically first when repository sources are newer than the last
 build. Clicking the Dock icon therefore always runs the latest code; a failed

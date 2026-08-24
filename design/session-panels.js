@@ -166,20 +166,20 @@ const treatments = [
 const sessions = {
   panel: {
     title: "Refine sessions panel",
-    meta: "omniagent · just now",
+    meta: "orbit · just now",
     time: "now",
     live: true,
     active: true
   },
   usage: {
     title: "Provider usage cleanup",
-    meta: "omniagent · 18m ago",
+    meta: "orbit · 18m ago",
     time: "18m",
     live: true
   },
   docs: {
     title: "Update runtime docs",
-    meta: "omniagent · yesterday",
+    meta: "orbit · yesterday",
     time: "1d"
   },
   notes: {
@@ -204,7 +204,7 @@ const sessions = {
   },
   queue: {
     title: "Tune message queue",
-    meta: "omniagent · 32m ago",
+    meta: "orbit · 32m ago",
     time: "32m",
     live: true
   }
@@ -275,7 +275,7 @@ const renderMirrorTree = (treatment) => section(
   "3",
   `
     <div class="panel-project">
-      ${projectRow("omniagent", "3", true)}
+      ${projectRow("orbit", "3", true)}
       <div class="panel-tree-children">
         ${sessionRow(sessions.panel)}
         ${sessionRow(sessions.usage)}
@@ -313,7 +313,7 @@ const renderQuietRecents = (treatment) => `
 
 const renderWorkspaceGroups = (treatment) => `
   ${section(
-    "omniagent",
+    "orbit",
     "4",
     sessionRow(sessions.panel, { icon: "file" }) + sessionRow(sessions.usage, { icon: "file" }) + sessionRow(sessions.queue, { icon: "file" }) + sessionRow(sessions.docs, { icon: "file" }),
     treatment,
@@ -365,12 +365,12 @@ const renderCompactIndex = (treatment) => section(
   `
     ${indexRow("I", sessions.search, "atlas-notes")}
     ${indexRow("P", sessions.notes, "atlas-notes")}
-    ${indexRow("P", sessions.usage, "omniagent")}
-    ${indexRow("R", sessions.panel, "omniagent")}
+    ${indexRow("P", sessions.usage, "orbit")}
+    ${indexRow("R", sessions.panel, "orbit")}
     ${indexRow("R", sessions.tokens, "quiet-web")}
     ${indexRow("S", sessions.landing, "quiet-web")}
-    ${indexRow("T", sessions.queue, "omniagent")}
-    ${indexRow("U", sessions.docs, "omniagent")}
+    ${indexRow("T", sessions.queue, "orbit")}
+    ${indexRow("U", sessions.docs, "orbit")}
   `,
   treatment,
   { action: true }
@@ -417,7 +417,7 @@ const renderProjectSwitcher = (treatment) => section(
   "3",
   `
     <div class="panel-project">
-      ${projectRow("omniagent", "4", true)}
+      ${projectRow("orbit", "4", true)}
       <div class="panel-tree-children">
         ${sessionRow(sessions.panel, { trailing: false })}
         ${sessionRow(sessions.usage, { trailing: false })}

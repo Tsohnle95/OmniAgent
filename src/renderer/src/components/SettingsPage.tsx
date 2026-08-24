@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { CommandOption } from "@shared/types";
 import { useStore } from "../store";
 import { type ThemeId, useTheme } from "../theme";
-import { OmniMark } from "./OmniMark";
+import { OrbitMark } from "./OrbitMark";
 import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
 
@@ -16,19 +16,19 @@ const themes: Array<{ id: ThemeId; name: string; description: string; colors: st
   {
     id: "original",
     name: "Original",
-    description: "OmniAgent's original warm charcoal color profile.",
+    description: "Orbit's original warm charcoal color profile.",
     colors: ["#171412", "#262220", "#e8e3dd", "#9eb4a1", "#a8a29e"]
   }
 ];
 
 const sectionCopy: Record<SettingsSection, { title: string; description: string }> = {
-  appearance: { title: "Appearance", description: "Choose how OmniAgent looks and how code is presented." },
+  appearance: { title: "Appearance", description: "Choose how Orbit looks and how code is presented." },
   plugins: { title: "Plugins", description: "Review commands and skills available in the current workspace." },
   providers: { title: "Providers", description: "Connect model services supported by your active agent runtime." },
   safety: { title: "Safety", description: "Set permission and follow-up defaults for agent behavior." },
   voice: { title: "Voice", description: "Configure voice input preferences and review availability." },
   model: { title: "Model", description: "Choose the model used by the current workspace." },
-  mobile: { title: "Mobile Setup", description: "Prepare secure access to OmniAgent from another device." },
+  mobile: { title: "Mobile Setup", description: "Prepare secure access to Orbit from another device." },
   about: { title: "About", description: "Version and product information for this installation." }
 };
 
@@ -79,9 +79,9 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
   return (
     <main className="settings-page">
       <header className="settings-page-header">
-        <div className="settings-page-brand"><OmniMark size={34} /></div>
+        <div className="settings-page-brand"><OrbitMark size={34} /></div>
         <div>
-          <p className="settings-page-kicker">OmniAgent preferences</p>
+          <p className="settings-page-kicker">Orbit preferences</p>
           <h1>{copy.title}</h1>
           <p>{copy.description}</p>
         </div>
@@ -128,7 +128,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
 
       {section === "providers" && <section className="settings-section">
         {runtime && !runtime.capabilities.providerCredentials
-          ? <div className="settings-callout"><strong>Managed by {runtime.name}</strong><p>This runtime does not expose provider credential editing through OmniAgent. Configure credentials in the runtime, then refresh its model list here.</p></div>
+          ? <div className="settings-callout"><strong>Managed by {runtime.name}</strong><p>This runtime does not expose provider credential editing through Orbit. Configure credentials in the runtime, then refresh its model list here.</p></div>
           : <ProviderSettings workspace={session?.workspace ?? null} usage={providerUsage} refreshModels={() => loadModels(session?.workspace)} />}
       </section>}
 
@@ -167,11 +167,11 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
       </section>}
 
       {section === "mobile" && <section className="settings-section">
-        <div className="settings-callout"><strong>Mobile access is not enabled.</strong><p>OmniAgent currently runs as a local desktop application. A future mobile setup flow will provide pairing and session controls without exposing the workspace directly to the network.</p></div>
+        <div className="settings-callout"><strong>Mobile access is not enabled.</strong><p>Orbit currently runs as a local desktop application. A future mobile setup flow will provide pairing and session controls without exposing the workspace directly to the network.</p></div>
       </section>}
 
       {section === "about" && <section className="settings-section">
-        <div className="settings-about"><OmniMark size={72} /><div><h2>OmniAgent</h2><p>Version 0.1.0</p><small>A native desktop cockpit for coding agents.</small></div></div>
+        <div className="settings-about"><OrbitMark size={72} /><div><h2>Orbit</h2><p>Version 0.1.0</p><small>A native desktop cockpit for coding agents.</small></div></div>
       </section>}
     </main>
   );

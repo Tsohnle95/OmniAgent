@@ -97,7 +97,7 @@ Public methods (all used by IPC):
 | `runtimeManifests()` | Probes installed runtimes and returns protocol-versioned, secret-free capability manifests for OpenCode and DeepSeek Harness |
 
 Provider usage (`providerUsage()`): the opencode service exposes no
-provider plan/rate-limit API yet, so OmniAgent reads the credentials
+provider plan/rate-limit API yet, so Orbit reads the credentials
 opencode persists — OAuth entries from `~/.local/share/opencode/auth.json`
 (plus the desktop-app location) and JSON-encoded credentials from the
 `account` / `credential` tables of `opencode.db` (V2 rows carry
@@ -145,7 +145,7 @@ Internals:
   days (`SESSION_RETENTION_MS` in `@shared/retention`). Conversation-less
   sessions (no title and zero token usage — e.g. workspaces opened but never
   prompted) are deleted after only 24 hours (`EMPTY_SESSION_RETENTION_MS`) so
-  auto-created empties never accumulate. Sessions currently open in OmniAgent
+  auto-created empties never accumulate. Sessions currently open in Orbit
   and sessions with unknown timestamps are never deleted; per-session removal
   failures are skipped. `listSessions` applies the same 30-day window and
   additionally hides never-prompted sessions, so they cannot crowd real history
@@ -166,7 +166,7 @@ Internals:
 - Recovery transactions live under `.openshell-recovery/<timestamp>-<uuid>`.
   Atomically replaced, fsynced manifests record save/rename phase and
   acknowledgment state. Activation reconciles only `source-held` and
-  `held-validated` interrupted transactions, where OmniAgent is known to have
+  `held-validated` interrupted transactions, where Orbit is known to have
   removed the canonical pathname, and hard-links the held original only when
   that pathname remains missing. Completed, failed, and acknowledged history
   never replays. After reconciliation, a best-effort retention purge removes
@@ -234,7 +234,7 @@ Internals:
 | `shell:provider-key-connect` | `(workspace, integrationID, key, label, answers) → void` — validates and forwards a write-only provider key and bounded form answers |
 | `shell:provider-credential-remove` | `(workspace, credentialID) → void` — removes a stored credential by opaque id |
 | `shell:health` | `() → boolean` |
-| `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/OmniAgent.app` |
+| `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/Orbit.app` |
 | `shell:validate-w3c` | `(path, content) → W3cDiagnostic[]`; calls the Nu Html Checker or W3C CSS Validator for HTML and plain CSS paths; preprocessor stylesheets (SCSS, LESS, Sass) return no diagnostics |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend
@@ -257,23 +257,23 @@ Windows/Linux and via `app.dock.setIcon` on macOS; the window flash
 background is the warm `#161410`. On macOS, `npm run dev` and `npm start`
 use `scripts/launch.mjs` to run
 `scripts/make-dev-app.mjs`, which copies
-`node_modules/electron/dist/Electron.app` to `dev/OmniAgent.app`
-(gitignored), patches its Info.plist (name "OmniAgent", icon.icns,
+`node_modules/electron/dist/Electron.app` to `dev/Orbit.app`
+(gitignored), patches its Info.plist (name "Orbit", icon.icns,
 `dev.openshell.app` id) and ad-hoc re-signs it. The launcher then
 points electron-vite at that bundle via `ELECTRON_EXEC_PATH` so the dock
 shows the real name and icon instead of Electron's defaults. Linux and Windows
 skip bundle preparation and use plain Electron. Production packaging uses the
 same brand: `npm run pack` (or the Welcome screen's Install app button on
 macOS, only when the app is unpackaged) runs `scripts/install-app.mjs`, which
-builds `out/`, packages `release/mac/OmniAgent.app` with electron-builder
+builds `out/`, packages `release/mac/Orbit.app` with electron-builder
 (`electron-builder.yml`; `asar: false` keeps the unpacked `app/` layout so
 the trusted packaged document stays exactly
-`file://…/OmniAgent.app/Contents/Resources/app/out/renderer/index.html`),
+`file://…/Orbit.app/Contents/Resources/app/out/renderer/index.html`),
 ad-hoc re-signs the bundle, and — for the install flow — replaces
-`/Applications/OmniAgent.app` with `cp -R`, preserving the signature. The
+`/Applications/Orbit.app` with `cp -R`, preserving the signature. The
 packaged payload is then swapped for the live launcher
 (`scripts/live-launcher.cjs` plus a minimal `package.json` and a gitignored
-`.omniagent-repo.json` recording the repository path and Node binary), so the
+`.orbit-repo.json` recording the repository path and Node binary), so the
 installed
 app keeps its Electron runtime and icon but always runs the repository's
 latest build, silently auto-rebuilding first when sources are newer than
@@ -323,7 +323,7 @@ using a contained absolute pathname verbatim, e.g. Vite's absolute served paths)
 falling back to a basename search that skips `node_modules`, `out`,
 `dist`, etc. — both the direct and the searched resolution skip known
 build-output directories so a hashed bundle is never opened as if it
-were source. DevTools always inspects OmniAgent's own renderer, so resolution
+were source. DevTools always inspects Orbit's own renderer, so resolution
 is confined to the canonical application directory and never searches the
 active user workspace. The command carries the canonical absolute path; the
 renderer opens it through the external-file workflow as a writable standalone

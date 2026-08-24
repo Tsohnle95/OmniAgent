@@ -30,7 +30,7 @@ loader.config({ monaco });
 emmetHTML(monaco, ["html"]);
 emmetCSS(monaco, ["css", "scss", "less"]);
 
-monaco.editor.defineTheme("omniagent-original", {
+monaco.editor.defineTheme("orbit-original", {
   base: "vs-dark",
   inherit: true,
   rules: [
@@ -61,7 +61,7 @@ monaco.editor.defineTheme("omniagent-original", {
   }
 });
 
-monaco.editor.defineTheme("omniagent-paper", {
+monaco.editor.defineTheme("orbit-paper", {
   base: "vs",
   inherit: true,
   rules: [

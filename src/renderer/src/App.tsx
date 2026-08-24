@@ -9,7 +9,7 @@ import { AgentPanel } from "./components/AgentPanel";
 import { TerminalTray } from "./components/TerminalTray";
 import { RecoveryNotice } from "./components/RecoveryNotice";
 import { StatusBar } from "./components/StatusBar";
-import { OmniMark } from "./components/OmniMark";
+import { OrbitMark } from "./components/OrbitMark";
 import { SettingsPage } from "./components/SettingsPage";
 import { SettingsSidebar, type SettingsSection } from "./components/SettingsSidebar";
 import { ThemeProvider } from "./theme";
@@ -659,7 +659,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             <IconSidebarLeft />
           </button>
         </span>
-        <span className="titlebar-title"><OmniMark size={16} />OmniAgent</span>
+        <span className="titlebar-title"><OrbitMark size={16} />Orbit</span>
         <span className="titlebar-actions">
           {inAgentMode && (
             <button

@@ -345,7 +345,7 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
             consecutiveFailures += 1;
             if (!streamErrorLogged) {
               streamErrorLogged = true;
-              console.error("[omniagent] stream failed", error);
+              console.error("[orbit] stream failed", error);
             }
             const reason = typeof error === "object" && error !== null
               ? stringField((error as { message?: unknown }).message)

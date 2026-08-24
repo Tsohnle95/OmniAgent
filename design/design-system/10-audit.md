@@ -8,8 +8,8 @@ This note records where the **current shipped Paper system** inherits from, dive
 
 ## 1. What is authoritative today
 
-- **Name — `OmniAgent`** (`package.json:5`) — `omniagent`, `OneAGI/omniagent`. The welcome header, titlebar, and docs all say OmniAgent.
-- **Default theme — `paper`** (`_foundation.scss:72` + `src/renderer/src/theme.tsx:10` → persisted as `omniagent.theme`, default fallback `"paper"`). The OS dark variant is the *alternate* (`"original"`).
+- **Name — `Orbit`** (`package.json:5`) — `orbit`, `OneAGI/orbit`. The welcome header, titlebar, and docs all say Orbit.
+- **Default theme — `paper`** (`_foundation.scss:72` + `src/renderer/src/theme.tsx:10` → persisted as `orbit.theme`, default fallback `"paper"`). The OS dark variant is the *alternate* (`"original"`).
 - **Accent — sage** `original #9eb4a1 · paper #617a68` (`_foundation.scss:41 + :109`). All hover/active washes, pill fills, focus rings, activity pulses, and the `OmniMark` outer stroke are sage.
 - **Mark — `OmniMark.tsx:3`** (`36×24 rx 4 window + _> prompt`) — drawn at `stroke 3.2 round`, `rx 4`, ground at `opacity 0.65`. The in-app mark now paints sage-compliant (`color: var(--accent)`).
 
@@ -32,7 +32,7 @@ Because these are the *experienced* truth, **this folder treats sage as the only
 
 | Path | Content | Palette | Relation to ship |
 |---|---|---|---|
-| `rebrand.md:1` | `100 name directions` + `top 10 shortlist (Patchbay, Harness, Roundhouse, Helm …)` + explicit thesis *"The GUI is the constant. The agent is the plugin."* | none (names) | **Historic but live intel.** The naming thesis is the same one OmniAgent executes ("runtime adapters"). Names like `Harness`/`Roundhouse`/`Helm` are still being considered for a public re-rename — the logo families in `design/logos` can be read against them. |
+| `rebrand.md:1` | `100 name directions` + `top 10 shortlist (Patchbay, Harness, Roundhouse, Helm …)` + explicit thesis *"The GUI is the constant. The agent is the plugin."* | none (names) | **Historic but live intel.** The naming thesis is the same one Orbit executes ("runtime adapters"). Names like `Harness`/`Roundhouse`/`Helm` are still being considered for a public re-rename — the logo families in `design/logos` can be read against them. |
 | `logo.html:1` | `100 tile marks` (dark bg `#171310` + burnt-clay `--accent: #e8875f` + `radial accent 7%`). | Burnt-clay `#e8875f / #c25f3c` | **Closed exploration.** Dark-ground, ember-brightwards, deliberately warm-industrial. The shipped Paper system intentionally moved **away** from this — cool-sage replacing burnt-clay — because the paper surface lets sage read warm on its own. Carry the tile explorations as mood, not as spec. |
 | `app-redesign-*.html` ×5, `landing-design-*.html` ×5, `landing.html`, `animation2.html` under `redesign/output/` | Early layout/marketing mock boards (contain ragged experimental palettes including clay oranges). | mixed | Non-authoritative. Keep for reference, do not sync tokens to them. |
 
@@ -63,7 +63,7 @@ Because these are the *experienced* truth, **this folder treats sage as the only
 
 ## 6. Intended vs accidental drift — lore snippet
 
-The **OpenShell → OmniAgent** move was a *runtime adapter* story — `rebrand.md:2` opens *"Today OpenShell is welded to one power source: opencode2."* — but the rebrand did not yet commit to a new name or a new icon; the shortlist spans socket stories (`Junction`, `Manifold`, `Conduit`), harness stories (`Harness`, `Byssus`), and home stories (`Hearth`, `Roundhouse`).
+The **OpenShell → Orbit** move was a *runtime adapter* story — `rebrand.md:2` opens *"Today OpenShell is welded to one power source: opencode2."* — but the rebrand did not yet commit to a new name or a new icon; the shortlist spans socket stories (`Junction`, `Manifold`, `Conduit`), harness stories (`Harness`, `Byssus`), and home stories (`Hearth`, `Roundhouse`).
 
 The design-language move happened in parallel and was intentional: when the Paper theme became the default (`ThemeProvider: default "paper"` in `theme.tsx:16`), the palette migrated from *"ember on ink"* (dark `#171310` + `#e8875f`) to *"sage on parchment"* (warm `#fbf7ec` + `#617a68`) so the default surface felt like paper rather than cardboard. The dark `original` theme preserved a cooled version of the same sage (`#9eb4a1`) rather than keeping the ember (`#c25f3c`) — proof that the ember→sage was a palette decision, not just a light-mode tweak.
 

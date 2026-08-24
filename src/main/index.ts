@@ -181,7 +181,7 @@ function createWindow(show = true): BrowserWindow {
     height: 920,
     minWidth: 200,
     minHeight: 640,
-    title: "OmniAgent",
+    title: "Orbit",
     icon: appIconPath,
     backgroundColor: "#161410",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
@@ -206,10 +206,10 @@ function createWindow(show = true): BrowserWindow {
   wc.on("console-message", (event) => {
     console.log(`[renderer:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`);
   });
-  newWin.on("unresponsive", () => console.warn("[omniagent] renderer is unresponsive"));
+  newWin.on("unresponsive", () => console.warn("[orbit] renderer is unresponsive"));
   let lastRendererReload = 0;
   wc.on("render-process-gone", (_event, details) => {
-    console.error("[omniagent] renderer process gone:", details.reason, details.exitCode);
+    console.error("[orbit] renderer process gone:", details.reason, details.exitCode);
     if (newWin.isDestroyed() || Date.now() - lastRendererReload < 10_000) return;
     lastRendererReload = Date.now();
     wc.reload();
@@ -408,7 +408,7 @@ async function runTrustBoundarySmoke(): Promise<void> {
 
 async function installApplication(): Promise<{ ok: boolean; message: string }> {
   if (process.platform !== "darwin") return { ok: false, message: "Install app is macOS-only" };
-  if (app.isPackaged) return { ok: false, message: "OmniAgent is already running as a packaged app" };
+  if (app.isPackaged) return { ok: false, message: "Orbit is already running as a packaged app" };
   const script = path.join(app.getAppPath(), "scripts", "install-app.mjs");
   const run = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(process.execPath, [script], {
@@ -755,7 +755,7 @@ function registerIpc(): void {
 }
 
 if (!app.requestSingleInstanceLock()) {
-  console.log("[omniagent] another instance is already running — exiting; the running instance will open or focus its window");
+  console.log("[orbit] another instance is already running — exiting; the running instance will open or focus its window");
   app.quit();
 } else {
   process.on("uncaughtException", (err) => {
@@ -775,7 +775,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    app.setName("OmniAgent");
+    app.setName("Orbit");
     if (process.platform === "darwin") {
       try {
         app.dock?.setIcon(appIconPath);

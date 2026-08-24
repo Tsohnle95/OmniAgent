@@ -7,7 +7,7 @@ interface ThemeContextValue {
   setTheme: (theme: ThemeId) => void;
 }
 
-const THEME_KEY = "omniagent.theme";
+const THEME_KEY = "orbit.theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function storedTheme(): ThemeId {

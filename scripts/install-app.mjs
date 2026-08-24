@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { REPO_CONFIG_FILE } from "./live-launcher.cjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const APP_NAME = "OmniAgent.app";
+const APP_NAME = "Orbit.app";
 
 function findBuiltApp(projectRoot, exists, readdir) {
   const release = path.join(projectRoot, "release");
@@ -20,8 +20,8 @@ function findBuiltApp(projectRoot, exists, readdir) {
 export function liveLauncherPayload(projectRoot) {
   return {
     packageJson: JSON.stringify({
-      name: "omniagent",
-      productName: "OmniAgent",
+      name: "orbit",
+      productName: "Orbit",
       version: "0.1.0",
       private: true,
       main: "live-launcher.cjs"
@@ -83,7 +83,7 @@ export function installApp(options = {}) {
 
   const built = findBuiltApp(projectRoot, exists, readdir);
   if (!built) {
-    return { ok: false, message: "Packaging did not produce an OmniAgent.app bundle under release/" };
+    return { ok: false, message: "Packaging did not produce an Orbit.app bundle under release/" };
   }
 
   applyLiveLauncher(built, projectRoot, options.liveLauncherIo);
@@ -97,7 +97,7 @@ export function installApp(options = {}) {
   if (exists(destination)) rm(destination, { recursive: true, force: true });
   run("cp", ["-R", built, destination]);
 
-  return { ok: true, message: `Installed OmniAgent to ${destination}` };
+  return { ok: true, message: `Installed Orbit to ${destination}` };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -1,7 +1,7 @@
-# OmniAgent Design System
+# Orbit Design System
 
 > **Source version:** `src/renderer/src/styles/_foundation.scss:1` + `main.scss:1` (5328 lines across 16 partials)
-> **Themes:** `original` (dark) + `paper` (light, default) — toggled via `src/renderer/src/theme.tsx:10` (`document.documentElement.dataset.theme`, persisted as `omniagent.theme` in localStorage)
+> **Themes:** `original` (dark) + `paper` (light, default) — toggled via `src/renderer/src/theme.tsx:10` (`document.documentElement.dataset.theme`, persisted as `orbit.theme` in localStorage)
 > **Brand mark:** `src/renderer/src/components/OmniMark.tsx:3`
 
 This folder is the authoritative field guide to the current calm design language. Every token, component, and rule below is traced to its source file and line. The system is informally called **Paper / Calm** — warm parchment surfaces, muted sage, no harsh contrasts, generous radius, soft shadows, system type.
@@ -88,7 +88,7 @@ The full tables live in `01-tokens.md`.
 
 ```tsx
 // src/renderer/src/theme.tsx:10
-export type ThemeId = "original" | "paper";          // stored as "omniagent.theme"
+export type ThemeId = "original" | "paper";          // stored as "orbit.theme"
 document.documentElement.dataset.theme = theme;       // :root[data-theme="paper"] overrides :root
 ```
 

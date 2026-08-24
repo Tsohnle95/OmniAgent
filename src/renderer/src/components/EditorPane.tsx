@@ -5,7 +5,7 @@ import { languageForPath } from "../monaco";
 import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
-import { OmniMark } from "./OmniMark";
+import { OrbitMark } from "./OrbitMark";
 import { useTheme } from "../theme";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
@@ -176,8 +176,8 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         <div className="conflict-banner">
           <span>
             {tab.conflict.deleted
-              ? "This file was deleted outside OmniAgent. Your edits are safe and saving is paused."
-              : "This file changed outside OmniAgent. Your edits are safe and saving is paused."}
+              ? "This file was deleted outside Orbit. Your edits are safe and saving is paused."
+              : "This file changed outside Orbit. Your edits are safe and saving is paused."}
           </span>
           <div className="conflict-actions">
             <button onClick={() => reloadTab(tab.path)}>Reload disk version</button>
@@ -193,7 +193,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 
       {mode === "diff" ? (
         <DiffEditor
-          theme={theme === "paper" ? "omniagent-paper" : "omniagent-original"}
+          theme={theme === "paper" ? "orbit-paper" : "orbit-original"}
           language={language}
           original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
@@ -210,7 +210,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         />
       ) : (
         <Editor
-          theme={theme === "paper" ? "omniagent-paper" : "omniagent-original"}
+          theme={theme === "paper" ? "orbit-paper" : "orbit-original"}
           language={language}
           path={tab.path}
           value={tab.content}
@@ -263,7 +263,7 @@ export function EditorPane(): ReactNode {
       {tabs.length === 0 ? (
         <div className="editor-empty">
           <div className="editor-empty-icon">
-            <OmniMark size={40} />
+            <OrbitMark size={40} />
           </div>
           <p>Select a file from the explorer to view or edit it.</p>
           <p className="editor-empty-sub">

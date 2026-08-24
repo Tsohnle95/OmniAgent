@@ -18,7 +18,7 @@ afterEach(async () => {
 
 describe("resolveAppSource", () => {
   it("resolves an absolute source only inside the application root", async () => {
-    const appRoot = await tempRoot("omniagent-source");
+    const appRoot = await tempRoot("orbit-source");
     const source = path.join(appRoot, "src/renderer/styles/main.scss");
     await mkdir(path.dirname(source), { recursive: true });
     await writeFile(source, ".root {}", "utf8");
@@ -27,7 +27,7 @@ describe("resolveAppSource", () => {
   });
 
   it("rejects an absolute source from an unrelated workspace", async () => {
-    const appRoot = await tempRoot("omniagent-source");
+    const appRoot = await tempRoot("orbit-source");
     const workspace = await tempRoot("unrelated-workspace");
     const source = path.join(workspace, "private.scss");
     await writeFile(source, ".private {}", "utf8");
@@ -36,7 +36,7 @@ describe("resolveAppSource", () => {
   });
 
   it("maps a development server URL into the application source tree", async () => {
-    const appRoot = await tempRoot("omniagent-source");
+    const appRoot = await tempRoot("orbit-source");
     const source = path.join(appRoot, "src/renderer/styles/main.scss");
     await mkdir(path.dirname(source), { recursive: true });
     await writeFile(source, ".root {}", "utf8");
@@ -46,7 +46,7 @@ describe("resolveAppSource", () => {
   });
 
   it("rejects a source symlink that leaves the application root", async () => {
-    const appRoot = await tempRoot("omniagent-source");
+    const appRoot = await tempRoot("orbit-source");
     const outside = await tempRoot("outside-source");
     const target = path.join(outside, "outside.scss");
     const source = path.join(appRoot, "linked.scss");

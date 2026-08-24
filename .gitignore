@@ -1,9 +1,10 @@
 node_modules/
 out/
 dist/
-dev/
-build/
-release/
+/dev/
+/build/
+/release/
+mobile/app/build/
 *.log
 *.tsbuildinfo
 .DS_Store
@@ -13,3 +14,5 @@ TODO.md
 redesign
 .omniagent-repo.json
 .omniagent-live-build-failed
+.orbit-repo.json
+.orbit-live-build-failed

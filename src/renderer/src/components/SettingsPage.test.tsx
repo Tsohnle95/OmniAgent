@@ -55,7 +55,7 @@ describe("SettingsPage", () => {
 
     act(() => cards[1].click());
     expect(document.documentElement.dataset.theme).toBe("original");
-    expect(window.localStorage.getItem("omniagent.theme")).toBe("original");
+    expect(window.localStorage.getItem("orbit.theme")).toBe("original");
     expect(cards[1].getAttribute("aria-checked")).toBe("true");
   });
 

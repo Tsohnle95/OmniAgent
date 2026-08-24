@@ -60,7 +60,7 @@ function pagedClient(pages: Array<{ data: RawSession[]; next?: string | null }>,
 }
 
 async function fixture(client: unknown): Promise<OpenShellBackend> {
-  const root = await mkdtemp(path.join(tmpdir(), "omniagent-retention-index-"));
+  const root = await mkdtemp(path.join(tmpdir(), "orbit-retention-index-"));
   roots.push(root);
   const backend = new OpenShellBackend(
     () => {},

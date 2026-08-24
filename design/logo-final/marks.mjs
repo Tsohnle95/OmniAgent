@@ -1,4 +1,4 @@
-// Hand-refined OmniAgent logo finalists, distilled from the iteration-4
+// Hand-refined Orbit logo finalists, distilled from the iteration-4
 // shortlist (atomic-orbits family plus infinity ribbon and drift pair).
 // Each mark is authored on a 96-grid with fixed optical weights:
 // primary orbit 5, secondary orbit 4-4.5, core radius 8-10, electrons 5.5-6.

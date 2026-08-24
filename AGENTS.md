@@ -1,6 +1,6 @@
-# OmniAgent — Agent Guide
+# Orbit — Agent Guide
 
-OmniAgent is a VS Code-style desktop GUI for coding agents: an Electron + React
+Orbit is a VS Code-style desktop GUI for coding agents: an Electron + React
 + Monaco app that opens a repository, routes prompts through capability-aware
 runtime adapters, streams the agent's progress, and shows live per-file diffs
 of workspace file changes observed during the active session. Built-in runtime
@@ -18,7 +18,7 @@ npm run typecheck  # tsc --noEmit for node + web configs
 npm test           # Vitest unit/component tests in jsdom
 npm run build      # compile then launch the production app (one command)
 npm run build:compile  # compile only -> out/
-npm run pack       # build + package installable OmniAgent.app (macOS) -> release/
+npm run pack       # build + package installable Orbit.app (macOS) -> release/
 npm run check      # canonical verification gate
 npm start          # run the existing production build without rebuilding
 ```

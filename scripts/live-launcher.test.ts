@@ -9,7 +9,7 @@ import { MARKER_FILE, REPO_CONFIG_FILE, decideLaunch, resolveRepository } from "
 const repoRoot = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "..");
 
 function makeFixture() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "omniagent-live-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "orbit-live-"));
   mkdirSync(path.join(root, "src", "main"), { recursive: true });
   writeFileSync(path.join(root, "src", "main", "index.ts"), "export {};\n");
   return root;
@@ -71,7 +71,7 @@ describe("live launcher build decision", () => {
 describe("live launcher payload", () => {
   it("replaces the packaged payload with the repository-backed launcher", () => {
     const fixture = makeFixture();
-    const bundle = mkdtempSync(path.join(os.tmpdir(), "omniagent-bundle-"));
+    const bundle = mkdtempSync(path.join(os.tmpdir(), "orbit-bundle-"));
     try {
       const appDir = path.join(bundle, "Contents", "Resources", "app");
       mkdirSync(path.join(appDir, "out", "main"), { recursive: true });

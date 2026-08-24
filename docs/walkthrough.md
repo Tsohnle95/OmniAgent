@@ -1,6 +1,6 @@
 # Walkthrough: how the pieces connect
 
-This is a guided tour of OmniAgent's wiring. It starts at boot and follows
+This is a guided tour of Orbit's wiring. It starts at boot and follows
 every user flow across the three processes — renderer, preload, main — and
 out to the opencode2 service, pointing at the exact files where each
 connection lives. `docs/architecture.md` is the static system overview;
@@ -226,7 +226,7 @@ catalogs (location = session directory) and the current pick via
 `modelDefault()`, seeded live by `session.model.selected`. Switching calls
 `session.switchModel` / `session.switchAgent` for the active session only;
 choices are session-scoped, so a new session starts on opencode's configured
-defaults rather than a saved OmniAgent preference.
+defaults rather than a saved Orbit preference.
 Reopening a session restores the *session's* picks via
 `sessionSelection()` → `session.get`.
 
