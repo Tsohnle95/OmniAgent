@@ -1,10 +1,11 @@
-# OmniAgent — App Logo Study (Iteration 3)
+# OmniAgent — App Logo Study (Iteration 4)
 
-300 marks for **OmniAgent** in the calm **paper** theme, distilled from the
-iteration-2 shortlist. The convergence was unambiguous — **Circuit Hex II**,
-**Honeycomb Bold**, and the omegas — so this iteration fuses them into one
-brand language: the omega set in hexagonal circuit geometry, supported by
-honeycomb fields, code glyphs, hub pads, resistors, and crossed orbits.
+300 **living** marks for **OmniAgent** in the calm **paper** theme. The brief
+for this iteration: stop repeating flat geometric SVG, add life. The
+shortlisted DNA (hex cells, honeycomb pyramids, crossed planes, vitals
+pulses, omega tiles) is kept — but rendered with organic blobs, tapered
+ribbons, isometric tone-shaded prisms, brush-weight letterforms, mitosis
+stories, vines, creatures, and waves.
 
 This is a study, not a brand decision. Every mark is a separate idea so the
 set can be browsed, compared, and shortlisted.
@@ -27,21 +28,21 @@ script holding both the 300-entry dataset and the gallery runtime).
 
 | # | Family | Territory |
 |---|---|---|
-| 1 | **Hex Core Badges** | Circuit Hex II refined — pads, traces, bores, rivets. |
-| 2 | **Omega Hex Fusion** | Ω set into hexes: wired, cut, stacked, crowned. |
-| 3 | **Honeycomb Fields** | Honeycomb Bold expanded — trios, rings, pyramids, flowers. |
-| 4 | **Omega Solo Marks** | The letter alone: weights, serifs, terminals, frames. |
-| 5 | **Omega Tiles III** | Your omega tiles refined — cuts, splits, orbits. |
-| 6 | **Trace & Pad** | Hub Pad II and Load Resistor territory — routes and contacts. |
-| 7 | **Heavy Hex Rings** | Hex Nut Heavy deepened — nuts, washers, flanges, plugs. |
-| 8 | **Bracket Icons III** | Self Closing II, Nested Braces II, Lone Angle II, Vessel Braces. |
-| 9 | **Omega Markup** | Ω in code context: `<Ω>`, `{Ω}`, `Ω_`, `Ω =`. |
-| 10 | **Hex Networks** | Emphasis Orbit Nodes on the hex grid — meshes and relays. |
-| 11 | **Crossed Orbits III** | Crossed Planes refined — gyroscopes, eclipses, perigees. |
-| 12 | **Resonant Hex** | Broadcasts, radar, vitals contained in cells. |
-| 13 | **Cut Light Tiles** | Solid tiles with stair, terrace, keyhole, bolt cuts. |
-| 14 | **Stacked Cells** | Honeycomb depth — towers, totems, cascades. |
-| 15 | **Emblem Lockups** | Final-logo composites: badge + wordmark bars + baseline. |
+| 1 | **Atomic Orbits** | Crossed Planes evolved — electrons, tails, precession. |
+| 2 | **Hive Prisms** | Your hexes and pyramid patches in 3D tone-shaded form. |
+| 3 | **Ribbon Flow** | Tapered bezier ribbons weaving, looping, pouring. |
+| 4 | **Living Cells** | Organic blobs — mitosis, buds, vacuoles, colonies. |
+| 5 | **Pulse Rivers** | Round Vitals grown into rivers of signal. |
+| 6 | **Orbit Systems** | Moons, shepherds, slingshots, terminators. |
+| 7 | **Brush Omega** | The omega hand-brushed — blobs, drips, whisk tails. |
+| 8 | **Agent Creatures** | Charming blob characters with eyes and moods. |
+| 9 | **Vine Networks** | Nodes linked by stems, tendrils, and leaves. |
+| 10 | **Living Stones** | Wobbling organic cairns and balanced pairs. |
+| 11 | **Mitosis Stories** | Division as narrative — pinch, snap, drift, reunion. |
+| 12 | **Wave Layers** | Crests, swells, aurora ribbons, dunes, rain. |
+| 13 | **Flowing Constellations** | Nodes joined by curves instead of straight lines. |
+| 14 | **Wild Hexes** | Hand-drawn wobbly hexes with moss, sprouts, honey. |
+| 15 | **Living Tiles** | Icon tiles with organic cutouts — leaf, wave, bloom. |
 
 ## The data
 
