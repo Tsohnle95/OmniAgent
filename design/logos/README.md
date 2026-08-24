@@ -1,11 +1,10 @@
-# OmniAgent — App Logo Study (Iteration 2)
+# OmniAgent — App Logo Study (Iteration 3)
 
-300 brand-grade logo marks for **OmniAgent** in the calm **paper** theme.
-This iteration is distilled from the 24 shortlisted favorites of iteration 1:
-omega letterforms, solid negative-space tiles, circuit/hex badges, node
-networks, code glyphs, signals, and terraced steps — rebuilt with brand
-discipline: solid silhouettes, contained compositions, two-tone ink/sage,
-generous stroke weights.
+300 marks for **OmniAgent** in the calm **paper** theme, distilled from the
+iteration-2 shortlist. The convergence was unambiguous — **Circuit Hex II**,
+**Honeycomb Bold**, and the omegas — so this iteration fuses them into one
+brand language: the omega set in hexagonal circuit geometry, supported by
+honeycomb fields, code glyphs, hub pads, resistors, and crossed orbits.
 
 This is a study, not a brand decision. Every mark is a separate idea so the
 set can be browsed, compared, and shortlisted.
@@ -28,21 +27,21 @@ script holding both the 300-entry dataset and the gallery runtime).
 
 | # | Family | Territory |
 |---|---|---|
-| 1 | **Omega Identity** | Ω as the hero letter — coins, slabs, monoliths, crests. |
-| 2 | **Omega Fusion** | Ω fused with meshes, circuits, orbits, prompts, shields. |
-| 3 | **Solid Tiles** | Full-bleed squircles with bold paper cutouts. |
-| 4 | **Disc Emblems** | Solid circular marks with channels, bites, and voids. |
-| 5 | **Agent Networks** | Meshes, pyramids, triads, hubs — the orchestration graph. |
-| 6 | **Flow & Merge** | Rails converging, braiding, forking through nodes. |
-| 7 | **Circuit Badges** | Hexes, dies, traces, pads, coils — engineering heraldry. |
-| 8 | **Code Glyphs** | `</>`, braces, angles, semicolons at brand weight. |
-| 9 | **Prompt Icons** | Chevrons, cursors, run keys, return arrows. |
-| 10 | **Signal & Pulse** | Heartbeats, broadcasts, radar, sonar. |
-| 11 | **Steps & Strata** | Terraces, ziggurats, ramps, podiums — visible progress. |
-| 12 | **Orbit & Eclipse** | Rings, satellites, eclipses, closest approaches. |
-| 13 | **Solid Initials** | O / A / Ω as filled letterforms with cut counters. |
-| 14 | **Shield Crests** | Shields, medals, plaques, gates, wax seals. |
-| 15 | **Monogram Tiles** | Ω / OA set into tiles — the icon-ready lockups. |
+| 1 | **Hex Core Badges** | Circuit Hex II refined — pads, traces, bores, rivets. |
+| 2 | **Omega Hex Fusion** | Ω set into hexes: wired, cut, stacked, crowned. |
+| 3 | **Honeycomb Fields** | Honeycomb Bold expanded — trios, rings, pyramids, flowers. |
+| 4 | **Omega Solo Marks** | The letter alone: weights, serifs, terminals, frames. |
+| 5 | **Omega Tiles III** | Your omega tiles refined — cuts, splits, orbits. |
+| 6 | **Trace & Pad** | Hub Pad II and Load Resistor territory — routes and contacts. |
+| 7 | **Heavy Hex Rings** | Hex Nut Heavy deepened — nuts, washers, flanges, plugs. |
+| 8 | **Bracket Icons III** | Self Closing II, Nested Braces II, Lone Angle II, Vessel Braces. |
+| 9 | **Omega Markup** | Ω in code context: `<Ω>`, `{Ω}`, `Ω_`, `Ω =`. |
+| 10 | **Hex Networks** | Emphasis Orbit Nodes on the hex grid — meshes and relays. |
+| 11 | **Crossed Orbits III** | Crossed Planes refined — gyroscopes, eclipses, perigees. |
+| 12 | **Resonant Hex** | Broadcasts, radar, vitals contained in cells. |
+| 13 | **Cut Light Tiles** | Solid tiles with stair, terrace, keyhole, bolt cuts. |
+| 14 | **Stacked Cells** | Honeycomb depth — towers, totems, cascades. |
+| 15 | **Emblem Lockups** | Final-logo composites: badge + wordmark bars + baseline. |
 
 ## The data
 
