@@ -1,10 +1,11 @@
-# OmniAgent — App Logo Study
+# OmniAgent — App Logo Study (Iteration 2)
 
-300 distinct, app-ready logo directions for **OmniAgent**, constrained to the
-calm **paper** theme: muted sage and beige, soft geometry, negative space.
-Every mark is built around what the product actually is — the OA identity,
-agents orbiting a coordinator, the terminal prompt, code and diff glyphs — so
-shortlisted marks can go straight into an app icon or wordmark.
+300 brand-grade logo marks for **OmniAgent** in the calm **paper** theme.
+This iteration is distilled from the 24 shortlisted favorites of iteration 1:
+omega letterforms, solid negative-space tiles, circuit/hex badges, node
+networks, code glyphs, signals, and terraced steps — rebuilt with brand
+discipline: solid silhouettes, contained compositions, two-tone ink/sage,
+generous stroke weights.
 
 This is a study, not a brand decision. Every mark is a separate idea so the
 set can be browsed, compared, and shortlisted.
@@ -27,21 +28,21 @@ script holding both the 300-entry dataset and the gallery runtime).
 
 | # | Family | Territory |
 |---|---|---|
-| 1 | **OA Monogram** | O and A interlocked, stacked, punched, ligated. |
-| 2 | **App Icon Tiles** | Full-bleed squircle tiles ready for the Dock. |
-| 3 | **Orbit / Omni** | Cores with rings and satellites — "all-around" agents. |
-| 4 | **Terminal Prompt** | `>_`, cursors, chevrons, shell windows. |
-| 5 | **Code & Brackets** | Angle/curly/square brackets, lambdas, semicolons. |
-| 6 | **Diff & Merge** | Add/remove chips, branches, merges, commit rails. |
-| 7 | **Wordmark & Initials** | Typographic lockups of the two initials. |
-| 8 | **Hub & Spoke** | One coordinator directing many agent nodes. |
-| 9 | **Editor & Window** | Panes, tabs, sidebars, trays — the app's own chrome. |
-| 10 | **Spark & Signal** | Sparks, pulses, broadcasts — intelligence at rest. |
-| 11 | **Hex & Circuit** | Hex badges, chip legs, PCB traces. |
-| 12 | **Omega Marks** | Ω as "Om" — the everything letter. |
-| 13 | **Negative Space** | Marks cut from solid slabs as paper light. |
-| 14 | **Layer Stacks** | Stacked sessions, decks, strata, ziggurats. |
-| 15 | **Seals & Badges** | Coins, shields, rosettes, stamps, plaques. |
+| 1 | **Omega Identity** | Ω as the hero letter — coins, slabs, monoliths, crests. |
+| 2 | **Omega Fusion** | Ω fused with meshes, circuits, orbits, prompts, shields. |
+| 3 | **Solid Tiles** | Full-bleed squircles with bold paper cutouts. |
+| 4 | **Disc Emblems** | Solid circular marks with channels, bites, and voids. |
+| 5 | **Agent Networks** | Meshes, pyramids, triads, hubs — the orchestration graph. |
+| 6 | **Flow & Merge** | Rails converging, braiding, forking through nodes. |
+| 7 | **Circuit Badges** | Hexes, dies, traces, pads, coils — engineering heraldry. |
+| 8 | **Code Glyphs** | `</>`, braces, angles, semicolons at brand weight. |
+| 9 | **Prompt Icons** | Chevrons, cursors, run keys, return arrows. |
+| 10 | **Signal & Pulse** | Heartbeats, broadcasts, radar, sonar. |
+| 11 | **Steps & Strata** | Terraces, ziggurats, ramps, podiums — visible progress. |
+| 12 | **Orbit & Eclipse** | Rings, satellites, eclipses, closest approaches. |
+| 13 | **Solid Initials** | O / A / Ω as filled letterforms with cut counters. |
+| 14 | **Shield Crests** | Shields, medals, plaques, gates, wax seals. |
+| 15 | **Monogram Tiles** | Ω / OA set into tiles — the icon-ready lockups. |
 
 ## The data
 
