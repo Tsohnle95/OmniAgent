@@ -1,41 +1,47 @@
 # 08 — Icons & Brand
 
-> **Sources:** `src/renderer/src/components/OmniMark.tsx:3`, `resources/icon.svg:1`, `src/renderer/src/components/icons.tsx:1` (custom), `src/renderer/src/components/FileIcons.tsx:1`, `@vscode/codicons` `package.json:28`, `_foundation.scss:163`, `redesign/logo.html:1`, `_welcome.scss:51`, `_settings.scss:39`
+> **Sources:** `src/renderer/src/components/OrbitMark.tsx:3`, `resources/icon.svg:1`, `src/renderer/src/components/icons.tsx:1` (custom), `src/renderer/src/components/FileIcons.tsx:1`, `@vscode/codicons` `package.json:28`, `_foundation.scss:163`, `redesign/logo.html:1`, `_welcome.scss:51`, `_settings.scss:26`
 
 Iconography is intentionally sparse — a thin monoline set on a soft surface. Almost every stroke glyph is a 1–1.5 px outline; filled glyphs appear only for badge state (live dot, dirty dot, provider monogram).
 
 ---
 
-## 1. The mark — `OmniMark`
+## 1. The mark — `OrbitMark`
 
-### 1.1 React component `OmniMark` `src/renderer/src/components/OmniMark.tsx:3`
+### 1.1 React component `OrbitMark` `src/renderer/src/components/OrbitMark.tsx:3`
 
 ```tsx
-function OmniMark({ size = 46 }) {
+const SAGE = "#617a68";
+const SAGE_LIGHT = "#9eb4a1";
+const SAGE_DEEP = "#46584b";
+
+function OrbitMark({ size = 46 }) {
   return (
-    <svg viewBox="8 12 48 42" className="omni-mark" …>
-      <rect x="14" y="18" width="36" height="24" rx="4"
-            stroke="currentColor" strokeWidth={3.2} linecap/linejoin round />
-      <path d="M22 48h20" stroke="var(--omni-ground, currentColor)"
-            strokeWidth={3} linecap/linejoin round opacity={0.65} />
-      <path d="m22 26 5 4-5 4m9 0h8"
-            stroke="var(--omni-prompt, currentColor)" strokeWidth={3.2} />
+    <svg viewBox="0 0 96 96" className="orbit-mark" …>
+      <g fill="none" strokeLinecap="round">
+        <ellipse rx36 ry15 rotate(24)  stroke={SAGE_LIGHT} strokeWidth={4.5} />
+        <ellipse rx36 ry15 rotate(-24) stroke={SAGE} strokeWidth={5} />
+        <circle cx48 cy48 r9  fill={SAGE_DEEP} />
+        <circle cx62.1 cy28.3 r6 fill={SAGE_LIGHT} />
+      </g>
     </svg>
   );
 }
 ```
 
-Semantics: a **window + prompt** compound — the rounded rectangle frames an imagined terminal/editor viewport, the short base line is the ground/desk, and the `_>` chevron+underscore + bar is the prompt. It is terminal-native without being an aggressive angle-bracket.
+Semantics: **orchestration as physics** — a deep-sage core (the coordinator) carried on a bold primary orbit, crossed by a quiet light-sage counter-orbit, with one electron (the agent) riding the primary. Distilled as the `Orbit Standard` finalist in `design/logo-final/marks.mjs:131`.
 
-Strokes are `3.2` with round join on an exposed outer stroke — chunky enough to scan at 22–26 px in the titlebar, yet rounded so it stays calm. No fill.
+Strokes are `4.5–5` on the 96 grid with round caps — chunky enough to scan at 16 px in the titlebar, rounded so it stays calm. Unlike the codicons, the mark uses **fixed sage hexes** (not `currentColor`) so it renders identically over any surface; the dark-theme light-sage doubles as the light counter-orbit.
 
 ### 1.2 Where it appears
 
 | Host | Wrapper / overrides | Size | Colours |
 |---|---|---|---|
-| Titlebar `.titlebar-title .omni-mark` `_layout.scss:75` | `color var(--accent); --omni-prompt var(--text); --omni-ground var(--text-dim)` | `18–22` | — |
-| Welcome frame `.welcome-mark .omni-mark` `_welcome.scss:70` + `_welcome.scss:57` | Wrapper is `58×58 radius16 1/28% accent border + mix 14→3% bg + inset highlight + glow 44`; `.omni-mark` has `drop-shadow 14 accent35%` | `~36` inside the 58 frame | Inherit from welcome — `--omni-prompt var(--cream)=--text` + `--omni-ground var(--ink-dim)` — so it feels paper-embossed |
-| Settings page `.settings-page-brand` `_settings.scss:32` | `54×54 radius-lg bg-panel border-strong shadow-sm; color var(--accent); --omni-prompt var(--text); --omni-ground var(--text-dim)` | `~34` | Same mapping as titlebar, inside a `54` box |
+| Titlebar `.titlebar-title .orbit-mark` `_layout.scss:75` | bare, beside the `Orbit` word | `16` | fixed sage hexes |
+| Welcome frame `.welcome-mark` `_welcome.scss:51` | `58×58 radius16 28% accent border`; `.orbit-mark` adds `drop-shadow 14 accent35%` `_welcome.scss:68` | `46` (default) | fixed sage hexes |
+| Settings page `.settings-page-brand` `_settings.scss:26` | `54×54 radius-lg bg-panel border-strong shadow-sm` | `34` | fixed sage hexes |
+| Settings about `.settings-about` `_settings.scss:217` | bare, beside the version text | `72` | fixed sage hexes |
+| Editor empty state `.editor-empty-icon` `_editor.scss:213` | bare | `40` | fixed sage hexes |
 
 A rule: **never recolour the mark by reaching into its `<path>` elements** — override `--omni-prompt` / `--omni-ground` on the ancestor and `color` for the outer frame. That keeps the two-stroke behaviour intact.
 
@@ -44,20 +50,21 @@ A rule: **never recolour the mark by reaching into its `<path>` elements** — o
 ```svg
 <svg viewBox="0 0 1024 1024">
   <linearGradient id="paper" from #fffaf0→#eee5d4 />   <!-- square miter -->
-  <radialGradient id="glow"  radial 0.55 at 0.5,0.42, 14% c25f3c→transparent />
+  <radialGradient id="glow"  radial 0.55 at 0.5,0.42, 14% 617a68→transparent />
   <rect x="88" y="88" width="848" height="848" rx="194" fill="url(#paper)" fill="url(#glow)" />
   <rect … stroke="#2b2119 12%" strokeWidth≈1 />                  <!-- inner hairline -->
-  <g transform="translate(0 4) scale(13.1) translate(7.1 5.1)">
-    <rect x=14 y=18 w36 h24 rx4 stroke "#c25f3c" w3.2 />         <!-- frame in burnt-clay -->
-    <path d="M22 48h20" stroke="#6b5f50" opacity .65 />
-    <path d="m22 26 5 4-5 4m9 0h8" stroke="#2b2119" />
+  <g transform="translate(214.4 214.4) scale(6.2)">              <!-- Orbit Standard on the 96 grid -->
+    <ellipse rx36 ry15 rotate(24)  stroke="#9eb4a1" w4.5 />      <!-- counter-orbit, light sage -->
+    <ellipse rx36 ry15 rotate(-24) stroke="#617a68" w5 />        <!-- primary orbit, sage -->
+    <circle cx48 cy48 r9  fill="#46584b" />                      <!-- core, deep sage -->
+    <circle cx62.1 cy28.3 r6 fill="#9eb4a1" />                   <!-- electron -->
   </g>
 </svg>
 ```
 
-The OS icon uses the older **burnt-clay `#c25f3c` frame** from the `OpenShell` era (compare the current in-app accent `#617a68` green-sage). See `10-audit.md` for the history note — the square board is intentionally warm parchment + faint ember-glow so the icon is credible in both the dock and the macOS Launchpad sheet. The raised inner 1 px hairline + rounded 194 px squircle matches Apple's guidance for the canvas. The viewBox `1024` is the electron-builder requirement (`electron-builder.yml`).
+The OS icon now carries the **`OrbitMark` orbit glyph** (the `Orbit Standard` finalist from `design/logo-final/`) in the sage palette — `#617a68 / #9eb4a1 / #46584b` on the same warm-parchment squircle, so dock and app read as one product. The raised inner 1 px hairline + rounded 194 px squircle matches Apple's guidance for the canvas. The viewBox `1024` is the electron-builder requirement (`electron-builder.yml`). Rebuild pipeline: `qlmanage -t -s 1024` render → `sips` size ladder → `iconutil -c icns`.
 
-> Until the next rebrand ships, `resources/icon.svg` is the single source of truth for `icon.icns` + `icon.png`. Do not update `OmniMark.tsx` without exporting through `icon.svg` (or vice versa) — the two will visibly diverge at 16×16.
+> `resources/icon.svg` remains the single source of truth for `icon.icns` + `icon.png`. Do not update `OrbitMark.tsx` without exporting through `icon.svg` (and rebuilding the derived assets) — the two will visibly diverge at 16×16.
 
 ### 1.4 Assets outside `src`
 
@@ -93,7 +100,7 @@ Representative members (the set grows organically — grep `export function Icon
 | `IconCheck` | `65` | `L` tick |
 | `IconChevronDown` | `73` | caret `4.5 6.2 → 8 9.8` |
 
-Surface usage: small leading/pairing glyphs (add, chevron, refresh, check, panel affords). Size is typically the line-height `0.85–1 em` where used; tree rows pin at `16×16` exactly (`_sidebar.scss:502`). Custom icons always sit beside type (never alone as a landmark) — the only standalone glyph roles are the `OmniMark` and the agent-status dots.
+Surface usage: small leading/pairing glyphs (add, chevron, refresh, check, panel affords). Size is typically the line-height `0.85–1 em` where used; tree rows pin at `16×16` exactly (`_sidebar.scss:502`). Custom icons always sit beside type (never alone as a landmark) — the only standalone glyph roles are the `OrbitMark` and the agent-status dots.
 
 Global icon sizing rule `_foundation.scss:163`:
 
@@ -131,7 +138,7 @@ The file-icon callsite never adds its own fill — recolour is always assigned v
 | `agent-dot.live / panel-status-dot.live` | `green dot + alpha glow 6 rgba(accent 45%)` — no animation; static state glow | `_opencode-chat.scss:968` / `pulse-ring 1.8 ease infinite` on idle? `_agent.scss:42` → expand rings on `.agent-dot.busy` |
 | `spinner` | `spin 0.7 linear` thin ring (`border 2 border-strong + top accent`) `11×11` | `_agent.scss:618` |
 | `Icon*` chevrons / toggles | `transform 120(var(--ease)) rotate 90/180` per open | `_sidebar.scss:407` / `_sessions.scss:230` |
-| `welcome-mark .omni-mark` | `filter drop-shadow 0 0 14 accent35%` | `_welcome.scss:72` |
+| `welcome-mark .orbit-mark` | `filter drop-shadow 0 0 14 accent35%` | `_welcome.scss:68` |
 
 Keep dot pulses infrequent — at most one pulsing dot per row (`agent-dot.live` alone) so the sidebar never looks like a loading kaleidoscope.
 
@@ -149,9 +156,9 @@ Keep dot pulses infrequent — at most one pulsing dot per row (`agent-dot.live`
 ## 7. Quick reference
 
 ```
-OmniMark frame        36×24  rx4  stroke 3.2  currentColor (accent)
-OmniMark ground       M22 48h20  stroke var(--omni-ground) .65 alpha
-OmniMark prompt       m22 26 5 4-5 4m9 0h8  stroke var(--omni-prompt)
+OrbitMark orbit+      rx36 ry15 rotate(-24) stroke #617a68 w5 (primary, sage)
+OrbitMark orbit−      rx36 ry15 rotate(24)  stroke #9eb4a1 w4.5 (counter, light sage)
+OrbitMark core/e      r9 #46584b core · electron r6 #9eb4a1 at (62.1,28.3)
 
 custom icons          16×16  stroke 1.5  round  currentColor
 tree icon             16×16  actual size   os-icon·codicon
