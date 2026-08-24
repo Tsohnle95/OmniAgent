@@ -10,6 +10,10 @@ stories, vines, creatures, and waves.
 This is a study, not a brand decision. Every mark is a separate idea so the
 set can be browsed, compared, and shortlisted.
 
+**Refined finalists live in [`design/logo-final/`](../logo-final/index.html)** —
+the shortlist distilled into eight finished candidates shown at shipping
+contexts (size ladder, app-icon chips, dark/light, wordmark lockups).
+
 ## Viewing the gallery
 
 Open `index.html` directly in any browser — no server needed. The page is
