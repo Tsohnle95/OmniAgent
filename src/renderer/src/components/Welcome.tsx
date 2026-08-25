@@ -71,7 +71,7 @@ export function Welcome(): ReactNode {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const [closedSecs, setClosedSecs] = useState<Record<string, boolean>>({});
+  const [closedSecs, setClosedSecs] = useState<Record<string, boolean>>({ recent: true, workspaces: true });
 
   useEffect(() => {
     void window.openshell
