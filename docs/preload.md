@@ -25,7 +25,10 @@ automatically.
 | `closeSession(workspace)` | `Promise<void>` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `openSessionById(sessionID, generation, runtimeID?)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions and resolves persisted runtime identity when omitted |
 | `sessionTranscript(sessionID)` | `Promise<{transcript, todos}>` — authoritative message replay used to materialize incomplete stream snapshots |
-| `prompt(workspace, text, files?)` | `Promise<void>`; files are `PromptFile[]` — paths from `selectFiles()` or @-mentions (with `mention` spans) |
+| `prompt(workspace, text, files?, delivery?)` | Sends the prompt; `delivery` is `"queue"` or `"steer"` for follow-ups while busy |
+| `inboxList(workspace)` | `Promise<SessionInboxEntry[]>` — queued entries for the panel's session |
+| `inboxCancel(workspace, inboxID)` | `Promise<void>` — cancels a queued entry |
+| `inboxSteer(workspace, inboxID)` | `Promise<void>` — delivers a queued entry immediately |
 | `commands(workspace)` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
 | `runCommand(workspace, name, args?)` | `Promise<void>` — runs a slash command or skill in the addressed session |
 | `references(workspace, query)` | `Promise<ReferenceOption[]>` — `file.find` search results for @-mentions, `rel` paths relative to the session directory |

@@ -63,7 +63,10 @@ Public methods (all used by IPC):
 | `openSessionById(sessionID)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one |
 | `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
-| `prompt(workspace, text, files?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt` |
+| `prompt(workspace, text, files?, delivery?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt`; `delivery` forwards `queue`/`steer` for native inbox queuing |
+| `listInbox(workspace)` | Lists the active session's queued user entries via `session.inbox.list` |
+| `cancelInbox(workspace, inboxID)` | Cancels a queued inbox entry via `session.inbox.cancel` |
+| `steerInbox(workspace, inboxID)` | Delivers a queued entry immediately via `session.inbox.steer` |
 | `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
 | `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
 | `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
@@ -197,7 +200,10 @@ Internals:
 | `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `shell:open-session-id` | `(sessionID, generation, runtimeID?) → ReopenedSession`; persisted runtime identity resolves omitted ids |
 | `shell:session-transcript` | `(sessionID) → { transcript, todos }` — stream materialization snapshot; does not activate a context |
-| `shell:prompt` | `(workspace, text, files?) → void` |
+| `shell:prompt` | `(workspace, text, files?, delivery?) → SessionTranscript` |
+| `shell:inbox-list` | `(workspace) → SessionInboxEntry[]` |
+| `shell:inbox-cancel` | `(workspace, inboxID) → void` |
+| `shell:inbox-steer` | `(workspace, inboxID) → void` |
 | `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(workspace, query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |

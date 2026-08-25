@@ -39,29 +39,33 @@ export function QueuedMessageChips({
       </div>
       <div className="queued-chips-list">
         {queuedMessages.map((message, index) => {
-          const attachmentCount = message.attachments?.length ?? 0;
+          const attachmentCount = message.attachmentCount ?? message.attachments?.length ?? 0;
+          const previousLocal = index > 0 && queuedMessages[index - 1].id.startsWith("queued-") && message.id.startsWith("queued-");
+          const nextLocal = index < queuedMessages.length - 1 && queuedMessages[index + 1].id.startsWith("queued-") && message.id.startsWith("queued-");
           return (
             <div key={message.id} className="queued-chip">
               <span className="queued-chip-text" title={message.content}>
                 {firstLine(message.content)}
                 {attachmentCount > 0 && <span className="queued-chip-attachments">{attachmentCount} attachment{attachmentCount === 1 ? "" : "s"}</span>}
               </span>
-              <button
-                className="queued-chip-button"
-                title="Move up"
-                disabled={index === 0}
-                onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index - 1].id)}
-              >
-                <IconArrowUp />
-              </button>
-              <button
-                className="queued-chip-button"
-                title="Move down"
-                disabled={index === queuedMessages.length - 1}
-                onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index + 1].id)}
-              >
-                <IconArrowDown />
-              </button>
+              {previousLocal && (
+                <button
+                  className="queued-chip-button"
+                  title="Move up"
+                  onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index - 1].id)}
+                >
+                  <IconArrowUp />
+                </button>
+              )}
+              {nextLocal && (
+                <button
+                  className="queued-chip-button"
+                  title="Move down"
+                  onClick={() => store.reorderQueuedMessage(workspace, message.id, queuedMessages[index + 1].id)}
+                >
+                  <IconArrowDown />
+                </button>
+              )}
               <button className="queued-chip-button" title="Edit in composer" onClick={() => handleEdit(message.id)}>
                 <IconEdit />
               </button>

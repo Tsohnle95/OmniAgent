@@ -41,7 +41,7 @@ OpenCode sessions. `dsh` must be on PATH for DeepSeek Harness sessions.
 | Renderer store | `src/renderer/src/store.tsx` | All UI state (concurrent sessions: panels + per-workspace slices); subscribes to backend events |
 | Chat store | `src/renderer/src/chat-store.ts` | Authoritative per-session message/part maps (`binary.ts`); transcript projection + snapshot materialization |
 | Streaming stack | `src/renderer/src/streaming.ts` + `session-activity.ts` + `assistant-status.ts` | Per-message stream lifecycle (streaming/cooldown/completed, 1Hz heartbeat), session phase, and working-summary derivation |
-| Message queue | `src/renderer/src/message-queue.ts` + `queued-auto-send.ts` + `messages/` | Persisted per-session prompt queue with follow-up behavior (queue/steer), auto-send backoff, agent mentions, synthetic-part guards |
+| Message queue | `src/renderer/src/message-queue.ts` + `messages/` | Native server-side inbox for queued follow-ups (delivery queue/steer), local failure fallback, agent mentions, synthetic-part guards |
 | Renderer components | `src/renderer/src/components/` | Sidebar (Sessions/Files tabs), editor, agent panels, welcome, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |

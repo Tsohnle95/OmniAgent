@@ -24,6 +24,7 @@ import type {
   ProjectInfo,
   PromptDelivery,
   PromptFile,
+  SessionInboxEntry,
   ProviderCredentialAnswers,
   ProviderFormField,
   ProviderIntegration,
@@ -1740,6 +1741,39 @@ export class OpenShellBackend {
     });
     this.assertTarget(target);
     return this.sessionTranscript(target.sessionID);
+  }
+
+  async listInbox(workspace: WorkspaceIdentity): Promise<SessionInboxEntry[]> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    const res = await this.client.session.inbox.list({ sessionID: target.sessionID });
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as Array<Record<string, unknown>>).flatMap((entry) => {
+      if (entry.type !== "user") return [];
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      const files = Array.isArray(payload?.files) ? payload!.files : [];
+      return [{
+        id: String(entry.id ?? ""),
+        text: String(payload?.text ?? ""),
+        attachmentCount: files.length,
+        createdAt: Number(entry.timeCreated ?? 0)
+      }].filter((item) => item.id !== "");
+    });
+  }
+
+  async cancelInbox(workspace: WorkspaceIdentity, inboxID: string): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    await this.client.session.inbox.cancel({ sessionID: target.sessionID, inboxID });
+  }
+
+  async steerInbox(workspace: WorkspaceIdentity, inboxID: string): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    await this.client.session.inbox.steer({ sessionID: target.sessionID, inboxID });
   }
 
   async listCommands(workspace: WorkspaceIdentity): Promise<CommandOption[]> {

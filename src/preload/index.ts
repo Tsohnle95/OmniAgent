@@ -14,6 +14,7 @@ import type {
   ProjectInfo,
   PromptDelivery,
   PromptFile,
+  SessionInboxEntry,
   ProviderCredentialAnswers,
   ProviderIntegration,
   ProviderUsageResult,
@@ -62,6 +63,12 @@ const api = {
     ipcRenderer.invoke("shell:session-transcript", sessionID),
   prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery): Promise<SessionTranscript> =>
     ipcRenderer.invoke("shell:prompt", workspace, text, files, delivery),
+  inboxList: (workspace: WorkspaceIdentity): Promise<SessionInboxEntry[]> =>
+    ipcRenderer.invoke("shell:inbox-list", workspace),
+  inboxCancel: (workspace: WorkspaceIdentity, inboxID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:inbox-cancel", workspace, inboxID),
+  inboxSteer: (workspace: WorkspaceIdentity, inboxID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:inbox-steer", workspace, inboxID),
   commands: (workspace: WorkspaceIdentity): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands", workspace),
   runCommand: (workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> =>
     ipcRenderer.invoke("shell:run-command", workspace, name, args),

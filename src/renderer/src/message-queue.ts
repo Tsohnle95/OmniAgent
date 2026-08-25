@@ -34,6 +34,7 @@ export interface QueuedMessage {
   id: string;
   content: string;
   attachments?: PromptFile[];
+  attachmentCount?: number;
   createdAt: number;
   sendConfig?: {
     providerID: string;
@@ -71,15 +72,13 @@ export interface MessageQueueState {
   queuedMessages: Record<string, QueuedMessage[]>;
   quarantinedLegacyMessages: Record<string, QueuedMessage[]>;
   followUpBehavior: FollowUpBehavior;
-  sendingIds: Record<string, string[]>;
 }
 
 export function emptyMessageQueueState(): MessageQueueState {
   return {
     queuedMessages: {},
     quarantinedLegacyMessages: {},
-    followUpBehavior: DEFAULT_FOLLOW_UP_BEHAVIOR,
-    sendingIds: {}
+    followUpBehavior: DEFAULT_FOLLOW_UP_BEHAVIOR
   };
 }
 
@@ -168,45 +167,14 @@ export function popToInput(state: MessageQueueState, target: MessageQueueTarget,
 
 export function clearQueue(state: MessageQueueState, target: MessageQueueTarget): MessageQueueState {
   const key = getMessageQueueKey(target);
-  const sending = state.sendingIds[key] ?? [];
-  const retained = (state.queuedMessages[key] ?? []).filter((message) => sending.includes(message.id));
-  if (retained.length > 0) {
-    return { ...state, queuedMessages: { ...state.queuedMessages, [key]: retained } };
-  }
+  if (!(key in state.queuedMessages)) return state;
   const { [key]: _removed, ...rest } = state.queuedMessages;
   void _removed;
   return { ...state, queuedMessages: rest };
 }
 
 export function clearAllQueues(state: MessageQueueState): MessageQueueState {
-  return { ...state, queuedMessages: {}, sendingIds: {} };
-}
-export function markSending(state: MessageQueueState, target: MessageQueueTarget, messageId: string): MessageQueueState {
-  const key = getMessageQueueKey(target);
-  const current = state.sendingIds[key] ?? [];
-  if (current.includes(messageId)) return state;
-  return { ...state, sendingIds: { ...state.sendingIds, [key]: [...current, messageId] } };
-}
-
-export function clearSending(state: MessageQueueState, target: MessageQueueTarget, messageId: string): MessageQueueState {
-  const key = getMessageQueueKey(target);
-  const current = state.sendingIds[key];
-  if (!current || !current.includes(messageId)) return state;
-  const next = current.filter((id) => id !== messageId);
-  if (next.length === 0) {
-    const { [key]: _removed, ...rest } = state.sendingIds;
-    void _removed;
-    return { ...state, sendingIds: rest };
-  }
-  return { ...state, sendingIds: { ...state.sendingIds, [key]: next } };
-}
-
-export function getSendableQueue(state: MessageQueueState, target: MessageQueueTarget): QueuedMessage[] {
-  const key = getMessageQueueKey(target);
-  const queue = state.queuedMessages[key] ?? [];
-  const sending = state.sendingIds[key];
-  if (!sending || sending.length === 0) return queue;
-  return queue.filter((message) => !sending.includes(message.id));
+  return { ...state, queuedMessages: {} };
 }
 
 export function getQueueForTarget(state: MessageQueueState, target: MessageQueueTarget): QueuedMessage[] {
@@ -220,11 +188,13 @@ type PersistedMessageQueueState = {
   queueModeEnabled?: boolean;
 };
 
+export const MESSAGE_QUEUE_STATE_VERSION = 3;
+
 export const migrateMessageQueueState = (persistedState: unknown, version: number): Partial<MessageQueueState> => {
   const state = (persistedState ?? {}) as PersistedMessageQueueState;
-  const legacyQueues = version < 2 ? (state.queuedMessages ?? {}) : {};
+  const legacyQueues = version < MESSAGE_QUEUE_STATE_VERSION ? (state.queuedMessages ?? {}) : {};
   return {
-    queuedMessages: version < 2 ? {} : (state.queuedMessages ?? {}),
+    queuedMessages: version < MESSAGE_QUEUE_STATE_VERSION ? {} : (state.queuedMessages ?? {}),
     quarantinedLegacyMessages: {
       ...(state.quarantinedLegacyMessages ?? {}),
       ...legacyQueues
@@ -249,7 +219,7 @@ export function loadMessageQueueState(): MessageQueueState {
     const raw = window.localStorage.getItem("messageQueue");
     if (!raw) return emptyMessageQueueState();
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const migrated = migrateMessageQueueState(parsed, 2);
+    const migrated = migrateMessageQueueState(parsed, MESSAGE_QUEUE_STATE_VERSION);
     const queuedMessages: Record<string, QueuedMessage[]> = {};
     if (migrated.queuedMessages && typeof migrated.queuedMessages === "object") {
       for (const [key, value] of Object.entries(migrated.queuedMessages)) {
@@ -273,8 +243,7 @@ export function loadMessageQueueState(): MessageQueueState {
     return {
       queuedMessages,
       quarantinedLegacyMessages,
-      followUpBehavior: migrated.followUpBehavior ?? DEFAULT_FOLLOW_UP_BEHAVIOR,
-      sendingIds: {}
+      followUpBehavior: migrated.followUpBehavior ?? DEFAULT_FOLLOW_UP_BEHAVIOR
     };
   } catch {
     return emptyMessageQueueState();

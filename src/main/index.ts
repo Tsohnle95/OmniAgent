@@ -533,6 +533,10 @@ function registerIpc(): void {
     return backend.prompt(payload.workspace, payload.text, payload.files, delivery);
   });
 
+  handleTrusted("shell:inbox-list", async (_e, workspace: WorkspaceIdentity) => backend.listInbox(workspace));
+  handleTrusted("shell:inbox-cancel", async (_e, workspace: WorkspaceIdentity, inboxID: string) => backend.cancelInbox(workspace, inboxID));
+  handleTrusted("shell:inbox-steer", async (_e, workspace: WorkspaceIdentity, inboxID: string) => backend.steerInbox(workspace, inboxID));
+
   handleTrusted("shell:commands", async (_e, workspace: WorkspaceIdentity) => {
     workspaceId(workspace);
     return backend.listCommands(workspace);

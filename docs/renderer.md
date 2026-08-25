@@ -122,24 +122,25 @@ and `PanelView.streaming` carry these to components; the agent header shows
 the live status beside a green working indicator and the composer's stop
 button title uses the same status text.
 
-## Message queue (`message-queue.ts`, `queued-auto-send.ts`)
+## Message queue (`message-queue.ts`, `messages/`)
 
-A port of OpenChamber's message queue store and auto-send hook. Sending a
-prompt while the session is working honors `followUpBehavior`: `queue`
-(default) appends to a persisted per-session queue (max 20 messages, 50
-targets; legacy pre-v2 queues migrate into a quarantine map; in-flight sends
-are never dropped); `steer` interrupts and sends. `QueuedMessageChips`
-renders the queue above the composer with first-line previews, attachment
-counts, move up/down reordering (OpenChamber drags chips with dnd-kit, which
-Orbit does not depend on), edit-back-to-composer, send-now, and remove.
-The auto-send effect dispatches the queue when the session becomes idle
-(previous-status transition gate), respecting the 2s abort window after a
-stop, agent @-mention parsing, send-id de-duplication, and exponential retry
-backoff (2s base, 60s cap). Queue-time send config (provider/model/agent)
-is captured and resolved like OpenChamber, but Orbit's prompt API is
-session-scoped, so the config is informational and the session's current
-model/agent handles the send. OpenChamber's auto-review gate has no
-Orbit equivalent and is wired as a no-op parameter.
+Queued follow-ups are native: sending a prompt while the session is working
+submits it immediately through `session.prompt` with `delivery` set from
+`followUpBehavior` (`queue`, the default, holds it in the server's session
+inbox; `steer` delivers it into the running turn without interrupting). The
+server owns ordering, delivery, and crash safety, and reports the lifecycle
+through `session.inbox.enqueued/delivered/cancelled/delivery.changed`. The
+store tracks user-type entries per session (`inboxBySession`), hydrated via
+`shell:inbox-list` on attach, and merges them with a small persisted local
+queue that only catches submissions that failed outright (max 20 messages,
+50 targets; pre-v3 persisted queues migrate into a quarantine map).
+`QueuedMessageChips` renders both sources above the composer with first-line
+previews, attachment counts, edit-back-to-composer, send-now (native entries
+steer, local entries prompt), and remove (native entries cancel server-side);
+drag-reordering only exists between adjacent local fallback entries because
+server inbox order is FIFO by submission. The former client-side auto-send
+loop — idle-transition dispatch, abort window, retry backoff — was retired:
+the server performs all of that by holding and delivering inbox entries.
 
 Actions: `openSession` / `selectFolder` (replace the current panels with one fresh
 panel), `addModelPanel(dir)` (explicit model-mode addition to a directory),

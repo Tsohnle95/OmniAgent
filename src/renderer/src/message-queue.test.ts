@@ -3,14 +3,12 @@ import {
   addToQueue,
   clearAllQueues,
   clearQueue,
-  clearSending,
   createMessageQueueTarget,
   emptyMessageQueueState,
   getMessageQueueKey,
   getQueueForTarget,
-  getSendableQueue,
   loadMessageQueueState,
-  markSending,
+  MESSAGE_QUEUE_STATE_VERSION,
   migrateMessageQueueState,
   normalizeFollowUpBehavior,
   popToInput,
@@ -18,12 +16,6 @@ import {
   reorderQueue,
   type MessageQueueState
 } from "./message-queue";
-import {
-  getQueuedAutoSendRetryDelayMs,
-  isQueuedAutoSendBackedOff,
-  resolveQueuedSessionStatusType,
-  shouldDispatchQueuedAutoSend
-} from "./queued-auto-send";
 
 const target = { workspaceID: "w1", sessionID: "s1" };
 
@@ -78,25 +70,13 @@ describe("message queue", () => {
     expect(Object.keys(state.queuedMessages).length).toBeLessThanOrEqual(50);
   });
 
-  it("tracks in-flight sends and filters them from the sendable queue", () => {
+  it("clears queues and all queues", () => {
     let state = withOne(emptyMessageQueueState());
-    const message = getQueueForTarget(state, target)[0];
+    state = addToQueue(state, target, { content: "second" });
+    state = clearQueue(state, { workspaceID: "w2", sessionID: "s2" });
+    expect(getQueueForTarget(state, target)).toHaveLength(2);
 
-    state = markSending(state, target, message.id);
-    expect(getSendableQueue(state, target)).toEqual([]);
-    expect(getQueueForTarget(state, target)).toHaveLength(1);
-
-    state = clearSending(state, target, message.id);
-    expect(getSendableQueue(state, target)).toHaveLength(1);
-  });
-
-  it("clearQueue retains messages that are in flight", () => {
-    let state = withOne(emptyMessageQueueState());
-    const message = getQueueForTarget(state, target)[0];
-    state = markSending(state, target, message.id);
-
-    expect(getQueueForTarget(clearQueue(state, target), target)).toHaveLength(1);
-    expect(getQueueForTarget(clearQueue(clearSending(state, target, message.id), target), target)).toEqual([]);
+    expect(getQueueForTarget(clearQueue(state, target), target)).toEqual([]);
     expect(clearAllQueues(state).queuedMessages).toEqual({});
   });
 
@@ -105,42 +85,18 @@ describe("message queue", () => {
     expect(getMessageQueueKey(target)).toBe("w1\ns1");
   });
 
-  it("computes retry delays and backoff windows", () => {
-    expect(getQueuedAutoSendRetryDelayMs(1)).toBe(2_000);
-    expect(getQueuedAutoSendRetryDelayMs(3)).toBe(8_000);
-    expect(getQueuedAutoSendRetryDelayMs(20)).toBe(60_000);
-    expect(isQueuedAutoSendBackedOff({ messageId: "m", failures: 1, nextAttemptAt: 2_000 }, "m", 1_000)).toBe(true);
-    expect(isQueuedAutoSendBackedOff({ messageId: "m", failures: 1, nextAttemptAt: 2_000 }, "other", 1_000)).toBe(false);
-    expect(isQueuedAutoSendBackedOff(undefined, "m", 1_000)).toBe(false);
-  });
-
-  it("dispatches queued auto-sends when the session becomes idle", () => {
-    expect(shouldDispatchQueuedAutoSend(undefined, "idle", true)).toBe(true);
-    expect(shouldDispatchQueuedAutoSend("busy", "idle")).toBe(true);
-    expect(shouldDispatchQueuedAutoSend("retry", "idle")).toBe(true);
-    expect(shouldDispatchQueuedAutoSend("busy", "busy", true)).toBe(false);
-    expect(shouldDispatchQueuedAutoSend(undefined, "busy")).toBe(false);
-  });
-
-  it("resolves queue status with the trailing assistant fallback", () => {
-    expect(resolveQueuedSessionStatusType({ statusType: "busy", trailingAssistantIncomplete: false })).toBe("busy");
-    expect(resolveQueuedSessionStatusType({ statusType: undefined, trailingAssistantIncomplete: true })).toBe("busy");
-    expect(resolveQueuedSessionStatusType({ statusType: undefined, trailingAssistantIncomplete: false })).toBe("idle");
-    expect(resolveQueuedSessionStatusType({ statusType: "retry", trailingAssistantIncomplete: false })).toBe("retry");
-  });
-
-  it("migrates legacy queues into quarantine", () => {
+  it("migrates pre-native queues into quarantine", () => {
     const migrated = migrateMessageQueueState({
       queuedMessages: { "w1\ns1": [{ id: "m1", content: "legacy", createdAt: 1 }] },
       followUpBehavior: "steer"
-    }, 1);
+    }, MESSAGE_QUEUE_STATE_VERSION - 1);
 
     expect(migrated.queuedMessages).toEqual({});
     expect(migrated.quarantinedLegacyMessages?.["w1\ns1"]).toHaveLength(1);
     expect(migrated.followUpBehavior).toBe("steer");
   });
 
-  it("keeps current queues across a version-2 load", () => {
+  it("keeps current queues across a current-version load", () => {
     window.localStorage.setItem("messageQueue", JSON.stringify({
       queuedMessages: { "w1\ns1": [{ id: "m1", content: "hello", createdAt: 1 }] },
       followUpBehavior: "queue"
@@ -151,7 +107,6 @@ describe("message queue", () => {
     expect(state.queuedMessages["w1\ns1"]).toHaveLength(1);
     expect(state.followUpBehavior).toBe("queue");
     expect(state.quarantinedLegacyMessages).toEqual({});
-    expect(state.sendingIds).toEqual({});
     window.localStorage.clear();
   });
 });

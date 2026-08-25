@@ -55,9 +55,9 @@ regressing longer live text.
 | `session.created` | Adds or reconciles the session graph entry, including `parentID`, agent, title, and directory so task calls can resolve child sessions |
 | `session.renamed` | Updates the matching session title and timestamp |
 | `session.deleted` | Removes the session from the graph |
-| `session.inbox.enqueued` | Buffers user/synthetic inbox items as an internal `pending-input` keyed by `inboxID`; it does not create a visible chat row |
-| `session.inbox.delivered` | Materializes the buffered input as the canonical user/synthetic timeline entry and reconciles an optimistic local user message by text |
-| `session.inbox.cancelled` | Discards the buffered input by `inboxID` without removing a delivered chat message |
+| `session.inbox.enqueued` | Buffers user/synthetic inbox items as an internal `pending-input` keyed by `inboxID`; user entries also join the session's queued-chip list; it does not create a visible chat row |
+| `session.inbox.delivered` | Materializes the buffered input as the canonical user/synthetic timeline entry, reconciles an optimistic local user message by text, and drops the entry from the queued-chip list |
+| `session.inbox.cancelled` | Discards the buffered input by `inboxID` and drops the entry from the queued-chip list without removing a delivered chat message |
 | `session.execution.started` | Authoritatively marks both the chat session and composer busy; activity is shown by the agent header rather than a transcript status bubble |
 | `session.execution.succeeded` | Authoritatively marks the chat session and composer idle, completes the active assistant, and clears retry state without adding transcript noise |
 | `session.execution.failed` | Authoritatively marks the chat session non-busy with an error state, completes the active assistant, clears retry state, and adds an error status line |

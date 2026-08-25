@@ -24,6 +24,7 @@ import type {
   RecoveryRecord,
   RuntimeID,
   RuntimeManifest,
+  SessionInboxEntry,
   SessionInfo,
   SessionSummary,
   SessionUsage,
@@ -68,13 +69,10 @@ import {
 } from "./assistant-status";
 import {
   addToQueue,
-  clearSending,
   createMessageQueueTarget,
   getMessageQueueKey,
   getQueueForTarget,
-  getSendableQueue,
   loadMessageQueueState,
-  markSending,
   persistMessageQueueState,
   removeFromQueue,
   reorderQueue,
@@ -84,19 +82,6 @@ import {
   type MessageQueueTarget,
   type QueuedMessage
 } from "./message-queue";
-import {
-  buildQueuedAutoSendPayload,
-  createQueuedAutoSendRetryScheduler,
-  getAbortHoldUntil,
-  getQueuedAutoSendRetryDelayMs,
-  isQueuedAutoSendBackedOff,
-  resolveQueuedSessionStatusType,
-  resolveSessionSendConfig,
-  sendQueuedAutoSendPayload,
-  shouldDispatchQueuedAutoSend,
-  type QueuedAutoSendFailure,
-  type QueueStatusType
-} from "./queued-auto-send";
 import { EditorPersistence, type SaveSnapshot } from "./editor-persistence";
 import { requestReveal } from "./reveal";
 import { sameWorkspace } from "@shared/generation";
@@ -451,7 +436,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const [busyBySession, setBusyBySession] = useState<Record<string, boolean>>({});
   const [todosByWorkspace, setTodosByWorkspace] = useState<Record<string, TodoItem[]>>({});
   const [transcriptsBySession, setTranscriptsBySession] = useState<Record<string, TranscriptItem[]>>({});
-  const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
+  const [inboxBySession, setInboxBySession] = useState<Record<string, SessionInboxEntry[]>>({});  const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
   const [activePathByWorkspace, setActivePathByWorkspace] = useState<Record<string, string | null>>({});
   const [singleFileByWorkspace, setSingleFileByWorkspace] = useState<Record<string, string>>({});
   const [agentFilesByWorkspace, setAgentFilesByWorkspace] = useState<Record<string, Map<string, AgentFileState>>>({});
@@ -478,7 +463,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const [pendingRename, setPendingRename] = useState<{ path: string } | null>(null);
   const [streamingStore, setStreamingStore] = useState<StreamingStore>(() => emptyStreamingStore());
   const [messageQueue, setMessageQueue] = useState<MessageQueueState>(() => loadMessageQueueState());
-  const [autoSendTick, setAutoSendTick] = useState(0);
   const [sessionAbortFlags, setSessionAbortFlags] = useState<Record<string, SessionAbortFlag>>({});
 
   const activeWorkspaceID = activeSessionID
@@ -537,6 +521,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   panelsRef.current = panels;
   const transcriptsBySessionRef = useRef(transcriptsBySession);
   transcriptsBySessionRef.current = transcriptsBySession;
+  const inboxBySessionRef = useRef(inboxBySession);
+  inboxBySessionRef.current = inboxBySession;
   const busyBySessionRef = useRef(busyBySession);
   busyBySessionRef.current = busyBySession;
   const sessionAbortFlagsRef = useRef(sessionAbortFlags);
@@ -544,9 +530,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const lastStreamActivityRef = useRef<Record<string, number>>({});
   const streamingRef = useRef<StreamingStore>(streamingStore);
   const messageQueueRef = useRef<MessageQueueState>(messageQueue);
-  const autoSendInFlightRef = useRef(new Set<string>());
-  const autoSendFailuresRef = useRef(new Map<string, QueuedAutoSendFailure>());
-  const previousQueueStatusRef = useRef(new Map<string, QueueStatusType>());
   const agentFilesByWorkspaceRef = useRef(agentFilesByWorkspace);
   agentFilesByWorkspaceRef.current = agentFilesByWorkspace;
   const expandedByWorkspaceRef = useRef(expandedByWorkspace);
@@ -813,15 +796,51 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     return panel ? createMessageQueueTarget(panel.id, panel.workspace.id) : null;
   }, [panelFor]);
 
+  const refreshInbox = useCallback(async (sessionID: string): Promise<void> => {
+    const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
+    if (!panel) return;
+    try {
+      const entries = await window.openshell.inboxList(panel.workspace);
+      setInboxBySession((current) => ({ ...current, [sessionID]: entries }));
+    } catch {
+      setInboxBySession((current) => {
+        if (!(sessionID in current)) return current;
+        const { [sessionID]: _dropped, ...rest } = current;
+        void _dropped;
+        return rest;
+      });
+    }
+  }, []);
+
   const removeQueuedMessage = useCallback((workspace: WorkspaceIdentity, messageID: string) => {
     const target = queueTargetFor(workspace);
     if (!target) return;
+    if (!messageID.startsWith("queued-")) {
+      setInboxBySession((current) => ({
+        ...current,
+        [target.sessionID]: (current[target.sessionID] ?? []).filter((entry) => entry.id !== messageID)
+      }));
+      window.openshell.inboxCancel(workspace, messageID).catch(() => {});
+      return;
+    }
     commitQueue(removeFromQueue(messageQueueRef.current, target, messageID));
   }, [queueTargetFor, commitQueue]);
 
   const popQueuedMessage = useCallback((workspace: WorkspaceIdentity, messageID: string): QueuedMessage | null => {
     const target = queueTargetFor(workspace);
     if (!target) return null;
+    if (!messageID.startsWith("queued-")) {
+      const entry = (inboxBySessionRef.current[target.sessionID] ?? []).find(
+        (candidate) => candidate.id === messageID
+      );
+      if (!entry) return null;
+      setInboxBySession((current) => ({
+        ...current,
+        [target.sessionID]: (current[target.sessionID] ?? []).filter((item) => item.id !== messageID)
+      }));
+      window.openshell.inboxCancel(workspace, messageID).catch(() => {});
+      return { id: entry.id, content: entry.text, createdAt: entry.createdAt };
+    }
     const popped = popToInput(messageQueueRef.current, target, messageID);
     commitQueue(popped.state);
     return popped.message;
@@ -859,6 +878,19 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const sendQueuedNow = useCallback(async (workspace: WorkspaceIdentity, messageID: string): Promise<void> => {
     const panel = panelFor(workspace);
     if (!panel) return;
+    if (!messageID.startsWith("queued-")) {
+      setInboxBySession((current) => ({
+        ...current,
+        [panel.id]: (current[panel.id] ?? []).filter((entry) => entry.id !== messageID)
+      }));
+      try {
+        await window.openshell.inboxSteer(workspace, messageID);
+      } catch (err) {
+        void refreshInbox(panel.id);
+        if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+      }
+      return;
+    }
     const popped = popQueuedMessage(workspace, messageID);
     if (!popped) return;
     const promptText = popped.content || "Review the attached files.";
@@ -879,7 +911,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     } catch (err) {
       if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [panelFor, popQueuedMessage, updateSessionTranscript, toast]);
+  }, [panelFor, popQueuedMessage, updateSessionTranscript, toast, refreshInbox]);
 
   const attachPanel = useCallback((info: SessionInfo): void => {
     panelsRef.current = panelsRef.current.some((panel) => panel.workspace.id === info.workspace.id)
@@ -1153,6 +1185,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     sessionRef.current = info;
     setActiveSessionID(info.id);
     void hydrateTranscript(info.id);
+    void refreshInbox(info.id);
     void loadRecovery(info.workspace);
     void loadModels(info.workspace);
     void loadAgents(info.workspace);
@@ -1177,6 +1210,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         sessionRef.current = info;
         setActiveSessionID(info.id);
         void hydrateTranscript(info.id);
+    void refreshInbox(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -1220,6 +1254,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         sessionRef.current = info;
         setActiveSessionID(info.id);
         void hydrateTranscript(info.id);
+    void refreshInbox(info.id);
         void loadRecovery(info.workspace);
         void loadModels(info.workspace);
         void loadAgents(info.workspace);
@@ -1260,6 +1295,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       sessionRef.current = info;
       setActiveSessionID(info.id);
       void hydrateTranscript(info.id);
+    void refreshInbox(info.id);
       void loadRecovery(info.workspace);
       void loadModels(info.workspace);
       void loadAgents(info.workspace);
@@ -1325,6 +1361,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         sessionRef.current = info;
         setActiveSessionID(info.id);
         void hydrateTranscript(info.id);
+    void refreshInbox(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -2347,6 +2384,37 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
       }
 
+      if (type === "session.inbox.enqueued" && targetSessionID && typeof data.inboxID === "string") {
+        const item = data.item as Record<string, any> | undefined;
+        if (item?.type === "user") {
+          const payload = item.payload as Record<string, any> | undefined;
+          const files = Array.isArray(payload?.files) ? payload.files : [];
+          setInboxBySession((current) => ({
+            ...current,
+            [targetSessionID]: [
+              ...(current[targetSessionID] ?? []).filter((entry) => entry.id !== data.inboxID),
+              {
+                id: data.inboxID,
+                text: String(payload?.text ?? ""),
+                attachmentCount: files.length,
+                createdAt: Date.now()
+              }
+            ]
+          }));
+        }
+      }
+      if (
+        (type === "session.inbox.cancelled" || type === "session.inbox.delivered") &&
+        targetSessionID &&
+        typeof data.inboxID === "string"
+      ) {
+        setInboxBySession((current) => {
+          const list = current[targetSessionID];
+          if (!list?.some((entry) => entry.id === data.inboxID)) return current;
+          return { ...current, [targetSessionID]: list.filter((entry) => entry.id !== data.inboxID) };
+        });
+      }
+
       if (targetSessionID && AUX_CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
       }
@@ -2711,85 +2779,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     void loadAgents();
   }, [connected, loadModels, loadAgents]);
 
-  const autoSendRetrySchedulerRef = useRef<ReturnType<typeof createQueuedAutoSendRetryScheduler> | null>(null);
-  if (!autoSendRetrySchedulerRef.current) {
-    autoSendRetrySchedulerRef.current = createQueuedAutoSendRetryScheduler(() => setAutoSendTick((tick) => tick + 1));
-  }
-
-  useEffect(() => () => autoSendRetrySchedulerRef.current?.dispose(), []);
-
-  useEffect(() => {
-    const dispatchSessionQueue = async (panel: SessionInfo): Promise<void> => {
-      const target = createMessageQueueTarget(panel.id, panel.workspace.id);
-      if (!target) return;
-      const key = getMessageQueueKey(target);
-      const queue = messageQueueRef.current.queuedMessages[key] ?? [];
-      if (queue.length === 0) return;
-      if (autoSendInFlightRef.current.has(key)) return;
-
-      const abortHoldUntil = getAbortHoldUntil(sessionAbortFlags[panel.id]);
-      if (abortHoldUntil !== null) {
-        autoSendRetrySchedulerRef.current?.schedule(abortHoldUntil);
-        return;
-      }
-
-      const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
-      const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
-      const currentStatus = resolveQueuedSessionStatusType({
-        statusType: streamingStore.streamingMessageIds.get(panel.id)
-          ? (trailingAssistant?.kind === "assistant" && trailingAssistant.retry ? "retry" : "busy")
-          : undefined,
-        trailingAssistantIncomplete: trailingAssistant?.kind === "assistant" && !trailingAssistant.completed
-      });
-      const previousStatus = previousQueueStatusRef.current.get(key);
-      previousQueueStatusRef.current.set(key, currentStatus);
-      if (!shouldDispatchQueuedAutoSend(previousStatus, currentStatus, true)) return;
-
-      const sendable = getSendableQueue(messageQueueRef.current, target);
-      const payload = buildQueuedAutoSendPayload(sendable, agentsByWorkspaceRef.current[panel.workspace.id] ?? []);
-      if (!payload) return;
-
-      const failure = autoSendFailuresRef.current.get(key);
-      if (failure && failure.messageId !== payload.queuedMessageId) {
-        autoSendFailuresRef.current.delete(key);
-      } else if (failure && isQueuedAutoSendBackedOff(failure, payload.queuedMessageId, Date.now())) {
-        autoSendRetrySchedulerRef.current?.schedule(failure.nextAttemptAt);
-        return;
-      }
-
-      const resolved = resolveSessionSendConfig(
-        payload.sendConfig?.providerID && payload.sendConfig?.modelID
-          ? payload.sendConfig
-          : {
-              agent: currentAgentByWorkspace[panel.workspace.id]?.name,
-              providerID: currentModelByWorkspace[panel.workspace.id]?.providerID,
-              modelID: currentModelByWorkspace[panel.workspace.id]?.id,
-              variant: currentModelByWorkspace[panel.workspace.id]?.variant
-            }
-      );
-      if (!resolved.providerID || !resolved.modelID) {
-        autoSendRetrySchedulerRef.current?.schedule(Date.now() + getQueuedAutoSendRetryDelayMs(1));
-        return;
-      }
-
-      autoSendInFlightRef.current.add(key);
-      commitQueue(markSending(messageQueueRef.current, target, payload.queuedMessageId));
-      try {
-        await sendQueuedAutoSendPayload(panel.workspace, payload);
-        commitQueue(removeFromQueue(messageQueueRef.current, target, payload.queuedMessageId));
-        commitQueue(clearSending(messageQueueRef.current, target, payload.queuedMessageId));
-      } catch {
-        commitQueue(clearSending(messageQueueRef.current, target, payload.queuedMessageId));
-        const failures = (failure?.failures ?? 0) + 1;
-        const nextAttemptAt = Date.now() + getQueuedAutoSendRetryDelayMs(failures);
-        autoSendFailuresRef.current.set(key, { messageId: payload.queuedMessageId, failures, nextAttemptAt });
-        autoSendRetrySchedulerRef.current?.schedule(nextAttemptAt);
-      } finally {
-        autoSendInFlightRef.current.delete(key);
-      }
-    };
-    for (const panel of panelsRef.current) void dispatchSessionQueue(panel);
-  }, [streamingStore, messageQueue, transcriptsBySession, busyBySession, autoSendTick, commitQueue, panels, sessionAbortFlags, currentModelByWorkspace, currentAgentByWorkspace]);
 
   const panelViews = useMemo<Record<string, PanelView>>(() => {
     const views: Record<string, PanelView> = {};
@@ -2834,7 +2823,16 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           : null
       });
       const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
-      const queuedMessages = queueTarget ? getQueueForTarget(messageQueue, queueTarget) : [];
+      const localQueue = queueTarget ? getQueueForTarget(messageQueue, queueTarget) : [];
+      const queuedMessages: QueuedMessage[] = [
+        ...(inboxBySession[panel.id] ?? []).map((entry) => ({
+          id: entry.id,
+          content: entry.text,
+          createdAt: entry.createdAt,
+          attachmentCount: entry.attachmentCount
+        })),
+        ...localQueue
+      ];
       views[panel.workspace.id] = {
         session: panel,
         busy: activity.isWorking,

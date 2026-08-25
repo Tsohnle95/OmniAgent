@@ -271,6 +271,13 @@ export interface W3cDiagnostic {
 
 export type PromptDelivery = "queue" | "steer";
 
+export interface SessionInboxEntry {
+  id: string;
+  text: string;
+  attachmentCount: number;
+  createdAt: number;
+}
+
 export interface PromptFile {
   path: string;
   mention?: { start: number; end: number; text: string };
