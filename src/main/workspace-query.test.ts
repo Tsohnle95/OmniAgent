@@ -133,7 +133,7 @@ describe("workspace-scoped backend queries", () => {
       keyMethod: { label: "API key", fields: [{ key: "resourceName", type: "string", title: "Resource", required: true }] },
       credentials: [{ id: "credential-1", label: "work" }],
       environment: { names: ["AZURE_API_KEY"], connected: ["AZURE_API_KEY"] },
-      oauth: ["Sign in"]
+      oauth: [{ id: "login", label: "Sign in" }]
     }]);
     expect(client.integration.list).toHaveBeenCalledWith({ location: { directory: "/workspace" } });
   });

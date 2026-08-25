@@ -12,7 +12,7 @@ const openai: ProviderIntegration = {
   keyMethod: { fields: [] },
   credentials: [],
   environment: { names: ["OPENAI_API_KEY"], connected: [] },
-  oauth: ["ChatGPT Pro/Plus"]
+  oauth: [{ id: "oauth", label: "ChatGPT Pro/Plus" }]
 };
 const azure: ProviderIntegration = {
   id: "azure",

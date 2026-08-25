@@ -70,6 +70,10 @@ Public methods (all used by IPC):
 | `listForms(workspace)` | Lists pending agent forms for the active session via `form.list` |
 | `replyForm(workspace, formID, answers)` | Submits field answers via `form.reply` |
 | `cancelForm(workspace, formID)` | Cancels a pending form via `form.cancel` |
+| `startProviderOAuth(workspace, integrationID, methodID)` | Starts an OAuth attempt via `integration.oauth.connect` and returns attempt URL/mode |
+| `pollProviderOAuth(workspace, integrationID, attemptID)` | Reads attempt status via `integration.oauth.status` |
+| `completeProviderOAuth(workspace, integrationID, attemptID, code?)` | Finishes an attempt via `integration.oauth.complete`, optionally with a pasted code |
+| `cancelProviderOAuth(workspace, integrationID, attemptID)` | Aborts an attempt via `integration.oauth.cancel` |
 | `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
 | `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
 | `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
@@ -210,6 +214,10 @@ Internals:
 | `shell:forms-list` | `(workspace) → PendingFormRequest[]` |
 | `shell:form-reply` | `(workspace, formID, answers) → void` |
 | `shell:form-cancel` | `(workspace, formID) → void` |
+| `shell:provider-oauth-start` | `(workspace, integrationID, methodID) → ProviderOAuthAttempt` |
+| `shell:provider-oauth-poll` | `(workspace, integrationID, attemptID) → ProviderOAuthPoll` |
+| `shell:provider-oauth-complete` | `(workspace, integrationID, attemptID, code?) → void` |
+| `shell:provider-oauth-cancel` | `(workspace, integrationID, attemptID) → void` |
 | `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(workspace, query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |

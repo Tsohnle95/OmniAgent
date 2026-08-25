@@ -179,8 +179,21 @@ export interface ProviderIntegration {
     names: string[];
     connected: string[];
   };
-  oauth: string[];
+  oauth: Array<{ id: string; label: string }>;
 }
+
+export interface ProviderOAuthAttempt {
+  attemptID: string;
+  url: string;
+  instructions: string;
+  mode: "auto" | "code";
+}
+
+export type ProviderOAuthPoll =
+  | { status: "pending" }
+  | { status: "complete" }
+  | { status: "failed"; message: string }
+  | { status: "expired" };
 
 export type ProviderCredentialAnswers = Record<string, ProviderCredentialValue>;
 

@@ -19,6 +19,8 @@ import type {
   PendingFormRequest,
   ProviderCredentialAnswers,
   ProviderIntegration,
+  ProviderOAuthAttempt,
+  ProviderOAuthPoll,
   ProviderUsageResult,
   RecoveryRecord,
   ReferenceOption,
@@ -141,6 +143,14 @@ const api = {
     ipcRenderer.invoke("shell:provider-integrations", workspace),
   connectProviderKey: (workspace: WorkspaceIdentity, integrationID: string, key: string, label: string, answers: ProviderCredentialAnswers): Promise<void> =>
     ipcRenderer.invoke("shell:provider-key-connect", workspace, integrationID, key, label, answers),
+  providerOauthStart: (workspace: WorkspaceIdentity, integrationID: string, methodID: string): Promise<ProviderOAuthAttempt> =>
+    ipcRenderer.invoke("shell:provider-oauth-start", workspace, integrationID, methodID),
+  providerOauthPoll: (workspace: WorkspaceIdentity, integrationID: string, attemptID: string): Promise<ProviderOAuthPoll> =>
+    ipcRenderer.invoke("shell:provider-oauth-poll", workspace, integrationID, attemptID),
+  providerOauthComplete: (workspace: WorkspaceIdentity, integrationID: string, attemptID: string, code?: string): Promise<void> =>
+    ipcRenderer.invoke("shell:provider-oauth-complete", workspace, integrationID, attemptID, code),
+  providerOauthCancel: (workspace: WorkspaceIdentity, integrationID: string, attemptID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:provider-oauth-cancel", workspace, integrationID, attemptID),
   removeProviderCredential: (workspace: WorkspaceIdentity, credentialID: string): Promise<void> =>
     ipcRenderer.invoke("shell:provider-credential-remove", workspace, credentialID),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),

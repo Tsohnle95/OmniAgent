@@ -30,6 +30,8 @@ import type {
   ProviderCredentialAnswers,
   ProviderFormField,
   ProviderIntegration,
+  ProviderOAuthAttempt,
+  ProviderOAuthPoll,
   ProviderUsageResult,
   ReferenceOption,
   RecoveryRecord,
@@ -2001,7 +2003,9 @@ export class OpenShellBackend {
           names: [...new Set(methods.flatMap((method) => method.type === "env" ? (method.names ?? []) : []))],
           connected: connections.flatMap((connection) => connection.type === "env" && connection.name ? [connection.name] : [])
         },
-        oauth: methods.flatMap((method) => method.type === "oauth" ? [method.label ?? "OAuth"] : [])
+        oauth: methods.flatMap((method) => method.type === "oauth" && method.id
+          ? [{ id: method.id, label: method.label ?? "OAuth" }]
+          : [])
       };
     }).filter((row) => row.id);
   }
@@ -2024,6 +2028,63 @@ export class OpenShellBackend {
       ...(Object.keys(answers).length > 0 ? { answer: answers } : {})
     });
     this.assertTarget(target);
+  }
+
+  async startProviderOAuth(workspace: WorkspaceIdentity, integrationID: string, methodID: string): Promise<ProviderOAuthAttempt> {
+    const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness provider setup is not supported yet");
+    if (!this.client) throw new Error("no active session");
+    const res = await this.client.integration.oauth.connect({
+      integrationID,
+      methodID,
+      location: { directory: target.directory }
+    });
+    const data = (res as { data?: Record<string, unknown> }).data ?? {};
+    return {
+      attemptID: String(data.attemptID ?? ""),
+      url: typeof data.url === "string" ? data.url : "",
+      instructions: typeof data.instructions === "string" ? data.instructions : "",
+      mode: data.mode === "code" ? "code" : "auto"
+    };
+  }
+
+  async pollProviderOAuth(workspace: WorkspaceIdentity, integrationID: string, attemptID: string): Promise<ProviderOAuthPoll> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    const res = await this.client.integration.oauth.status({
+      integrationID,
+      attemptID,
+      location: { directory: target.directory }
+    });
+    const data = (res as { data?: Record<string, unknown> }).data ?? {};
+    const status = data.status;
+    if (status === "complete") return { status: "complete" };
+    if (status === "expired") return { status: "expired" };
+    if (status === "failed") return { status: "failed", message: typeof data.message === "string" ? data.message : "Authorization failed" };
+    return { status: "pending" };
+  }
+
+  async completeProviderOAuth(workspace: WorkspaceIdentity, integrationID: string, attemptID: string, code?: string): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) throw new Error("DeepSeek Harness provider setup is not supported yet");
+    if (!this.client) throw new Error("no active session");
+    await this.client.integration.oauth.complete({
+      integrationID,
+      attemptID,
+      location: { directory: target.directory },
+      ...(code ? { code } : {})
+    });
+    this.assertTarget(target);
+  }
+
+  async cancelProviderOAuth(workspace: WorkspaceIdentity, integrationID: string, attemptID: string): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    await this.client.integration.oauth.cancel({
+      integrationID,
+      attemptID,
+      location: { directory: target.directory }
+    });
   }
 
   async removeProviderCredential(workspace: WorkspaceIdentity, credentialID: string): Promise<void> {

@@ -747,6 +747,23 @@ function registerIpc(): void {
     return backend.connectProviderKey(workspace, credential.integrationID, credential.key, credential.label, credential.answers);
   });
 
+  handleTrusted("shell:provider-oauth-start", async (_e, workspace: WorkspaceIdentity, integrationID: string, methodID: string) => {
+    workspaceId(workspace);
+    return backend.startProviderOAuth(workspace, integrationID, methodID);
+  });
+  handleTrusted("shell:provider-oauth-poll", async (_e, workspace: WorkspaceIdentity, integrationID: string, attemptID: string) => {
+    workspaceId(workspace);
+    return backend.pollProviderOAuth(workspace, integrationID, attemptID);
+  });
+  handleTrusted("shell:provider-oauth-complete", async (_e, workspace: WorkspaceIdentity, integrationID: string, attemptID: string, code?: string) => {
+    workspaceId(workspace);
+    return backend.completeProviderOAuth(workspace, integrationID, attemptID, code);
+  });
+  handleTrusted("shell:provider-oauth-cancel", async (_e, workspace: WorkspaceIdentity, integrationID: string, attemptID: string) => {
+    workspaceId(workspace);
+    return backend.cancelProviderOAuth(workspace, integrationID, attemptID);
+  });
+
   handleTrusted("shell:provider-credential-remove", async (_e, workspace: WorkspaceIdentity, credentialID: unknown) => {
     workspaceId(workspace);
     return backend.removeProviderCredential(workspace, selectionId(credentialID, "provider credential id"));

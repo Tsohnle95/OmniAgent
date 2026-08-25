@@ -32,6 +32,10 @@ automatically.
 | `formsList(workspace)` | `Promise<PendingFormRequest[]>` — pending agent forms for the panel's session |
 | `formReply(workspace, formID, answers)` | `Promise<void>` — submits answers keyed by field |
 | `formCancel(workspace, formID)` | `Promise<void>` — dismisses a pending form |
+| `providerOauthStart(workspace, integrationID, methodID)` | `Promise<ProviderOAuthAttempt>` — begins the OAuth flow |
+| `providerOauthPoll(workspace, integrationID, attemptID)` | `Promise<ProviderOAuthPoll>` — pending/complete/failed/expired |
+| `providerOauthComplete(workspace, integrationID, attemptID, code?)` | `Promise<void>` — confirms an attempt (code mode) |
+| `providerOauthCancel(workspace, integrationID, attemptID)` | `Promise<void>` — aborts an attempt |
 | `commands(workspace)` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
 | `runCommand(workspace, name, args?)` | `Promise<void>` — runs a slash command or skill in the addressed session |
 | `references(workspace, query)` | `Promise<ReferenceOption[]>` — `file.find` search results for @-mentions, `rel` paths relative to the session directory |

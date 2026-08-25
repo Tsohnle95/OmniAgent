@@ -4,6 +4,7 @@ import type {
   ProviderCredentialValue,
   ProviderFormField,
   ProviderIntegration,
+  ProviderOAuthAttempt,
   ProviderUsageResult,
   WorkspaceIdentity
 } from "@shared/types";
@@ -97,6 +98,122 @@ function fieldControl(
   );
 }
 
+function OAuthFlow({
+  provider,
+  workspace,
+  refresh,
+  refreshModels,
+  onFinished
+}: {
+  provider: ProviderIntegration;
+  workspace: WorkspaceIdentity;
+  refresh: () => Promise<void>;
+  refreshModels: () => Promise<void>;
+  onFinished: () => void;
+}): ReactNode {
+  const [method, setMethod] = useState<{ id: string; label: string } | null>(provider.oauth[0] ?? null);
+  const [attempt, setAttempt] = useState<ProviderOAuthAttempt | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const finishedRef = useRef(false);
+
+  useEffect(() => {
+    if (!attempt || attempt.mode !== "auto") return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const tick = async (): Promise<void> => {
+      try {
+        const poll = await window.openshell.providerOauthPoll(workspace, provider.id, attempt.attemptID);
+        if (poll.status === "complete") {
+          finishedRef.current = true;
+          if (timer) clearInterval(timer);
+          await Promise.all([refresh(), refreshModels()]);
+          onFinished();
+        } else if (poll.status === "expired" || poll.status === "failed") {
+          if (timer) clearInterval(timer);
+          setError(poll.status === "failed" ? poll.message : "Authorization request expired");
+          setAttempt(null);
+        }
+      } catch {
+        if (timer) clearInterval(timer);
+        setError("Lost contact with the authorization service");
+        setAttempt(null);
+      }
+    };
+    void tick();
+    timer = setInterval(() => void tick(), 2000);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [attempt, provider.id, workspace, refresh, refreshModels, onFinished]);
+
+  useEffect(() => () => {
+    if (attempt && !finishedRef.current) {
+      void window.openshell.providerOauthCancel(workspace, provider.id, attempt.attemptID).catch(() => {});
+    }
+  }, [attempt, provider.id, workspace]);
+
+  const start = async (): Promise<void> => {
+    if (!method) return;
+    setBusy(true);
+    setError(null);
+    finishedRef.current = false;
+    try {
+      setAttempt(await window.openshell.providerOauthStart(workspace, provider.id, method.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmCode = async (): Promise<void> => {
+    if (!attempt || !code) return;
+    setBusy(true);
+    try {
+      await window.openshell.providerOauthComplete(workspace, provider.id, attempt.attemptID, code);
+      await Promise.all([refresh(), refreshModels()]);
+      onFinished();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="provider-oauth">
+      {!attempt ? (
+        <button className="primary" disabled={busy || !method} onClick={() => void start()}>
+          {busy ? "Starting..." : method ? `Connect with ${method.label}` : "Connect"}
+        </button>
+      ) : (
+        <>
+          <p className="provider-note">{attempt.instructions || "Follow the authorization prompt"}</p>
+          {attempt.url && <ExternalLink className="provider-external" href={attempt.url}>Open authorization page</ExternalLink>}
+          {attempt.mode === "code" && (
+            <label><span>Authorization code</span>
+              <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="Paste the code" autoFocus />
+            </label>
+          )}
+          <div className="provider-form-actions">
+            {attempt.mode === "code"
+              ? <button className="primary" disabled={busy || !code} onClick={() => void confirmCode()}>{busy ? "Confirming..." : "Confirm code"}</button>
+              : <span className="provider-note">Waiting for authorization…</span>}
+            <button onClick={() => { setAttempt(null); setCode(""); }}>Cancel</button>
+          </div>
+        </>
+      )}
+      {provider.oauth.length > 1 && !attempt && (
+        <select value={method?.id ?? ""} onChange={(event) => setMethod(provider.oauth.find((option) => option.id === event.target.value) ?? null)}>
+          {provider.oauth.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+        </select>
+      )}
+      {error && <p className="provider-error">{error}</p>}
+    </div>
+  );
+}
+
 function ProviderCard({
   provider,
   usage,
@@ -184,10 +301,19 @@ function ProviderCard({
           {error && <p className="provider-error">{error}</p>}
           <div className="provider-form-actions"><button type="button" onClick={() => { setKey(""); setLabel(""); setAnswers(initialAnswers(provider.keyMethod?.fields ?? [])); setOpen(false); }}>Cancel</button><button className="primary" disabled={saving}>{saving ? "Connecting..." : "Connect provider"}</button></div>
         </form>
+      ) : open && provider.oauth.length > 0 ? (
+        <OAuthFlow
+          provider={provider}
+          workspace={workspace}
+          refresh={refresh}
+          refreshModels={refreshModels}
+          onFinished={() => { setOpen(false); }}
+        />
       ) : (
         <div className="provider-card-footer">
-          <span>{provider.environment.names.length > 0 ? `Also supports ${provider.environment.names.join(", ")}` : provider.oauth.length > 0 ? "OAuth available through the active runtime" : "API key connection"}</span>
+          <span>{provider.environment.names.length > 0 ? `Also supports ${provider.environment.names.join(", ")}` : provider.oauth.length > 0 ? "Sign-in available through the provider" : "API key connection"}</span>
           {provider.keyMethod && <button onClick={() => { setKey(""); setLabel(""); setAnswers(initialAnswers(provider.keyMethod?.fields ?? [])); setOpen(true); }}>Add key</button>}
+          {provider.oauth.length > 0 && !provider.keyMethod && <button onClick={() => setOpen(true)}>Sign in</button>}
         </div>
       )}
       {!open && error && <p className="provider-error">{error}</p>}
