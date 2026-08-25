@@ -1032,29 +1032,11 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
 
 function TimelineRow({ tag, children, previous }: { tag: string; children: ReactNode; previous?: boolean }): ReactNode {
   return (
-    <div data-timeline-row={tag} className={previous ? "opencode-row previous-assistant-part" : "opencode-row"}>
+    <div data-timeline-row={tag} className="opencode-row">
       <div data-component="session-turn">
         <div data-slot="session-turn-message-container">{children}</div>
       </div>
     </div>
-  );
-}
-
-function RevertAction({ item, session }: { item: AssistantItem; session: SessionInfo | null }): ReactNode {
-  const { stageRevert } = useStore();
-  if (!session) return null;
-  return (
-    <TimelineRow tag="AssistantActions" previous>
-      <div data-component="turn-actions">
-        <button
-          className="turn-action"
-          title="Stage an undo of this response and everything after it"
-          onClick={() => void stageRevert(session.workspace, item.messageID)}
-        >
-          <span className="codicon codicon-discard" /> Revert from here
-        </button>
-      </div>
-    </TimelineRow>
   );
 }
 
@@ -1093,6 +1075,7 @@ function AssistantNode({
   streaming: boolean;
   session: SessionInfo | null;
 }): ReactNode {
+  const { stageRevert } = useStore();
   const rows: ReactNode[] = [];
   const visibleParts = item.parts.filter((part) =>
     part.kind === "tool"
@@ -1112,13 +1095,27 @@ function AssistantNode({
     if (lastGroup && lastGroup.kind === "activity") lastGroup.entries.push(part);
     else groups.push({ kind: "activity", entries: [part] });
   }
+  const showRevert = item.completed && !streaming && !item.retry && Boolean(session);
   let previous = false;
-  for (const group of groups) {
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    const group = groups[groupIndex];
+    const isLastGroup = groupIndex === groups.length - 1;
     if (group.kind === "text") {
       rows.push(
         <TimelineRow tag="AssistantMessage" previous={previous} key={group.part.id}>
           <div data-slot="session-turn-assistant-content">
             <TextPart part={group.part} streaming={streaming} />
+            {showRevert && isLastGroup && session && (
+              <div data-component="turn-actions">
+                <button
+                  className="turn-action"
+                  title="Stage an undo of this response and everything after it"
+                  onClick={() => void stageRevert(session.workspace, item.messageID)}
+                >
+                  <span className="codicon codicon-discard" /> Revert from here
+                </button>
+              </div>
+            )}
           </div>
         </TimelineRow>
       );
@@ -1155,14 +1152,21 @@ function AssistantNode({
               </div>
             );
           })}
+          {showRevert && isLastGroup && session && (
+            <div data-component="turn-actions">
+              <button
+                className="turn-action"
+                title="Stage an undo of this response and everything after it"
+                onClick={() => void stageRevert(session.workspace, item.messageID)}
+              >
+                <span className="codicon codicon-discard" /> Revert from here
+              </button>
+            </div>
+          )}
         </div>
       </TimelineRow>
     );
     previous = true;
-  }
-
-  if (item.completed && !streaming && !item.retry && session) {
-    rows.push(<RevertAction key={`${item.id}:revert`} item={item} session={session} />);
   }
 
   if (item.retry) {

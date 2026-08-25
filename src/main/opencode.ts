@@ -1776,7 +1776,13 @@ export class OpenShellBackend {
     const target = this.activeTarget(workspace);
     if (!this.client) throw new Error("no active session");
     this.assertTarget(target);
-    await this.client.session.inbox.cancel({ sessionID: target.sessionID, inboxID });
+    try {
+      await this.client.session.inbox.cancel({ sessionID: target.sessionID, inboxID });
+    } catch (error) {
+      const tag = (error as { _tag?: unknown } | null)?._tag;
+      if (tag === "ConflictError") return;
+      throw error;
+    }
   }
 
   async steerInbox(workspace: WorkspaceIdentity, inboxID: string): Promise<void> {

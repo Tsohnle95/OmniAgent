@@ -435,6 +435,61 @@ describe("OpenCodeTimeline chronology", () => {
   });
 });
 
+describe("completed assistant layout", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    storeState.agents = [];
+    storeState.sessions = [];
+    storeState.session = null;
+    storeState.reopenSession.mockReset();
+    storeState.openFile.mockReset();
+    storeState.focusSession.mockReset();
+    storeState.replyPermission.mockReset();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("renders one row per group with no phantom action rows between assistant messages", () => {
+    const session = { id: "session-1", workspace: "/repo", directory: "/repo" } as unknown as SessionInfo;
+    const transcript: TranscriptItem[] = [
+      {
+        kind: "assistant",
+        id: "a1",
+        messageID: "a1",
+        completed: true,
+        parts: [
+          { kind: "reasoning", id: "r1", text: "thinking", complete: true },
+          { kind: "tool", id: "t1", tool: { id: "t1", title: "read", detail: "README.md", status: "success", input: "{}", inputValue: {} } }
+        ]
+      },
+      {
+        kind: "assistant",
+        id: "a2",
+        messageID: "a2",
+        completed: true,
+        parts: [{ kind: "text", id: "p1", text: "Answer", complete: true }]
+      }
+    ];
+    act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} session={session} />));
+
+    const rows = Array.from(container.querySelectorAll("[data-timeline-row]")).map((row) => row.getAttribute("data-timeline-row"));
+    expect(rows).toEqual(["AssistantActivity", "AssistantMessage"]);
+
+    const actions = container.querySelector("[data-component='turn-actions']");
+    expect(actions).not.toBeNull();
+    const activityRow = container.querySelector("[data-timeline-row='AssistantActivity']");
+    expect(actions?.parentElement).toBe(activityRow?.querySelector("[data-slot='session-turn-assistant-content']"));
+  });
+});
+
 describe("subagent dispatch links", () => {
   let container: HTMLDivElement;
   let root: Root;
