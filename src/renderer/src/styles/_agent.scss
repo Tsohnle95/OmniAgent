@@ -609,6 +609,13 @@
   min-width: 0;
 }
 
+.app.agent-mode .agent-scroll > *,
+.app.agent-mode [data-component="session-prompt-dock"] > * {
+  max-width: 75ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .agent-empty { color: var(--text-dim); font-size: 13px; }
 
 .agent-empty-sub { color: var(--text-faint); font-size: 12px; }

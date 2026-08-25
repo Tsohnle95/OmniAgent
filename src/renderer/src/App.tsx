@@ -14,7 +14,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { SettingsSidebar, type SettingsSection } from "./components/SettingsSidebar";
 import { ThemeProvider } from "./theme";
 
-const SIDE_MIN_W = 280;
+const SIDE_MIN_W = 230;
 const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
 const AGENT_DEFAULT_W = 280;
@@ -645,7 +645,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${inAgentMode ? "agent-mode" : ""}`}>
       <div className="titlebar">
         <span className="titlebar-leading-actions">
           <button
