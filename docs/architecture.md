@@ -211,6 +211,18 @@ dependencies, caches, IDE metadata, and build outputs), unreadable/binary files,
 watcher coalescing, pre-activation changes, and missed first notifications can
 prevent observation or recovery of pre-change content.
 
+### Native revert and VCS queries (v2 contract)
+
+The server now owns undo checkpoints: `session.revert.stage` stages a rollback
+at a message (optionally including file changes), `commit` applies it, and
+`clear` discards the stage; Orbit surfaces this as a hover "Revert from here"
+action on completed assistant turns plus a staged-undo dock card. The v2
+contract also exposes `vcs.get`, `vcs.status`, and `vcs.diff` per location.
+These are candidates to replace the local `git show HEAD:` baseline heuristic
+because they understand staged/untracked/merge state, but adopting them means
+re-running the watcher-phase tests against a new source; keep that as its own
+change rather than mixing it into feature work.
+
 ## Editing and saves
 
 The renderer is fully editable. Each edit increments its tab revision and

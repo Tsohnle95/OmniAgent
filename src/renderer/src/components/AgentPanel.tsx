@@ -1148,7 +1148,9 @@ export function AgentPanel({
     providerUsage,
     providerUsageLoading,
     refreshProviderUsage,
-    selectPanelDirectory
+    selectPanelDirectory,
+    commitStagedRevert,
+    clearStagedRevert
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
@@ -1485,6 +1487,16 @@ export function AgentPanel({
         {(view.pendingForms ?? []).map((form) => (
           <FormPrompt key={form.id} form={form} workspace={activeSession!.workspace} />
         ))}
+        {view.stagedRevert && activeSession && (
+          <div data-component="dock-prompt" data-kind="revert">
+            <div data-slot="permission-header">Undo staged</div>
+            <p className="provider-note">Messages and file changes after this point will be removed.</p>
+            <div data-slot="permission-actions">
+              <button className="btn btn-danger" onClick={() => void commitStagedRevert(activeSession.workspace)}>Commit undo</button>
+              <button className="btn" onClick={() => void clearStagedRevert(activeSession.workspace)}>Discard</button>
+            </div>
+          </div>
+        )}
         <OpenCodeTodoDock todos={todos} />
         <Composer session={activeSession} />
       </div>

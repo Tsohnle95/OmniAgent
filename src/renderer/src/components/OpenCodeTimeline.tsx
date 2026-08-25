@@ -1040,6 +1040,24 @@ function TimelineRow({ tag, children, previous }: { tag: string; children: React
   );
 }
 
+function RevertAction({ item, session }: { item: AssistantItem; session: SessionInfo | null }): ReactNode {
+  const { stageRevert } = useStore();
+  if (!session) return null;
+  return (
+    <TimelineRow tag="AssistantActions" previous>
+      <div data-component="turn-actions">
+        <button
+          className="turn-action"
+          title="Stage an undo of this response and everything after it"
+          onClick={() => void stageRevert(session.workspace, item.messageID)}
+        >
+          <span className="codicon codicon-discard" /> Revert from here
+        </button>
+      </div>
+    </TimelineRow>
+  );
+}
+
 function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }> }): ReactNode {
   return (
     <TimelineRow tag="UserMessage">
@@ -1130,6 +1148,10 @@ function AssistantNode({
       </TimelineRow>
     );
     previous = true;
+  }
+
+  if (item.completed && !streaming && !item.retry && session) {
+    rows.push(<RevertAction key={`${item.id}:revert`} item={item} session={session} />);
   }
 
   if (item.retry) {
