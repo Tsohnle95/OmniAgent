@@ -15,6 +15,14 @@ import {
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
 import { validateWithW3c } from "./w3c-validation";
+import {
+  DEFAULT_SESSION_SIZE,
+  isWindowView,
+  parseSessionBounds,
+  serializeSessionBounds,
+  type WindowSize,
+  type WindowView
+} from "./window-sizing";
 import { resolveAppSource } from "./source-resolver";
 import { InspectPickerState } from "./inspect-picker";
 import type {
@@ -181,38 +189,37 @@ function windowBoundsPath(): string {
   return path.join(app.getPath("userData"), "window-bounds.json");
 }
 
-function loadSavedBounds(): { width: number; height: number } | null {
-  try {
-    const raw = JSON.parse(readFileSyncSafe(windowBoundsPath()));
-    if (
-      raw &&
-      typeof raw.width === "number" &&
-      typeof raw.height === "number" &&
-      raw.width >= 200 &&
-      raw.height >= 200
-    ) {
-      return { width: Math.round(raw.width), height: Math.round(raw.height) };
-    }
-  } catch {
-    // first launch or unreadable state — fall through to defaults
-  }
-  return null;
+function loadSessionBounds(): WindowSize | null {
+  return parseSessionBounds(readFileSyncSafe(windowBoundsPath()) || null);
 }
+
+let windowView: WindowView = "landing";
 
 let saveBoundsTimer: NodeJS.Timeout | null = null;
 
 function scheduleBoundsSave(win: BrowserWindow): void {
+  if (windowView !== "session") return;
   if (saveBoundsTimer) clearTimeout(saveBoundsTimer);
   saveBoundsTimer = setTimeout(() => {
     saveBoundsTimer = null;
     try {
       if (win.isDestroyed() || win.isMinimized() || win.isMaximized() || win.isFullScreen()) return;
       const [width, height] = win.getSize();
-      writeFileSyncSafe(windowBoundsPath(), JSON.stringify({ width, height }));
+      writeFileSyncSafe(windowBoundsPath(), serializeSessionBounds({ width, height }));
     } catch {
       // persistence is best-effort
     }
   }, 400);
+}
+
+function applyWindowView(nextView: WindowView): void {
+  windowView = nextView;
+  if (!win || win.isDestroyed()) return;
+  const size =
+    nextView === "landing"
+      ? { width: LANDING_WIDTH, height: LANDING_HEIGHT }
+      : loadSessionBounds() ?? DEFAULT_SESSION_SIZE;
+  if (!win.isMaximized() && !win.isFullScreen()) win.setSize(size.width, size.height);
 }
 
 function readFileSyncSafe(file: string): string {
@@ -231,7 +238,6 @@ function createWindow(show = true): BrowserWindow {
   const packagedUrl = pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
   const rendererUrl = applicationUrl(app.isPackaged, process.env["ELECTRON_RENDERER_URL"], packagedUrl);
   const location = trustedApplicationLocation(rendererUrl);
-  const savedBounds = loadSavedBounds();
   const newWin = new BrowserWindow({
     width: LANDING_WIDTH,
     height: LANDING_HEIGHT,
@@ -852,14 +858,9 @@ function registerIpc(): void {
 
   handleTrusted("shell:health", async () => backend.connect().catch(() => false));
 
-  handleTrusted("shell:window-bounds", async () => loadSavedBounds());
-
-  handleTrusted("shell:window-resize", async (_e, width: unknown, height: unknown) => {
-    if (!win || win.isDestroyed()) return;
-    const w = Number(width);
-    const h = Number(height);
-    if (!Number.isFinite(w) || !Number.isFinite(h)) return;
-    await win.setSize(Math.round(w), Math.round(h));
+  handleTrusted("shell:window-view", (_e, view: unknown) => {
+    if (!isWindowView(view)) return;
+    applyWindowView(view);
   });
 
   handleTrusted("shell:install-app", async () => installApplication());

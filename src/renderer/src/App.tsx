@@ -836,12 +836,10 @@ function Root(): ReactNode {
 
   useEffect(() => {
     if (session && !wasOpen.current) {
-      void window.openshell.windowBounds().then((bounds) => {
-        if (bounds) void window.openshell.windowResize(bounds.width, bounds.height);
-      }).catch(() => {});
+      void window.openshell.windowView("session").catch(() => {});
     }
     if (!session && wasOpen.current) {
-      void window.openshell.windowResize(760, 522).catch(() => {});
+      void window.openshell.windowView("landing").catch(() => {});
     }
     wasOpen.current = Boolean(session);
   }, [session]);

@@ -268,8 +268,7 @@ Internals:
 | `shell:provider-key-connect` | `(workspace, integrationID, key, label, answers) → void` — validates and forwards a write-only provider key and bounded form answers |
 | `shell:provider-credential-remove` | `(workspace, credentialID) → void` — removes a stored credential by opaque id |
 | `shell:health` | `() → boolean` |
-| `shell:window-bounds` | `() → { width, height } \| null` |
-| `shell:window-resize` | `(width: number, height: number) → Promise<void>` |
+| `shell:window-view` | `(view: "landing" \| "session") → void` — switches the window between the fixed landing size and the persisted session size (see Window sizing) |
 | `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/Orbit.app` |
 | `shell:validate-w3c` | `(path, content) → W3cDiagnostic[]`; calls the Nu Html Checker or W3C CSS Validator for HTML and plain CSS paths; preprocessor stylesheets (SCSS, LESS, Sass) return no diagnostics |
 
@@ -286,7 +285,23 @@ The packaged app always loads the exact bundled `file:` document and ignores
 loopback `http:` development URL and then trusts that exact origin. Other main-frame navigations and
 redirects are canceled. The window is `contextIsolation: true`,
 `nodeIntegration: false`, `sandbox: true`, macOS
-`titleBarStyle: "hiddenInset"`. The app icon (`resources/icon.svg` →
+`titleBarStyle: "hiddenInset"`.
+
+### Window sizing (`src/main/window-sizing.ts`)
+
+The window has two size profiles driven by the renderer through
+`shell:window-view`. The **landing** view (no open session) always snaps to the
+fixed `LANDING_WIDTH × LANDING_HEIGHT` (760×522). The **session** view applies
+the last session size the user resized to, persisted as
+`{ version: 2, session: { width, height } }` in `window-bounds.json` under
+userData; a legacy flat `{ width, height }` file migrates into that profile.
+Resizes are saved (400ms debounce) only while the current view is `"session"`,
+and never while minimized, maximized, or full screen, so landing resizes never
+clobber the session profile. With nothing saved yet the session view falls back
+to `DEFAULT_SESSION_SIZE` (1280×800). The app boots at the landing size; the
+renderer flips the view when the first panel opens and when the last one closes.
+
+The app icon (`resources/icon.svg` →
 rasterized `resources/icon.png` + `resources/icon.icns`, the paper-and-clay
 open-lid terminal mark) is set as the BrowserWindow `icon` on
 Windows/Linux and via `app.dock.setIcon` on macOS; the window flash
