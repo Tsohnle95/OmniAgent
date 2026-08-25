@@ -12,14 +12,15 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function storedTheme(): ThemeId {
   const value = window.localStorage.getItem(THEME_KEY);
-  return value === "original" || value === "paper" ? value : "paper";
+  return value === "paper" ? "paper" : "original";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }): ReactNode {
   const [theme, setTheme] = useState<ThemeId>(storedTheme);
 
   useLayoutEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    if (theme === "paper") document.documentElement.dataset.theme = "paper";
+    else delete document.documentElement.dataset.theme;
     window.localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 

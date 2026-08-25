@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { OrbitMark } from "./OrbitMark";
-import { IconArrowRight, IconCloudDownload, IconFile, IconFolder, IconFolderOpen, IconHistory } from "./icons";
+import { IconCloudDownload, IconFile, IconFolder, IconFolderOpen, IconHistory } from "./icons";
 import { droppedFilePaths } from "../drop";
 import type { ProjectInfo, SessionSummary } from "@shared/types";
 
@@ -23,12 +23,42 @@ type InstallToast = { id: number; text: string; tone: "info" | "error" };
 
 let installToastId = 0;
 
+function SectionHead({ label, count }: { label: string; count: number }): ReactNode {
+  return (
+    <span className="wd-sh">
+      <span className="wd-cap" />
+      <span className="wd-sh-label">{label}</span>
+      <span className="wd-cnt">{count}</span>
+      <svg className="wd-chev" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
+        <path d="M2 3.6 5 6.6 8 3.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
+function Chevron(): ReactNode {
+  return (
+    <svg className="wd-chev" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
+      <path d="M2 3.6 5 6.6 8 3.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FolderGlyph(): ReactNode {
+  return (
+    <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
+      <path d="M1.5 3.5h4l1.2 1.5h5.8v5.5a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function Welcome(): ReactNode {
   const { selectFolder, selectFile, openFileWorkspace, openSession, reopenSession, connected, runtimes, selectedRuntimeID } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<WelcomeTab>("sessions");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [installing, setInstalling] = useState(false);
   const [installToasts, setInstallToasts] = useState<InstallToast[]>([]);
 
@@ -74,11 +104,21 @@ export function Welcome(): ReactNode {
   const isSessions = tab === "sessions";
   const runtimeSessions = sessions.filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID);
   const selectedRuntimeName = runtimes.find((runtime) => runtime.id === selectedRuntimeID)?.name ?? selectedRuntimeID;
+  const projectsByRoot = new Map<string, ProjectInfo[]>();
+  for (const project of projects) {
+    const key = project.directory;
+    const list = projectsByRoot.get(key) ?? [];
+    list.push(project);
+    projectsByRoot.set(key, list);
+  }
+
+  const toggleGroup = (key: string): void =>
+    setOpenGroups((current) => ({ ...current, [key]: current[key] === undefined ? true : !current[key] }));
 
   return (
     <>
       <div
-        className="welcome"
+        className="welcome wd"
         data-drag-region
         onDragOver={(e) => {
           const types = e.dataTransfer?.types;
@@ -92,119 +132,138 @@ export function Welcome(): ReactNode {
           if (files.length > 0) void openFileWorkspace(files[0]);
         }}
       >
-        <div className="welcome-inner">
-          <section className="welcome-hero">
-            <div className="welcome-mark" aria-hidden>
-              <OrbitMark />
-            </div>
-            <h1 className="welcome-title">Orbit</h1>
-            <p className="welcome-eyebrow">Every agent. One surface.</p>
-            <p className="welcome-sub">
-              Open a repository, connect the agent you trust, and watch every file change
-              stream in live — diffs, turns, and terminals on one calm surface.
-            </p>
-            <div className="welcome-actions">
-              <button className="welcome-cta" onClick={() => void selectFolder()}>
-                <IconFolderOpen />
-                Open a folder
-              </button>
-              <button className="welcome-cta welcome-cta-secondary" onClick={() => void selectFile()}>
-                <IconFile />
-                Open a file…
-              </button>
-              {canInstall && (
-                <button
-                  className="welcome-cta welcome-cta-secondary"
-                  onClick={() => void installApp()}
-                  disabled={installing}
-                >
-                  <IconCloudDownload />
-                  {installing ? "Installing…" : "Install app"}
+        <div className="wd-mock">
+          <div className="wd-twin">
+            <div className="wd-hero">
+              <div className="welcome-mark" aria-hidden>
+                <OrbitMark size={36} />
+              </div>
+              <h1 className="wd-title">Orbit</h1>
+              <p className="wd-kicker">Every agent. One surface.</p>
+              <p className="wd-sub">
+                Open a repository, connect the agent you trust, and watch every file change stream in live — diffs,
+                turns, and terminals on one calm surface.
+              </p>
+              <div className="wd-cta-row">
+                <button className="wd-cta-primary" onClick={() => void selectFolder()}>
+                  <IconFolderOpen />
+                  Open a folder
                 </button>
+                <button className="wd-cta-ghost" onClick={() => void selectFile()}>
+                  <IconFile />
+                  Open a file…
+                </button>
+                {canInstall && (
+                  <button className="wd-cta-ghost" onClick={() => void installApp()} disabled={installing}>
+                    <IconCloudDownload />
+                    {installing ? "Installing…" : "Install app"}
+                  </button>
+                )}
+              </div>
+              <ul className="wd-traits">
+                <li>Live per-file diffs</li>
+                <li>Streaming agent turns</li>
+                <li>Parallel session panels</li>
+              </ul>
+              <p className="wd-drop-hint">…or drop a folder anywhere in this window.</p>
+              {selectedRuntimeID === "opencode" && !connected && (
+                <p className="welcome-warn">OpenCode service not reachable. It will be started automatically.</p>
               )}
             </div>
-            <ul className="welcome-traits">
-              <li>Live per-file diffs</li>
-              <li>Streaming agent turns</li>
-              <li>Parallel session panels</li>
-            </ul>
-            <p className="welcome-drop-hint">…or drop a folder anywhere in this window.</p>
-            {selectedRuntimeID === "opencode" && !connected && (
-              <p className="welcome-warn">
-                OpenCode service not reachable. It will be started automatically.
-              </p>
-            )}
-          </section>
 
-          <section className="welcome-frame">
-            <div className="welcome-tabs" role="tablist" aria-label="Recent work">
-              <button
-                role="tab"
-                aria-selected={isSessions}
-                className={`welcome-tab ${isSessions ? "on" : ""}`}
-                onClick={() => setTab("sessions")}
-              >
-                Sessions
-                <span className="welcome-tab-count">{runtimeSessions.length}</span>
-              </button>
-              <button
-                role="tab"
-                aria-selected={!isSessions}
-                className={`welcome-tab ${isSessions ? "" : "on"}`}
-                onClick={() => setTab("projects")}
-              >
-                Projects
-                <span className="welcome-tab-count">{projects.length}</span>
-              </button>
-            </div>
+            <aside className="wd-panel">
+              <div className="wd-tabs" role="tablist" aria-label="Recent work">
+                <button
+                  role="tab"
+                  aria-selected={isSessions}
+                  className={`wd-tab ${isSessions ? "on" : ""}`}
+                  onClick={() => setTab("sessions")}
+                >
+                  <span className="wd-cap" />
+                  Recent
+                  <span className="wd-tab-count">{runtimeSessions.length}</span>
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={!isSessions}
+                  className={`wd-tab ${isSessions ? "" : "on"}`}
+                  onClick={() => setTab("projects")}
+                >
+                  <span className="wd-cap" />
+                  Workspaces
+                  <span className="wd-tab-count">{projects.length}</span>
+                </button>
+              </div>
 
-            <div className="welcome-list" role="tabpanel">
-              <div className={`welcome-pane ${isSessions ? "" : "hidden"}`} aria-hidden={!isSessions}>
-                {loading && <p className="welcome-empty">Loading…</p>}
-                {!loading && runtimeSessions.length === 0 && (
-                  <p className="welcome-empty">No recent {selectedRuntimeName} sessions yet — open a folder to start one.</p>
+              <div className="wd-body" role="tabpanel">
+                {isSessions && (
+                  <div className="wd-pane">
+                    <div className="wd-sec-head"><SectionHead label="Recent sessions" count={runtimeSessions.length} /></div>
+                    {loading && <p className="wd-empty">Loading…</p>}
+                    {!loading && runtimeSessions.length === 0 && (
+                      <p className="wd-empty">No recent {selectedRuntimeName} sessions yet — open a folder to start one.</p>
+                    )}
+                    <ul className="wd-num-list">
+                      {runtimeSessions.map((session, index) => (
+                        <li key={session.id}>
+                          <button className="wd-row" onClick={() => void reopenSession(session.id)} title={session.directory}>
+                            <span className="wd-num-i">{String(index + 1).padStart(2, "0")}</span>
+                            <span className="wd-dot" />
+                            <span className="wd-name">
+                              <IconHistory className="wd-name-icon" />
+                              {session.title}
+                            </span>
+                            <span className="wd-when">{formatWhen(session.updatedAt)}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-                {runtimeSessions.map((s) => (
-                  <button
-                    key={s.id}
-                    className="welcome-row"
-                    onClick={() => void reopenSession(s.id)}
-                    title={s.directory}
-                  >
-                    <span className="welcome-row-tile"><IconHistory /></span>
-                    <span className="welcome-row-main">
-                      <span className="welcome-row-title">{s.title}</span>
-                      <span className="welcome-row-meta">{s.directory}</span>
-                    </span>
-                    <span className="welcome-row-when">{formatWhen(s.updatedAt)}</span>
-                    <IconArrowRight className="welcome-row-arrow" />
-                  </button>
-                ))}
-              </div>
-              <div className={`welcome-pane ${isSessions ? "hidden" : ""}`} aria-hidden={isSessions}>
-                {loading && <p className="welcome-empty">Loading…</p>}
-                {!loading && projects.length === 0 && (
-                  <p className="welcome-empty">No recent projects found.</p>
+
+                {!isSessions && (
+                  <div className="wd-pane">
+                    <div className="wd-sec-head"><SectionHead label="Workspaces" count={projects.length} /></div>
+                    {loading && <p className="wd-empty">Loading…</p>}
+                    {!loading && projects.length === 0 && <p className="wd-empty">No recent projects found.</p>}
+                    {[...projectsByRoot.entries()].map(([root, rootProjects]) => {
+                      const open = openGroups[root] !== false;
+                      return (
+                        <div className={`wd-grp ${open ? "is-open" : ""}`} key={root}>
+                          <button className="wd-wgh" onClick={() => toggleGroup(root)} title={root}>
+                            <Chevron />
+                            <FolderGlyph />
+                            <span className="wd-wgname">{root.split("/").filter(Boolean).pop() || root}</span>
+                            <span className="wd-wgcnt">{rootProjects.length}</span>
+                          </button>
+                          {open && (
+                            <div className="wd-kids-wrap">
+                              <ul className="wd-kids">
+                                {rootProjects.map((project) => (
+                                  <li key={project.directory}>
+                                    <button className="wd-row" onClick={() => void openSession(project.directory)} title={project.directory}>
+                                      <span className="wd-dot" />
+                                      <span className="wd-name">{project.name}</span>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-                {projects.map((p) => (
-                  <button
-                    key={p.directory}
-                    className="welcome-row"
-                    onClick={() => void openSession(p.directory)}
-                    title={p.directory}
-                  >
-                    <span className="welcome-row-tile"><IconFolder /></span>
-                    <span className="welcome-row-main">
-                      <span className="welcome-row-title">{p.name}</span>
-                      <span className="welcome-row-meta">{p.directory}</span>
-                    </span>
-                    <span className="welcome-row-when" />
-                    <IconArrowRight className="welcome-row-arrow" />
-                  </button>
-                ))}
               </div>
-            </div>
-          </section>
+
+              <div className="wd-statusfoot">
+                <span className="wd-live-dot" />
+                <span>{runtimeSessions.length} recent · {projects.length} workspaces</span>
+                <span className="wd-modeltag">{selectedRuntimeName}</span>
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
       {installToasts.length > 0 && (

@@ -43,7 +43,7 @@ describe("SettingsPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("offers the new and original profiles and persists selection", () => {
+  it("defaults to the dark original profile, persists selection, and restores it", () => {
     act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
 
     const cards = [...container.querySelectorAll<HTMLButtonElement>(".theme-card")];
@@ -51,12 +51,24 @@ describe("SettingsPage", () => {
       expect.stringContaining("Paper Editorial"),
       expect.stringContaining("Original")
     ]);
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(window.localStorage.getItem("orbit.theme")).toBe("original");
+
+    act(() => cards[0].click());
+    expect(document.documentElement.dataset.theme).toBe("paper");
+    expect(cards[0].getAttribute("aria-checked")).toBe("true");
+
+    act(() => root.unmount());
+    container.remove();
+    document.body.append(container);
+    root = createRoot(container);
+    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
     expect(document.documentElement.dataset.theme).toBe("paper");
 
-    act(() => cards[1].click());
-    expect(document.documentElement.dataset.theme).toBe("original");
+    const restored = [...container.querySelectorAll<HTMLButtonElement>(".theme-card")];
+    act(() => restored[1].click());
+    expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(window.localStorage.getItem("orbit.theme")).toBe("original");
-    expect(cards[1].getAttribute("aria-checked")).toBe("true");
   });
 
   it("provides dedicated settings navigation with About as the final tab", () => {
