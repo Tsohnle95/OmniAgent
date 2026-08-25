@@ -79,7 +79,7 @@ npm start              # launch the existing build
 npm run pack           # package Orbit.app on macOS
 ```
 
-On macOS, **Install app** on the welcome screen builds and installs
+On macOS, `npm run install-app` builds and installs
 `Orbit.app` into `/Applications`. The installed app is a live launcher: it
 keeps its own Electron runtime and icon, but loads the app from the repository,
 rebuilding automatically first when repository sources are newer than the last

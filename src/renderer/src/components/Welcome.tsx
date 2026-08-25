@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import { IconCloudDownload, IconFile, IconFolder } from "./icons";
 import { droppedFilePaths } from "../drop";
 import type { ProjectInfo, SessionSummary } from "@shared/types";
 
@@ -16,9 +15,7 @@ function formatWhen(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-type InstallToast = { id: number; text: string; tone: "info" | "error" };
-
-let installToastId = 0;
+const LIVE_WINDOW_MS = 60 * 60 * 1000;
 
 function Chev(): ReactNode {
   return (
@@ -50,34 +47,11 @@ function FolderGlyph(): ReactNode {
 }
 
 export function Welcome(): ReactNode {
-  const { selectFolder, selectFile, openFileWorkspace, openSession, reopenSession, connected, runtimes, selectedRuntimeID } = useStore();
+  const { selectFolder, openFileWorkspace, openSession, reopenSession, sessions, selectedRuntimeID } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const [installing, setInstalling] = useState(false);
-  const [installToasts, setInstallToasts] = useState<InstallToast[]>([]);
-
-  const notifyInstall = (text: string, tone: "info" | "error" = "info"): void => {
-    const id = ++installToastId;
-    setInstallToasts((prev) => [...prev.slice(-2), { id, text, tone }]);
-    setTimeout(() => setInstallToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
-  };
-
-  const installApp = async (): Promise<void> => {
-    if (installing) return;
-    setInstalling(true);
-    try {
-      const result = await window.openshell.installApp();
-      notifyInstall(result.message, result.ok ? "info" : "error");
-    } catch (error) {
-      notifyInstall(error instanceof Error ? error.message : String(error), "error");
-    } finally {
-      setInstalling(false);
-    }
-  };
-
-  const canInstall = window.openshell.platform === "darwin" && !window.openshell.isPackaged;
+  const [closedSecs, setClosedSecs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void window.openshell
@@ -85,17 +59,12 @@ export function Welcome(): ReactNode {
       .then((p) => setProjects(p))
       .catch(() => setProjects([]))
       .finally(() => setLoading(false));
-    void window.openshell
-      .sessions()
-      .then((s) => setSessions(s))
-      .catch(() => setSessions([]));
   }, []);
 
   const runtimeSessions = sessions
     .filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID)
     .sort((left, right) => right.updatedAt - left.updatedAt);
   const recentSessions = runtimeSessions.slice(0, 3);
-  const selectedRuntimeName = runtimes.find((runtime) => runtime.id === selectedRuntimeID)?.name ?? selectedRuntimeID;
   const projectsByRoot = new Map<string, ProjectInfo[]>();
   for (const project of projects) {
     const list = projectsByRoot.get(project.directory) ?? [];
@@ -103,9 +72,16 @@ export function Welcome(): ReactNode {
     projectsByRoot.set(project.directory, list);
   }
   const roots = [...projectsByRoot.keys()];
+  const latestSessionByDirectory = new Map<string, SessionSummary>();
+  for (const session of runtimeSessions) {
+    if (!latestSessionByDirectory.has(session.directory)) latestSessionByDirectory.set(session.directory, session);
+  }
 
   const toggleGroup = (key: string): void =>
     setOpenGroups((current) => ({ ...current, [key]: !(current[key] ?? true) }));
+
+  const toggleSec = (key: string): void =>
+    setClosedSecs((current) => ({ ...current, [key]: !(current[key] ?? false) }));
 
   const dropHandlers = {
     onDragOver: (e: React.DragEvent) => {
@@ -122,74 +98,60 @@ export function Welcome(): ReactNode {
   };
 
   return (
-    <>
-      <div className="welcome" data-drag-region {...dropHandlers}>
-        <div className="mock sk-tglass">
-          <div className="twin">
-            <div className="hero-col">
-              <MarkSvg />
+    <div className="welcome" data-drag-region {...dropHandlers}>
+      <div className="mock sk-tglass">
+        <div className="twin">
+          <div className="hero-col">
+            <MarkSvg />
+            <h1 className="title">Orbit</h1>
+            <p className="sub">One calm surface for coding agents.</p>
+            <div className="cta-row">
+              <button className="btn btn-primary" type="button" onClick={() => void selectFolder()}>
+                Open a folder
+              </button>
+            </div>
+          </div>
 
-              <h1 className="title">Orbit</h1>
-              <p className="sub">One calm surface for coding agents.</p>
-              <div className="cta-row">
-                <button className="btn btn-primary" type="button" onClick={() => void selectFolder()}>
-                  Open a folder
-                </button>
+          <aside className="spanel" style={{ width: 248 }}>
+            <div className={`sd-sec ${closedSecs.recent ? "is-closed" : ""}`}>
+              <button className="sd-sh style-dotcap" type="button" onClick={() => toggleSec("recent")}>
+                <span className="sd-sh-label">Recent</span>
+                <span className="sd-cnt">{recentSessions.length}</span>
+                <Chev />
+              </button>
+              <div className="sd-body">
+                {!loading && (
+                  <ul className="num-list">
+                    {recentSessions.map((session, index) => (
+                      <li key={session.id} className={Date.now() - session.updatedAt < LIVE_WINDOW_MS ? "is-live" : ""}>
+                        <button
+                          className="rowlink"
+                          type="button"
+                          onClick={() => void reopenSession(session.id)}
+                          title={session.directory}
+                        >
+                          <span className="num-i">{String(index + 1).padStart(2, "0")}</span>
+                          <span className="num-name">{session.title}</span>
+                          <span className="num-when">{formatWhen(session.updatedAt)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <ul className="traits">
-                <li>Live per-file diffs</li>
-                <li>Streaming agent turns</li>
-                <li>Parallel session panels</li>
-              </ul>
-              <p className="drophint">…or drop a folder anywhere in this window.</p>
-              {selectedRuntimeID === "opencode" && !connected && (
-                <p className="warn">OpenCode service not reachable. It will be started automatically.</p>
-              )}
             </div>
 
-            <aside className="spanel" style={{ width: 248 }}>
-              <div className={`sd-sec ${loading || recentSessions.length > 0 ? "" : "is-closed"}`}>
-                <button className="sd-sh style-dotcap" type="button">
-                  <span className="sd-sh-label">Recent</span>
-                  <span className="sd-cnt">{recentSessions.length}</span>
-                  <Chev />
-                </button>
-                <div className="sd-body">
-                  {loading && <p className="empty">Loading…</p>}
-                  {!loading && recentSessions.length === 0 && <p className="empty">No recent sessions yet.</p>}
-                  {!loading && (
-                    <ul className="num-list">
-                      {recentSessions.map((session, index) => (
-                        <li key={session.id}>
-                          <button
-                            className="rowlink"
-                            type="button"
-                            onClick={() => void reopenSession(session.id)}
-                            title={session.directory}
-                          >
-                            <span className="num-i">{String(index + 1).padStart(2, "0")}</span>
-                            <span className="num-name">{session.title}</span>
-                            <span className="num-when">{formatWhen(session.updatedAt)}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              <div className="sd-sec">
-                <button className="sd-sh style-dotcap" type="button">
-                  <span className="sd-sh-label">Workspaces</span>
-                  <span className="sd-cnt">{projects.length}</span>
-                  <Chev />
-                </button>
-                <div className="sd-body">
-                  {loading && <p className="empty">Loading…</p>}
-                  {!loading && projects.length === 0 && <p className="empty">No recent projects found.</p>}
-                  {!loading && roots.map((root) => {
+            <div className={`sd-sec ${closedSecs.workspaces ? "is-closed" : ""}`}>
+              <button className="sd-sh style-dotcap" type="button" onClick={() => toggleSec("workspaces")}>
+                <span className="sd-sh-label">Workspaces</span>
+                <span className="sd-cnt">{projects.length}</span>
+                <Chev />
+              </button>
+              <div className="sd-body">
+                {!loading &&
+                  roots.map((root, rootIndex) => {
                     const rootProjects = projectsByRoot.get(root)!;
-                    const open = openGroups[root] ?? true;
+                    const open = openGroups[root] ?? (roots.length === 1 || rootIndex === 1);
                     return (
                       <div className={`sd-grp ${open ? "is-open" : ""}`} key={root}>
                         <button className="sd-wgh" type="button" onClick={() => toggleGroup(root)} title={root}>
@@ -200,55 +162,33 @@ export function Welcome(): ReactNode {
                         </button>
                         <div className="sd-kids-wrap">
                           <ul className="rows sd-kids">
-                            {rootProjects.map((project) => (
-                              <li key={project.directory}>
-                                <button
-                                  className="rowlink"
-                                  type="button"
-                                  onClick={() => void openSession(project.directory)}
-                                  title={project.directory}
-                                >
-                                  <span className="row-dot" />
-                                  <span className="row-name">{project.name}</span>
-                                </button>
-                              </li>
-                            ))}
+                            {rootProjects.map((project) => {
+                              const latest = latestSessionByDirectory.get(project.directory);
+                              return (
+                                <li key={project.directory} className={latest && Date.now() - latest.updatedAt < LIVE_WINDOW_MS ? "is-live" : ""}>
+                                  <button
+                                    className="rowlink"
+                                    type="button"
+                                    onClick={() => void openSession(project.directory)}
+                                    title={project.directory}
+                                  >
+                                    <span className="row-dot" />
+                                    <span className="row-name">{project.name}</span>
+                                    {latest && <span className="row-meta">{formatWhen(latest.updatedAt)}</span>}
+                                  </button>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       </div>
                     );
                   })}
-                </div>
               </div>
-
-              <div className="statusfoot">
-                <span className="live-dot" />
-                <span>{runtimeSessions.length} recent · {projects.length} workspaces</span>
-                <span className="modeltag">{selectedRuntimeName}</span>
-              </div>
-            </aside>
-          </div>
-          <div className="welcome-actions-corner">
-            <button className="btn btn-ghost" type="button" onClick={() => void selectFile()} title="Open a file">
-              <IconFile />Open a file…
-            </button>
-            {canInstall && (
-              <button className="btn btn-ghost" type="button" onClick={() => void installApp()} disabled={installing} title="Install app">
-                <IconCloudDownload />{installing ? "Installing…" : "Install app"}
-              </button>
-            )}
-          </div>
+            </div>
+          </aside>
         </div>
       </div>
-      {installToasts.length > 0 && (
-        <div className="toasts">
-          {installToasts.map((t) => (
-            <div key={t.id} className={`toast ${t.tone}`}>
-              {t.text}
-            </div>
-          ))}
-        </div>
-      )}
-    </>
+    </div>
   );
 }

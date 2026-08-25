@@ -299,8 +299,8 @@ use `scripts/launch.mjs` to run
 points electron-vite at that bundle via `ELECTRON_EXEC_PATH` so the dock
 shows the real name and icon instead of Electron's defaults. Linux and Windows
 skip bundle preparation and use plain Electron. Production packaging uses the
-same brand: `npm run pack` (or the Welcome screen's Install app button on
-macOS, only when the app is unpackaged) runs `scripts/install-app.mjs`, which
+same brand: `npm run pack` (or `npm run install-app`, which also installs into
+`/Applications`) runs `scripts/install-app.mjs`, which
 builds `out/`, packages `release/mac/Orbit.app` with electron-builder
 (`electron-builder.yml`; `asar: false` keeps the unpacked `app/` layout so
 the trusted packaged document stays exactly

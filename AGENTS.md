@@ -36,7 +36,7 @@ OpenCode sessions. `dsh` must be on PATH for DeepSeek Harness sessions.
 | Stream transport | `src/main/stream-pipeline.ts` | SSE pipeline: per-directory delta coalescing, snapshot barriers, 33ms batched flush, heartbeat, reconnect backoff |
 | Provider usage | `src/main/provider-usage.ts` | Reads opencode's stored OAuth credentials and fetches per-provider plan/rate-limit data (ChatGPT, Claude, Copilot) |
 | Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray |
-| Packaging | `scripts/install-app.mjs` | electron-builder pack (`electron-builder.yml`) and `/Applications` install behind the Welcome Install app button |
+| Packaging | `scripts/install-app.mjs` | electron-builder pack (`electron-builder.yml`) and `/Applications` install via `npm run install-app` |
 | Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
 | Renderer store | `src/renderer/src/store.tsx` | All UI state (concurrent sessions: panels + per-workspace slices); subscribes to backend events |
 | Chat store | `src/renderer/src/chat-store.ts` | Authoritative per-session message/part maps (`binary.ts`); transcript projection + snapshot materialization |

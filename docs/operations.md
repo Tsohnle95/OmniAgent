@@ -23,7 +23,7 @@ npm run test:platform # launcher tests and real Electron-hosted PTY smoke
 npm run build    # compile then launch the production app (one command)
 npm run build:compile # compile only -> out/ (no launch)
 npm run pack     # build + package a real macOS app -> release/mac/Orbit.app
-npm run install-app # CLI equivalent of the Welcome screen Install app button
+npm run install-app # build + package + install Orbit.app into /Applications (macOS)
 npm run check    # typecheck, tests, docs check, and compile-only build
 npm start        # launch the existing production build with electron-vite preview
 ```
@@ -46,9 +46,9 @@ a live launcher: `scripts/install-app.mjs` strips the packaged `out/`,
 its own Electron runtime and Dock icon but loads the main process from the
 repository's `out/`, rebuilding automatically first when repository sources are
 newer than the build (silently; if the rebuild fails it falls back to the last
-known good build after confirming). The Welcome screen's
-Install app button (macOS, hidden in packaged builds) drives the same script
-over the `shell:install-app` channel and toasts the result. `release/` and
+known good build after confirming). On macOS,
+`npm run install-app` drives the same script over the
+`shell:install-app` channel. `release/` and
 `build/` are gitignored builder outputs.
 `npm run test:platform` also runs the hidden-window renderer trust smoke on
 macOS. Linux and Windows run the launcher and Electron PTY coverage but skip the
