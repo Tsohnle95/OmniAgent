@@ -1100,14 +1100,35 @@ function AssistantNode({
       : Boolean(part.text.trim())
   );
   const lastPart = visibleParts.at(-1);
-  const activities = visibleParts.filter((part) => part.kind === "reasoning" || part.kind === "tool");
-  const prose = visibleParts.filter((part): part is Extract<AssistantPart, { kind: "text" }> => part.kind === "text");
+  type ActivityGroup = { kind: "activity"; entries: Exclude<AssistantPart, { kind: "text" }>[] };
+  type TextGroup = { kind: "text"; part: Extract<AssistantPart, { kind: "text" }> };
+  const groups: (ActivityGroup | TextGroup)[] = [];
+  for (const part of visibleParts) {
+    if (part.kind === "text") {
+      groups.push({ kind: "text", part });
+      continue;
+    }
+    const lastGroup = groups.at(-1);
+    if (lastGroup && lastGroup.kind === "activity") lastGroup.entries.push(part);
+    else groups.push({ kind: "activity", entries: [part] });
+  }
   let previous = false;
-  if (activities.length > 0) {
+  for (const group of groups) {
+    if (group.kind === "text") {
+      rows.push(
+        <TimelineRow tag="AssistantMessage" previous={previous} key={group.part.id}>
+          <div data-slot="session-turn-assistant-content">
+            <TextPart part={group.part} streaming={streaming} />
+          </div>
+        </TimelineRow>
+      );
+      previous = true;
+      continue;
+    }
     rows.push(
-      <TimelineRow tag="AssistantActivity" key={`${item.id}:activity`}>
+      <TimelineRow tag="AssistantActivity" previous={previous} key={`${item.id}:activity:${group.entries[0]?.id ?? rows.length}`}>
         <div data-slot="session-turn-assistant-content" data-component="assistant-activity-stack">
-          {activities.map((part) => {
+          {group.entries.map((part) => {
             const running = part.kind === "reasoning"
               ? streaming && part.id === lastPart?.id && !part.complete
               : part.tool.status === "running";
@@ -1134,16 +1155,6 @@ function AssistantNode({
               </div>
             );
           })}
-        </div>
-      </TimelineRow>
-    );
-    previous = true;
-  }
-  for (const part of prose) {
-    rows.push(
-      <TimelineRow tag="AssistantMessage" previous={previous} key={part.id}>
-        <div data-slot="session-turn-assistant-content">
-          <TextPart part={part} streaming={streaming} />
         </div>
       </TimelineRow>
     );

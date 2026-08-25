@@ -38,6 +38,7 @@ export interface ChatPartRecord {
   messageID: string;
   sessionID?: string;
   type: string;
+  seq?: number;
   text?: string;
   state?: Record<string, unknown>;
   time?: { created?: number; completed?: number; end?: number };
@@ -88,6 +89,24 @@ function textPartID(messageID: string, type: "text" | "reasoning", ordinal: unkn
   return `${messageID}:${type}:${Number(ordinal ?? 0)}`;
 }
 
+function sameTypeCount(draft: ChatDirectoryState, messageID: string, type: string): number {
+  return (draft.part[messageID] ?? []).filter((part) => part.type === type).length;
+}
+
+function resolvedOrdinal(
+  draft: ChatDirectoryState,
+  messageID: string,
+  type: "text" | "reasoning",
+  ordinal: unknown
+): number {
+  if (ordinal !== undefined) return Number(ordinal);
+  return Math.max(0, sameTypeCount(draft, messageID, type) - 1);
+}
+
+function eventOrdinal(data: Record<string, any>): number {
+  return Number(data.ordinal ?? 0);
+}
+
 function toolPartID(messageID: string, callID: string): string {
   return `${messageID}:tool:${callID}`;
 }
@@ -120,20 +139,6 @@ export function buildRateLimitNotice(action: RateLimitAction | null | undefined,
   const link = typeof action.link === "string" && action.link ? action.link : "";
   const text = link && !base.includes(link) ? `${base} → ${link}` : base;
   return { kind: "status", id: `${sessionID}-ratelimit-${reason}`, text, tone: "error" };
-}
-
-function appendNonOverlappingDelta(existingValue: string | undefined, delta: string): string {
-  if (!existingValue || delta.length === 0) return (existingValue ?? "") + delta;
-  if (existingValue.endsWith(delta)) return existingValue;
-
-  const maxOverlap = Math.min(existingValue.length, delta.length);
-  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
-    if (existingValue.endsWith(delta.slice(0, overlap))) {
-      return existingValue + delta.slice(overlap);
-    }
-  }
-
-  return existingValue + delta;
 }
 
 function partFieldValue(part: ChatPartRecord, field: string): string | undefined {
@@ -273,12 +278,20 @@ export function insertUserMessage(
   });
 }
 
+function maxPartSeq(parts: ChatPartRecord[]): number {
+  return parts.reduce((max, part) => Math.max(max, typeof part.seq === "number" ? part.seq : 0), 0);
+}
+
 function insertPart(draft: ChatDirectoryState, part: ChatPartRecord): void {
   const parts = draft.part[part.messageID] ?? [];
   const result = Binary.search(parts, part.id, (item) => item.id);
   const next = [...parts];
-  if (result.found) next[result.index] = part;
-  else next.splice(result.index, 0, part);
+  if (result.found) {
+    next[result.index] = part;
+  } else {
+    const staged = typeof part.seq === "number" ? part : { ...part, seq: maxPartSeq(parts) + 1 };
+    next.splice(result.index, 0, staged);
+  }
   draft.part[part.messageID] = next;
 }
 
@@ -293,16 +306,17 @@ function upsertPart(draft: ChatDirectoryState, next: ChatPartRecord): boolean {
     const previous = parts[result.index];
     if (shouldPreserveExistingPart(previous, next)) return false;
     const dedupeFields = getUpdatedDeltaFields(previous, next);
+    const carried = { ...next, ...(typeof previous.seq === "number" ? { seq: previous.seq } : {}) };
     const replaced = dedupeFields.length > 0
-      ? { ...next, __dedupeNextDeltaFields: dedupeFields }
-      : next;
+      ? { ...carried, __dedupeNextDeltaFields: dedupeFields }
+      : carried;
     const replacedParts = [...parts];
     replacedParts[result.index] = replaced;
     draft.part[next.messageID] = replacedParts;
     return true;
   }
   const inserted = [...parts];
-  inserted.splice(result.index, 0, next);
+  inserted.splice(result.index, 0, { ...next, seq: typeof next.seq === "number" ? next.seq : maxPartSeq(parts) + 1 });
   draft.part[next.messageID] = inserted;
   return true;
 }
@@ -341,11 +355,10 @@ function applyDelta(
   const dedupeFields = (existing as unknown as { __dedupeNextDeltaFields?: string[] }).__dedupeNextDeltaFields ?? [];
   const shouldDedupe = dedupeFields.includes(props.field);
   const existingValue = partFieldValue(existing, props.field);
-  const updated = setPartFieldValue(
-    existing,
-    props.field,
-    shouldDedupe ? appendNonOverlappingDelta(existingValue, props.delta) : (existingValue ?? "") + props.delta
-  ) as unknown as { __dedupeNextDeltaFields?: string[] } & ChatPartRecord;
+  const merged = shouldDedupe && existingValue && existingValue.endsWith(props.delta)
+    ? existingValue
+    : (existingValue ?? "") + props.delta;
+  const updated = setPartFieldValue(existing, props.field, merged) as unknown as { __dedupeNextDeltaFields?: string[] } & ChatPartRecord;
   updated.__dedupeNextDeltaFields = dedupeFields.filter((field) => field !== props.field);
   const next = [...parts];
   next[result.index] = updated as ChatPartRecord;
@@ -635,7 +648,8 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
     case "session.text.started": {
       const messageID = eventMessageID(data);
       if (!messageID) return false;
-      const partID = textPartID(messageID, "text", data.ordinal);
+      const seq = data.ordinal === undefined ? sameTypeCount(draft, messageID, "text") : eventOrdinal(data);
+      const partID = textPartID(messageID, "text", seq);
       const parts = draft.part[messageID] ?? [];
       const result = Binary.search(parts, partID, (part) => part.id);
       if (result.found) return false;
@@ -646,14 +660,15 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       return applyDelta(draft, {
         sessionID,
         messageID: eventMessageID(data),
-        partID: textPartID(eventMessageID(data), "text", data.ordinal),
+        partID: textPartID(eventMessageID(data), "text", resolvedOrdinal(draft, eventMessageID(data), "text", data.ordinal)),
         field: "text",
         delta: String(data.delta ?? "")
       });
     case "session.text.ended": {
       const messageID = eventMessageID(data);
       if (!messageID) return false;
-      const partID = textPartID(messageID, "text", data.ordinal);
+      const seq = data.ordinal === undefined ? Math.max(0, sameTypeCount(draft, messageID, "text") - 1) : eventOrdinal(data);
+      const partID = textPartID(messageID, "text", seq);
       const parts = draft.part[messageID] ?? [];
       const existing = Binary.search(parts, partID, (part) => part.id);
       const state = data.state && typeof data.state === "object"
@@ -682,7 +697,8 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
     case "session.reasoning.started": {
       const messageID = eventMessageID(data);
       if (!messageID) return false;
-      const partID = textPartID(messageID, "reasoning", data.ordinal);
+      const seq = data.ordinal === undefined ? sameTypeCount(draft, messageID, "reasoning") : eventOrdinal(data);
+      const partID = textPartID(messageID, "reasoning", seq);
       const parts = draft.part[messageID] ?? [];
       const result = Binary.search(parts, partID, (part) => part.id);
       if (result.found) return false;
@@ -693,14 +709,15 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       return applyDelta(draft, {
         sessionID,
         messageID: eventMessageID(data),
-        partID: textPartID(eventMessageID(data), "reasoning", data.ordinal),
+        partID: textPartID(eventMessageID(data), "reasoning", resolvedOrdinal(draft, eventMessageID(data), "reasoning", data.ordinal)),
         field: "text",
         delta: String(data.delta ?? "")
       });
     case "session.reasoning.ended": {
       const messageID = eventMessageID(data);
       if (!messageID) return false;
-      const partID = textPartID(messageID, "reasoning", data.ordinal);
+      const seq = data.ordinal === undefined ? Math.max(0, sameTypeCount(draft, messageID, "reasoning") - 1) : eventOrdinal(data);
+      const partID = textPartID(messageID, "reasoning", seq);
       const parts = draft.part[messageID] ?? [];
       const existing = Binary.search(parts, partID, (part) => part.id);
       if (!existing.found) {
@@ -899,7 +916,15 @@ export function projectAssistantItems(draft: ChatDirectoryState, sessionID: stri
   const out: TranscriptItem[] = [];
   for (const message of messages) {
     if (message.role !== "assistant") continue;
-    const projected = (draft.part[message.id] ?? []).flatMap((part): AssistantPartView[] => {
+    const orderedParts = (draft.part[message.id] ?? [])
+      .map((part, index) => ({ part, index }))
+      .sort((left, right) => {
+        const leftSeq = typeof left.part.seq === "number" ? left.part.seq : Number.MAX_SAFE_INTEGER;
+        const rightSeq = typeof right.part.seq === "number" ? right.part.seq : Number.MAX_SAFE_INTEGER;
+        return leftSeq === rightSeq ? left.index - right.index : leftSeq - rightSeq;
+      })
+      .map(({ part }) => part);
+    const projected = orderedParts.flatMap((part): AssistantPartView[] => {
       const view = partFromProjection(part as Record<string, any>, Number(message.time?.created ?? 0));
       return view ? [view] : [];
     });

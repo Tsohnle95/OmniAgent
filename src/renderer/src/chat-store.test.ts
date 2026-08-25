@@ -561,3 +561,50 @@ describe("tool part id aliasing", () => {
     });
   });
 });
+
+describe("opencode2 TUI streaming parity", () => {
+  it("concatenates deltas verbatim without stripping repeated characters", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("t", "session.text.started", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0 }));
+    applyChatEvent(draft, "s", event("d1", "session.text.delta", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0, delta: "Paragraph one.\n" }));
+    applyChatEvent(draft, "s", event("d2", "session.text.delta", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0, delta: "\nParagraph two." }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "text", text: "Paragraph one.\n\nParagraph two." }]
+    });
+  });
+
+  it("keeps trailing whitespace from a delta instead of eating it as an overlap", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("t", "session.text.started", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0 }));
+    applyChatEvent(draft, "s", event("d1", "session.text.delta", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0, delta: "word" }));
+    applyChatEvent(draft, "s", event("d2", "session.text.delta", { sessionID: "s", assistantMessageID: "msg_1", ordinal: 0, delta: "d and more" }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "text", text: "wordd and more" }]
+    });
+  });
+
+  it("resolves ordinal-less text segments by arrival like the TUI", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("t0", "session.text.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("d0a", "session.text.delta", { sessionID: "s", assistantMessageID: "msg_1", delta: "First" }));
+    applyChatEvent(draft, "s", event("e0", "session.text.ended", { sessionID: "s", assistantMessageID: "msg_1", text: "First segment." }));
+    applyChatEvent(draft, "s", event("tool", "session.tool.called", { sessionID: "s", assistantMessageID: "msg_1", callID: "call_1", name: "read", input: { path: "README.md" } }));
+    applyChatEvent(draft, "s", event("tool-done", "session.tool.success", { sessionID: "s", assistantMessageID: "msg_1", callID: "call_1", output: "contents" }));
+    applyChatEvent(draft, "s", event("t1", "session.text.started", { sessionID: "s", assistantMessageID: "msg_1" }));
+    applyChatEvent(draft, "s", event("d1a", "session.text.delta", { sessionID: "s", assistantMessageID: "msg_1", delta: "Second" }));
+    applyChatEvent(draft, "s", event("e1", "session.text.ended", { sessionID: "s", assistantMessageID: "msg_1", text: "Second segment." }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [
+        { kind: "text", id: "msg_1:text:0", text: "First segment." },
+        { kind: "tool", tool: { title: "read", status: "success" } },
+        { kind: "text", id: "msg_1:text:1", text: "Second segment." }
+      ]
+    });
+  });
+});

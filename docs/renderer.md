@@ -52,8 +52,14 @@ transcript directly. The transcript the UI reads is a projection
 (permissions, shells, selections, compaction) still reduce into the flat
 transcript via `reduceChatStream` in `chat-stream.ts`. Full part snapshots
 carry dedupe bookkeeping so a trailing delta already included in a snapshot
-is not applied twice, finished tool cards cannot regress, and history
-hydration (`hydrateChatState`) never shrinks longer live text.
+is not applied twice (exact suffix match only — deltas are otherwise
+concatenated verbatim like opencode2's own reducer), finished tool cards
+cannot regress, and history hydration (`hydrateChatState`) never shrinks
+longer live text. Parts render in arrival order: each insert stamps a `seq`
+counter, projection sorts by it, and the timeline groups consecutive
+activity entries while keeping interleaved prose between them. Text and
+reasoning segments without an explicit `ordinal` resolve to the newest
+same-type part, matching upstream's implicit ordinal.
 
 Prompt submission reconciles the returned canonical snapshot once without
 polling, deleting, or rebuilding the live store. Pushed reasoning and text
