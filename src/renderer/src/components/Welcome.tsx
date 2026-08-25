@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { droppedFilePaths } from "../drop";
-import type { ProjectInfo, SessionSummary } from "@shared/types";
+import type { SessionSummary } from "@shared/types";
 
 function formatWhen(ts: number): string {
   if (!ts) return "";
@@ -11,11 +11,14 @@ function formatWhen(ts: number): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return new Date(ts).toLocaleDateString(undefined, { weekday: "short" });
   if (days < 30) return `${days}d ago`;
   return new Date(ts).toLocaleDateString();
 }
 
 const LIVE_WINDOW_MS = 60 * 60 * 1000;
+const MAX_WORKSPACE_KIDS = 4;
 
 function Chev(): ReactNode {
   return (
@@ -46,18 +49,35 @@ function FolderGlyph(): ReactNode {
   );
 }
 
+type WorkspaceGroup = { directory: string; sessions: SessionSummary[] };
+
+function workspaceGroups(sessions: SessionSummary[]): WorkspaceGroup[] {
+  const byDirectory = new Map<string, SessionSummary[]>();
+  for (const session of sessions) {
+    const list = byDirectory.get(session.directory) ?? [];
+    list.push(session);
+    byDirectory.set(session.directory, list);
+  }
+  return [...byDirectory.entries()]
+    .map(([directory, list]) => ({
+      directory,
+      sessions: list.sort((left, right) => right.updatedAt - left.updatedAt)
+    }))
+    .sort((left, right) => right.sessions[0].updatedAt - left.sessions[0].updatedAt);
+}
+
 export function Welcome(): ReactNode {
-  const { selectFolder, openFileWorkspace, openSession, reopenSession, sessions, selectedRuntimeID } = useStore();
-  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const { selectFolder, openFileWorkspace, reopenSession, selectedRuntimeID } = useStore();
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [closedSecs, setClosedSecs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void window.openshell
-      .projects()
-      .then((p) => setProjects(p))
-      .catch(() => setProjects([]))
+      .sessions()
+      .then((s) => setSessions(s))
+      .catch(() => setSessions([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -65,23 +85,15 @@ export function Welcome(): ReactNode {
     .filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID)
     .sort((left, right) => right.updatedAt - left.updatedAt);
   const recentSessions = runtimeSessions.slice(0, 3);
-  const projectsByRoot = new Map<string, ProjectInfo[]>();
-  for (const project of projects) {
-    const list = projectsByRoot.get(project.directory) ?? [];
-    list.push(project);
-    projectsByRoot.set(project.directory, list);
-  }
-  const roots = [...projectsByRoot.keys()];
-  const latestSessionByDirectory = new Map<string, SessionSummary>();
-  for (const session of runtimeSessions) {
-    if (!latestSessionByDirectory.has(session.directory)) latestSessionByDirectory.set(session.directory, session);
-  }
+  const groups = workspaceGroups(runtimeSessions);
 
   const toggleGroup = (key: string): void =>
     setOpenGroups((current) => ({ ...current, [key]: !(current[key] ?? true) }));
 
   const toggleSec = (key: string): void =>
     setClosedSecs((current) => ({ ...current, [key]: !(current[key] ?? false) }));
+
+  const isLive = (session: SessionSummary): boolean => Date.now() - session.updatedAt < LIVE_WINDOW_MS;
 
   const dropHandlers = {
     onDragOver: (e: React.DragEvent) => {
@@ -113,7 +125,7 @@ export function Welcome(): ReactNode {
           </div>
 
           <aside className="spanel" style={{ width: 248 }}>
-            <div className={`sd-sec ${closedSecs.recent ? "is-closed" : ""}`}>
+            <div className={`sd-sec${closedSecs.recent ? " is-closed" : ""}`}>
               <button className="sd-sh style-dotcap" type="button" onClick={() => toggleSec("recent")}>
                 <span className="sd-sh-label">Recent</span>
                 <span className="sd-cnt">{recentSessions.length}</span>
@@ -123,7 +135,7 @@ export function Welcome(): ReactNode {
                 {!loading && (
                   <ul className="num-list">
                     {recentSessions.map((session, index) => (
-                      <li key={session.id} className={Date.now() - session.updatedAt < LIVE_WINDOW_MS ? "is-live" : ""}>
+                      <li key={session.id} className={isLive(session) ? "is-live" : undefined}>
                         <button
                           className="rowlink"
                           type="button"
@@ -141,44 +153,40 @@ export function Welcome(): ReactNode {
               </div>
             </div>
 
-            <div className={`sd-sec ${closedSecs.workspaces ? "is-closed" : ""}`}>
+            <div className={`sd-sec${closedSecs.workspaces ? " is-closed" : ""}`}>
               <button className="sd-sh style-dotcap" type="button" onClick={() => toggleSec("workspaces")}>
                 <span className="sd-sh-label">Workspaces</span>
-                <span className="sd-cnt">{projects.length}</span>
+                <span className="sd-cnt">{groups.length}</span>
                 <Chev />
               </button>
               <div className="sd-body">
                 {!loading &&
-                  roots.map((root, rootIndex) => {
-                    const rootProjects = projectsByRoot.get(root)!;
-                    const open = openGroups[root] ?? (roots.length === 1 || rootIndex === 1);
+                  groups.map((group, groupIndex) => {
+                    const open = openGroups[group.directory] ?? (groups.length === 1 || groupIndex === 1);
                     return (
-                      <div className={`sd-grp ${open ? "is-open" : ""}`} key={root}>
-                        <button className="sd-wgh" type="button" onClick={() => toggleGroup(root)} title={root}>
+                      <div className={`sd-grp${open ? " is-open" : ""}`} key={group.directory}>
+                        <button className="sd-wgh" type="button" onClick={() => toggleGroup(group.directory)} title={group.directory}>
                           <Chev />
                           <FolderGlyph />
-                          <span className="sd-wgname">{root.split("/").filter(Boolean).pop() || root}</span>
-                          <span className="sd-wgcnt">{rootProjects.length}</span>
+                          <span className="sd-wgname">{group.directory.split("/").filter(Boolean).pop() || group.directory}</span>
+                          <span className="sd-wgcnt">{group.sessions.length}</span>
                         </button>
                         <div className="sd-kids-wrap">
                           <ul className="rows sd-kids">
-                            {rootProjects.map((project) => {
-                              const latest = latestSessionByDirectory.get(project.directory);
-                              return (
-                                <li key={project.directory} className={latest && Date.now() - latest.updatedAt < LIVE_WINDOW_MS ? "is-live" : ""}>
-                                  <button
-                                    className="rowlink"
-                                    type="button"
-                                    onClick={() => void openSession(project.directory)}
-                                    title={project.directory}
-                                  >
-                                    <span className="row-dot" />
-                                    <span className="row-name">{project.name}</span>
-                                    {latest && <span className="row-meta">{formatWhen(latest.updatedAt)}</span>}
-                                  </button>
-                                </li>
-                              );
-                            })}
+                            {group.sessions.slice(0, MAX_WORKSPACE_KIDS).map((session) => (
+                              <li key={session.id} className={`row${isLive(session) ? " is-live" : ""}`}>
+                                <button
+                                  className="rowlink"
+                                  type="button"
+                                  onClick={() => void reopenSession(session.id)}
+                                  title={session.title}
+                                >
+                                  <span className="row-dot" />
+                                  <span className="row-name">{session.title}</span>
+                                  <span className="row-meta">{formatWhen(session.updatedAt)}</span>
+                                </button>
+                              </li>
+                            ))}
                           </ul>
                         </div>
                       </div>
