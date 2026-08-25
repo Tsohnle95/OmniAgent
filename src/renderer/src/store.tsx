@@ -18,6 +18,7 @@ import type {
   OpenFileWorkspaceResult,
   PendingPermissionRequest,
   PermissionReply,
+  PromptDelivery,
   PromptFile,
   ProviderUsageResult,
   RecoveryRecord,
@@ -1432,18 +1433,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         trailingAssistantIncomplete,
         pendingPermissions: transcript.filter((item) => item.kind === "permission" && item.pending).length
       });
-      if (activity.isWorking) {
-        if (messageQueueRef.current.followUpBehavior === "queue") {
-          const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
-          if (queueTarget) {
-            commitQueue(addToQueue(messageQueueRef.current, queueTarget, { content: promptText, attachments: files }));
-            toast(`Queued: ${promptText}`);
-          }
-          return;
-        }
-        setSessionBusy(panel.id, false);
-        void window.openshell.interrupt(target).catch(() => {});
-      }
+      const delivery: PromptDelivery | undefined = activity.isWorking
+        ? messageQueueRef.current.followUpBehavior
+        : undefined;
+      if (delivery === "queue") toast(`Queued: ${promptText}`);
       const attachments: UserAttachment[] = files.map((file) => ({
         name: file.path.split(/[\\/]/).pop() ?? file.path
       }));
@@ -1466,10 +1459,18 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         reconcileStreaming(panel.id);
       };
       try {
-        const refreshed = await window.openshell.prompt(target, promptText, files);
+        const refreshed = await window.openshell.prompt(target, promptText, files, delivery);
         if (panelFor(target)) applyCanonicalTranscript(refreshed);
       } catch (err) {
         if (panelFor(target)) {
+          if (delivery === "queue") {
+            const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
+            if (queueTarget) {
+              commitQueue(addToQueue(messageQueueRef.current, queueTarget, { content: promptText, attachments: files }));
+              toast(`Queued locally: ${promptText}`);
+              return;
+            }
+          }
           setSessionBusy(panel.id, false);
           toast(err instanceof Error ? err.message : String(err), "error");
         }

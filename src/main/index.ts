@@ -20,6 +20,7 @@ import { InspectPickerState } from "./inspect-picker";
 import type {
   FileWriteIdentity,
   PermissionReply,
+  PromptDelivery,
   PromptFile,
   WorkspaceIdentity
 } from "@shared/types";
@@ -527,9 +528,9 @@ function registerIpc(): void {
     backend.sessionTranscript(sessionId(sessionID))
   );
 
-  handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []) => {
+  handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery) => {
     const payload = promptPayload(workspace, text, files);
-    return backend.prompt(payload.workspace, payload.text, payload.files);
+    return backend.prompt(payload.workspace, payload.text, payload.files, delivery);
   });
 
   handleTrusted("shell:commands", async (_e, workspace: WorkspaceIdentity) => {

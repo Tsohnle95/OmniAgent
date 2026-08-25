@@ -269,6 +269,8 @@ export interface W3cDiagnostic {
   source: "w3c-html" | "w3c-css";
 }
 
+export type PromptDelivery = "queue" | "steer";
+
 export interface PromptFile {
   path: string;
   mention?: { start: number; end: number; text: string };

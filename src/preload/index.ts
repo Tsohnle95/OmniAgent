@@ -12,6 +12,7 @@ import type {
   PendingPermissionRequest,
   PermissionReply,
   ProjectInfo,
+  PromptDelivery,
   PromptFile,
   ProviderCredentialAnswers,
   ProviderIntegration,
@@ -59,8 +60,8 @@ const api = {
     ipcRenderer.invoke("shell:open-session-id", sessionID, generation, runtimeID),
   sessionTranscript: (sessionID: string): Promise<SessionTranscript> =>
     ipcRenderer.invoke("shell:session-transcript", sessionID),
-  prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<SessionTranscript> =>
-    ipcRenderer.invoke("shell:prompt", workspace, text, files),
+  prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery): Promise<SessionTranscript> =>
+    ipcRenderer.invoke("shell:prompt", workspace, text, files, delivery),
   commands: (workspace: WorkspaceIdentity): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands", workspace),
   runCommand: (workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> =>
     ipcRenderer.invoke("shell:run-command", workspace, name, args),

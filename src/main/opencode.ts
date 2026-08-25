@@ -22,6 +22,7 @@ import type {
   PendingPermissionRequest,
   PermissionReply,
   ProjectInfo,
+  PromptDelivery,
   PromptFile,
   ProviderCredentialAnswers,
   ProviderFormField,
@@ -1705,7 +1706,7 @@ export class OpenShellBackend {
     return out.model || out.agent ? out : null;
   }
 
-  async prompt(workspace: WorkspaceIdentity, text: string, files: PromptFile[] = []): Promise<SessionTranscript> {
+  async prompt(workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery): Promise<SessionTranscript> {
     const target = this.activeTarget(workspace);
     const context = this.contextFor(workspace);
     if (context.runtime) {
@@ -1734,7 +1735,8 @@ export class OpenShellBackend {
     await this.client.session.prompt({
       sessionID: target.sessionID,
       text,
-      ...(fileSpecs.length > 0 ? { files: fileSpecs } : {})
+      ...(fileSpecs.length > 0 ? { files: fileSpecs } : {}),
+      ...(delivery ? { delivery } : {})
     });
     this.assertTarget(target);
     return this.sessionTranscript(target.sessionID);
