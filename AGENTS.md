@@ -45,6 +45,7 @@ OpenCode sessions. `dsh` must be on PATH for DeepSeek Harness sessions.
 | Renderer components | `src/renderer/src/components/` | Sidebar (Sessions/Files tabs), editor, agent panels, welcome, terminal tray |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
+| Mobile companion | `mobile/` | Self-contained bun workspace (Capacitor Android/iOS shell + web UI + server) rebranded from OpenChamber (MIT); see `mobile/README.md` |
 
 See `docs/` for full docs: `architecture.md` (system overview),
 `walkthrough.md` (guided tour of the connections), `events.md` (opencode2

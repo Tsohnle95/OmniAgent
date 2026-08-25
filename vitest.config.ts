@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, defaultExclude } from "vitest/config";
 import { resolve } from "node:path";
 
 export default defineConfig({
@@ -10,6 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    setupFiles: ["./vitest.setup.ts"]
+    setupFiles: ["./vitest.setup.ts"],
+    exclude: [...defaultExclude, "mobile/**"]
   }
 });

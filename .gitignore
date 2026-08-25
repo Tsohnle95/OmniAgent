@@ -4,7 +4,6 @@ dist/
 /dev/
 /build/
 /release/
-mobile/app/build/
 *.log
 *.tsbuildinfo
 .DS_Store
