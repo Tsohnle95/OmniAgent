@@ -177,8 +177,7 @@ describe("Layout panel sizing", () => {
     expect(container.querySelector(".app")).not.toBeNull();
     const side = Number.parseFloat(gridCols()[0] ?? "0");
     const agent = agentWidths()[0] ?? 0;
-    expect(side + agent).toBeLessThanOrEqual(498);
-    expect(side).toBeGreaterThanOrEqual(44);
+    expect(side).toBe(230);
     expect(agent).toBeGreaterThanOrEqual(44);
   });
 
@@ -193,8 +192,8 @@ describe("Layout panel sizing", () => {
 
     expect(container.querySelector(".app")).not.toBeNull();
     const side = Number.parseFloat(gridCols()[0] ?? "0");
-    const agent = agentWidths()[0] ?? 0;
-    expect(side + agent).toBeLessThanOrEqual(478);
+    expect(side).toBe(230);
+    expect(agentWidths()[0]).toBeGreaterThanOrEqual(44);
   });
 
   it("keeps an anchored agent panel tracking its cap as the window shrinks", async () => {
@@ -219,8 +218,8 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(Number.parseFloat(gridCols()[0] ?? "0")).toBeCloseTo(142, 0);
-    expect(agentWidths()[0]).toBeCloseTo(756, 0);
+    expect(Number.parseFloat(gridCols()[0] ?? "0")).toBeCloseTo(230, 0);
+    expect(agentWidths()[0]).toBeCloseTo(668, 0);
   });
 
   it("keeps a left-expanded agent panel covering the editor when the window widens", async () => {

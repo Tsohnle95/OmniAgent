@@ -17,6 +17,10 @@ import { ThemeProvider } from "./theme";
 const SIDE_MIN_W = 230;
 const SIDE_MAX_W = 520;
 const SIDE_DEFAULT_W = 280;
+
+function clampSideWidth(width: number): number {
+  return Math.max(SIDE_MIN_W, width);
+}
 const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 280;
 
@@ -462,21 +466,21 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       if (total <= avail) return;
       if (!sideOpen || !panelOpen) {
         if (panelOpen) setSlotWidth(panel0.workspace.id, agentLimit);
-        else setSideW(sideLimit);
+        else setSideW(clampSideWidth(sideLimit));
         return;
       }
       if (agentAnchored !== sideAnchored) {
         if (agentAnchored) setSlotWidth(panel0.workspace.id, agentLimit);
-        else setSideW(sideLimit);
+        else setSideW(clampSideWidth(sideLimit));
         return;
       }
       if (agentAnchored) {
         const nextAgent = Math.max(AGENT_MIN_W, agentLimit);
         setSlotWidth(panel0.workspace.id, nextAgent);
-        setSideW(Math.max(0, Math.min(sideShown, avail - nextAgent)));
+        setSideW(clampSideWidth(Math.min(sideShown, avail - nextAgent)));
         return;
       }
-      const nextSide = Math.max(0, Math.round((sideShown * avail) / total));
+      const nextSide = clampSideWidth(Math.round((sideShown * avail) / total));
       const nextAgent = Math.max(AGENT_MIN_W, avail - nextSide);
       setSideW(nextSide);
       setSlotWidth(panel0.workspace.id, nextAgent);
