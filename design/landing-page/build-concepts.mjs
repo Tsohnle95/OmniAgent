@@ -50,7 +50,7 @@ const numList = () =>
 const cta = (primary = "Open a folder", ghost = null) =>
   `<div class="cta-row"><button class="btn btn-primary" type="button" tabindex="-1">${primary}</button>${ghost ? `<button class="btn btn-ghost" type="button" tabindex="-1">${ghost}</button>` : ""}</div>`;
 
-const SUB = "The calm cockpit for coding agents.";
+const SUB = "Every agent. One surface.";
 
 // ---- concept definitions ----------------------------------------------------
 
@@ -387,7 +387,7 @@ const CONCEPTS = [
 .c-027 .title{font-family:var(--serif);font-size:42px;font-weight:500;margin:0 0 10px;letter-spacing:-0.01em}
 .c-027 .sub{margin:0 0 26px;color:var(--text-dim);font-size:13px;max-width:30ch}
 .c-027 .right{width:260px;flex:none;border-left:1px solid var(--border-subtle);padding-left:32px;display:flex;flex-direction:column;justify-content:center}`,
-    body: `<div class="left">${mark(26)}<p class="kicker">The calm cockpit</p><h1 class="title">Orbit</h1><p class="sub">For coding agents.</p>${cta("Open a folder")}</div><div class="right"><div class="rows-wrap">${rowsList({})}</div></div>`,
+    body: `<div class="left">${mark(26)}<p class="kicker">Every agent</p><h1 class="title">Orbit</h1><p class="sub">One surface.</p>${cta("Open a folder")}</div><div class="right"><div class="rows-wrap">${rowsList({})}</div></div>`,
   },
   {
     id: "028", name: "Meridian", fam: "split",
@@ -899,7 +899,7 @@ function gallery() {
 <span id="gal-count" class="gal-chip">Shortlist 0/4</span>
 </div>
 </header>
-<nav class="gal-sets"><span>Deep dives</span><a href="iterations/td.html">Twin Desk \u00d750</a><a href="iterations/gp.html">Graph Paper \u00d750</a><a href="iterations/pq.html">Plaque \u00d750</a><a href="iterations/wm.html">Watermark \u00d750</a></nav>
+<nav class="gal-sets"><span>Deep dives</span><a href="iterations/td.html">Twin Desk \u00b7 50 variations</a><a href="iterations/gp.html">Graph Paper \u00b7 50 variations</a><a href="iterations/pq.html">Plaque \u00b7 50 variations</a><a href="iterations/wm.html">Watermark \u00b7 50 variations</a></nav>
 <main class="gal-grid" id="gal-grid">
 ${cards}
 </main>

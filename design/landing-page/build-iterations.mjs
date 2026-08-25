@@ -12,7 +12,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 const mark = (size = 32) => `<svg class="mark-svg" viewBox="0 0 96 96" width="${size}" height="${size}" aria-hidden="true"><g fill="none" stroke-linecap="round"><ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(24 48 48)" stroke="#9eb4a1" stroke-width="4.5"/><ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(-24 48 48)" stroke="#617a68" stroke-width="5"/><circle cx="48" cy="48" r="9" fill="#46584b"/><circle cx="62.1" cy="28.3" r="6" fill="#9eb4a1"/></g></svg>`;
 
-const SUB = "The calm cockpit for coding agents.";
+const SUB = "Every agent. One surface.";
 
 const RECENTS = [
   { name: "Refine sessions panel", project: "orbit", when: "just now", live: true },
@@ -34,7 +34,7 @@ const rowsList = ({ count = 5, ghost = false } = {}) =>
   `<ul class="rows${ghost ? " rows-ghost" : ""}">` +
   RECENTS.slice(0, count)
     .map(
-      (r) => `<li class="row${r.live ? " is-live" : ""}"><span class="row-dot"></span><span class="row-name">${r.name}</span><span class="row-meta">${r.when}</span></li>`
+      (r) => `<li class="row${r.live ? " is-live" : ""}"><span class="row-dot"></span><span class="row-name">${r.name}</span><span class="row-meta">${r.when}</span><span class="go">${CHEV}</span></li>`
     )
     .join("") +
   `</ul>`;
@@ -42,7 +42,7 @@ const rowsList = ({ count = 5, ghost = false } = {}) =>
 const wsRows = () =>
   `<ul class="ws">` +
   WS.map(
-    (w) => `<li class="ws-row${w.live ? " is-live" : ""}"><span class="ws-dot"></span><span class="ws-main"><span class="ws-name">${w.name}</span><span class="ws-desc">${w.desc}</span></span><span class="ws-count">${w.count}</span></li>`
+    (w) => `<li class="ws-row${w.live ? " is-live" : ""}"><span class="ws-dot"></span><span class="ws-main"><span class="ws-name">${w.name}</span><span class="ws-desc">${w.desc}</span></span><span class="ws-count">${w.count}</span><span class="go">${CHEV}</span></li>`
   ).join("") +
   `</ul>`;
 
@@ -61,7 +61,7 @@ const sel = (label) => `<button class="sel" type="button" tabindex="-1"><span>${
 const chips = (on = 1) =>
   `<div class="chips">` + ["All", "orbit", "atlas-notes", "quiet-web"].map((c, i) => `<span class="chip${i === on ? " on" : ""}">${c}</span>`).join("") + `</div>`;
 
-const stats = () => `<div class="stats"><span class="stat"><b>12</b>sessions</span><span class="stat"><b>3</b>workspaces</span><span class="stat"><b>2</b>live</span></div>`;
+const stats = () => `<div class="jump"><button class="jmp" type="button" tabindex="-1"><span class="jmp-t"><b>Recent sessions</b><span>12 this week · 2 live</span></span>${CHEV}</button><button class="jmp" type="button" tabindex="-1"><span class="jmp-t"><b>Workspaces</b><span>3 attached</span></span>${CHEV}</button></div>`;
 
 const kick = (t) => `<p class="kick">${t}</p>`;
 
@@ -382,7 +382,7 @@ V("td", "28", "Console Switch", `.td-28 .mock{display:flex}
 `<div class="left">${mark(36)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}</div><div class="term"><div class="prompt">$ orbit use <b>w</b><span class="caret"></span></div><div class="pop"><div class="pop-h">workspaces</div><div class="pop-i on">orbit<span>4</span></div><div class="pop-i">atlas-notes<span>2</span></div><div class="pop-i">quiet-web<span>2</span></div></div></div>`);
 
 V("td", "29", "Curtain Reveal", `.td-29 .mock{display:flex}
-.td-29 .stage{flex:1;position:relative;padding:56px 44px}
+.td-29 .stage{flex:1;position:relative;padding:56px 300px 56px 44px}
 .td-29 .mark-svg{width:36px;height:36px;margin-bottom:20px}
 .td-29 .title{font-size:48px;font-weight:500;margin:0 0 8px;letter-spacing:-0.02em}
 .td-29 .sub{margin:0 0 24px;color:var(--text-dim);font-size:13px}
@@ -551,9 +551,9 @@ V("td", "43", "Window Shade", `.td-43 .mock{position:relative;padding:56px 46px}
 .td-43 .sub{margin:0 0 24px;color:var(--text-dim);font-size:13px}
 .td-43 .roller{position:absolute;top:0;right:36px;bottom:120px;width:240px;border:1px solid var(--border);border-top:0;border-radius:0 0 12px 12px;background:var(--bg-inset);box-shadow:var(--shadow-md)}
 .td-43 .roller .bar{position:absolute;top:-14px;left:-8px;right:-8px;height:12px;border-radius:999px;background:var(--accent)}
-.td-43 .cord{position:absolute;right:-26px;top:0;width:2px;height:150px;background:var(--border-strong)}
+.td-43 .cord{position:absolute;right:8px;top:6px;width:2px;height:120px;background:var(--border-strong)}
 .td-43 .cord::after{content:"";position:absolute;bottom:-10px;left:-4px;width:10px;height:14px;border-radius:3px;background:var(--accent)}`,
-`<div class="hero">${mark(36)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div><div class="roller"><span class="bar"></span><div style="padding:18px">${kick("partially lowered")}<div class="wtiles">${WS.map((w) => `<div class="wtile"><span class="wtile-name">${w.name}</span></div>`).join("")}</div></div><span class="cord"></span></div>`);
+`<div class="hero">${mark(36)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div><div class="roller"><span class="bar"></span><div style="padding:18px">${kick("workspaces")}<div class="wtiles">${WS.map((w) => `<div class="wtile"><span class="wtile-name">${w.name}</span></div>`).join("")}</div></div><span class="cord"></span></div>`);
 
 V("td", "44", "Split Flap", `.td-44 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;text-align:center}
 .td-44 .mark-svg{width:32px;height:32px;margin-bottom:16px}
@@ -564,7 +564,7 @@ V("td", "44", "Split Flap", `.td-44 .mock{display:flex;flex-direction:column;ali
 .td-44 .flap{flex:1;height:34px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;position:relative}
 .td-44 .flap::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:color-mix(in srgb,var(--text) 14%,transparent)}
 .td-44 .flap.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}`,
-`${mark(32)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p><div class="board"><div class="flaprow"><span class="flap">SURFACE</span><span class="flap on">WORKSPACES</span><span class="flap">3 FOUND</span></div><div class="flaprow"><span class="flap">orbit</span><span class="flap">atlas-notes</span><span class="flap">quiet-web</span></div></div>${cta("Boarding pass", "Open a folder")}`);
+`${mark(32)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p><div class="board"><div class="flaprow"><span class="flap">SURFACE</span><span class="flap on">WORKSPACES</span><span class="flap">3 FOUND</span></div><div class="flaprow"><span class="flap">orbit</span><span class="flap">atlas-notes</span><span class="flap">quiet-web</span></div></div>${cta("Enter", "Open a folder")}`);
 
 V("td", "45", "Grid Lens", `.td-45 .mock{position:relative;padding:56px 46px}
 .td-45 .hero{max-width:300px}
@@ -681,7 +681,7 @@ V("gp", "05", "Iso Corners", `.gp-05 .mock{padding:56px 48px;display:flex;flex-d
 `<span class="iso a"></span><span class="iso b"></span>${mark(36)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}`);
 
 V("gp", "06", "Plotter", `.gp-06 .mock{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center;padding:52px 48px 40px;background-image:linear-gradient(var(--border-subtle) 1px,transparent 1px),linear-gradient(90deg,var(--border-subtle) 1px,transparent 1px);background-size:40px 40px}
-.gp-06 .plot{position:absolute;inset:auto 0 118px 0;height:170px;opacity:0.9}
+.gp-06 .plot{position:absolute;inset:auto 0 170px 0;height:120px;opacity:0.9}
 .gp-06 .inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;margin-top:auto}
 .gp-06 .mark-svg{width:32px;height:32px;margin-bottom:14px}
 .gp-06 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
@@ -895,13 +895,13 @@ V("gp", "27", "Title Block", `.gp-27 .mock{padding:26px}
 `<div class="frame">${mark(34)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}<div class="tb"><span>PROJECT</span><span>ORBIT</span><span>SHEET</span><span>01 / 50</span></div></div>`);
 
 V("gp", "28", "Iso Shelf", `.gp-28 .mock{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding:60px 52px 0}
-.gp-28 .shelfline{position:absolute;left:15%;right:15%;top:250px;height:1px;background:var(--border-strong)}
-.gp-28 .cube{position:absolute;top:186px;width:56px;height:56px}
+.gp-28 .shelfline{position:absolute;left:15%;right:15%;top:308px;height:1px;background:var(--border-strong)}
+.gp-28 .cube{position:absolute;top:244px;width:56px;height:56px}
 .gp-28 .c1{left:22%}.gp-28 .c2{left:38%}.gp-28 .c3{left:54%}.gp-28 .c4{left:70%}
 .gp-28 .mark-svg{width:34px;height:34px;margin-bottom:14px}
 .gp-28 .title{font-size:44px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .gp-28 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12.5px}
-.gp-28 .under{margin-top:96px;display:flex;flex-direction:column;align-items:center;gap:14px}`,
+.gp-28 .under{margin-top:auto;padding-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:14px}`,
 `${mark(34)}<h1 class="title">Orbit</h1><p class="sub">Three workspaces on the bench.</p><span class="shelfline"></span><svg class="cube c1" viewBox="0 0 56 56"><path d="M28 4 52 18 28 32 4 18Z" fill="var(--accent)" opacity=".85"/><path d="M4 18v20l24 14V32Z" fill="var(--accent)" opacity=".45"/><path d="M52 18v20L28 52V32Z" fill="var(--accent)" opacity=".65"/></svg><svg class="cube c2" viewBox="0 0 56 56"><path d="M28 4 52 18 28 32 4 18Z" fill="var(--border-strong)"/><path d="M4 18v20l24 14V32Z" fill="var(--border-subtle)"/><path d="M52 18v20L28 52V32Z" fill="var(--bg-inset)"/></svg><svg class="cube c3" viewBox="0 0 56 56"><path d="M28 4 52 18 28 32 4 18Z" fill="var(--border-strong)"/><path d="M4 18v20l24 14V32Z" fill="var(--border-subtle)"/><path d="M52 18v20L28 52V32Z" fill="var(--bg-inset)"/></svg><svg class="cube c4" viewBox="0 0 56 56"><path d="M28 4 52 18 28 32 4 18Z" fill="var(--accent)" opacity=".85"/><path d="M4 18v20l24 14V32Z" fill="var(--accent)" opacity=".45"/><path d="M52 18v20L28 52V32Z" fill="var(--accent)" opacity=".65"/></svg><div class="under">${cta("Open a folder")}${stats()}</div>`);
 
 V("gp", "29", "Star Chart", `.gp-29 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
@@ -936,7 +936,7 @@ V("gp", "32", "Measure Tape", `.gp-32 .mock{display:flex;flex-direction:column;a
 .gp-32 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .gp-32 .title{font-size:44px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .gp-32 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="tape-num"><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span></div><div class="tape"></div>${mark(34)}<h1 class="title">Orbit</h1><p class="sub">Measured in calm.</p>${cta("Open a folder")}${stats()}`);
+`<div class="tape-num"><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span></div><div class="tape"></div>${mark(34)}<h1 class="title">Orbit</h1><p class="sub">Nothing hidden.</p>${cta("Open a folder")}${stats()}`);
 
 V("gp", "33", "Drafting Table", `.gp-33 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px}
 .gp-33 .tsquare{position:absolute;left:60px;right:60px;top:110px;height:1px;background:var(--border-strong)}
@@ -1029,7 +1029,7 @@ V("gp", "41", "Barcode Edge", `.gp-41 .mock{display:flex;align-items:center;padd
 .gp-41 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .gp-41 .title{font-size:44px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .gp-41 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="hero">${mark(34)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div><div class="code">ORBIT-0001-CALM</div>`);
+`<div class="hero">${mark(34)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div><div class="code">ORBIT-0001</div>`);
 
 V("gp", "42", "Tessellate", `.gp-42 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px}
 .gp-42 .band{position:absolute;left:0;right:0;height:64px;background:conic-gradient(from 45deg at 50% 50%,var(--bg-inset) 25%,transparent 0 50%,var(--bg-inset) 0 75%,transparent 0) 0 0/32px 32px;opacity:.6}
@@ -1147,7 +1147,7 @@ V("pq", "02", "Keyhole", `.pq-02 .mock{display:grid;place-items:center;backgroun
 .pq-02 .keyhole::after{content:"";width:10px;height:10px;border-radius:50%;border:3px solid var(--on-accent)}
 .pq-02 .title{font-size:32px;font-weight:500;margin:0 0 4px}
 .pq-02 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12px}`,
-`<div class="plaque"><span class="keyhole"></span><h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Unlock a workspace")}${wsRows()}</div>`);
+`<div class="plaque"><span class="keyhole"></span><h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a workspace")}${wsRows()}</div>`);
 
 V("pq", "03", "Door Mat", `.pq-03 .mock{position:relative;display:grid;place-items:center;background:var(--bg)}
 .pq-03 .door{position:absolute;left:50%;top:60px;transform:translateX(-50%);width:300px;height:330px;border:1.5px solid var(--border-strong);border-bottom:0;border-radius:150px 150px 0 0}
@@ -1193,7 +1193,7 @@ V("pq", "07", "Concierge", `.pq-07 .mock{display:grid;place-items:center;backgro
 .pq-07 .dc-head b{font-family:var(--serif);font-size:19px;font-weight:500}
 .pq-07 .dc-head span{margin-left:auto;font-size:9.5px;color:var(--text-faint);letter-spacing:0.1em;text-transform:uppercase}
 .pq-07 .dc-body{padding:12px 18px 16px}`,
-`<div class="deskcard"><div class="dc-head"><span class="bell"></span><b>Orbit</b><span>at your service</span></div><div class="dc-body">${wsRows()}${cta("Ring for a session")}</div></div>`);
+`<div class="deskcard"><div class="dc-head"><span class="bell"></span><b>Orbit</b><span>at your service</span></div><div class="dc-body">${wsRows()}${cta("New session")}</div></div>`);
 
 V("pq", "08", "Ticket Gate", `.pq-08 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-08 .gate{display:flex;flex-direction:column;align-items:center;gap:14px}
@@ -1221,7 +1221,7 @@ V("pq", "10", "Portico", `.pq-10 .mock{display:flex;flex-direction:column;align-
 .pq-10 .col{width:14px;height:74px;background:repeating-linear-gradient(90deg,var(--bg-inset) 0 4px,var(--bg-panel) 4px 8px);border:1px solid var(--border-strong);border-top:0}
 .pq-10 .step{width:360px;height:8px;border:1px solid var(--border-subtle);border-bottom:0;background:var(--bg-inset);border-radius:4px 4px 0 0}
 .pq-10 .cella{position:absolute;bottom:138px;left:50%;transform:translateX(-50%);width:250px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:12px;padding:18px 22px;text-align:center;box-shadow:var(--shadow-md)}`,
-`<div class="cella">${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:6px 0 2px">Orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">3 workspaces await.</p>${cta("Ascend")}</div><div class="lintel"></div><div class="cols"><span class="col"></span><span class="col"></span></div><div class="step"></div>`);
+`<div class="cella">${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:6px 0 2px">Orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">3 workspaces await.</p>${cta("Enter")}</div><div class="lintel"></div><div class="cols"><span class="col"></span><span class="col"></span></div><div class="step"></div>`);
 
 V("pq", "11", "Sluice Gate", `.pq-11 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-11 .wall{position:relative;width:340px;height:210px;border:1px solid var(--border-strong);border-radius:14px;background:var(--bg-inset);display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -1239,7 +1239,7 @@ V("pq", "12", "Vault Dial", `.pq-12 .mock{display:flex;align-items:center;justif
 .pq-12 .plaque{width:250px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;padding:26px 28px;box-shadow:var(--shadow-md)}
 .pq-12 .title{font-size:28px;font-weight:500;margin:0 0 4px}
 .pq-12 .sub{margin:0 0 14px;color:var(--text-dim);font-size:11.5px}`,
-`<div class="dial"><span class="spoke"></span><span class="notch"></span></div><div class="plaque">${kick("three turns left")}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open the vault")}${wsRows()}</div>`);
+`<div class="dial"><span class="spoke"></span><span class="notch"></span></div><div class="plaque">${kick("turn to open")}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open the vault")}${wsRows()}</div>`);
 
 V("pq", "13", "Post Box", `.pq-13 .mock{display:flex;align-items:flex-end;justify-content:center;padding:64px 48px 56px;background:var(--bg)}
 .pq-13 .box{position:relative;width:180px;height:200px;background:var(--accent);border-radius:14px 14px 8px 8px;display:flex;flex-direction:column;align-items:center;padding-top:26px;box-shadow:var(--shadow-md)}
@@ -1273,26 +1273,26 @@ V("pq", "16", "Checkpoint", `.pq-16 .mock{position:relative;display:grid;place-i
 .pq-16 .sign .mark-svg{width:26px;height:26px;margin-bottom:10px}
 .pq-16 .title{font-size:24px;font-weight:500;margin:0 0 2px}
 .pq-16 .sub{margin:0 0 14px;color:var(--text-dim);font-size:11.5px}`,
-`<div class="lane"></div><div class="stopline"></div><div class="sign">${mark(26)}<h1 class="title">Checkpoint</h1><p class="sub">2 agents cleared · queue empty</p>${cta("Proceed")}</div>`);
+`<div class="lane"></div><div class="stopline"></div><div class="sign">${mark(26)}<h1 class="title">Checkpoint</h1><p class="sub">2 agents cleared · queue empty</p>${cta("Enter")}</div>`);
 
 V("pq", "17", "Footbridge", `.pq-17 .mock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg)}
 .pq-17 .moat{position:absolute;left:60px;right:60px;bottom:110px;height:44px;border:1px solid var(--border-subtle);border-radius:10px;background-image:repeating-radial-gradient(circle at 12px 22px,var(--border-subtle) 0 1.5px,transparent 1.5px 22px)}
 .pq-17 .plank{position:absolute;left:50%;bottom:118px;transform:translateX(-50%) rotate(-4deg);width:190px;height:12px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:6px;box-shadow:var(--shadow-sm)}
 .pq-17 .far{position:absolute;bottom:160px;left:50%;transform:translateX(-50%);z-index:1;width:230px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:14px;padding:18px 22px;text-align:center;box-shadow:var(--shadow-md)}`,
-`<div class="moat"></div><div class="plank"></div><div class="far">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Cross into orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Mind the gap · 3 workspaces across</p>${cta("Cross")}</div>`);
+`<div class="moat"></div><div class="plank"></div><div class="far">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Cross into orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">3 workspaces across</p>${cta("Cross")}</div>`);
 
 V("pq", "18", "Bell Curve", `.pq-18 .mock{position:relative;display:flex;flex-direction:column;align-items:center;padding:64px 48px 0;background:var(--bg)}
 .pq-18 .curve{position:absolute;left:0;right:0;bottom:0;height:190px}
 .pq-18 .curve path{fill:var(--bg-inset);stroke:var(--border-strong)}
 .pq-18 .peakcard{position:relative;z-index:1;margin-bottom:132px;width:250px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:14px;padding:20px 24px;text-align:center;box-shadow:var(--shadow-md)}
 .pq-18 .ticklbl{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:space-around;font-size:8.5px;color:var(--text-faint);letter-spacing:0.1em}`,
-`<svg class="curve" viewBox="0 0 400 100" preserveAspectRatio="none"><path d="M0 100 Q100 100 160 55 T200 8 Q205 4 210 8 T240 55 Q300 100 400 100 Z"/></svg><div class="peakcard">${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:8px 0 2px">Orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Peak calm · 2 live sessions</p>${cta("Open a folder")}</div><div class="ticklbl"><span>rush</span><span>drift</span><span>peak</span><span>drift</span><span>rush</span></div>`);
+`<svg class="curve" viewBox="0 0 400 100" preserveAspectRatio="none"><path d="M0 100 Q100 100 160 55 T200 8 Q205 4 210 8 T240 55 Q300 100 400 100 Z"/></svg><div class="peakcard">${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:8px 0 2px">Orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">2 live sessions</p>${cta("Open a folder")}</div><div class="ticklbl"><span>rush</span><span>drift</span><span>peak</span><span>drift</span><span>rush</span></div>`);
 
 V("pq", "19", "Monolith Mini", `.pq-19 .mock{position:relative;display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-19 .slab{position:relative;width:150px;height:210px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:10px;box-shadow:14px 18px 0 -2px var(--bg-inset),var(--shadow-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:18px}
 .pq-19 .title{font-size:24px;font-weight:500;margin:0}
 .pq-19 .sub{margin:0;font-size:10.5px;color:var(--text-dim)}`,
-`<div class="slab">${mark(26)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Awaken")}</div>`);
+`<div class="slab">${mark(26)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open")}</div>`);
 
 V("pq", "20", "Lantern", `.pq-20 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-20 .halo{position:relative;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle,var(--accent-dim),transparent 65%);display:grid;place-items:center}
@@ -1301,7 +1301,7 @@ V("pq", "20", "Lantern", `.pq-20 .mock{display:grid;place-items:center;backgroun
 .pq-20 .chain::after{content:"";position:absolute;top:-10px;left:-4px;width:10px;height:10px;border-radius:50%;background:var(--border-strong)}
 .pq-20 .title{font-size:25px;font-weight:500;margin:0 0 2px}
 .pq-20 .sub{margin:0 0 12px;font-size:11px;color:var(--text-dim)}`,
-`<div class="halo"><span class="chain"></span><div class="lamp">${mark(24)}<h1 class="title">Orbit</h1><p class="sub">Kept lit for you · 2 live</p>${cta("Warm up")}</div></div>`);
+`<div class="halo"><span class="chain"></span><div class="lamp">${mark(24)}<h1 class="title">Orbit</h1><p class="sub">2 live inside</p>${cta("Resume")}</div></div>`);
 
 V("pq", "21", "Intercom", `.pq-21 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-21 .panel{width:230px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:18px;padding:26px 24px;text-align:center;box-shadow:var(--shadow-md)}
@@ -1309,7 +1309,7 @@ V("pq", "21", "Intercom", `.pq-21 .mock{display:grid;place-items:center;backgrou
 .pq-21 .btn-round{width:56px;height:56px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;margin:14px auto 0;font-size:10.5px;font-weight:600;letter-spacing:0.08em}
 .pq-21 .title{font-size:22px;font-weight:500;margin:0}
 .pq-21 .sub{margin:6px 0 0;font-size:10.5px;color:var(--text-faint)}`,
-`<div class="panel"><div class="grille"></div><h1 class="title">Orbit reception</h1><p class="sub">Ask for a workspace, any hour</p><div class="btn-round">PRESS</div></div>`);
+`<div class="panel"><div class="grille"></div><h1 class="title">Orbit reception</h1><p class="sub">Any hour, any workspace</p><div class="btn-round">PRESS</div></div>`);
 
 V("pq", "22", "Turnstile Count", `.pq-22 .mock{display:flex;align-items:center;justify-content:center;gap:34px;background:var(--bg);padding:48px}
 .pq-22 .rotor{position:relative;width:140px;height:140px}
@@ -1319,7 +1319,7 @@ V("pq", "22", "Turnstile Count", `.pq-22 .mock{display:flex;align-items:center;j
 .pq-22 .plaque{width:240px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;padding:24px 26px;box-shadow:var(--shadow-md)}
 .pq-22 .big{font-family:var(--serif);font-size:44px;font-weight:500;line-height:1}
 .pq-22 .cap{font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-faint);margin:4px 0 14px}`,
-`<div class="rotor"><span class="arm a1"></span><span class="arm a2"></span><span class="arm a3"></span><span class="hub"></span></div><div class="plaque"><span class="big">12</span><p class="cap">sessions through today</p>${cta("Push through")}${chips(0)}</div>`);
+`<div class="rotor"><span class="arm a1"></span><span class="arm a2"></span><span class="arm a3"></span><span class="hub"></span></div><div class="plaque"><span class="big">12</span><p class="cap">sessions through today</p>${cta("Enter")}${chips(0)}</div>`);
 
 V("pq", "23", "Weigh Station", `.pq-23 .mock{display:flex;flex-direction:column;align-items:center;padding:52px 48px 0;background:var(--bg)}
 .pq-23 .beam{position:relative;width:280px;height:2px;background:var(--border-strong);transform:rotate(-2deg);margin-bottom:34px}
@@ -1329,7 +1329,7 @@ V("pq", "23", "Weigh Station", `.pq-23 .mock{display:flex;flex-direction:column;
 .pq-23 .fulcrum{width:16px;height:26px;background:var(--border-strong);clip-path:polygon(50% 0,100% 100%,0 100%)}
 .pq-23 .base{width:120px;height:8px;border-radius:999px;background:var(--bg-inset);border:1px solid var(--border-subtle);margin-top:2px}
 .pq-23 .verdict{margin-top:26px;text-align:center}`,
-`<div class="beam"><div class="pan l"><b style="font-size:13px">3</b>workspaces</div><div class="pan r"><b style="font-size:13px">5</b>sessions live</div></div><div class="fulcrum"></div><div class="base"></div><div class="verdict">${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:8px 0 2px">Perfectly weighed</h1>${cta("Take both")}</div>`);
+`<div class="beam"><div class="pan l"><b style="font-size:13px">3</b>workspaces</div><div class="pan r"><b style="font-size:13px">5</b>sessions live</div></div><div class="fulcrum"></div><div class="base"></div><div class="verdict">${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:8px 0 2px">Balanced workload</h1>${cta("Open both")}</div>`);
 
 V("pq", "24", "Toll Booth", `.pq-24 .mock{display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);padding:48px}
 .pq-24 .booth{width:120px;height:190px;border:1px solid var(--border-strong);border-radius:12px 12px 0 0;background:repeating-linear-gradient(45deg,var(--accent) 0 12px,var(--bg-panel) 12px 24px);position:relative}
@@ -1340,7 +1340,7 @@ V("pq", "24", "Toll Booth", `.pq-24 .mock{display:flex;align-items:center;justif
 
 V("pq", "25", "Cat Flap", `.pq-25 .mock{position:relative;display:grid;place-items:center;background:var(--bg)}
 .pq-25 .bigdoor{position:absolute;left:50%;top:44px;transform:translateX(-50%);width:320px;height:400px;border:1.5px solid var(--border-strong);border-radius:14px 14px 0 0;background:var(--bg-panel)}
-.pq-25 .flap{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);width:110px;height:86px;border:1.5px solid var(--accent);border-radius:55px 55px 8px 8px;background:linear-gradient(to top,var(--accent-dim),transparent 60%)}
+.pq-25 .flap{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);width:110px;height:86px;border:1.5px solid var(--accent);border-radius:55px 55px 8px 8px;background:linear-gradient(to top,var(--accent-dim),transparent 60%)}
 .pq-25 .flap::after{content:"";position:absolute;top:10px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .pq-25 .invite{position:relative;z-index:1;margin-top:300px;text-align:center}`,
 `<div class="bigdoor"></div><div class="flap"></div><div class="invite">${cta("Slip through")}</div>`);
@@ -1352,7 +1352,7 @@ V("pq", "26", "Service Bell", `.pq-26 .mock{display:grid;place-items:center;back
 .pq-26 .dome::after{content:"DING";position:absolute;top:16px;left:50%;transform:translateX(-50%);color:var(--on-accent);font-size:11px;font-weight:700;letter-spacing:0.14em}
 .pq-26 .ctr{width:220px;height:10px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:999px}
 .pq-26 .note{text-align:center}`,
-`<div class="counter"><span class="dome"></span><span class="ctr"></span><div class="note"><h1 class="title" style="font-size:24px;font-weight:500;margin:0 0 2px">Front desk, orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">One ring · your workspaces appear</p>${cta("Ring")}</div></div>`);
+`<div class="counter"><span class="dome"></span><span class="ctr"></span><div class="note"><h1 class="title" style="font-size:24px;font-weight:500;margin:0 0 2px">Front desk, orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Workspaces appear here</p>${cta("Ring")}</div></div>`);
 
 V("pq", "27", "Meter Dial", `.pq-27 .mock{display:flex;align-items:center;justify-content:center;gap:30px;background:var(--bg);padding:48px}
 .pq-27 .meter{width:120px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:14px 14px 8px 8px;padding:16px;text-align:center}
@@ -1360,7 +1360,7 @@ V("pq", "27", "Meter Dial", `.pq-27 .mock{display:flex;align-items:center;justif
 .pq-27 .face b{width:56px;height:56px;border-radius:50%;background:var(--bg-panel);display:grid;place-items:center;font-family:var(--serif);font-size:19px}
 .pq-27 .coin{width:14px;height:34px;background:var(--border-strong);border-radius:4px;margin:0 auto}
 .pq-27 .plaque{width:240px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;padding:24px 26px;box-shadow:var(--shadow-md)}`,
-`<div class="meter"><div class="face"><b>¾</b></div><span class="coin"></span><p style="margin:8px 0 0;font-size:9px;color:var(--text-faint);letter-spacing:0.1em">CAPACITY</p></div><div class="plaque">${kick("meter fed · plenty of time")}<h1 class="title" style="font-size:25px;font-weight:500;margin:0 0 4px">Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">3 of 4 workspace slots humming.</p>${cta("Park here")}</div>`);
+`<div class="meter"><div class="face"><b>¾</b></div><span class="coin"></span><p style="margin:8px 0 0;font-size:9px;color:var(--text-faint);letter-spacing:0.1em">CAPACITY</p></div><div class="plaque">${kick("meter fed · plenty of time")}<h1 class="title" style="font-size:25px;font-weight:500;margin:0 0 4px">Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">3 of 4 workspace slots humming.</p>${cta("Open")}</div>`);
 
 V("pq", "28", "Cycle LEDs", `.pq-28 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-28 .air{width:300px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;padding:26px 28px;text-align:center;box-shadow:var(--shadow-md)}
@@ -1369,7 +1369,7 @@ V("pq", "28", "Cycle LEDs", `.pq-28 .mock{display:grid;place-items:center;backgr
 .pq-28 .led.on{background:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
 .pq-28 .led.warn{background:#c9a24a}
 .pq-28 .seq{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;color:var(--text-faint);margin-top:12px}`,
-`<div class="air"><div class="ledrow"><span class="led on"></span><span class="led on"></span><span class="led warn"></span><span class="led"></span></div>${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:10px 0 2px">Cycling in</h1><p style="margin:0 0 12px;font-size:11px;color:var(--text-dim)">Equalizing pressure · almost there</p>${cta("Open a folder")}<p class="seq">[ok] adapters [ok] streams [..] agents</p></div>`);
+`<div class="air"><div class="ledrow"><span class="led on"></span><span class="led on"></span><span class="led warn"></span><span class="led"></span></div>${mark(24)}<h1 class="title" style="font-size:24px;font-weight:500;margin:10px 0 2px">Cycling in</h1><p style="margin:0 0 12px;font-size:11px;color:var(--text-dim)">Almost ready</p>${cta("Open a folder")}<p class="seq">[ok] adapters [ok] streams [..] agents</p></div>`);
 
 V("pq", "29", "Reception Queue", `.pq-29 .mock{display:flex;flex-direction:column;align-items:center;padding:56px 48px 0;background:var(--bg)}
 .pq-29 .deskfront{width:320px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:14px 14px 0 0;padding:18px 22px 22px;display:flex;align-items:center;gap:12px}
@@ -1384,7 +1384,7 @@ V("pq", "30", "Trap Door", `.pq-30 .mock{display:grid;place-items:center;backgro
 .pq-30 .hatch{position:relative;width:230px;height:150px;border:1.5px solid var(--border-strong);border-radius:12px;background:linear-gradient(#171310,#241d16);transform:perspective(400px) rotateX(38deg);box-shadow:var(--shadow-md)}
 .pq-30 .rungs{position:absolute;left:50%;top:14px;bottom:14px;width:70px;transform:translateX(-50%);background:repeating-linear-gradient(to bottom,transparent 0 14px,color-mix(in srgb,#efe7db 45%,transparent) 14px 17px)}
 .pq-30 .label{position:absolute;bottom:-34px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:10px;color:var(--text-faint);letter-spacing:0.12em;text-transform:uppercase}`,
-`<div class="hatch"><span class="rungs"></span><span class="label">down to orbit · mind the rungs</span></div>`);
+`<div class="hatch"><span class="rungs"></span><span class="label">down to orbit</span></div>`);
 
 V("pq", "31", "Sky Bridge", `.pq-31 .mock{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:70px;padding:56px 48px 0;background:var(--bg)}
 .pq-31 .tower{width:110px;height:150px;background:var(--bg-inset);border:1px solid var(--border-strong);border-bottom:0;border-radius:8px 8px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:10px;color:var(--text-faint)}
@@ -1398,7 +1398,7 @@ V("pq", "32", "Ferry Slip", `.pq-32 .mock{position:relative;display:flex;flex-di
 .pq-32 .pil{width:12px;height:66px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:4px}
 .pq-32 .gang{position:relative;z-index:1;width:200px;height:10px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:5px;margin-bottom:-6px}
 .pq-32 .ticket{position:relative;z-index:1;margin-bottom:26px;text-align:center}`,
-`<div class="ticket">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Next ferry: orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Departs when you are · 3 stops ashore</p>${cta("Board")}</div><div class="gang"></div><div class="pilings"><span class="pil"></span><span class="pil"></span><span class="pil"></span></div><div class="water"></div>`);
+`<div class="ticket">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Next ferry: orbit</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Departs when you are</p>${cta("Board")}</div><div class="gang"></div><div class="pilings"><span class="pil"></span><span class="pil"></span><span class="pil"></span></div><div class="water"></div>`);
 
 V("pq", "33", "Funnel", `.pq-33 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-33 .funnel{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px}
@@ -1407,7 +1407,7 @@ V("pq", "33", "Funnel", `.pq-33 .mock{display:grid;place-items:center;background
 .pq-33 .dotr{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:pq33-fall 2.4s ease-in infinite}
 @keyframes pq33-fall{0%{transform:translateY(-90px);opacity:0}25%{opacity:1}80%{opacity:1}100%{transform:translateY(0);opacity:0}}
 .pq-33 .mouth{width:76px;height:12px;border:1.5px solid var(--accent);border-radius:8px;background:var(--bg-panel)}`, 
-`<div class="funnel"><span class="dotr"></span><span class="fl f1"></span><span class="fl f2"></span><span class="fl f3"></span><span class="fl f4"></span><div class="mouth"></div></div>${kick("everything funnels to one quiet slot")}${cta("Let it land")}`);
+`<div class="funnel"><span class="dotr"></span><span class="fl f1"></span><span class="fl f2"></span><span class="fl f3"></span><span class="fl f4"></span><div class="mouth"></div></div>${kick("drop a folder anywhere")}${cta("Let it land")}`);
 
 V("pq", "34", "Launch Rail", `.pq-34 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 48px 40px;background:var(--bg)}
 .pq-34 .rail{position:relative;width:300px;height:10px;border-radius:999px;background:var(--bg-inset);border:1px solid var(--border-strong);margin-top:26px}
@@ -1416,14 +1416,14 @@ V("pq", "34", "Launch Rail", `.pq-34 .mock{display:flex;flex-direction:column;al
 .pq-34 .wheels i{width:12px;height:12px;border-radius:50%;background:var(--border-strong)}
 .pq-34 .ignite{position:absolute;right:-34px;top:50%;transform:translateY(-50%);display:flex;gap:3px}
 .pq-34 .ignite i{width:4px;height:14px;border-radius:2px;background:var(--accent);opacity:.85}`,
-`<div class="rail"><div class="car">${mark(22)}<h1 class="title" style="font-size:20px;font-weight:500;margin:6px 0 2px">Orbit</h1><p style="margin:0;font-size:10px;color:var(--text-faint)">cleared for launch</p><span class="wheels"><i></i><i></i></span><span class="ignite"><i></i><i></i><i></i></span></div></div>${kick("T-minus nothing · go when ready")}${cta("Ignite calmly")}`);
+`<div class="rail"><div class="car">${mark(22)}<h1 class="title" style="font-size:20px;font-weight:500;margin:6px 0 2px">Orbit</h1><p style="margin:0;font-size:10px;color:var(--text-faint)">cleared for launch</p><span class="wheels"><i></i><i></i></span><span class="ignite"><i></i><i></i><i></i></span></div></div>${kick("Ready when you are")}${cta("Ignite calmly")}`);
 
 V("pq", "35", "Beacon Sweep", `.pq-35 .mock{position:relative;display:grid;place-items:center;background:var(--bg);overflow:hidden}
 .pq-35 .cone{position:absolute;top:70px;left:50%;width:0;height:0;border-left:150px solid transparent;border-right:150px solid transparent;border-top:190px solid var(--accent-dim);transform-origin:top center;animation:pq35-sweep 7s ease-in-out infinite alternate}
 @keyframes pq35-sweep{from{transform:translateX(-50%) rotate(-24deg)}to{transform:translateX(-50%) rotate(24deg)}}
 .pq-35 .lamp{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 6px var(--accent-dim)}
 .pq-35 .plaque{position:relative;z-index:1;margin-top:210px;width:260px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:14px;padding:20px 24px;text-align:center;box-shadow:var(--shadow-md)}`,
-`<span class="cone"></span><span class="lamp"></span><div class="plaque">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Sweeping for you</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Signal steady · harbor calm</p>${cta("Answer the light")}</div>`);
+`<span class="cone"></span><span class="lamp"></span><div class="plaque">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Scanning now</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">2 found · both quiet</p>${cta("Open Orbit")}</div>`);
 
 V("pq", "36", "Drawbridge", `.pq-36 .mock{position:relative;display:flex;flex-direction:column;align-items:center;padding:52px 48px 0;background:var(--bg)}
 .pq-36 .keep{width:250px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:14px;padding:20px 24px;text-align:center;box-shadow:var(--shadow-md)}
@@ -1433,7 +1433,7 @@ V("pq", "36", "Drawbridge", `.pq-36 .mock{position:relative;display:flex;flex-di
 .pq-36 .chains i:last-child{transform:rotate(-14deg)}
 .pq-36 .deck{width:190px;height:12px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:6px}
 .pq-36 .moat{width:280px;height:26px;border:1px solid var(--border-subtle);border-top:0;border-radius:0 0 12px 12px;background-image:repeating-radial-gradient(circle at 12px 13px,var(--border-subtle) 0 1.5px,transparent 1.5px 20px)}`,
-`<div class="keep">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">The gate is down</h1><p style="margin:0;font-size:11px;color:var(--text-dim)">Drawbridge lowered · cross freely</p></div><div class="chains"><i></i><i></i></div><div class="deck"></div><div class="moat"></div>`);
+`<div class="keep">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:6px 0 2px">Welcome back</h1><p style="margin:0;font-size:11px;color:var(--text-dim)">Drawbridge lowered · cross freely</p></div><div class="chains"><i></i><i></i></div><div class="deck"></div><div class="moat"></div>`);
 
 V("pq", "37", "Revolving Door", `.pq-37 .mock{display:flex;align-items:center;justify-content:center;gap:36px;background:var(--bg);padding:48px}
 .pq-37 .rev{position:relative;width:170px;height:170px;border:1.5px solid var(--border-strong);border-radius:50%;background:var(--bg-inset)}
@@ -1442,7 +1442,7 @@ V("pq", "37", "Revolving Door", `.pq-37 .mock{display:flex;align-items:center;ju
 .pq-37 .hub{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px;border-radius:50%;background:var(--accent)}
 .pq-37 .lit{position:absolute;right:-6px;top:-6px;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-dim)}
 .pq-37 .side{max-width:230px}`,
-`<div class="rev"><span class="wing w1"></span><span class="wing w2"></span><span class="wing w3"></span><span class="hub"></span><span class="lit"></span></div><div class="side">${kick("one compartment spins free")}<h1 class="title" style="font-size:26px;font-weight:500;margin:0 0 4px">Step into Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">It only turns toward calm.</p>${cta("Rotate in")}</div>`);
+`<div class="rev"><span class="wing w1"></span><span class="wing w2"></span><span class="wing w3"></span><span class="hub"></span><span class="lit"></span></div><div class="side">${kick("one compartment spins free")}<h1 class="title" style="font-size:26px;font-weight:500;margin:0 0 4px">Step into Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">One click to enter.</p>${cta("Step in")}</div>`);
 
 V("pq", "38", "Escalator", `.pq-38 .mock{position:relative;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:48px}
 .pq-38 .stairs{position:absolute;right:70px;bottom:70px;width:190px;height:190px;transform:skewY(-16deg);display:grid;grid-template-rows:repeat(6,1fr);gap:4px}
@@ -1452,7 +1452,7 @@ V("pq", "38", "Escalator", `.pq-38 .mock{position:relative;display:flex;align-it
 .pq-38 .dashline{position:absolute;left:-40%;right:-40%;height:2px;background:repeating-linear-gradient(90deg,var(--accent) 0 10px,transparent 10px 20px);animation:pq38-up 3s linear infinite}
 @keyframes pq38-up{from{top:90%}to{top:-10%}}
 .pq-38 .copy{max-width:240px;margin-right:auto}`,
-`<div class="stairs"><span class="st"></span><span class="st"></span><span class="st"></span><span class="st"></span><span class="st"></span><span class="st"></span></div><div class="move"><span class="dashline"></span></div><div class="copy">${kick("standing lane stays left")}<h1 class="title" style="font-size:27px;font-weight:500;margin:0 0 4px">Ride up to Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">No rush · the top is patient.</p>${cta("Board upward")}</div>`);
+`<div class="stairs"><span class="st"></span><span class="st"></span><span class="st"></span><span class="st"></span><span class="st"></span><span class="st"></span></div><div class="move"><span class="dashline"></span></div><div class="copy">${kick("standing lane stays left")}<h1 class="title" style="font-size:27px;font-weight:500;margin:0 0 4px">Ride up to Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">Always this smooth.</p>${cta("Board upward")}</div>`);
 
 V("pq", "39", "Turnstile Arms", `.pq-39 .mock{display:flex;align-items:center;justify-content:center;gap:34px;background:var(--bg);padding:48px}
 .pq-39 .twisty{position:relative;width:130px;height:170px}
@@ -1464,7 +1464,7 @@ V("pq", "39", "Turnstile Arms", `.pq-39 .mock{display:flex;align-items:center;ju
 .pq-39 .footmarks{position:absolute;bottom:-6px;left:8px;display:flex;gap:8px}
 .pq-39 .footmarks i{width:14px;height:5px;border-radius:999px;background:var(--border-subtle)}
 .pq-39 .plaque{width:240px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;padding:24px 26px;box-shadow:var(--shadow-md)}`,
-`<div class="twisty"><span class="post"></span><span class="arm r1"></span><span class="arm r2"></span><span class="arm r3"></span><span class="footmarks"><i></i><i></i><i></i></span></div><div class="plaque">${kick("push · it yields")}<h1 class="title" style="font-size:25px;font-weight:500;margin:0 0 4px">Orbit admits you</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">One body at a time · zero waiting</p>${cta("Walk through")}</div>`);
+`<div class="twisty"><span class="post"></span><span class="arm r1"></span><span class="arm r2"></span><span class="arm r3"></span><span class="footmarks"><i></i><i></i><i></i></span></div><div class="plaque">${kick("push · it yields")}<h1 class="title" style="font-size:25px;font-weight:500;margin:0 0 4px">Orbit admits you</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">No waiting</p>${cta("Walk in")}</div>`);
 
 V("pq", "40", "Security Desk", `.pq-40 .mock{position:relative;display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-40 .monitor{width:330px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-md)}
@@ -1473,7 +1473,7 @@ V("pq", "40", "Security Desk", `.pq-40 .mock{position:relative;display:grid;plac
 .pq-40 .scanline{position:absolute;left:0;right:0;height:2px;background:var(--accent);opacity:.6;animation:pq40-scan 3.4s linear infinite}
 @keyframes pq40-scan{from{top:20%}to{top:95%}}
 .pq-40 .guests{padding:12px 14px}`,
-`<div class="monitor"><div class="mhead">visitor log · orbit <span class="cam"></span></div><span class="scanline"></span><div class="guests">${wsRows()}${cta("Check in")}</div></div>`);
+`<div class="monitor"><div class="mhead">visitor log · orbit <span class="cam"></span></div><span class="scanline"></span><div class="guests">${wsRows()}${cta("Sign in")}</div></div>`);
 
 V("pq", "41", "Loading Dock", `.pq-41 .mock{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:56px 48px 0;background:var(--bg)}
 .pq-41 .dock{width:300px;height:230px;border:1.5px solid var(--border-strong);border-bottom:0;border-radius:14px 14px 0 0;background:var(--bg-inset);position:relative;overflow:hidden}
@@ -1481,11 +1481,11 @@ V("pq", "41", "Loading Dock", `.pq-41 .mock{display:flex;flex-direction:column;a
 .pq-41 .glowgap{position:absolute;left:0;right:0;bottom:0;height:64px;background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--accent) 26%,transparent))}
 .pq-41 .bumper{display:flex;gap:26px;margin-top:0}
 .pq-41 .bump{width:44px;height:14px;background:var(--border-strong);border-radius:0 0 8px 8px}`,
-`<div class="dock"><div class="slats"></div><div class="glowgap"><p style="margin:18px 0 0;text-align:center;font-size:11px;color:var(--text);">Door half-open · warm light below</p></div></div><div class="bumper"><span class="bump"></span><span class="bump"></span></div><div style="padding:16px 0 22px">${cta("Roll under")}</div>`);
+`<div class="dock"><div class="slats"></div><div class="glowgap"><p style="margin:18px 0 0;text-align:center;font-size:11px;color:var(--text);">Door half-open · warm light below</p></div></div><div class="bumper"><span class="bump"></span><span class="bump"></span></div><div style="padding:16px 0 22px">${cta("Roll on through")}</div>`);
 
 V("pq", "42", "Cable Car", `.pq-42 .mock{position:relative;display:flex;flex-direction:column;align-items:center;padding:44px 48px 0;background:var(--bg)}
 .pq-42 .cable{width:100%;height:2px;background:var(--border-strong);position:relative}
-.pq-42 .car{position:absolute;top:-46px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center}
+.pq-42 .car{position:absolute;top:2px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center}
 .pq-42 .hanger{width:3px;height:26px;background:var(--border-strong)}
 .pq-42 .cab{width:170px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:12px;padding:14px 16px;text-align:center;box-shadow:var(--shadow-md)}
 .pq-42 .pylons{display:flex;justify-content:space-between;width:100%;margin-top:120px}
@@ -1512,7 +1512,7 @@ V("pq", "44", "Luggage Tag", `.pq-44 .mock{display:grid;place-items:center;backg
 .pq-44 .tag{position:absolute;top:26px;right:-34px;width:92px;background:var(--bg);border:1px solid var(--border-strong);border-radius:8px;padding:10px 12px;font-size:9.5px;color:var(--text-dim);transform:rotate(6deg);box-shadow:var(--shadow-sm)}
 .pq-44 .tag b{display:block;color:var(--accent);font-size:10.5px;letter-spacing:0.08em}
 .pq-44 .loop{position:absolute;top:-8px;left:50%;width:26px;height:12px;border:2px solid var(--border-strong);border-radius:999px;transform:translateX(-50%)}`,
-`<div class="case"><span class="strap"></span>${mark(28)}<h1 class="title" style="font-size:26px;font-weight:500;margin:10px 0 2px">Checked in to Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">Handle with calm · contents live</p>${cta("Claim & open")}<div class="tag"><span class="loop"></span><b>ORBIT / MAIN</b>3 workspaces · 2 live</div></div>`);
+`<div class="case"><span class="strap"></span>${mark(28)}<h1 class="title" style="font-size:26px;font-weight:500;margin:10px 0 2px">Checked in to Orbit</h1><p style="margin:0 0 12px;font-size:11.5px;color:var(--text-dim)">3 workspaces inside</p>${cta("Open")}<div class="tag"><span class="loop"></span><b>ORBIT / MAIN</b>3 workspaces · 2 live</div></div>`);
 
 V("pq", "45", "Gate Change", `.pq-45 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-45 .board{width:320px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:14px;padding:18px 20px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
@@ -1521,7 +1521,7 @@ V("pq", "45", "Gate Change", `.pq-45 .mock{display:grid;place-items:center;backg
 .pq-45 .flip::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:color-mix(in srgb,var(--text) 14%,transparent)}
 .pq-45 .flip.hot{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .pq-45 .legend{margin-top:10px;font-size:9px;letter-spacing:0.16em;color:var(--text-faint);text-transform:uppercase;text-align:center}`,
-`<div class="board"><div class="brow"><span class="flip">DEST</span><span class="flip hot">ORBIT</span><span class="flip">CALM</span></div><div class="brow"><span class="flip">GATE</span><span class="flip hot">OPEN</span><span class="flip">NOW</span></div><div class="legend">status boarding · workspace 3 attached</div></div>`);
+`<div class="board"><div class="brow"><span class="flip">DEST</span><span class="flip hot">ORBIT</span><span class="flip">CALM</span></div><div class="brow"><span class="flip">GATE</span><span class="flip hot">OPEN</span><span class="flip">NOW</span></div><div class="legend">boarding now · 3 workspaces</div></div>`);
 
 V("pq", "46", "Palm Scan", `.pq-46 .mock{display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-46 .pad{position:relative;width:210px;height:250px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:18px;display:grid;place-items:center;box-shadow:var(--shadow-md);overflow:hidden}
@@ -1532,7 +1532,7 @@ V("pq", "46", "Palm Scan", `.pq-46 .mock{display:grid;place-items:center;backgro
 .pq-46 .scan{position:absolute;left:0;right:0;height:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pq46-scan 2.8s ease-in-out infinite}
 @keyframes pq46-scan{0%,100%{top:16%}50%{top:84%}}
 .pq-46 .ok{margin-top:14px;font-size:10px;letter-spacing:0.18em;color:var(--accent);text-transform:uppercase}`,
-`<div class="pad"><div class="palm"></div><span class="scan"></span></div><p class="ok">identity: calm ✓</p>`);
+`<div class="pad"><div class="palm"></div><span class="scan"></span></div><p class="ok">signed in</p>`);
 
 V("pq", "47", "Coin Slot", `.pq-47 .mock{display:flex;align-items:center;justify-content:center;gap:26px;background:var(--bg);padding:48px}
 .pq-47 .coin{width:74px;height:74px;border-radius:50%;background:conic-gradient(from 210deg,var(--accent),var(--accent-hover));display:grid;place-items:center;color:var(--on-accent);font-family:var(--serif);font-size:24px;box-shadow:var(--shadow-sm)}
@@ -1541,7 +1541,7 @@ V("pq", "47", "Coin Slot", `.pq-47 .mock{display:flex;align-items:center;justify
 .pq-47 .slot::after{content:"";position:absolute;right:-30px;top:-8px;width:22px;height:22px;border-radius:50%;background:var(--accent);opacity:.25}
 .pq-47 .title{font-size:23px;font-weight:500;margin:0 0 2px}
 .pq-47 .sub{margin:0 0 12px;font-size:11px;color:var(--text-dim)}`,
-`<div class="coin">¢</div><div class="machine"><div class="slot"></div><h1 class="title">Insert curiosity</h1><p class="sub">Change returned as focus · 3 workspaces vend</p>${cta("Drop it in")}</div>`);
+`<div class="coin">¢</div><div class="machine"><div class="slot"></div><h1 class="title">Open Orbit</h1><p class="sub">3 workspaces attached</p>${cta("Open")}</div>`);
 
 V("pq", "48", "Signal Lamps", `.pq-48 .mock{display:flex;flex-direction:column;align-items:center;padding:56px 48px 0;background:var(--bg)}
 .pq-48 .lamps{display:flex;gap:16px;margin-bottom:20px}
@@ -1551,7 +1551,7 @@ V("pq", "48", "Signal Lamps", `.pq-48 .mock{display:flex;flex-direction:column;a
 .pq-48 .trestle{display:flex;gap:18px;margin-top:0}
 .pq-48 .leg{width:8px;height:44px;background:var(--bg-inset);border:1px solid var(--border-subtle);border-top:0}
 .pq-48 .msg{margin-top:22px;text-align:center}`,
-`<div class="lamps"><span class="lamp go"></span><span class="lamp"></span></div><div class="bridge"></div><div class="trestle"><span class="leg"></span><span class="leg"></span><span class="leg"></span></div><div class="msg">${mark(22)}<h1 class="title" style="font-size:22px;font-weight:500;margin:8px 0 2px">Green means go calmly</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Bridge clear · orbit holding</p>${cta("Cross over")}</div>`);
+`<div class="lamps"><span class="lamp go"></span><span class="lamp"></span></div><div class="bridge"></div><div class="trestle"><span class="leg"></span><span class="leg"></span><span class="leg"></span></div><div class="msg">${mark(22)}<h1 class="title" style="font-size:22px;font-weight:500;margin:8px 0 2px">Clear to enter</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Bridge clear · orbit holding</p>${cta("Cross over")}</div>`);
 
 V("pq", "49", "Space Dock", `.pq-49 .mock{position:relative;display:grid;place-items:center;background:var(--bg);padding:48px}
 .pq-49 .clamp{position:absolute;top:50%;width:56px;height:20px;background:var(--bg-inset);border:1px solid var(--border-strong);border-radius:6px}
@@ -1567,7 +1567,7 @@ V("pq", "50", "Threshold Light", `.pq-50 .mock{position:relative;display:flex;fl
 .pq-50 .beamline{position:absolute;top:0;left:50%;width:2px;height:210px;background:linear-gradient(var(--accent),transparent)}
 .pq-50 .mat{position:relative;z-index:1;width:230px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:12px 12px 0 0;padding:20px 24px 26px;text-align:center;box-shadow:var(--shadow-md)}
 .pq-50 .thresh{width:280px;height:10px;background:var(--bg-inset);border:1px solid var(--border-strong);border-bottom:0;border-radius:6px 6px 0 0}`,
-`<span class="wedge"></span><span class="beamline"></span><div class="mat">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:8px 0 2px">Wipe your feet</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Chaos stays outside · 3 rooms ready</p>${cta("Step in")}</div><div class="thresh"></div>`);
+`<span class="wedge"></span><span class="beamline"></span><div class="mat">${mark(24)}<h1 class="title" style="font-size:23px;font-weight:500;margin:8px 0 2px">Welcome in</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">3 workspaces ready</p>${cta("Step in")}</div><div class="thresh"></div>`);
 
 // ---- watermark --------------------------------------------------------------
 
@@ -1630,7 +1630,7 @@ V("wm", "07", "Vellum Sheet", `.wm-07 .mock{display:grid;place-items:center;back
 .wm-07 .vellum{position:relative;width:330px;background:color-mix(in srgb,var(--bg-panel) 72%,transparent);border:1px solid var(--border-strong);border-radius:16px;padding:28px 32px;text-align:center;box-shadow:var(--shadow-md)}
 .wm-07 .title{font-size:30px;font-weight:500;margin:10px 0 4px}
 .wm-07 .sub{margin:0 0 16px;color:var(--text-dim);font-size:11.5px}`,
-`<span class="underneath">${mark(240)}</span><div class="vellum">${kick("tracing paper over the machine")}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Lift the sheet")}${stats()}</div>`);
+`<span class="underneath">${mark(240)}</span><div class="vellum">${kick("tracing paper over the machine")}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Peek under")}${stats()}</div>`);
 
 V("wm", "08", "Outline Only", `.wm-08 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-08 .ghost path,.wm-08 .ghost circle{stroke-width:6}
@@ -1647,7 +1647,7 @@ V("wm", "09", "Motion Trail", `.wm-09 .mock{display:flex;flex-direction:column;a
 .wm-09 .inner{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:40px}
 .wm-09 .title{font-size:44px;font-weight:500;margin:12px 0 6px;letter-spacing:-0.02em}
 .wm-09 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="trail t1">${mark(120)}</span><span class="trail t2">${mark(120)}</span><span class="trail t3">${mark(120)}</span><div class="inner"><span>${mark(30)}</span><h1 class="title">Orbit</h1><p class="sub">Still moving. Still calm.</p>${cta("Open a folder")}${stats()}</div>`);
+`<span class="trail t1">${mark(120)}</span><span class="trail t2">${mark(120)}</span><span class="trail t3">${mark(120)}</span><div class="inner"><span>${mark(30)}</span><h1 class="title">Orbit</h1><p class="sub">Two agents live now.</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "10", "Figures on Ghost", `.wm-10 .mock{display:flex;align-items:center;padding:56px 52px}
 .wm-10 .ghost{position:absolute;right:30px;top:50%;transform:translateY(-50%);opacity:.07;pointer-events:none}
@@ -1673,7 +1673,7 @@ V("wm", "12", "Ghost Atlas", `.wm-12 .mock{padding:52px 48px;background-image:li
 .wm-12 .hero{position:relative;max-width:280px;margin-top:60px}
 .wm-12 .title{font-size:44px;font-weight:500;margin:14px 0 6px;letter-spacing:-0.02em}
 .wm-12 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="atlas"><span class="city" style="left:22%;top:26%">orbit<br>${mark(34)}</span><span class="city" style="left:66%;top:38%">atlas-notes<br>${mark(28)}</span><span class="city" style="left:44%;top:74%">quiet-web<br>${mark(30)}</span></div><div class="hero"><h1 class="title">Three settlements of calm</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
+`<div class="atlas"><span class="city" style="left:22%;top:26%">orbit<br>${mark(34)}</span><span class="city" style="left:66%;top:38%">atlas-notes<br>${mark(28)}</span><span class="city" style="left:44%;top:74%">quiet-web<br>${mark(30)}</span></div><div class="hero"><h1 class="title">Your three workspaces</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "13", "Echo Type", `.wm-13 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px}
 .wm-13 .echo{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-family:var(--serif);font-size:200px;font-weight:500;letter-spacing:-0.04em;color:var(--text);opacity:.045;white-space:nowrap;pointer-events:none}
@@ -1750,7 +1750,7 @@ V("wm", "20", "Compass Needle", `.wm-20 .mock{padding:56px 48px}
 .wm-20 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .wm-20 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-20 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12px}`,
-`<span class="ghost">${mark(230)}</span><span class="needle"></span><div class="content">${mark(34)}<h1 class="title">True north is calm</h1><p class="sub">${SUB}</p>${cta("Set course")}${wsRows()}</div>`);
+`<span class="ghost">${mark(230)}</span><span class="needle"></span><div class="content">${mark(34)}<h1 class="title">Where you left off</h1><p class="sub">${SUB}</p>${cta("Choose a direction")}${wsRows()}</div>`);
 
 V("wm", "21", "Clipped Corner", `.wm-21 .mock{padding:56px 48px;display:flex;flex-direction:column;justify-content:center}
 .wm-21 .clipghost{position:absolute;top:-60px;right:-60px;width:240px;height:240px;border-radius:50%;display:grid;place-items:center;background:var(--accent);opacity:.08;pointer-events:none}
@@ -1775,7 +1775,7 @@ V("wm", "23", "Waterline", `.wm-23 .mock{position:relative;display:flex;flex-dir
 .wm-23 .above{position:absolute;top:calc(52% - 190px);left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:12px}
 .wm-23 .reflect{position:absolute;top:calc(52% + 14px);transform:scaleY(-1);opacity:.05;pointer-events:none}
 .wm-23 .panel{position:relative;z-index:1;display:flex;gap:18px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:12px;padding:10px 14px;font-size:10px;color:var(--text-dim)}`,
-`<div class="above">${mark(150)}<h1 class="title" style="font-size:38px;font-weight:500;margin:0;letter-spacing:-0.02em">Still water runs Orbit</h1></div><span class="reflect">${mark(150)}</span><div class="panel"><span>◉ 2 live</span><span>3 workspaces</span><span>depth: calm</span></div>`);
+`<div class="above">${mark(150)}<h1 class="title" style="font-size:38px;font-weight:500;margin:0;letter-spacing:-0.02em">Where things settled</h1></div><span class="reflect">${mark(150)}</span><div class="panel"><span>◉ 2 live</span><span>3 workspaces</span><span>depth: calm</span></div>`);
 
 V("wm", "24", "Construction Dashed", `.wm-24 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-24 .cons{position:absolute;inset:0;pointer-events:none;opacity:.5}
@@ -1785,7 +1785,7 @@ V("wm", "24", "Construction Dashed", `.wm-24 .mock{display:flex;flex-direction:c
 .wm-24 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-24 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-24 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<svg class="cons" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><ellipse cx="200" cy="150" rx="170" ry="70" transform="rotate(-14 200 150)"/><ellipse cx="200" cy="150" rx="170" ry="70" transform="rotate(14 200 150)"/><line x1="200" y1="30" x2="200" y2="270"/><circle class="cross" cx="252" cy="98" r="3"/></svg><div class="inner">${mark(36)}<h1 class="title">Drawn calm-first</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
+`<svg class="cons" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><ellipse cx="200" cy="150" rx="170" ry="70" transform="rotate(-14 200 150)"/><ellipse cx="200" cy="150" rx="170" ry="70" transform="rotate(14 200 150)"/><line x1="200" y1="30" x2="200" y2="270"/><circle class="cross" cx="252" cy="98" r="3"/></svg><div class="inner">${mark(36)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "25", "Dot Mosaic Mark", `.wm-25 .mock{display:flex;align-items:center;padding:56px 48px;gap:40px}
 .wm-25 .mosaic{position:absolute;right:40px;top:50%;transform:translateY(-50%);display:grid;grid-template-columns:repeat(6,14px);gap:7px;opacity:.5;pointer-events:none}
@@ -1795,7 +1795,7 @@ V("wm", "25", "Dot Mosaic Mark", `.wm-25 .mock{display:flex;align-items:center;p
 .wm-25 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .wm-25 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-25 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12px}`,
-`<div class="mosaic">${Array.from({ length: 36 }, (_, i) => `<i class="${[0, 7, 8, 14, 15, 21, 27, 28].includes(i) ? "on" : ""}"></i>`).join("")}</div><div class="hero">${mark(34)}<h1 class="title">Orbit in dots</h1><p class="sub">${SUB}</p>${cta("Connect them")}${stats()}</div>`);
+`<div class="mosaic">${Array.from({ length: 36 }, (_, i) => `<i class="${[0, 7, 8, 14, 15, 21, 27, 28].includes(i) ? "on" : ""}"></i>`).join("")}</div><div class="hero">${mark(34)}<h1 class="title">Orbit in dots</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "26", "Ink Bleed", `.wm-26 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-26 .bleed{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 65%);filter:blur(14px);pointer-events:none}
@@ -1803,16 +1803,16 @@ V("wm", "26", "Ink Bleed", `.wm-26 .mock{display:flex;flex-direction:column;alig
 .wm-26 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-26 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-26 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="bleed"></span><div class="inner">${mark(36)}<h1 class="title">Ink, not noise</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
+`<span class="bleed"></span><div class="inner">${mark(36)}<h1 class="title">Focus, by default</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
-V("wm", "27", "Ascending Marks", `.wm-27 .mock{padding:56px 48px;display:flex;align-items:flex-end;justify-content:space-between}
+V("wm", "27", "Entering Marks", `.wm-27 .mock{padding:56px 48px;display:flex;align-items:flex-end;justify-content:space-between}
 .wm-27 .stair{position:absolute;inset:0;pointer-events:none}
 .wm-27 .stepm{position:absolute;opacity:.07}
 .wm-27 .content{position:relative;z-index:1;max-width:290px;margin-left:auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end}
 .wm-27 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .wm-27 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-27 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12px}`,
-`<div class="stair"><span class="stepm" style="left:30px;bottom:40px;transform:scale(.5);transform-origin:bottom left">${mark(160)}</span><span class="stepm" style="left:150px;bottom:120px;transform:scale(.7);transform-origin:bottom left">${mark(160)}</span><span class="stepm" style="left:290px;bottom:220px;opacity:.1;transform:scale(.9);transform-origin:bottom left">${mark(160)}</span></div><div class="content">${mark(34)}<h1 class="title">Steps to stillness</h1><p class="sub">${SUB}</p>${cta("Climb gently")}${stats()}</div>`);
+`<div class="stair"><span class="stepm" style="left:30px;bottom:40px;transform:scale(.5);transform-origin:bottom left">${mark(160)}</span><span class="stepm" style="left:150px;bottom:120px;transform:scale(.7);transform-origin:bottom left">${mark(160)}</span><span class="stepm" style="left:290px;bottom:220px;opacity:.1;transform:scale(.9);transform-origin:bottom left">${mark(160)}</span></div><div class="content">${mark(34)}<h1 class="title">Steps to stillness</h1><p class="sub">${SUB}</p>${cta("Keep climbing")}${stats()}</div>`);
 
 V("wm", "28", "Embossed Seal", `.wm-28 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-28 .seal{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);width:250px;height:250px;border-radius:50%;border:1.5px dashed var(--border-strong);display:grid;place-items:center;opacity:.55;pointer-events:none}
@@ -1821,7 +1821,7 @@ V("wm", "28", "Embossed Seal", `.wm-28 .mock{display:flex;flex-direction:column;
 .wm-28 .inner{position:relative;margin-top:120px;display:flex;flex-direction:column;align-items:center}
 .wm-28 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-28 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="seal">${mark(120)}</div><div class="inner"><h1 class="title">Sealed, not sealed off</h1><p class="sub">${SUB}</p>${cta("Break nothing · open all")}${stats()}</div>`);
+`<div class="seal">${mark(120)}</div><div class="inner"><h1 class="title">Sealed, not sealed off</h1><p class="sub">${SUB}</p>${cta("Open all")}${stats()}</div>`);
 
 V("wm", "29", "Gridlock Intersect", `.wm-29 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px;background-image:linear-gradient(var(--border-subtle) 1px,transparent 1px),linear-gradient(90deg,var(--border-subtle) 1px,transparent 1px);background-size:34px 34px}
 .wm-29 .ghost{position:absolute;inset:0;display:grid;place-items:center;opacity:.09;pointer-events:none}
@@ -1841,12 +1841,14 @@ V("wm", "30", "Gemini Twins", `.wm-30 .mock{display:flex;align-items:center;just
 .wm-30 .side{font-size:10.5px;color:var(--text-faint);max-width:120px}`,
 `<div class="twin"><span class="halo">${mark(190)}</span>${mark(40)}<h1 class="title">Sessions</h1><p class="side">what is happening now</p></div><span class="link"></span><div class="twin"><span class="halo">${mark(190)}</span>${wsTiles()}<h1 class="title">Workspaces</h1><p class="side">where it happens</p></div>`);
 
-V("wm", "31", "Horizon Sun", `.wm-31 .mock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 48px 44px}
-.wm-31 .sun{position:absolute;left:50%;top:60px;transform:translateX(-50%);opacity:.08;pointer-events:none}
-.wm-31 .horizon{position:absolute;left:0;right:0;top:300px;height:1px;background:var(--border-strong)}
-.wm-31 .ground{position:absolute;left:0;right:0;top:301px;height:60px;background-image:repeating-linear-gradient(90deg,var(--border-subtle) 0 1px,transparent 1px 26px)}
-.wm-31 .content{position:relative;z-index:1;text-align:center;margin-top:250px}`,
-`<span class="sun">${mark(300)}</span><div class="content">${mark(30)}<h1 class="title" style="font-size:36px;font-weight:500;margin:10px 0 4px;letter-spacing:-0.02em">Day breaks over orbit</h1><p style="margin:0 0 14px;font-size:12px;color:var(--text-dim)">2 agents already at their desks</p>${cta("Start the day")}<div style="margin-top:14px">${stats()}</div></div><span class="horizon"></span><span class="ground"></span>`);
+V("wm", "31", "Horizon Sun", `.wm-31 .mock{display:flex;flex-direction:column;align-items:center;padding:64px 48px 0}
+.wm-31 .sun{opacity:.08;pointer-events:none;margin-bottom:14px}
+.wm-31 .title{font-size:38px;font-weight:500;margin:0 0 4px;letter-spacing:-0.02em}
+.wm-31 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12px}
+.wm-31 .horizon{width:100%;height:1px;background:var(--border-strong);margin-top:auto}
+.wm-31 .ground{width:100%;height:58px;background-color:var(--bg-inset);background-image:repeating-linear-gradient(90deg,var(--border-subtle) 0 1px,transparent 1px 26px);display:flex;align-items:center;justify-content:center;gap:22px;font-size:10.5px;color:var(--text-dim)}
+.wm-31 .ground .live{color:var(--accent);font-weight:600}`,
+`${mark(150)}<h1 class="title">Good morning</h1><p class="sub">Two sessions kept warm overnight.</p>${cta("Resume")}<div class="horizon"></div><div class="ground"><span class="live">\u25c9 orbit \u00b7 live</span><span>atlas-notes \u00b7 idle</span><span>quiet-web \u00b7 idle</span></div>`);
 
 V("wm", "32", "Tally Census", `.wm-32 .mock{padding:56px 48px;display:flex;flex-direction:column;justify-content:center}
 .wm-32 .ghost{position:absolute;right:-40px;top:-40px;opacity:.06;pointer-events:none}
@@ -1858,7 +1860,7 @@ V("wm", "32", "Tally Census", `.wm-32 .mock{padding:56px 48px;display:flex;flex-
 .wm-32 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .wm-32 .title{font-size:44px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-32 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="ghost">${mark(260)}</span><div class="tallies">${[0,1,2].map(()=>`<span class="gate5"><i></i><i></i><i></i><i></i><s></s></span>`).join("")}</div><div class="hero">${mark(34)}<h1 class="title">Counted, quietly</h1><p class="sub">Fifteen sessions this week across three workspaces.</p>${cta("Open a folder")}${stats()}</div>`);
+`<span class="ghost">${mark(260)}</span><div class="tallies">${[0,1,2].map(()=>`<span class="gate5"><i></i><i></i><i></i><i></i><s></s></span>`).join("")}</div><div class="hero">${mark(34)}<h1 class="title">The week so far</h1><p class="sub">Fifteen sessions this week across three workspaces.</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "33", "Paths Only", `.wm-33 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-33 .paths{position:absolute;inset:0;pointer-events:none}
@@ -1868,7 +1870,7 @@ V("wm", "33", "Paths Only", `.wm-33 .mock{display:flex;flex-direction:column;ali
 .wm-33 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-33 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-33 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<svg class="paths" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><ellipse cx="200" cy="150" rx="175" ry="66" transform="rotate(-14 200 150)"/><ellipse cx="200" cy="150" rx="120" ry="44" transform="rotate(-14 200 150)"/><circle class="moon" cx="322" cy="102" r="5"/></svg><div class="inner">${mark(36)}<h1 class="title">Everything has a path</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${wsRows()}</div>`);
+`<svg class="paths" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice"><ellipse cx="200" cy="150" rx="175" ry="66" transform="rotate(-14 200 150)"/><ellipse cx="200" cy="150" rx="120" ry="44" transform="rotate(-14 200 150)"/><circle class="moon" cx="322" cy="102" r="5"/></svg><div class="inner">${mark(36)}<h1 class="title">Every session, one click away</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${wsRows()}</div>`);
 
 V("wm", "34", "Stamp Roll", `.wm-34 .mock{display:grid;place-items:center;background-image:radial-gradient(var(--border-strong) 1.2px,transparent 1.4px);background-size:14px 14px}
 .wm-34 .stamp{position:relative;width:300px;background:var(--bg-panel);border:2px dashed var(--border-strong);border-radius:4px;padding:30px 34px;text-align:center}
@@ -1876,7 +1878,7 @@ V("wm", "34", "Stamp Roll", `.wm-34 .mock{display:grid;place-items:center;backgr
 .wm-34 .mark-svg{opacity:.9;width:30px;height:30px;margin-bottom:12px}
 .wm-34 .title{font-size:28px;font-weight:500;margin:0 0 2px}
 .wm-34 .sub{margin:0 0 14px;color:var(--text-dim);font-size:11.5px}`,
-`<div class="stamp"><span class="perf"></span>${mark(30)}<h1 class="title">First-class calm</h1><p class="sub">${SUB}</p>${cta("Post a session")}${stats()}</div>`);
+`<div class="stamp"><span class="perf"></span>${mark(30)}<h1 class="title">First-class calm</h1><p class="sub">${SUB}</p>${cta("New session")}${stats()}</div>`);
 
 V("wm", "35", "Veil Wash", `.wm-35 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-35 .veil{position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,color-mix(in srgb,var(--accent) 14%,transparent) 55%,transparent 80%);pointer-events:none}
@@ -1885,7 +1887,7 @@ V("wm", "35", "Veil Wash", `.wm-35 .mock{display:flex;flex-direction:column;alig
 .wm-35 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-35 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-35 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="veilghost">${mark(320)}</span><span class="veil"></span><div class="inner">${mark(36)}<h1 class="title">Seen through gauze</h1><p class="sub">${SUB}</p>${cta("Part the veil")}${stats()}</div>`);
+`<span class="veilghost">${mark(320)}</span><span class="veil"></span><div class="inner">${mark(36)}<h1 class="title">Recent activity</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "36", "Fossil Imprint", `.wm-36 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-36 .imprint{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);opacity:.5;pointer-events:none;filter:drop-shadow(2px 3px 0 var(--bg)) drop-shadow(0 0 1px var(--border))}
@@ -1894,7 +1896,7 @@ V("wm", "36", "Fossil Imprint", `.wm-36 .mock{display:flex;flex-direction:column
 .wm-36 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-36 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-36 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="imprint">${mark(300)}</span><div class="inner">${mark(36)}<h1 class="title">Old soul, new desk</h1><p class="sub">${SUB}</p>${cta("Excavate nothing · open everything")}${wsRows()}</div>`);
+`<span class="imprint">${mark(300)}</span><div class="inner">${mark(36)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open everything")}${wsRows()}</div>`);
 
 V("wm", "37", "Dot Nebula", `.wm-37 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-37 .neb{position:absolute;inset:0;pointer-events:none}
@@ -1904,14 +1906,14 @@ V("wm", "37", "Dot Nebula", `.wm-37 .mock{display:flex;flex-direction:column;ali
 .wm-37 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-37 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-37 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="neb">${[[15,20,3],[25,60,2],[40,35,4,"a"],[55,75,2],[62,25,3],[70,55,4,"a"],[80,40,2],[85,70,3],[33,82,3],[12,55,2]].map(([x,y,s,k])=>`<i class="${k||""}" style="left:${x}%;top:${y}%;width:${s}px;height:${s}px"></i>`).join("")}</div><div class="inner">${mark(36)}<h1 class="title">A nebula of workspaces</h1><p class="sub">${SUB}</p>${cta("Drift through")}${stats()}</div>`);
+`<div class="neb">${[[15,20,3],[25,60,2],[40,35,4,"a"],[55,75,2],[62,25,3],[70,55,4,"a"],[80,40,2],[85,70,3],[33,82,3],[12,55,2]].map(([x,y,s,k])=>`<i class="${k||""}" style="left:${x}%;top:${y}%;width:${s}px;height:${s}px"></i>`).join("")}</div><div class="inner">${mark(36)}<h1 class="title">Jump into a workspace</h1><p class="sub">${SUB}</p>${cta("Browse")}${stats()}</div>`);
 
 V("wm", "38", "Marquee Letters", `.wm-38 .mock{display:flex;flex-direction:column;justify-content:center;padding:52px 40px}
 .wm-38 .marq{position:absolute;left:0;right:0;top:46%;transform:translateY(-50%);display:flex;justify-content:center;gap:8vw;font-family:var(--serif);font-size:150px;font-weight:500;line-height:1;color:var(--text);opacity:.04;white-space:nowrap;pointer-events:none}
 .wm-38 .inner{position:relative;text-align:center;margin-top:60px}
 .wm-38 .title{font-size:40px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-38 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="marq"><span>O</span><span>R</span><span>B</span><span>I</span><span>T</span></div><div class="inner">${mark(30)}<h1 class="title">Letters large, voice low</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
+`<div class="marq"><span>O</span><span>R</span><span>B</span><span>I</span><span>T</span></div><div class="inner">${mark(30)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "39", "Echo Frames", `.wm-39 .mock{display:grid;place-items:center;padding:48px}
 .wm-39 .framestack{position:absolute;inset:0;pointer-events:none}
@@ -1922,7 +1924,7 @@ V("wm", "39", "Echo Frames", `.wm-39 .mock{display:grid;place-items:center;paddi
 .wm-39 .corecard{position:relative;z-index:1;width:300px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:16px;padding:26px 30px;text-align:center;box-shadow:var(--shadow-md)}
 .wm-39 .title{font-size:27px;font-weight:500;margin:10px 0 2px}
 .wm-39 .sub{margin:0 0 14px;color:var(--text-dim);font-size:11.5px}`,
-`<div class="framestack"><span class="fr f1"></span><span class="fr f2"></span><span class="fr f3"></span></div><div class="corecard">${mark(28)}<h1 class="title">Nested calm</h1><p class="sub">${SUB}</p>${cta("Enter innermost")}${wsRows()}</div>`);
+`<div class="framestack"><span class="fr f1"></span><span class="fr f2"></span><span class="fr f3"></span></div><div class="corecard">${mark(28)}<h1 class="title">Orbit</h1><p class="sub">${SUB}</p>${cta("Enter innermost")}${wsRows()}</div>`);
 
 V("wm", "40", "Tide Pools", `.wm-40 .mock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px;overflow:hidden}
 .wm-40 .pool{position:absolute;border-radius:50%;pointer-events:none}
@@ -1933,7 +1935,7 @@ V("wm", "40", "Tide Pools", `.wm-40 .mock{position:relative;display:flex;flex-di
 .wm-40 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .wm-40 .title{font-size:44px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-40 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="pool p1"></span><span class="pool p2"></span><span class="pool p3"></span><div class="inner">${mark(34)}<h1 class="title">Pools of quiet</h1><p class="sub">${SUB}</p>${cta("Wade in")}${stats()}</div>`);
+`<span class="pool p1"></span><span class="pool p2"></span><span class="pool p3"></span><div class="inner">${mark(34)}<h1 class="title">Pick a session</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "41", "Circuit Fade", `.wm-41 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-41 .circ{position:absolute;inset:0;pointer-events:none}
@@ -1944,14 +1946,14 @@ V("wm", "41", "Circuit Fade", `.wm-41 .mock{display:flex;flex-direction:column;a
 .wm-41 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-41 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-41 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="ghostcore">${mark(240)}</span><svg class="circ" viewBox="0 0 400 300" preserveAspectRatio="none"><path d="M200 150 L200 60 L280 60"/><path d="M200 150 L120 150 L120 230"/><path d="M200 150 L320 150 L320 90"/><path d="M200 150 L80 80"/><circle cx="280" cy="60" r="5"/><circle cx="120" cy="230" r="5"/><circle cx="320" cy="90" r="5"/><circle cx="80" cy="80" r="5"/></svg><div class="inner">${mark(36)}<h1 class="title">Traces lead home</h1><p class="sub">${SUB}</p>${cta("Follow one")}${wsRows()}</div>`);
+`<span class="ghostcore">${mark(240)}</span><svg class="circ" viewBox="0 0 400 300" preserveAspectRatio="none"><path d="M200 150 L200 60 L280 60"/><path d="M200 150 L120 150 L120 230"/><path d="M200 150 L320 150 L320 90"/><path d="M200 150 L80 80"/><circle cx="280" cy="60" r="5"/><circle cx="120" cy="230" r="5"/><circle cx="320" cy="90" r="5"/><circle cx="80" cy="80" r="5"/></svg><div class="inner">${mark(36)}<h1 class="title">Back to work</h1><p class="sub">${SUB}</p>${cta("Trace a session")}${wsRows()}</div>`);
 
 V("wm", "42", "Weather Vane", `.wm-42 .mock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 48px 40px}
 .wm-42 .pole{position:absolute;left:50%;bottom:110px;width:1.5px;height:230px;background:var(--border-strong)}
 .wm-42 .vane{position:absolute;left:50%;bottom:318px;transform:translateX(-50%);opacity:.9}
 .wm-42 .dirs{position:absolute;left:50%;bottom:250px;transform:translateX(-50%);display:flex;gap:34px;font-size:9px;color:var(--text-faint);letter-spacing:0.1em}
 .wm-42 .card{position:relative;z-index:1;width:280px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:14px;padding:20px 24px;text-align:center;box-shadow:var(--shadow-md)}`,
-`<span class="pole"></span><span class="vane">${mark(56)}</span><span class="dirs"><span>NW drift</span><span>CALM E</span></span><div class="card">${kick("wind: none · work: gentle")}<h1 class="title" style="font-size:23px;font-weight:500;margin:0 0 2px">The vane points nowhere</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">All directions are quiet here.</p>${cta("Pick any")}</div>`);
+`<span class="pole"></span><span class="vane">${mark(56)}</span><span class="dirs"><span>NW drift</span><span>CALM E</span></span><div class="card">${kick("2 live sessions")}<h1 class="title" style="font-size:23px;font-weight:500;margin:0 0 2px">Any direction works</h1><p style="margin:0 0 10px;font-size:11px;color:var(--text-dim)">Both desks are one click away.</p>${cta("Pick any")}</div>`);
 
 V("wm", "43", "Ledger Texture", `.wm-43 .mock{display:flex;align-items:center;padding:56px 48px}
 .wm-43 .texture{position:absolute;right:30px;top:40px;bottom:40px;width:200px;overflow:hidden;opacity:.10;pointer-events:none;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.9;color:var(--text);white-space:pre}
@@ -1959,7 +1961,7 @@ V("wm", "43", "Ledger Texture", `.wm-43 .mock{display:flex;align-items:center;pa
 .wm-43 .mark-svg{width:34px;height:34px;margin-bottom:16px}
 .wm-43 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-43 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12px}`,
-`<div class="texture">${Array.from({length:14},(_,r)=>Array.from({length:8},(_,c)=>String((r*8+c)%97).padStart(2,"0")).join(" ")).join("\n")}</div><div class="hero">${mark(34)}<h1 class="title">Numbers as weather</h1><p class="sub">${SUB}</p>${cta("Read the sky")}${stats()}</div>`);
+`<div class="texture">${Array.from({length:14},(_,r)=>Array.from({length:8},(_,c)=>String((r*8+c)%97).padStart(2,"0")).join(" ")).join("\n")}</div><div class="hero">${mark(34)}<h1 class="title">This week</h1><p class="sub">${SUB}</p>${cta("Read the sky")}${stats()}</div>`);
 
 V("wm", "44", "Aurora Bands", `.wm-44 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-44 .aur{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -1970,7 +1972,7 @@ V("wm", "44", "Aurora Bands", `.wm-44 .mock{display:flex;flex-direction:column;a
 .wm-44 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-44 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-44 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="ghost">${mark(300)}</span><div class="aur"><span class="band b1"></span><span class="band b2"></span><span class="band b3"></span><span class="band b4"></span></div><div class="inner">${mark(36)}<h1 class="title">Northern-lights quiet</h1><p class="sub">${SUB}</p>${cta("Look up · then open")}${stats()}</div>`);
+`<span class="ghost">${mark(300)}</span><div class="aur"><span class="band b1"></span><span class="band b2"></span><span class="band b3"></span><span class="band b4"></span></div><div class="inner">${mark(36)}<h1 class="title">Resume a session</h1><p class="sub">${SUB}</p>${cta("Open a folder")}${stats()}</div>`);
 
 V("wm", "45", "Stampede Horizon", `.wm-45 .mock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-45 .herd{position:absolute;left:0;right:0;bottom:70px;height:120px;pointer-events:none}
@@ -1979,7 +1981,7 @@ V("wm", "45", "Stampede Horizon", `.wm-45 .mock{position:relative;display:flex;f
 .wm-45 .mark-svg{width:36px;height:36px;margin-bottom:18px}
 .wm-45 .title{font-size:44px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-45 .sub{margin:0 0 18px;color:var(--text-dim);font-size:12.5px}`,
-`<div class="herd">${[[0,70,90],[110,84,70],[210,76,80],[320,90,56],[420,64,100],[520,82,66]].map(([x,b,w])=>`<span style="position:absolute;left:${x}px;bottom:${b - 60}px">${mark(w)}</span>`).join("")}</div><div class="inner">${mark(36)}<h1 class="title">They run toward focus</h1><p class="sub">${SUB}</p>${cta("Join the herd")}${stats()}</div>`);
+`<div class="herd">${[[0,70,90],[110,84,70],[210,76,80],[320,90,56],[420,64,100],[520,82,66]].map(([x,b,w])=>`<span style="position:absolute;left:${x}px;bottom:${b - 60}px">${mark(w)}</span>`).join("")}</div><div class="inner">${mark(36)}<h1 class="title">Today's sessions</h1><p class="sub">${SUB}</p>${cta("Open today")}${stats()}</div>`);
 
 V("wm", "46", "Stitch Outline", `.wm-46 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-46 .stitch{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
@@ -1989,7 +1991,7 @@ V("wm", "46", "Stitch Outline", `.wm-46 .mock{display:flex;flex-direction:column
 .wm-46 .title{font-size:46px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-46 .sub{margin:0 0 20px;color:var(--text-dim);font-size:12.5px}
 .wm-46 .hem{margin-top:22px;border-top:1px dashed var(--border-strong);padding-top:10px;width:100%;max-width:300px;display:flex;justify-content:center;gap:16px;font-size:9.5px;color:var(--text-faint);letter-spacing:0.1em;text-transform:uppercase}`,
-`<span class="stitch">${mark(300)}</span><div class="inner">${mark(36)}<h1 class="title">Hand-stitched software</h1><p class="sub">${SUB}</p>${cta("Pull a thread")}</div><div class="hem"><span>seam: sage</span><span>tension: calm</span><span>3 panels</span></div>`);
+`<span class="stitch">${mark(300)}</span><div class="inner">${mark(36)}<h1 class="title">Hand-stitched software</h1><p class="sub">${SUB}</p>${cta("Open a folder")}</div><div class="hem"><span>seam: sage</span><span>tension: calm</span><span>3 panels</span></div>`);
 
 V("wm", "47", "Eclipse Knockout", `.wm-47 .mock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-47 .disc{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);width:260px;height:260px;border-radius:50%;background:var(--accent);opacity:.14}
@@ -2001,7 +2003,7 @@ V("wm", "47", "Eclipse Knockout", `.wm-47 .mock{position:relative;display:flex;f
 .wm-47 .inner{position:relative;margin-top:170px;display:flex;flex-direction:column;align-items:center}
 .wm-47 .title{font-size:40px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-47 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12px}`,
-`<span class="disc">${mark(260)}</span><span class="ring"></span><span class="cutout">${mark(210)}</span><div class="inner"><h1 class="title">Totality, briefly</h1><p class="sub">${SUB}</p>${cta("Wait for it")}${stats()}</div>`);
+`<span class="disc">${mark(260)}</span><span class="ring"></span><span class="cutout">${mark(210)}</span><div class="inner"><h1 class="title">One moment of focus</h1><p class="sub">${SUB}</p>${cta("Reveal")}${stats()}</div>`);
 
 V("wm", "48", "Sonar Rings", `.wm-48 .mock{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px}
 .wm-48 .ping{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:50%;border:1.5px solid var(--accent);animation:wmping 3s ease-out infinite}
@@ -2011,7 +2013,7 @@ V("wm", "48", "Sonar Rings", `.wm-48 .mock{display:flex;flex-direction:column;al
 .wm-48 .inner{position:relative;margin-top:150px;display:flex;flex-direction:column;align-items:center}
 .wm-48 .title{font-size:42px;font-weight:500;margin:0 0 6px;letter-spacing:-0.02em}
 .wm-48 .sub{margin:0 0 16px;color:var(--text-dim);font-size:12.5px}`,
-`<span class="ping"></span><span class="ping p2"></span><span class="ping p3"></span><span class="coredot"></span><div class="inner">${mark(28)}<h1 class="title">Something calm out there</h1><p class="sub">Two returns on the sweep · both friendly.</p>${cta("Surface")}${stats()}</div>`);
+`<span class="ping"></span><span class="ping p2"></span><span class="ping p3"></span><span class="coredot"></span><div class="inner">${mark(28)}<h1 class="title">Found 2 sessions</h1><p class="sub">Both are recent work.</p>${cta("Bring them up")}${stats()}</div>`);
 
 V("wm", "49", "Archive Fan", `.wm-49 .mock{display:grid;place-items:center;background:var(--bg)}
 .wm-49 .fan{position:relative;width:340px;height:330px}
@@ -2029,7 +2031,7 @@ V("wm", "50", "Zenith Rays", `.wm-50 .mock{position:relative;display:flex;flex-d
 .wm-50 .ray{position:absolute;top:-20px;left:50%;width:1px;height:190px;background:linear-gradient(var(--accent),transparent);transform-origin:top center}
 .wm-50 .r1{transform:rotate(-24deg)}.wm-50 .r2{transform:rotate(-8deg)}.wm-50 .r3{transform:rotate(8deg)}.wm-50 .r4{transform:rotate(24deg)}
 .wm-50 .content{position:relative;z-index:1;text-align:center;margin-top:150px}`,
-`<span class="zenith">${mark(260)}</span><span class="ray r1"></span><span class="ray r2"></span><span class="ray r3"></span><span class="ray r4"></span><div class="content">${mark(28)}<h1 class="title" style="font-size:36px;font-weight:500;margin:10px 0 4px;letter-spacing:-0.02em">Light from directly above</h1><p style="margin:0 0 14px;font-size:12px;color:var(--text-dim)">No shadows to argue with.</p>${cta("Step into the light")}</div>`);
+`<span class="zenith">${mark(260)}</span><span class="ray r1"></span><span class="ray r2"></span><span class="ray r3"></span><span class="ray r4"></span><div class="content">${mark(28)}<h1 class="title" style="font-size:36px;font-weight:500;margin:10px 0 4px;letter-spacing:-0.02em">Start where you stopped</h1><p style="margin:0 0 14px;font-size:12px;color:var(--text-dim)">No shadows to argue with.</p>${cta("Step into the light")}</div>`);
 
 // ---- shared css -------------------------------------------------------------
 
@@ -2102,9 +2104,14 @@ button, select { cursor: pointer; }
 .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
 .chip { font-size: 10.5px; padding: 4px 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-full); color: var(--text-dim); }
 .chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.stats { display: flex; gap: 20px; margin-top: 18px; }
-.stat { display: flex; flex-direction: column; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); gap: 1px; }
-.stat b { font-family: var(--serif); font-size: 21px; font-weight: 500; color: var(--text); letter-spacing: 0; line-height: 1; }
+.jump { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; width: 100%; }
+.jmp { flex: 1; min-width: 150px; display: flex; align-items: center; gap: 10px; background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 12px; padding: 12px 14px; text-align: left; box-shadow: var(--shadow-sm); }
+.jmp:hover { background: var(--bg-hover); }
+.jmp svg { margin-left: auto; color: var(--text-faint); flex: none; }
+.jmp-t b { display: block; font-size: 12.5px; font-weight: 500; }
+.jmp-t span { display: block; margin-top: 2px; font-size: 10px; color: var(--text-faint); }
+.go { display: inline-flex; margin-left: 8px; color: var(--text-faint); flex: none; }
+.ws-main { min-width: 0; }
 .wtiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
 .wtile { text-align: left; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; min-width: 0; }
 .wtile.is-live { border-color: var(--accent); }
@@ -2142,7 +2149,6 @@ const CHROME = `
 .it-card.is-picked .it-star { color: var(--accent); }
 .it-id { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
 .it-name { font-weight: 500; font-size: 12.5px; }
-.it-count { margin-left: auto; color: var(--text-faint); font-size: 11px; }
 .it-stage { position: relative; overflow: hidden; background: var(--bg); }
 .it-zoom { width: 760px; transform-origin: 0 0; pointer-events: none; }
 .it-zoom .mock { border: 0; border-radius: 0; }
@@ -2219,7 +2225,7 @@ function shell(code) {
   const upper = code.toUpperCase();
   const cards = s.items.map(
     (v) => `<section class="it-card" data-id="${code}-${v.id}" data-name="${v.name.toLowerCase()}">
-<header class="it-card-head"><button class="it-star" type="button" data-star="${code}-${v.id}" title="Shortlist">\u2606</button><span class="it-id">${upper}\u00b7${v.id}</span><span class="it-name">${v.name}</span><span class="it-count">${s.items.length} total</span></header>
+<header class="it-card-head"><button class="it-star" type="button" data-star="${code}-${v.id}" title="Shortlist">\u2606</button><span class="it-id">${upper}\u00b7${v.id}</span><span class="it-name">${v.name}</span></header>
 <div class="it-stage"><div class="it-zoom"><div class="${code}-${v.id}"><div class="mock">${v.body}</div></div></div></div>
 </section>`
   ).join("\n");
@@ -2228,14 +2234,14 @@ function shell(code) {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Orbit — ${s.title} \u00d7${s.items.length}</title>
+<title>Orbit — ${s.title}, 50 variations</title>
 <link rel="stylesheet" href="./iterations.css"/>
 <style>${CHROME}</style>
 </head>
 <body>
 <div class="it-shell">
 <header class="it-head">
-<div><span class="it-kicker">Orbit · landing iterations</span><h1>${s.title} <em>\u00d7${s.items.length}</em></h1><p>${s.blurb}</p></div>
+<div><span class="it-kicker">Orbit · landing iterations</span><h1>${s.title} <em>\u00b7 50 variations</em></h1><p>${s.blurb}</p></div>
 <div class="it-controls">
 <a class="it-back" href="../index.html">\u2190 All directions</a>
 <label class="it-search"><input id="it-q" type="search" placeholder="Search ${upper}-01… names…" autocomplete="off"/></label>

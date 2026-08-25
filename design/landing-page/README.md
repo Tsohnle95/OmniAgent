@@ -28,12 +28,12 @@ The concepts script emits `concepts/*.html`, `landing-pages.css`, and `index.htm
 
 ## Iteration sets — 4 × 50 deep dives
 
-Each set keeps its parent direction's soul while making large structural moves; every iteration surfaces more than recent sessions (workspaces, switchers, pulse) displayed quietly.
+Each set keeps its parent direction's soul while making large structural moves; every iteration is a working landing surface: clickable session and workspace rows, jump cards that lead somewhere, counts only where they label a switcher. Copy stays plain — no branding fluff.
 
-- **Twin Desk ×50** (`iterations/td.html`) — the right desk becomes a switcher: dropdown heads, segmented tabs, drawers, rails, accordions, trees, command palettes, split-flap boards, portals.
-- **Graph Paper ×50** (`iterations/gp.html`) — grids as instruments: plotters, radar sweeps, drafting tables, oscilloscopes, string art, survey plats, one fixed-ink night lab.
-- **Plaque ×50** (`iterations/pq.html`) — a small panel before the main app: gates, docks, thresholds, airlocks, turnstiles, beacons — never taking the whole surface.
-- **Watermark ×50** (`iterations/wm.html`) — the ghost mark grows a supporting cast: double exposures, waterlines, seals, auroras, sonar rings, archive fans.
+- **Twin Desk · 50 variations** (`iterations/td.html`) — the right desk becomes a switcher: dropdown heads, segmented tabs, drawers, rails, accordions, trees, command palettes, split-flap boards, portals.
+- **Graph Paper · 50 variations** (`iterations/gp.html`) — grids as instruments: plotters, radar sweeps, drafting tables, oscilloscopes, string art, survey plats, one fixed-ink night lab.
+- **Plaque · 50 variations** (`iterations/pq.html`) — a small panel before the main app: gates, docks, thresholds, airlocks, turnstiles, beacons — never taking the whole surface.
+- **Watermark · 50 variations** (`iterations/wm.html`) — the ghost mark grows a supporting cast: double exposures, waterlines, seals, auroras, sonar rings, archive fans.
 
 Iteration galleries are searchable, theme-aware, and share the four-slot shortlist (ids like `td-07`).
 
