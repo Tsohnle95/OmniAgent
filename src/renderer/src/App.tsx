@@ -266,6 +266,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const fixedPanelChrome = 1 + panels.length;
   const areaW = Math.max(0, winW - sideShown - (sideOpen ? 1 : 0));
 
+  const wasInSessionRef = useRef(false);
+  useEffect(() => {
+    const inSession = panels.length > 0;
+    if (inSession && !wasInSessionRef.current) setSideW(SIDE_MIN_W);
+    wasInSessionRef.current = inSession;
+  }, [panels.length]);
+
   useEffect(() => {
     const onResize = (): void => setWinW(window.innerWidth);
     window.addEventListener("resize", onResize);
