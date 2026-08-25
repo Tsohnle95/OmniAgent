@@ -194,6 +194,30 @@ describe("session retention", () => {
     expect(alwaysFailing.message.list).toHaveBeenCalledTimes(2);
   });
 
+  it("follows message.list pagination so long conversations load completely", async () => {
+    const pageOf = (start: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({ id: `m${start + index}`, type: "user", text: `page item ${start + index}` }));
+    let calls = 0;
+    const paged = { session: { list: vi.fn(async () => ({ data: [], cursor: {} })) }, message: { list: vi.fn(async (...inputs: unknown[]) => {
+      const input = inputs[0] as { cursor?: string } | undefined;
+      if (!input?.cursor) {
+        expect(input).toEqual({ sessionID: "ses_long", order: "asc" });
+        calls += 1;
+        return { data: pageOf(0, 50), cursor: { next: "cursor-page-2" } };
+      }
+      expect(input).toEqual({ sessionID: "ses_long", cursor: "cursor-page-2" });
+      calls += 1;
+      return { data: pageOf(50, 39), cursor: { next: null } };
+    }) } };
+    const backend = await fixture(paged);
+
+    const recovered = await backend.sessionTranscript("ses_long");
+
+    expect(calls).toBe(2);
+    expect(recovered.transcript).toHaveLength(89);
+    expect(recovered.transcript.at(-1)).toMatchObject({ kind: "user", text: "page item 88" });
+  });
+
   it("throttles retention pruning to once per cooldown", async () => {
     const backend = new OpenShellBackend();
     const prune = vi.fn(async () => 0);

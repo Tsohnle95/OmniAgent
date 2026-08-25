@@ -1476,8 +1476,22 @@ export class OpenShellBackend {
     let lastError: unknown = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const messagesRes = await this.client.message.list({ sessionID, order: "asc" });
-        return (Array.isArray(messagesRes) ? messagesRes : (messagesRes as { data?: unknown }).data ?? []) as unknown[];
+        const messages: unknown[] = [];
+        let cursor: string | undefined;
+        for (let page = 0; page < 200; page += 1) {
+          const input = cursor ? { sessionID, cursor } : { sessionID, order: "asc" as const };
+          const messagesRes = await this.client.message.list(input);
+          if (Array.isArray(messagesRes)) {
+            messages.push(...(messagesRes as unknown[]));
+            break;
+          }
+          const paged = messagesRes as { data?: unknown; cursor?: { next?: string | null } };
+          messages.push(...((paged.data ?? []) as unknown[]));
+          const next = paged.cursor?.next;
+          if (!next) break;
+          cursor = next;
+        }
+        return messages;
       } catch (err) {
         lastError = err;
         if (attempt === 0) await sleep(400);

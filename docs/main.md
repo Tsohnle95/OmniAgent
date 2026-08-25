@@ -136,9 +136,11 @@ Internals:
   from the visible chat. Tool status comes
   from streaming/running/completed/error; parsed input, text/file content,
   metadata, provider state, duration, retry, error, and completion are restored.
-- `loadSessionMessages(sessionID)` — `message.list` with one retry; a persistent
-  failure throws so reopen surfaces an error instead of materializing an empty
-  conversation (which would block later rehydration).
+- `loadSessionMessages(sessionID)` — `message.list` with one retry; follows
+  `cursor.next` pages (first page `order: "asc"`, later pages cursor-only, capped
+  at 200) so conversations longer than the server's default page size load
+  completely. A persistent failure throws so reopen surfaces an error instead of
+  materializing an empty conversation (which would block later rehydration).
 - Session retention (`scheduleRetentionPrune` / `pruneExpiredSessions`) — after
   every successful connect (throttled to once per 24h), pages through all
   sessions and permanently deletes those whose last activity is older than 30
