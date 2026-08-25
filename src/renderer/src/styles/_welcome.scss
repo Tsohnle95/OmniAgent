@@ -143,44 +143,6 @@
   margin: 14px 0 14px 14px;
 }
 
-.welcome .tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 14px;
-}
-.welcome .tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 6px 2px 7px;
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.welcome .tab:hover { color: var(--text-dim); }
-.welcome .tab.is-active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
-
-.welcome .sd-cnt {
-  min-width: 17px;
-  height: 15px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-size: 9.5px;
-  line-height: 15px;
-  text-align: center;
-  font-weight: 600;
-}
-
 .welcome .sd-sec + .sd-sec { margin-top: 6px; }
 .welcome .sd-sh {
   display: flex;
@@ -200,6 +162,19 @@
   text-transform: uppercase;
 }
 .welcome .sd-sh .chev { transition: transform 0.15s ease; margin-left: auto; }
+.welcome .sd-sh:hover { color: var(--text-dim); }
+.welcome .sd-cnt {
+  min-width: 17px;
+  height: 15px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 9.5px;
+  line-height: 15px;
+  text-align: center;
+  font-weight: 600;
+}
 .welcome .sd-sec.is-closed .sd-sh .chev { transform: rotate(-90deg); }
 .welcome .sd-sec.is-closed .sd-body { display: none; }
 .welcome .sd-sh.style-dotcap::before {
@@ -358,3 +333,13 @@
   font-size: 9.5px;
   letter-spacing: 0.04em;
 }
+
+.welcome-actions-corner {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+.welcome-actions-corner .btn { padding: 5px 12px; font-size: 11px; }

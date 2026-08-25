@@ -832,6 +832,19 @@ export default function App(): ReactNode {
 
 function Root(): ReactNode {
   const { session, toggleWordWrap } = useStore();
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    if (session && !wasOpen.current) {
+      void window.openshell.windowBounds().then((bounds) => {
+        if (bounds) void window.openshell.windowResize(bounds.width, bounds.height);
+      }).catch(() => {});
+    }
+    if (!session && wasOpen.current) {
+      void window.openshell.windowResize(760, 522).catch(() => {});
+    }
+    wasOpen.current = Boolean(session);
+  }, [session]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {

@@ -85,6 +85,8 @@ automatically.
 | `connectProviderKey(workspace, integrationID, key, label, answers)` | `Promise<void>` — sends a write-only key and provider-specific form answers; the key is never returned to the renderer |
 | `removeProviderCredential(workspace, credentialID)` | `Promise<void>` — removes one stored credential by opaque id |
 | `health()` | `Promise<boolean>` |
+| `windowBounds()` | `Promise<{ width: number; height: number } \| null>` |
+| `windowResize(width, height)` | `Promise<void>` |
 | `installApp()` | `Promise<{ok: boolean, message: string}>` — macOS-only: builds the packaged app and installs it to `/Applications`; `ok` false with a message on failure |
 | `validateW3c(path, content)` | `Promise<W3cDiagnostic[]>` — validates HTML/CSS source through the W3C services |
 

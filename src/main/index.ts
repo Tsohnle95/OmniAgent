@@ -174,15 +174,69 @@ function stopInspectPicker(wc: WebContents): void {
   void disableInspectMode(wc).catch((err) => console.error("stopInspectPicker:", err));
 }
 
+const LANDING_WIDTH = 760;
+const LANDING_HEIGHT = 522;
+
+function windowBoundsPath(): string {
+  return path.join(app.getPath("userData"), "window-bounds.json");
+}
+
+function loadSavedBounds(): { width: number; height: number } | null {
+  try {
+    const raw = JSON.parse(readFileSyncSafe(windowBoundsPath()));
+    if (
+      raw &&
+      typeof raw.width === "number" &&
+      typeof raw.height === "number" &&
+      raw.width >= 200 &&
+      raw.height >= 200
+    ) {
+      return { width: Math.round(raw.width), height: Math.round(raw.height) };
+    }
+  } catch {
+    // first launch or unreadable state — fall through to defaults
+  }
+  return null;
+}
+
+let saveBoundsTimer: NodeJS.Timeout | null = null;
+
+function scheduleBoundsSave(win: BrowserWindow): void {
+  if (saveBoundsTimer) clearTimeout(saveBoundsTimer);
+  saveBoundsTimer = setTimeout(() => {
+    saveBoundsTimer = null;
+    try {
+      if (win.isDestroyed() || win.isMinimized() || win.isMaximized() || win.isFullScreen()) return;
+      const [width, height] = win.getSize();
+      writeFileSyncSafe(windowBoundsPath(), JSON.stringify({ width, height }));
+    } catch {
+      // persistence is best-effort
+    }
+  }, 400);
+}
+
+function readFileSyncSafe(file: string): string {
+  try {
+    return require("node:fs").readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function writeFileSyncSafe(file: string, content: string): void {
+  require("node:fs").writeFileSync(file, content);
+}
+
 function createWindow(show = true): BrowserWindow {
   const packagedUrl = pathToFileURL(path.join(__dirname, "../renderer/index.html")).href;
   const rendererUrl = applicationUrl(app.isPackaged, process.env["ELECTRON_RENDERER_URL"], packagedUrl);
   const location = trustedApplicationLocation(rendererUrl);
+  const savedBounds = loadSavedBounds();
   const newWin = new BrowserWindow({
-    width: 1480,
-    height: 920,
+    width: LANDING_WIDTH,
+    height: LANDING_HEIGHT,
     minWidth: 200,
-    minHeight: 640,
+    minHeight: 200,
     title: "Orbit",
     icon: appIconPath,
     backgroundColor: "#161410",
@@ -369,6 +423,7 @@ function createWindow(show = true): BrowserWindow {
     newWin.once("ready-to-show", reveal);
     setTimeout(reveal, 5000);
   }
+  newWin.on("resize", () => scheduleBoundsSave(newWin));
   void newWin.loadURL(rendererUrl);
   return newWin;
 }
@@ -796,6 +851,16 @@ function registerIpc(): void {
   });
 
   handleTrusted("shell:health", async () => backend.connect().catch(() => false));
+
+  handleTrusted("shell:window-bounds", async () => loadSavedBounds());
+
+  handleTrusted("shell:window-resize", async (_e, width: unknown, height: unknown) => {
+    if (!win || win.isDestroyed()) return;
+    const w = Number(width);
+    const h = Number(height);
+    if (!Number.isFinite(w) || !Number.isFinite(h)) return;
+    await win.setSize(Math.round(w), Math.round(h));
+  });
 
   handleTrusted("shell:install-app", async () => installApplication());
 

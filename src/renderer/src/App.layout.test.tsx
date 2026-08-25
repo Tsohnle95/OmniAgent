@@ -64,7 +64,9 @@ function api(): typeof window.openshell {
     readFile: async () => "content",
     listDir: async () => [],
     providerUsage: async () => [],
-    recoveryRecords: async () => []
+    recoveryRecords: async () => [],
+    windowBounds: async () => null,
+    windowResize: async () => {}
   } as unknown as typeof window.openshell;
 }
 

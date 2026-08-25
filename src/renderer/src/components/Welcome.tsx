@@ -16,8 +16,6 @@ function formatWhen(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-type WelcomeTab = "sessions" | "projects";
-
 type InstallToast = { id: number; text: string; tone: "info" | "error" };
 
 let installToastId = 0;
@@ -56,8 +54,6 @@ export function Welcome(): ReactNode {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<WelcomeTab>("sessions");
-  const [sectionOpen, setSectionOpen] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [installing, setInstalling] = useState(false);
   const [installToasts, setInstallToasts] = useState<InstallToast[]>([]);
@@ -95,24 +91,18 @@ export function Welcome(): ReactNode {
       .catch(() => setSessions([]));
   }, []);
 
-  useEffect(() => {
-    if (tab === "sessions" && !loading && sessions.every((session) => (session.runtimeID ?? "opencode") !== selectedRuntimeID) && projects.length > 0) {
-      setTab("projects");
-    }
-  }, [tab, loading, sessions, projects.length, selectedRuntimeID]);
-
-  const runtimeSessions = sessions.filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID);
+  const runtimeSessions = sessions
+    .filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID)
+    .sort((left, right) => right.updatedAt - left.updatedAt);
+  const recentSessions = runtimeSessions.slice(0, 3);
   const selectedRuntimeName = runtimes.find((runtime) => runtime.id === selectedRuntimeID)?.name ?? selectedRuntimeID;
-  const isSessions = tab === "sessions";
-  const sectionLabel = isSessions ? "Recent" : "Workspaces";
-  const sectionCount = isSessions ? runtimeSessions.length : projects.length;
-
   const projectsByRoot = new Map<string, ProjectInfo[]>();
   for (const project of projects) {
     const list = projectsByRoot.get(project.directory) ?? [];
     list.push(project);
     projectsByRoot.set(project.directory, list);
   }
+  const roots = [...projectsByRoot.keys()];
 
   const toggleGroup = (key: string): void =>
     setOpenGroups((current) => ({ ...current, [key]: !(current[key] ?? true) }));
@@ -138,25 +128,13 @@ export function Welcome(): ReactNode {
           <div className="twin">
             <div className="hero-col">
               <MarkSvg />
+
               <h1 className="title">Orbit</h1>
               <p className="sub">One calm surface for coding agents.</p>
-              <p className="kicker">Every agent. One surface.</p>
-              <p className="lede">
-                Open a repository, connect the agent you trust, and watch every file change stream in live — diffs,
-                turns, and terminals on one calm surface.
-              </p>
               <div className="cta-row">
                 <button className="btn btn-primary" type="button" onClick={() => void selectFolder()}>
-                  <IconFolder />Open a folder
+                  Open a folder
                 </button>
-                <button className="btn btn-ghost" type="button" onClick={() => void selectFile()}>
-                  <IconFile />Open a file…
-                </button>
-                {canInstall && (
-                  <button className="btn btn-ghost" type="button" onClick={() => void installApp()} disabled={installing}>
-                    <IconCloudDownload />{installing ? "Installing…" : "Install app"}
-                  </button>
-                )}
               </div>
               <ul className="traits">
                 <li>Live per-file diffs</li>
@@ -170,46 +148,18 @@ export function Welcome(): ReactNode {
             </div>
 
             <aside className="spanel" style={{ width: 248 }}>
-              <div className="tabs">
-                <button
-                  type="button"
-                  className={`tab ${isSessions ? "is-active" : ""}`}
-                  onClick={() => setTab("sessions")}
-                >
-                  Recent<span className="sd-cnt">{runtimeSessions.length}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`tab ${isSessions ? "" : "is-active"}`}
-                  onClick={() => setTab("projects")}
-                >
-                  Workspaces<span className="sd-cnt">{projects.length}</span>
-                </button>
-              </div>
-
-              <div className={`sd-sec ${sectionOpen ? "" : "is-closed"}`}>
-                <button
-                  className="sd-sh style-dotcap"
-                  type="button"
-                  aria-expanded={sectionOpen}
-                  onClick={() => setSectionOpen((open) => !open)}
-                >
-                  <span className="sd-sh-label">{sectionLabel}</span>
-                  <span className="sd-cnt">{sectionCount}</span>
+              <div className={`sd-sec ${loading || recentSessions.length > 0 ? "" : "is-closed"}`}>
+                <button className="sd-sh style-dotcap" type="button">
+                  <span className="sd-sh-label">Recent</span>
+                  <span className="sd-cnt">{recentSessions.length}</span>
                   <Chev />
                 </button>
                 <div className="sd-body">
                   {loading && <p className="empty">Loading…</p>}
-                  {!loading && isSessions && runtimeSessions.length === 0 && (
-                    <p className="empty">No recent sessions yet.</p>
-                  )}
-                  {!loading && !isSessions && projects.length === 0 && (
-                    <p className="empty">No recent projects found.</p>
-                  )}
-
-                  {isSessions && !loading && (
+                  {!loading && recentSessions.length === 0 && <p className="empty">No recent sessions yet.</p>}
+                  {!loading && (
                     <ul className="num-list">
-                      {runtimeSessions.map((session, index) => (
+                      {recentSessions.map((session, index) => (
                         <li key={session.id}>
                           <button
                             className="rowlink"
@@ -225,8 +175,20 @@ export function Welcome(): ReactNode {
                       ))}
                     </ul>
                   )}
+                </div>
+              </div>
 
-                  {!isSessions && !loading && [...projectsByRoot.entries()].map(([root, rootProjects]) => {
+              <div className="sd-sec">
+                <button className="sd-sh style-dotcap" type="button">
+                  <span className="sd-sh-label">Workspaces</span>
+                  <span className="sd-cnt">{projects.length}</span>
+                  <Chev />
+                </button>
+                <div className="sd-body">
+                  {loading && <p className="empty">Loading…</p>}
+                  {!loading && projects.length === 0 && <p className="empty">No recent projects found.</p>}
+                  {!loading && roots.map((root) => {
+                    const rootProjects = projectsByRoot.get(root)!;
                     const open = openGroups[root] ?? true;
                     return (
                       <div className={`sd-grp ${open ? "is-open" : ""}`} key={root}>
@@ -248,7 +210,6 @@ export function Welcome(): ReactNode {
                                 >
                                   <span className="row-dot" />
                                   <span className="row-name">{project.name}</span>
-                                  <span className="row-meta" />
                                 </button>
                               </li>
                             ))}
@@ -266,6 +227,16 @@ export function Welcome(): ReactNode {
                 <span className="modeltag">{selectedRuntimeName}</span>
               </div>
             </aside>
+          </div>
+          <div className="welcome-actions-corner">
+            <button className="btn btn-ghost" type="button" onClick={() => void selectFile()} title="Open a file">
+              <IconFile />Open a file…
+            </button>
+            {canInstall && (
+              <button className="btn btn-ghost" type="button" onClick={() => void installApp()} disabled={installing} title="Install app">
+                <IconCloudDownload />{installing ? "Installing…" : "Install app"}
+              </button>
+            )}
           </div>
         </div>
       </div>

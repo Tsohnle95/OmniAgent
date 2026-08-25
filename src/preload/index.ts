@@ -171,6 +171,8 @@ const api = {
     ipcRenderer.invoke("shell:provider-credential-remove", workspace, credentialID),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),
   installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app"),
+  windowBounds: (): Promise<{ width: number; height: number } | null> => ipcRenderer.invoke("shell:window-bounds"),
+  windowResize: (width: number, height: number): Promise<void> => ipcRenderer.invoke("shell:window-resize", width, height),
   validateW3c: (path: string, content: string): Promise<W3cDiagnostic[]> =>
     ipcRenderer.invoke("shell:validate-w3c", path, content)
 };

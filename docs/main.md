@@ -268,6 +268,8 @@ Internals:
 | `shell:provider-key-connect` | `(workspace, integrationID, key, label, answers) → void` — validates and forwards a write-only provider key and bounded form answers |
 | `shell:provider-credential-remove` | `(workspace, credentialID) → void` — removes a stored credential by opaque id |
 | `shell:health` | `() → boolean` |
+| `shell:window-bounds` | `() → { width, height } \| null` |
+| `shell:window-resize` | `(width: number, height: number) → Promise<void>` |
 | `shell:install-app` | `() → {ok, message}`; macOS only — spawns `scripts/install-app.mjs` to build and package the app, then replaces `/Applications/Orbit.app` |
 | `shell:validate-w3c` | `(path, content) → W3cDiagnostic[]`; calls the Nu Html Checker or W3C CSS Validator for HTML and plain CSS paths; preprocessor stylesheets (SCSS, LESS, Sass) return no diagnostics |
 
