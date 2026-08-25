@@ -20,10 +20,22 @@ Runtime selection lives in **Settings → Model → Agent runtime** (`src/render
 ## Regenerate
 
 ```sh
-node design/landing-page/build-concepts.mjs
+node design/landing-page/build-concepts.mjs      # main gallery: concepts/*.html, landing-pages.css, index.html
+node design/landing-page/build-iterations.mjs    # deep dives: iterations/*.html + iterations/iterations.css
 ```
 
-Emits `concepts/*.html`, `landing-pages.css`, and `index.html`, and removes stale concept pages plus the legacy `landing-pages.js`. Concept definitions, per-concept specs, base CSS, and both page shells all live in that one script.
+The concepts script emits `concepts/*.html`, `landing-pages.css`, and `index.html`, and removes stale concept pages plus the legacy `landing-pages.js`. The iterations script emits four galleries (`iterations/td|gp|pq|wm.html`) sharing `iterations/iterations.css`; it links them from the main gallery's "Deep dives" strip.
+
+## Iteration sets — 4 × 50 deep dives
+
+Each set keeps its parent direction's soul while making large structural moves; every iteration surfaces more than recent sessions (workspaces, switchers, pulse) displayed quietly.
+
+- **Twin Desk ×50** (`iterations/td.html`) — the right desk becomes a switcher: dropdown heads, segmented tabs, drawers, rails, accordions, trees, command palettes, split-flap boards, portals.
+- **Graph Paper ×50** (`iterations/gp.html`) — grids as instruments: plotters, radar sweeps, drafting tables, oscilloscopes, string art, survey plats, one fixed-ink night lab.
+- **Plaque ×50** (`iterations/pq.html`) — a small panel before the main app: gates, docks, thresholds, airlocks, turnstiles, beacons — never taking the whole surface.
+- **Watermark ×50** (`iterations/wm.html`) — the ghost mark grows a supporting cast: double exposures, waterlines, seals, auroras, sonar rings, archive fans.
+
+Iteration galleries are searchable, theme-aware, and share the four-slot shortlist (ids like `td-07`).
 
 ## The 50
 
@@ -84,9 +96,12 @@ No two share the same composition. The gallery exists to pick a direction, not t
 
 ## Files
 
-- `build-concepts.mjs` — generator: concept definitions + emitters (run to regenerate everything below)
-- `index.html` — gallery (search, family filter, theme toggle, four-slot shortlist)
+- `build-concepts.mjs` — generator: 50 concept definitions + emitters (run to regenerate everything below)
+- `index.html` — gallery (search, family filter, theme toggle, four-slot shortlist, deep-dive links)
 - `landing-pages.css` — shared tokens/components + the 50 scoped sections
 - `concepts/001.html` … `050.html` — standalone previews per concept
+- `build-iterations.mjs` — generator: the 4 × 50 iteration sets + gallery shells
+- `iterations/td.html`, `gp.html`, `pq.html`, `wm.html` — deep-dive galleries
+- `iterations/iterations.css` — tokens/components + all 200 scoped iteration sections
 
-IDs are stable `001`–`050`. The legacy `landing-pages.js` data module was removed; the gallery is fully static.
+IDs are stable `001`–`050`. The legacy `landing-pages.js` data module was removed; both galleries are fully static.

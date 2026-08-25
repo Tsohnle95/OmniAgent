@@ -882,6 +882,10 @@ function gallery() {
 .gal-spec { margin: 0; padding: 9px 14px; color: var(--text-faint); font-size: 10.5px; border-top: 1px solid var(--border-subtle); }
 .gal-empty { display: none; margin-top: 32px; text-align: center; color: var(--text-faint); font-size: 12px; }
 .gal-empty.is-on { display: block; }
+.gal-sets { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.gal-sets span { color: var(--text-faint); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-right: 4px; }
+.gal-sets a { color: var(--text-dim); text-decoration: none; font-size: 11.5px; border: 1px solid var(--border-strong); border-radius: var(--radius-full); padding: 7px 14px; }
+.gal-sets a:hover { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -895,6 +899,7 @@ function gallery() {
 <span id="gal-count" class="gal-chip">Shortlist 0/4</span>
 </div>
 </header>
+<nav class="gal-sets"><span>Deep dives</span><a href="iterations/td.html">Twin Desk \u00d750</a><a href="iterations/gp.html">Graph Paper \u00d750</a><a href="iterations/pq.html">Plaque \u00d750</a><a href="iterations/wm.html">Watermark \u00d750</a></nav>
 <main class="gal-grid" id="gal-grid">
 ${cards}
 </main>
