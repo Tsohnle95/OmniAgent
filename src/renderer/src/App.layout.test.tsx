@@ -256,7 +256,7 @@ describe("Layout panel sizing", () => {
       handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
       window.dispatchEvent(new MouseEvent("mousemove", { clientX: 0 }));
       window.dispatchEvent(new MouseEvent("mouseup", {}));
-      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
@@ -278,7 +278,7 @@ describe("Layout panel sizing", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(gridCols()).toEqual(["0px", "minmax(0,1fr)"]);
@@ -296,7 +296,7 @@ describe("Layout panel sizing", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(gridCols()).toEqual(["0px", "minmax(0,1fr)"]);
@@ -333,7 +333,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()[0]).toBeCloseTo(0, 0);
 
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('.sidebar-header .icon-btn[title="Collapse sidebar"]')!.click();
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 

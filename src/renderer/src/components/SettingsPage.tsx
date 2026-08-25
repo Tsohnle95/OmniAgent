@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { CommandOption } from "@shared/types";
+import type { CommandOption, RuntimeID } from "@shared/types";
 import { useStore } from "../store";
 import { type ThemeId, useTheme } from "../theme";
 import { OrbitMark } from "./OrbitMark";
@@ -57,7 +57,9 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
     wordWrap,
     toggleWordWrap,
     followUpBehavior,
-    setFollowUpBehavior
+    setFollowUpBehavior,
+    selectedRuntimeID,
+    setSelectedRuntimeID
   } = useStore();
   const [commands, setCommands] = useState<CommandOption[]>([]);
   const copy = sectionCopy[section];
@@ -155,6 +157,13 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
 
       {section === "model" && <section className="settings-section">
         <div className="settings-list">
+          <SettingRow
+            title="Agent runtime"
+            detail="Choose which agent runtime handles new workspaces. Change takes effect for the next folder you open."
+            control={<select className="settings-select" value={selectedRuntimeID} onChange={(event) => setSelectedRuntimeID(event.target.value as RuntimeID)}>{(runtimes.length > 0 ? runtimes : [{ id: "opencode", name: "OpenCode", version: null, available: true }]).map((runtime) => (
+              <option key={runtime.id} value={runtime.id} disabled={!runtime.available}>{runtime.name}{runtime.version ? ` ${runtime.version}` : ""}{runtime.available ? "" : " (not installed)"}</option>
+            ))}</select>}
+          />
           <SettingRow
             title="Default model"
             detail={session ? `Used for new prompts in ${session.directory}.` : "Open a workspace to choose its default model."}

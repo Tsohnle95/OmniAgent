@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, useStore } from "./store";
-import { IconAdd, IconGear, IconRobot, IconSidebarLeft, IconSidebarRight, IconTerminal } from "./components/icons";
+import { IconAdd, IconRobot, IconSidebarLeft, IconSidebarRight, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar, type SidebarTab } from "./components/FileSidebar";
@@ -674,17 +674,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             </button>
           )}
           <button
-            className={`icon-btn ${anchorOpen ? "on" : ""}`}
-            data-panel-action="toggle-agent-panel"
-            title={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
-            aria-label={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
-            aria-pressed={anchorOpen}
-            disabled={panels.length === 0}
-            onClick={() => setSlotOpen(anchorId, !anchorOpen)}
-          >
-            <IconSidebarRight />
-          </button>
-          <button
             className={`icon-btn ${inAgentMode ? "on" : ""}`}
             data-panel-action="toggle-model-mode"
             aria-label={inAgentMode ? "Exit Agent Mode" : "Enter Agent Mode"}
@@ -710,16 +699,15 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             <IconTerminal />
           </button>
           <button
-            className={`icon-btn ${settingsOpen ? "on" : ""}`}
-            title={settingsOpen ? "Back to workspace" : "Settings"}
-            aria-label={settingsOpen ? "Back to workspace" : "Settings"}
-            aria-pressed={settingsOpen}
-            onClick={() => {
-              if (!settingsOpen) setSidebarOpen(true);
-              setSettingsOpen((open) => !open);
-            }}
+            className={`icon-btn ${anchorOpen ? "on" : ""}`}
+            data-panel-action="toggle-agent-panel"
+            title={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
+            aria-label={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
+            aria-pressed={anchorOpen}
+            disabled={panels.length === 0}
+            onClick={() => setSlotOpen(anchorId, !anchorOpen)}
           >
-            <IconGear />
+            <IconSidebarRight />
           </button>
         </span>
       </div>
@@ -728,6 +716,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         {settingsOpen ? <SettingsSidebar
           section={settingsSection}
           onSectionChange={setSettingsSection}
+          settingsActive={settingsOpen}
+          onToggleSettings={() => {
+            setSettingsOpen((open) => !open);
+          }}
         /> : <FileSidebar
           collapsed={!sideOpen}
           onCollapse={setSidebarOpen}
@@ -736,6 +728,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           onTabChange={(tab) => {
             setSideTab(tab);
             setSettingsOpen(false);
+          }}
+          settingsActive={settingsOpen}
+          onToggleSettings={() => {
+            if (!settingsOpen) setSidebarOpen(true);
+            setSettingsOpen((open) => !open);
           }}
         />}
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} style={{ pointerEvents: sideOpen ? undefined : "none" }} />

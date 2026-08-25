@@ -53,6 +53,30 @@
   margin-left: auto;
 }
 
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-settings-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-settings-btn.on {
+  color: var(--text);
+  background: var(--bg-active);
+}
+
 .settings-sidebar-header {
   display: flex;
   flex-direction: column;

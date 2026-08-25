@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
-import { IconExpand, IconFolderOpen } from "./icons";
+import { IconFolderOpen, IconGear } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 import { SessionsPane } from "./SessionsPane";
@@ -353,7 +353,9 @@ export function FileSidebar({
   onDrag,
   initialTab = "files",
   tab,
-  onTabChange
+  onTabChange,
+  settingsActive = false,
+  onToggleSettings
 }: {
   collapsed: boolean;
   onCollapse: (open: boolean) => void;
@@ -361,7 +363,10 @@ export function FileSidebar({
   initialTab?: SidebarTab;
   tab?: SidebarTab;
   onTabChange?: (tab: SidebarTab) => void;
+  settingsActive?: boolean;
+  onToggleSettings?: () => void;
 }): ReactNode {
+  void onCollapse;
   const {
     session,
     panels = [],
@@ -537,9 +542,6 @@ export function FileSidebar({
             <span className="sidebar-title-name">{name}</span>
           </span>
           <span className="sidebar-header-actions">
-            <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
-              <IconExpand />
-            </button>
             <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
               <IconFolderOpen />
             </button>
@@ -571,6 +573,17 @@ export function FileSidebar({
             </div>
           </div>
         </div>
+        <div className="sidebar-footer">
+          <button
+            className={`icon-btn sidebar-settings-btn ${settingsActive ? "on" : ""}`}
+            title={settingsActive ? "Back to workspace" : "Settings"}
+            aria-label={settingsActive ? "Back to workspace" : "Settings"}
+            aria-pressed={settingsActive}
+            onClick={() => onToggleSettings?.()}
+          >
+            <IconGear />
+          </button>
+        </div>
         <ExplorerMenu />
       </div>
     );
@@ -580,9 +593,6 @@ export function FileSidebar({
     <div className="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-header-actions">
-          <button className="icon-btn" title="Collapse sidebar" onClick={() => onCollapse(false)}>
-            <IconExpand />
-          </button>
           <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
             <IconFolderOpen />
           </button>
@@ -762,6 +772,17 @@ export function FileSidebar({
       )}
         </>
       )}
+      <div className="sidebar-footer">
+        <button
+          className={`icon-btn sidebar-settings-btn ${settingsActive ? "on" : ""}`}
+          title={settingsActive ? "Back to workspace" : "Settings"}
+          aria-label={settingsActive ? "Back to workspace" : "Settings"}
+          aria-pressed={settingsActive}
+          onClick={() => onToggleSettings?.()}
+        >
+          <IconGear />
+        </button>
+      </div>
       <ExplorerMenu />
     </div>
   );

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconCloudDownload, IconDashboard, IconEye, IconMic, IconRobot, IconShield, IconSymbolEvent } from "./icons";
+import { IconCloudDownload, IconDashboard, IconEye, IconGear, IconMic, IconRobot, IconShield, IconSymbolEvent } from "./icons";
 
 export type SettingsSection =
   | "appearance"
@@ -24,10 +24,14 @@ const primarySections: Array<{ id: SettingsSection; label: string; icon: ReactNo
 
 export function SettingsSidebar({
   section,
-  onSectionChange
+  onSectionChange,
+  settingsActive = false,
+  onToggleSettings
 }: {
   section: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
+  settingsActive?: boolean;
+  onToggleSettings?: () => void;
 }): ReactNode {
   const item = (id: SettingsSection, label: string, icon: ReactNode): ReactNode => (
     <button
@@ -50,6 +54,17 @@ export function SettingsSidebar({
       <nav className="settings-nav" aria-label="Settings sections">
         {primarySections.map(({ id, label, icon }) => item(id, label, icon))}
       </nav>
+      <div className="sidebar-footer">
+        <button
+          className={`icon-btn sidebar-settings-btn ${settingsActive ? "on" : ""}`}
+          title={settingsActive ? "Back to workspace" : "Settings"}
+          aria-label={settingsActive ? "Back to workspace" : "Settings"}
+          aria-pressed={settingsActive}
+          onClick={() => onToggleSettings?.()}
+        >
+          <IconGear />
+        </button>
+      </div>
     </aside>
   );
 }

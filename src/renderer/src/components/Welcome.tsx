@@ -3,7 +3,7 @@ import { useStore } from "../store";
 import { OrbitMark } from "./OrbitMark";
 import { IconArrowRight, IconCloudDownload, IconFile, IconFolder, IconFolderOpen, IconHistory } from "./icons";
 import { droppedFilePaths } from "../drop";
-import type { ProjectInfo, RuntimeID, SessionSummary } from "@shared/types";
+import type { ProjectInfo, SessionSummary } from "@shared/types";
 
 function formatWhen(ts: number): string {
   if (!ts) return "";
@@ -24,17 +24,7 @@ type InstallToast = { id: number; text: string; tone: "info" | "error" };
 let installToastId = 0;
 
 export function Welcome(): ReactNode {
-  const {
-    selectFolder,
-    selectFile,
-    openFileWorkspace,
-    openSession,
-    reopenSession,
-    connected,
-    runtimes,
-    selectedRuntimeID,
-    setSelectedRuntimeID
-  } = useStore();
+  const { selectFolder, selectFile, openFileWorkspace, openSession, reopenSession, connected, runtimes, selectedRuntimeID } = useStore();
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,19 +103,6 @@ export function Welcome(): ReactNode {
               Open a repository, connect the agent you trust, and watch every file change
               stream in live — diffs, turns, and terminals on one calm surface.
             </p>
-            <label className="welcome-runtime">
-              <span>Agent runtime</span>
-              <select
-                value={selectedRuntimeID}
-                onChange={(event) => setSelectedRuntimeID(event.target.value as RuntimeID)}
-              >
-                {(runtimes.length > 0 ? runtimes : [{ id: "opencode", name: "OpenCode", version: null, available: true }]).map((runtime) => (
-                  <option key={runtime.id} value={runtime.id} disabled={!runtime.available}>
-                    {runtime.name}{runtime.version ? ` ${runtime.version}` : ""}{runtime.available ? "" : " (not installed)"}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="welcome-actions">
               <button className="welcome-cta" onClick={() => void selectFolder()}>
                 <IconFolderOpen />
