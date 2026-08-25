@@ -201,6 +201,25 @@ export interface SessionRevertStage {
   snapshot?: string;
 }
 
+export interface McpServerOption {
+  name: string;
+  status: string;
+}
+
+export interface PluginOption {
+  id: string;
+  source: string;
+  status: string;
+}
+
+export interface SkillOption {
+  id: string;
+  name: string;
+  description?: string;
+  slash?: boolean;
+  location?: string;
+}
+
 export type ProviderCredentialAnswers = Record<string, ProviderCredentialValue>;
 
 export interface TreeEntry {

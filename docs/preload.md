@@ -36,6 +36,9 @@ automatically.
 | `providerOauthPoll(workspace, integrationID, attemptID)` | `Promise<ProviderOAuthPoll>` — pending/complete/failed/expired |
 | `providerOauthComplete(workspace, integrationID, attemptID, code?)` | `Promise<void>` — confirms an attempt (code mode) |
 | `providerOauthCancel(workspace, integrationID, attemptID)` | `Promise<void>` — aborts an attempt |
+| `mcpList(workspace)` | `Promise<McpServerOption[]>` — configured MCP servers with status |
+| `pluginsList(workspace)` | `Promise<PluginOption[]>` — active plugins with source |
+| `skillsList(workspace)` | `Promise<SkillOption[]>` — workspace skills |
 | `revertStage(workspace, messageID, files)` | `Promise<SessionRevertStage>` — stages a revert of the panel's session to a message |
 | `revertCommit(workspace)` | `Promise<void>` — applies the staged revert |
 | `revertClear(workspace)` | `Promise<void>` — discards the staged revert |

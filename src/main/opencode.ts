@@ -27,6 +27,9 @@ import type {
   PromptDelivery,
   PromptFile,
   SessionInboxEntry,
+  McpServerOption,
+  PluginOption,
+  SkillOption,
   SessionRevertStage,
   ProviderCredentialAnswers,
   ProviderFormField,
@@ -2117,6 +2120,61 @@ export class OpenShellBackend {
     if (!this.client) throw new Error("no active session");
     this.assertTarget(target);
     await this.client.session.revert.clear({ sessionID: target.sessionID });
+  }
+
+  async listMcpServers(workspace: WorkspaceIdentity): Promise<McpServerOption[]> {
+    const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
+    const res = await this.client.mcp.list({ location: { directory: target.directory } }).catch(() => []);
+    this.assertTarget(target);
+    const rows = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (rows as Array<Record<string, unknown>>).flatMap((row) => {
+      const name = typeof row.name === "string" ? row.name : "";
+      if (!name) return [];
+      const status = typeof row.status === "string" ? row.status : "unknown";
+      return [{ name, status }];
+    });
+  }
+
+  async listPlugins(workspace: WorkspaceIdentity): Promise<PluginOption[]> {
+    const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
+    const res = await this.client.plugin.list({ location: { directory: target.directory } }).catch(() => []);
+    this.assertTarget(target);
+    const rows = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (rows as Array<Record<string, unknown>>).flatMap((row) => {
+      const id = typeof row.id === "string" ? row.id : "";
+      if (!id) return [];
+      const source = row.source as Record<string, unknown> | undefined;
+      return [{
+        id,
+        source: source && typeof source.type === "string" ? source.type : "unknown",
+        status: typeof row.status === "string" ? row.status : "unknown"
+      }];
+    });
+  }
+
+  async listSkills(workspace: WorkspaceIdentity): Promise<SkillOption[]> {
+    const target = this.activeTarget(workspace);
+    if (this.contextFor(workspace).runtime) return [];
+    if (!this.client) return [];
+    const res = await this.client.skill.list({ location: { directory: target.directory } }).catch(() => []);
+    this.assertTarget(target);
+    const rows = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (rows as Array<Record<string, unknown>>).flatMap((row) => {
+      const id = typeof row.id === "string" ? row.id : "";
+      const name = typeof row.name === "string" ? row.name : "";
+      if (!id || !name) return [];
+      return [{
+        id,
+        name,
+        ...(typeof row.description === "string" ? { description: row.description } : {}),
+        ...(row.slash === true ? { slash: true } : {}),
+        ...(typeof row.location === "string" ? { location: row.location } : {})
+      }];
+    });
   }
 
   async removeProviderCredential(workspace: WorkspaceIdentity, credentialID: string): Promise<void> {

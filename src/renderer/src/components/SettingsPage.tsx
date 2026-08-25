@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { CommandOption, RuntimeID } from "@shared/types";
+import type { CommandOption, McpServerOption, PluginOption, RuntimeID, SkillOption } from "@shared/types";
 import { useStore } from "../store";
 import { type ThemeId, useTheme } from "../theme";
 import { OrbitMark } from "./OrbitMark";
@@ -62,6 +62,9 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
     setSelectedRuntimeID
   } = useStore();
   const [commands, setCommands] = useState<CommandOption[]>([]);
+  const [mcpServers, setMcpServers] = useState<McpServerOption[]>([]);
+  const [plugins, setPlugins] = useState<PluginOption[]>([]);
+  const [skills, setSkills] = useState<SkillOption[]>([]);
   const copy = sectionCopy[section];
   const runtime = (runtimes ?? []).find((item) => item.id === (session?.runtimeID ?? "opencode"));
 
@@ -69,9 +72,15 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
     if (section !== "plugins") return;
     if (!session) {
       setCommands([]);
+      setMcpServers([]);
+      setPlugins([]);
+      setSkills([]);
       return;
     }
     void window.openshell.commands(session.workspace).then(setCommands).catch(() => setCommands([]));
+    void window.openshell.mcpList(session.workspace).then(setMcpServers).catch(() => setMcpServers([]));
+    void window.openshell.pluginsList(session.workspace).then(setPlugins).catch(() => setPlugins([]));
+    void window.openshell.skillsList(session.workspace).then(setSkills).catch(() => setSkills([]));
   }, [section, session]);
 
   useEffect(() => {
@@ -124,6 +133,24 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
         <div className="settings-list">
           {commands.length === 0 ? <div className="settings-empty">No workspace commands or skills were reported.</div> : commands.map((command) => (
             <SettingRow key={`${command.kind}:${command.name}`} title={command.name} detail={command.description ?? "No description provided."} control={<span className="settings-badge">{command.kind ?? "command"}</span>} />
+          ))}
+        </div>
+        <h2 className="settings-group-title">Skills</h2>
+        <div className="settings-list">
+          {skills.length === 0 ? <div className="settings-empty">No skills are available in this workspace.</div> : skills.map((skill) => (
+            <SettingRow key={skill.id} title={skill.name} detail={skill.description ?? skill.location ?? "No description provided."} control={<span className="settings-badge">{skill.slash ? "slash" : "skill"}</span>} />
+          ))}
+        </div>
+        <h2 className="settings-group-title">Plugins</h2>
+        <div className="settings-list">
+          {plugins.length === 0 ? <div className="settings-empty">No plugins are active in this workspace.</div> : plugins.map((plugin) => (
+            <SettingRow key={plugin.id} title={plugin.id} detail={`Source: ${plugin.source}`} control={<span className="settings-badge">{plugin.status}</span>} />
+          ))}
+        </div>
+        <h2 className="settings-group-title">MCP servers</h2>
+        <div className="settings-list">
+          {mcpServers.length === 0 ? <div className="settings-empty">No MCP servers are configured for this workspace.</div> : mcpServers.map((server) => (
+            <SettingRow key={server.name} title={server.name} detail="Managed by the OpenCode runtime." control={<span className={`settings-badge ${server.status === "connected" ? "available" : ""}`}>{server.status}</span>} />
           ))}
         </div>
       </section>}

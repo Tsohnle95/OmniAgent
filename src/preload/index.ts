@@ -21,7 +21,10 @@ import type {
   ProviderIntegration,
   ProviderOAuthAttempt,
   ProviderOAuthPoll,
+  McpServerOption,
+  PluginOption,
   SessionRevertStage,
+  SkillOption,
   ProviderUsageResult,
   RecoveryRecord,
   ReferenceOption,
@@ -152,6 +155,12 @@ const api = {
     ipcRenderer.invoke("shell:provider-oauth-complete", workspace, integrationID, attemptID, code),
   providerOauthCancel: (workspace: WorkspaceIdentity, integrationID: string, attemptID: string): Promise<void> =>
     ipcRenderer.invoke("shell:provider-oauth-cancel", workspace, integrationID, attemptID),
+  mcpList: (workspace: WorkspaceIdentity): Promise<McpServerOption[]> =>
+    ipcRenderer.invoke("shell:mcp-list", workspace),
+  pluginsList: (workspace: WorkspaceIdentity): Promise<PluginOption[]> =>
+    ipcRenderer.invoke("shell:plugins-list", workspace),
+  skillsList: (workspace: WorkspaceIdentity): Promise<SkillOption[]> =>
+    ipcRenderer.invoke("shell:skills-list", workspace),
   revertStage: (workspace: WorkspaceIdentity, messageID: string, files: boolean): Promise<SessionRevertStage> =>
     ipcRenderer.invoke("shell:session-revert-stage", workspace, messageID, files),
   revertCommit: (workspace: WorkspaceIdentity): Promise<void> =>

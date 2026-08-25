@@ -727,6 +727,19 @@ function registerIpc(): void {
     return backend.sessionSelection(workspace);
   });
 
+  handleTrusted("shell:mcp-list", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listMcpServers(workspace);
+  });
+  handleTrusted("shell:plugins-list", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listPlugins(workspace);
+  });
+  handleTrusted("shell:skills-list", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.listSkills(workspace);
+  });
+
   handleTrusted("shell:provider-usage", async () => backend.providerUsage());
 
   handleTrusted("shell:provider-integrations", async (_e, workspace: WorkspaceIdentity) => {

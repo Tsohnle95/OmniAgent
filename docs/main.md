@@ -77,6 +77,9 @@ Public methods (all used by IPC):
 | `pollProviderOAuth(workspace, integrationID, attemptID)` | Reads attempt status via `integration.oauth.status` |
 | `completeProviderOAuth(workspace, integrationID, attemptID, code?)` | Finishes an attempt via `integration.oauth.complete`, optionally with a pasted code |
 | `cancelProviderOAuth(workspace, integrationID, attemptID)` | Aborts an attempt via `integration.oauth.cancel` |
+| `listMcpServers(workspace)` | Lists configured MCP servers and their connection status via `mcp.list` |
+| `listPlugins(workspace)` | Lists active plugins and their source via `plugin.list` |
+| `listSkills(workspace)` | Lists workspace skills via `skill.list` |
 | `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
 | `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
 | `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
@@ -221,6 +224,9 @@ Internals:
 | `shell:provider-oauth-poll` | `(workspace, integrationID, attemptID) → ProviderOAuthPoll` |
 | `shell:provider-oauth-complete` | `(workspace, integrationID, attemptID, code?) → void` |
 | `shell:provider-oauth-cancel` | `(workspace, integrationID, attemptID) → void` |
+| `shell:mcp-list` | `(workspace) → McpServerOption[]` |
+| `shell:plugins-list` | `(workspace) → PluginOption[]` |
+| `shell:skills-list` | `(workspace) → SkillOption[]` |
 | `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(workspace, query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |

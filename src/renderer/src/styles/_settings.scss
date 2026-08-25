@@ -152,6 +152,7 @@
 .settings-badge.error { color: var(--red); }
 
 .settings-empty { padding: 32px 20px; color: var(--text-faint); font-size: 12px; text-align: center; }
+.settings-group-title { margin: 20px 0 8px; font-size: 12px; font-weight: var(--font-weight-medium); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
 
 .provider-settings { display: grid; gap: 16px; }
 .provider-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
