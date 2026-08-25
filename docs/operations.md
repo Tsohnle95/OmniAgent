@@ -75,8 +75,18 @@ the npm tarball does not preserve; it does not compile or rebuild the addon.
 
 ## Updating the OpenCode client
 
-`@opencode-ai/client` is pinned to an exact prerelease and `package-lock.json`
-is tracked. Update it only in an explicit dependency commit:
+`@opencode-ai/client` is pinned to an exact prerelease. The pinned contract and
+the installed `opencode2` binary drift independently: the binary is whatever is
+on PATH (or an already-running service), while the compile-time contract moves
+only when this procedure runs. Run `npm run client:drift` on a weekly cadence —
+and before adopting any new protocol feature — to compare the pin against the
+published `beta`, `next`, and `dev` lines; it exits nonzero when beta is ahead.
+
+When the event contract moves, raise
+`minSupportedServerBuild` in `src/main/opencode.ts` so discovery and
+`Service.ensure` refuse servers too old to speak it; the predicate receives the
+service's reported version string. Update it only in an explicit dependency
+commit:
 
 1. Run `npm install --save-exact @opencode-ai/client@<version>` on the supported
    Node version and review that the lockfile changes only the intended client,

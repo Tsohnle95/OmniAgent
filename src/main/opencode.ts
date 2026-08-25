@@ -573,10 +573,21 @@ export class OpenShellBackend {
     return [desktop];
   }
 
+  private static minSupportedServerBuild = 17577;
+
+  private static supportsContract(version: string): boolean {
+    const match = /(\d+)$/.exec(version.trim());
+    const build = match ? Number(match[1]) : null;
+    return build !== null && build >= OpenShellBackend.minSupportedServerBuild;
+  }
+
   private async discoverEndpoint(): Promise<Endpoint | null> {
     const files = OpenShellBackend.discoverFiles();
     for (const file of files) {
-      const endpoint = await Service.discover({ file }).catch(() => null);
+      const endpoint = await Service.discover({
+        file,
+        version: OpenShellBackend.supportsContract
+      }).catch(() => null);
       if (endpoint) return endpoint;
     }
     return null;
@@ -584,7 +595,7 @@ export class OpenShellBackend {
 
   async connect(): Promise<boolean> {
     const endpoint =
-      (await Service.discover().catch(() => null)) ??
+      (await Service.discover({ version: OpenShellBackend.supportsContract }).catch(() => null)) ??
       (await this.discoverEndpoint()) ??
       (await this.ensureBounded());
     if (!endpoint) return false;
@@ -638,7 +649,8 @@ export class OpenShellBackend {
     if (Date.now() - this.lastEnsureAt < this.ensureCooldownMs) return null;
     this.lastEnsureAt = Date.now();
     const attempt = Service.ensure({
-      command: ["opencode2", "serve", "--service"]
+      command: ["opencode2", "serve", "--service"],
+      version: OpenShellBackend.supportsContract
     }).catch(() => null);
     const timeout = sleep(10_000).then(() => null);
     return Promise.race([attempt, timeout]);
