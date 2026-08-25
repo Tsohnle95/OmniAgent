@@ -753,7 +753,47 @@ const PROVIDERS: Record<string, ProviderSpec> = {
   "opencode-go": { fetch: fetchOpencodeGo }
 };
 
+const SNAPSHOT_MAX_AGE_MS = 15 * 60 * 1000;
+
+export function orbitUsageSnapshotCandidates(): string[] {
+  if (process.env.ORBIT_USAGE_SNAPSHOT) return [process.env.ORBIT_USAGE_SNAPSHOT];
+  const data = process.env.XDG_DATA_HOME ?? path.join(homedir(), ".local", "share");
+  return [
+    path.join(data, "opencode", "orbit-usage.json"),
+    path.join(homedir(), "Library", "Application Support", "ai.opencode.desktop", "opencode", "orbit-usage.json")
+  ];
+}
+
+export async function readOrbitUsageSnapshot(
+  candidates: string[] = orbitUsageSnapshotCandidates(),
+  now = Date.now()
+): Promise<ProviderUsageResult[]> {
+  for (const candidate of candidates) {
+    let raw: string;
+    try {
+      raw = await fsp.readFile(candidate, "utf8");
+    } catch {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(raw) as { generatedAt?: unknown; results?: unknown };
+      const generatedAt = Number(parsed.generatedAt);
+      if (!Number.isFinite(generatedAt) || now - generatedAt > SNAPSHOT_MAX_AGE_MS) continue;
+      const results = Array.isArray(parsed.results) ? parsed.results : [];
+      const usable = results.filter((entry): entry is ProviderUsageResult =>
+        Boolean(entry && typeof entry === "object" && typeof (entry as ProviderUsageResult).provider === "string")
+      );
+      if (usable.length > 0) return usable;
+    } catch {
+      continue;
+    }
+  }
+  return [];
+}
+
 export async function fetchProviderUsage(): Promise<ProviderUsageResult[]> {
+  const snapshotted = await readOrbitUsageSnapshot();
+  if (snapshotted.length > 0) return snapshotted;
   const auth = await readOAuthEntries();
   const results: ProviderUsageResult[] = [];
   for (const [provider, spec] of Object.entries(PROVIDERS)) {

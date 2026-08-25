@@ -101,6 +101,25 @@ commit:
 4. Run `npm run check` and `npm run test:platform`. Exercise the human GUI smoke
    checklist when service or streaming behavior changed.
 
+## Usage data plugin (prototype)
+
+`plugin/orbit-usage.ts` is an OpenCode plugin that runs inside the OpenCode
+server process. It resolves active provider connections through the supported
+integration API (`ctx.integration.connection.active/resolve`) instead of Orbit
+reading OpenCode's credential storage directly, fetches ChatGPT and Claude
+usage, and writes `{generatedAt, results}` — `results` matching
+`ProviderUsageResult[]` — to `${XDG_DATA_HOME ?? ~/.local/share}/opencode/orbit-usage.json`
+(override with `ORBIT_USAGE_SNAPSHOT`). `fetchProviderUsage()` in
+`src/main/provider-usage.ts` prefers a snapshot younger than 15 minutes and
+falls back to direct storage scraping when the plugin is absent.
+
+Install it by copying (or symlinking) the file into OpenCode's global plugins
+directory or listing its path under `plugins` in `opencode.json(c)`, then
+restart the service; verify the snapshot file appears within a few minutes.
+The prototype covers two providers; porting the remaining adapters from
+`provider-usage.ts` and eventually deleting the scraping path is tracked as
+follow-up work.
+
 ## Large-session benchmark
 
 Run the deterministic renderer fixture independently with:
