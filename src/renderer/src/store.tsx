@@ -347,9 +347,9 @@ function filterEntries(entries: TreeEntry[]): TreeEntry[] {
 }
 
 const AUX_CHAT_STREAM_TYPES = new Set([
-  "session.input.admitted",
-  "session.input.promoted",
-  "session.input.cancelled",
+  "session.inbox.enqueued",
+  "session.inbox.delivered",
+  "session.inbox.cancelled",
   "session.agent.selected",
   "session.model.selected",
   "session.synthetic",
@@ -2332,17 +2332,16 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         : sessionRef.current?.id;
       const targetWorkspace = targetSessionID ? workspaceOfSession(targetSessionID) : null;
       const active = Boolean(targetSessionID && targetSessionID === sessionRef.current?.id);
-      if (type === "session.input.promoted" && targetSessionID) {
-        const input = data.input as Record<string, any> | undefined;
-        if (input?.type === "user" && typeof data.inputID === "string") {
+      if (type === "session.inbox.delivered" && targetSessionID && typeof data.inboxID === "string") {
+        const buffered = (transcriptsBySessionRef.current[targetSessionID] ?? []).find(
+          (item) => item.kind === "pending-input" && item.id === data.inboxID
+        );
+        if (buffered?.kind === "pending-input" && buffered.inputType === "user") {
           insertUserMessage(
             chatStateFor(targetSessionID),
             targetSessionID,
-            data.inputID,
-            String(input.data?.text ?? ""),
-            input.data?.model && typeof input.data.model === "object"
-              ? input.data.model as Record<string, unknown>
-              : undefined
+            data.inboxID,
+            buffered.text
           );
         }
       }

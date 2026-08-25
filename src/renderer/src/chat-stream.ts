@@ -220,12 +220,12 @@ function updateLatestCompaction(
 export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent): TranscriptItem[] {
   const data = event.data;
   switch (event.type) {
-    case "session.input.admitted": {
-      const input = data.input as Record<string, any> | undefined;
-      const payload = input?.data as Record<string, any> | undefined;
-      const inputID = String(data.inputID ?? event.id);
-      if (!input || !payload) return items;
-      if (input.type === "user") {
+    case "session.inbox.enqueued": {
+      const item = data.item as Record<string, any> | undefined;
+      const payload = item?.payload as Record<string, any> | undefined;
+      const inputID = String(data.inboxID ?? event.id);
+      if (!item || !payload) return items;
+      if (item.type === "user") {
         const files = Array.isArray(payload.files) ? payload.files as Record<string, unknown>[] : [];
         const attachments = files.flatMap((file): { name: string }[] =>
           typeof file.name === "string" && file.name ? [{ name: file.name }] : []
@@ -238,7 +238,7 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
           ...(attachments.length > 0 ? { attachments } : {})
         });
       }
-      if (input.type === "synthetic") {
+      if (item.type === "synthetic") {
         return upsertItem(items, {
           kind: "pending-input",
           id: inputID,
@@ -249,12 +249,12 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
       }
       return items;
     }
-    case "session.input.cancelled":
+    case "session.inbox.cancelled":
       return items.filter((item) =>
-        item.kind !== "pending-input" || item.id !== String(data.inputID ?? "")
+        item.kind !== "pending-input" || item.id !== String(data.inboxID ?? "")
       );
-    case "session.input.promoted":
-      return promoteInput(items, String(data.inputID ?? ""));
+    case "session.inbox.delivered":
+      return promoteInput(items, String(data.inboxID ?? ""));
     case "session.agent.selected":
       return upsertItem(items, {
         kind: "selection",

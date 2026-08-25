@@ -1784,7 +1784,7 @@ export class OpenShellBackend {
     await this.client.session.command({
       sessionID: target.sessionID,
       command: name,
-      ...(args ? { arguments: args } : {})
+      text: args ?? ""
     });
     this.assertTarget(target);
   }
