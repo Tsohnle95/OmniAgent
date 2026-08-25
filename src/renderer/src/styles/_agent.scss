@@ -605,14 +605,14 @@
 
 .agent-scroll > * {
   width: 100%;
-  max-width: min(100%, 100ch);
+  max-width: min(100%, 140ch);
   min-width: 0;
   margin-left: auto;
   margin-right: auto;
 }
 
 [data-component="session-prompt-dock"] > * {
-  max-width: min(100%, 100ch);
+  max-width: min(100%, 140ch);
   margin-left: auto;
   margin-right: auto;
 }
