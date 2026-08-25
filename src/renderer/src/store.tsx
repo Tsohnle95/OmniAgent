@@ -1595,7 +1595,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       };
       try {
         const refreshed = await window.openshell.prompt(target, promptText, files, delivery);
-        if (panelFor(target)) applyCanonicalTranscript(refreshed);
+        if (panelFor(target)) {
+          applyCanonicalTranscript(refreshed);
+          setInboxBySession((current) => {
+            const list = current[panel.id];
+            if (!list?.some((entry) => entry.text === promptText && entry.delivery !== "queue")) return current;
+            return { ...current, [panel.id]: list.filter((entry) => entry.text !== promptText || entry.delivery === "queue") };
+          });
+        }
       } catch (err) {
         if (panelFor(target)) {
           if (delivery === "queue") {
@@ -2487,6 +2494,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         if (item?.type === "user") {
           const payload = item.payload as Record<string, any> | undefined;
           const files = Array.isArray(payload?.files) ? payload.files : [];
+          const delivery = data.delivery === "queue"
+            ? "queue"
+            : data.delivery === "steer"
+              ? "steer"
+              : typeof item.delivery === "string" && (item.delivery === "queue" || item.delivery === "steer")
+                ? item.delivery
+                : undefined;
           setInboxBySession((current) => ({
             ...current,
             [targetSessionID]: [
@@ -2495,7 +2509,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
                 id: data.inboxID,
                 text: String(payload?.text ?? ""),
                 attachmentCount: files.length,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                ...(delivery ? { delivery } : {})
               }
             ]
           }));
@@ -2951,12 +2966,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
       const localQueue = queueTarget ? getQueueForTarget(messageQueue, queueTarget) : [];
       const queuedMessages: QueuedMessage[] = [
-        ...(inboxBySession[panel.id] ?? []).map((entry) => ({
-          id: entry.id,
-          content: entry.text,
-          createdAt: entry.createdAt,
-          attachmentCount: entry.attachmentCount
-        })),
+        ...(inboxBySession[panel.id] ?? [])
+          .filter((entry) => entry.delivery !== "steer")
+          .map((entry) => ({
+            id: entry.id,
+            content: entry.text,
+            createdAt: entry.createdAt,
+            attachmentCount: entry.attachmentCount
+          })),
         ...localQueue
       ];
       const pendingForms = formsBySession[panel.id] ?? [];

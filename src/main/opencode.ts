@@ -1759,15 +1759,21 @@ export class OpenShellBackend {
     this.assertTarget(target);
     const res = await this.client.session.inbox.list({ sessionID: target.sessionID });
     const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
-    return (arr as Array<Record<string, unknown>>).flatMap((entry) => {
+    return (arr as Array<Record<string, unknown>>).flatMap((entry): SessionInboxEntry[] => {
       if (entry.type !== "user") return [];
       const payload = entry.payload as Record<string, unknown> | undefined;
       const files = Array.isArray(payload?.files) ? payload!.files : [];
+      const delivery: SessionInboxEntry["delivery"] = entry.delivery === "queue"
+        ? "queue"
+        : entry.delivery === "steer"
+          ? "steer"
+          : undefined;
       return [{
         id: String(entry.id ?? ""),
         text: String(payload?.text ?? ""),
         attachmentCount: files.length,
-        createdAt: Number(entry.timeCreated ?? 0)
+        createdAt: Number(entry.timeCreated ?? 0),
+        ...(delivery ? { delivery } : {})
       }].filter((item) => item.id !== "");
     });
   }

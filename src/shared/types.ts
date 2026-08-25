@@ -314,6 +314,7 @@ export interface SessionInboxEntry {
   text: string;
   attachmentCount: number;
   createdAt: number;
+  delivery?: "steer" | "queue";
 }
 
 export type FormAnswers = Record<string, string | number | boolean | string[]>;
