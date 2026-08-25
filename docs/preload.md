@@ -36,6 +36,9 @@ automatically.
 | `providerOauthPoll(workspace, integrationID, attemptID)` | `Promise<ProviderOAuthPoll>` — pending/complete/failed/expired |
 | `providerOauthComplete(workspace, integrationID, attemptID, code?)` | `Promise<void>` — confirms an attempt (code mode) |
 | `providerOauthCancel(workspace, integrationID, attemptID)` | `Promise<void>` — aborts an attempt |
+| `revertStage(workspace, messageID, files)` | `Promise<SessionRevertStage>` — stages a revert of the panel's session to a message |
+| `revertCommit(workspace)` | `Promise<void>` — applies the staged revert |
+| `revertClear(workspace)` | `Promise<void>` — discards the staged revert |
 | `commands(workspace)` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
 | `runCommand(workspace, name, args?)` | `Promise<void>` — runs a slash command or skill in the addressed session |
 | `references(workspace, query)` | `Promise<ReferenceOption[]>` — `file.find` search results for @-mentions, `rel` paths relative to the session directory |

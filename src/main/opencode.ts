@@ -27,6 +27,7 @@ import type {
   PromptDelivery,
   PromptFile,
   SessionInboxEntry,
+  SessionRevertStage,
   ProviderCredentialAnswers,
   ProviderFormField,
   ProviderIntegration,
@@ -2085,6 +2086,37 @@ export class OpenShellBackend {
       attemptID,
       location: { directory: target.directory }
     });
+  }
+
+  async stageRevert(workspace: WorkspaceIdentity, messageID: string, files: boolean): Promise<SessionRevertStage> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    const res = await this.client.session.revert.stage({
+      sessionID: target.sessionID,
+      messageID,
+      ...(files ? { files: true } : {})
+    });
+    const row = (Array.isArray(res) ? res[0] : res) as Record<string, unknown>;
+    return {
+      messageID: typeof row?.messageID === "string" ? row.messageID : messageID,
+      ...(typeof row?.partID === "string" ? { partID: row.partID } : {}),
+      ...(typeof row?.snapshot === "string" ? { snapshot: row.snapshot } : {})
+    };
+  }
+
+  async commitRevert(workspace: WorkspaceIdentity): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    await this.client.session.revert.commit({ sessionID: target.sessionID });
+  }
+
+  async clearRevert(workspace: WorkspaceIdentity): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    await this.client.session.revert.clear({ sessionID: target.sessionID });
   }
 
   async removeProviderCredential(workspace: WorkspaceIdentity, credentialID: string): Promise<void> {

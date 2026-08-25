@@ -195,6 +195,12 @@ export type ProviderOAuthPoll =
   | { status: "failed"; message: string }
   | { status: "expired" };
 
+export interface SessionRevertStage {
+  messageID: string;
+  partID?: string;
+  snapshot?: string;
+}
+
 export type ProviderCredentialAnswers = Record<string, ProviderCredentialValue>;
 
 export interface TreeEntry {

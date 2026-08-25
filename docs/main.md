@@ -68,6 +68,9 @@ Public methods (all used by IPC):
 | `cancelInbox(workspace, inboxID)` | Cancels a queued inbox entry via `session.inbox.cancel` |
 | `steerInbox(workspace, inboxID)` | Delivers a queued entry immediately via `session.inbox.steer` |
 | `listForms(workspace)` | Lists pending agent forms for the active session via `form.list` |
+| `stageRevert(workspace, messageID, files)` | Stages a revert of the active session back to a message via `session.revert.stage`; `files` restores file snapshots; returns `{messageID, partID?, snapshot?}` |
+| `commitRevert(workspace)` | Applies the staged revert via `session.revert.commit` |
+| `clearRevert(workspace)` | Discards the staged revert via `session.revert.clear` |
 | `replyForm(workspace, formID, answers)` | Submits field answers via `form.reply` |
 | `cancelForm(workspace, formID)` | Cancels a pending form via `form.cancel` |
 | `startProviderOAuth(workspace, integrationID, methodID)` | Starts an OAuth attempt via `integration.oauth.connect` and returns attempt URL/mode |
@@ -251,6 +254,9 @@ Internals:
 | `shell:list-permissions` | `(workspace) → PendingPermissionRequest[]`; pending permission requests across the service's sessions |
 | `shell:state` | `() → SessionInfo \| null` |
 | `shell:session-selection` | `(workspace) → SessionSelection \| null` |
+| `shell:session-revert-stage` | `(workspace, messageID, files) → SessionRevertStage` — stages a revert of the active session to a message, optionally restoring file snapshots |
+| `shell:session-revert-commit` | `(workspace) → void` — applies the staged revert |
+| `shell:session-revert-clear` | `(workspace) → void` — discards the staged revert |
 | `shell:provider-usage` | `() → ProviderUsageResult[]` |
 | `shell:provider-integrations` | `(workspace) → ProviderIntegration[]` — runtime-supported provider catalog and secret-free connection metadata |
 | `shell:provider-key-connect` | `(workspace, integrationID, key, label, answers) → void` — validates and forwards a write-only provider key and bounded form answers |

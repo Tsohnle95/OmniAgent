@@ -21,6 +21,7 @@ import type {
   ProviderIntegration,
   ProviderOAuthAttempt,
   ProviderOAuthPoll,
+  SessionRevertStage,
   ProviderUsageResult,
   RecoveryRecord,
   ReferenceOption,
@@ -151,6 +152,12 @@ const api = {
     ipcRenderer.invoke("shell:provider-oauth-complete", workspace, integrationID, attemptID, code),
   providerOauthCancel: (workspace: WorkspaceIdentity, integrationID: string, attemptID: string): Promise<void> =>
     ipcRenderer.invoke("shell:provider-oauth-cancel", workspace, integrationID, attemptID),
+  revertStage: (workspace: WorkspaceIdentity, messageID: string, files: boolean): Promise<SessionRevertStage> =>
+    ipcRenderer.invoke("shell:session-revert-stage", workspace, messageID, files),
+  revertCommit: (workspace: WorkspaceIdentity): Promise<void> =>
+    ipcRenderer.invoke("shell:session-revert-commit", workspace),
+  revertClear: (workspace: WorkspaceIdentity): Promise<void> =>
+    ipcRenderer.invoke("shell:session-revert-clear", workspace),
   removeProviderCredential: (workspace: WorkspaceIdentity, credentialID: string): Promise<void> =>
     ipcRenderer.invoke("shell:provider-credential-remove", workspace, credentialID),
   health: (): Promise<boolean> => ipcRenderer.invoke("shell:health"),

@@ -764,6 +764,19 @@ function registerIpc(): void {
     return backend.cancelProviderOAuth(workspace, integrationID, attemptID);
   });
 
+  handleTrusted("shell:session-revert-stage", async (_e, workspace: WorkspaceIdentity, messageID: string, files: boolean) => {
+    workspaceId(workspace);
+    return backend.stageRevert(workspace, messageID, files);
+  });
+  handleTrusted("shell:session-revert-commit", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.commitRevert(workspace);
+  });
+  handleTrusted("shell:session-revert-clear", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    return backend.clearRevert(workspace);
+  });
+
   handleTrusted("shell:provider-credential-remove", async (_e, workspace: WorkspaceIdentity, credentialID: unknown) => {
     workspaceId(workspace);
     return backend.removeProviderCredential(workspace, selectionId(credentialID, "provider credential id"));

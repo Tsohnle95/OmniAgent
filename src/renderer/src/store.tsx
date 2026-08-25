@@ -20,6 +20,7 @@ import type {
   PendingPermissionRequest,
   PermissionReply,
   PromptDelivery,
+  SessionRevertStage,
   FormAnswers,
   PendingFormRequest,
   PromptFile,
@@ -141,6 +142,7 @@ export interface PanelView {
   queuedCount: number;
   queuedMessages: QueuedMessage[];
   pendingForms: PendingFormRequest[];
+  stagedRevert: SessionRevertStage | null;
 }
 
 function ancestorDirs(path: string): string[] {
@@ -227,6 +229,9 @@ interface Store {
   sendQueuedNow: (workspace: WorkspaceIdentity, messageID: string) => Promise<void>;
   submitForm: (workspace: WorkspaceIdentity, formID: string, answers: FormAnswers) => Promise<void>;
   dismissForm: (workspace: WorkspaceIdentity, formID: string) => void;
+  stageRevert: (workspace: WorkspaceIdentity, messageID: string) => Promise<void>;
+  commitStagedRevert: (workspace: WorkspaceIdentity) => Promise<void>;
+  clearStagedRevert: (workspace: WorkspaceIdentity) => Promise<void>;
   reorderQueuedMessage: (workspace: WorkspaceIdentity, fromID: string, toID: string) => void;
   pendingCreate: PendingCreate | null;
   pendingRename: { path: string } | null;
@@ -443,6 +448,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const [transcriptsBySession, setTranscriptsBySession] = useState<Record<string, TranscriptItem[]>>({});
   const [inboxBySession, setInboxBySession] = useState<Record<string, SessionInboxEntry[]>>({});
   const [formsBySession, setFormsBySession] = useState<Record<string, PendingFormRequest[]>>({});
+  const [stagedReverts, setStagedReverts] = useState<Record<string, SessionRevertStage | null>>({});
   const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
   const [activePathByWorkspace, setActivePathByWorkspace] = useState<Record<string, string | null>>({});
   const [singleFileByWorkspace, setSingleFileByWorkspace] = useState<Record<string, string>>({});
@@ -1011,6 +1017,42 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     },
     [toast, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, protectedSessionIDs]
   );
+
+  const clearStagedRevert = useCallback(async (workspace: WorkspaceIdentity): Promise<void> => {
+    const panel = panelFor(workspace);
+    if (!panel) return;
+    try {
+      await window.openshell.revertClear(workspace);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setStagedReverts((current) => ({ ...current, [panel.id]: null }));
+    }
+  }, [panelFor, toast]);
+
+  const commitStagedRevert = useCallback(async (workspace: WorkspaceIdentity): Promise<void> => {
+    const panel = panelFor(workspace);
+    if (!panel) return;
+    try {
+      await window.openshell.revertCommit(workspace);
+      setStagedReverts((current) => ({ ...current, [panel.id]: null }));
+      await hydrateTranscript(panel.id);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [panelFor, toast, hydrateTranscript]);
+
+  const stageRevert = useCallback(async (workspace: WorkspaceIdentity, messageID: string): Promise<void> => {
+    const panel = panelFor(workspace);
+    if (!panel) return;
+    try {
+      const staged = await window.openshell.revertStage(workspace, messageID, true);
+      setStagedReverts((current) => ({ ...current, [panel.id]: staged }));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [panelFor, toast]);
+
 
   const focusSession = useCallback((sessionID: string): void => {
     const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
@@ -2936,7 +2978,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         turnStartedAt,
         queuedCount: queuedMessages.length,
         queuedMessages,
-        pendingForms
+        pendingForms,
+        stagedRevert: stagedReverts[panel.id] ?? null
       };
     }
     return views;
@@ -2953,6 +2996,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     streamingStore,
     messageQueue,
     formsBySession,
+    stagedReverts,
     sessionAbortFlags
   ]);
 
@@ -3035,6 +3079,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       reorderQueuedMessage,
       submitForm,
       dismissForm,
+      stageRevert,
+      commitStagedRevert,
+      clearStagedRevert,
       pendingCreate,
       pendingRename,
       startCreate,
@@ -3057,6 +3104,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
       removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage,
       submitForm, dismissForm,
+      stageRevert, commitStagedRevert, clearStagedRevert,
       pendingCreate, pendingRename
     ]
   );
@@ -3088,7 +3136,8 @@ const EMPTY_VIEW: PanelView = {
   turnStartedAt: null,
   queuedCount: 0,
   queuedMessages: [],
-  pendingForms: []
+  pendingForms: [],
+  stagedRevert: null
 };
 
 export function usePanel(workspace: WorkspaceIdentity | null | undefined): PanelView {
