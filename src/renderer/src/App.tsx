@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, useStore } from "./store";
-import { IconAdd, IconRobot, IconSidebarLeft, IconSidebarRight, IconTerminal } from "./components/icons";
+import { IconAdd, IconGear, IconRobot, IconSidebarLeft, IconSidebarRight, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar, type SidebarTab } from "./components/FileSidebar";
@@ -716,10 +716,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         {settingsOpen ? <SettingsSidebar
           section={settingsSection}
           onSectionChange={setSettingsSection}
-          settingsActive={settingsOpen}
-          onToggleSettings={() => {
-            setSettingsOpen((open) => !open);
-          }}
         /> : <FileSidebar
           collapsed={!sideOpen}
           onCollapse={setSidebarOpen}
@@ -728,11 +724,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           onTabChange={(tab) => {
             setSideTab(tab);
             setSettingsOpen(false);
-          }}
-          settingsActive={settingsOpen}
-          onToggleSettings={() => {
-            if (!settingsOpen) setSidebarOpen(true);
-            setSettingsOpen((open) => !open);
           }}
         />}
         <div className={`divider ${sideOpen ? "" : "collapsed"}`} onMouseDown={sideDrag} style={{ pointerEvents: sideOpen ? undefined : "none" }} />
@@ -791,6 +782,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       {settingsOpen ? <div className="statusbar settings-statusbar" aria-hidden /> : <StatusBar />}
+      <button
+        className={`icon-btn app-settings-btn ${settingsOpen ? "on" : ""}`}
+        title={settingsOpen ? "Back to workspace" : "Settings"}
+        aria-label={settingsOpen ? "Back to workspace" : "Settings"}
+        aria-pressed={settingsOpen}
+        onClick={() => {
+          if (!settingsOpen) setSidebarOpen(true);
+          setSettingsOpen((open) => !open);
+        }}
+      >
+        <IconGear />
+      </button>
       <Toasts />
       <RecoveryNotice />
     </div>

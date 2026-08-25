@@ -84,3 +84,26 @@
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+
+.app-settings-btn {
+  position: absolute;
+  left: 6px;
+  bottom: 0;
+  width: 28px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  z-index: 70;
+}
+
+.app-settings-btn .os-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.app-settings-btn.on {
+  color: var(--text);
+  background: var(--bg-active);
+}

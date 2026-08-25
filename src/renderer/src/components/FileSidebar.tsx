@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
-import { IconFolderOpen, IconGear } from "./icons";
+import { IconFolderOpen } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 import { SessionsPane } from "./SessionsPane";
@@ -353,9 +353,7 @@ export function FileSidebar({
   onDrag,
   initialTab = "files",
   tab,
-  onTabChange,
-  settingsActive = false,
-  onToggleSettings
+  onTabChange
 }: {
   collapsed: boolean;
   onCollapse: (open: boolean) => void;
@@ -363,8 +361,6 @@ export function FileSidebar({
   initialTab?: SidebarTab;
   tab?: SidebarTab;
   onTabChange?: (tab: SidebarTab) => void;
-  settingsActive?: boolean;
-  onToggleSettings?: () => void;
 }): ReactNode {
   void onCollapse;
   const {
@@ -573,17 +569,6 @@ export function FileSidebar({
             </div>
           </div>
         </div>
-        <div className="sidebar-footer">
-          <button
-            className={`icon-btn sidebar-settings-btn ${settingsActive ? "on" : ""}`}
-            title={settingsActive ? "Back to workspace" : "Settings"}
-            aria-label={settingsActive ? "Back to workspace" : "Settings"}
-            aria-pressed={settingsActive}
-            onClick={() => onToggleSettings?.()}
-          >
-            <IconGear />
-          </button>
-        </div>
         <ExplorerMenu />
       </div>
     );
@@ -772,17 +757,6 @@ export function FileSidebar({
       )}
         </>
       )}
-      <div className="sidebar-footer">
-        <button
-          className={`icon-btn sidebar-settings-btn ${settingsActive ? "on" : ""}`}
-          title={settingsActive ? "Back to workspace" : "Settings"}
-          aria-label={settingsActive ? "Back to workspace" : "Settings"}
-          aria-pressed={settingsActive}
-          onClick={() => onToggleSettings?.()}
-        >
-          <IconGear />
-        </button>
-      </div>
       <ExplorerMenu />
     </div>
   );
