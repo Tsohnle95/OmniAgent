@@ -58,6 +58,9 @@ regressing longer live text.
 | `session.inbox.enqueued` | Buffers user/synthetic inbox items as an internal `pending-input` keyed by `inboxID`; user entries also join the session's queued-chip list; it does not create a visible chat row |
 | `session.inbox.delivered` | Materializes the buffered input as the canonical user/synthetic timeline entry, reconciles an optimistic local user message by text, and drops the entry from the queued-chip list |
 | `session.inbox.cancelled` | Discards the buffered input by `inboxID` and drops the entry from the queued-chip list without removing a delivered chat message |
+| `form.created` | Normalizes the incoming form and shows it as a dock card above the composer for the addressed session |
+| `form.replied` | Removes the answered form's dock card |
+| `form.cancelled` | Removes the cancelled form's dock card |
 | `session.execution.started` | Authoritatively marks both the chat session and composer busy; activity is shown by the agent header rather than a transcript status bubble |
 | `session.execution.succeeded` | Authoritatively marks the chat session and composer idle, completes the active assistant, and clears retry state without adding transcript noise |
 | `session.execution.failed` | Authoritatively marks the chat session non-busy with an error state, completes the active assistant, clears retry state, and adds an error status line |
@@ -119,7 +122,7 @@ by the switch statement. Revisit when adding features:
 - `filesystem.changed`, `reference.updated` (the main process handles the
   filesystem event separately; see below)
 - `project.*`, `plugin.*`, `command.*`, `skill.*`, `mcp.*`, `vcs.*`,
-  `websearch.*`, `pty.*`, `question.*`, `form.*`, `tui.*`, `config.*`
+  `websearch.*`, `pty.*`, `tui.*`, `config.*`
 
 The main process accepts both `type` and the legacy SSE `event` field when it
 forwards an event. The renderer accepts current `data` and legacy `properties`

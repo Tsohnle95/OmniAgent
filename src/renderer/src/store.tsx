@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode
 } from "react";
+import { normalizePendingForm } from "@shared/forms";
 import type {
   AgentFileState,
   AgentOption,
@@ -19,6 +20,8 @@ import type {
   PendingPermissionRequest,
   PermissionReply,
   PromptDelivery,
+  FormAnswers,
+  PendingFormRequest,
   PromptFile,
   ProviderUsageResult,
   RecoveryRecord,
@@ -137,6 +140,7 @@ export interface PanelView {
   turnStartedAt: number | null;
   queuedCount: number;
   queuedMessages: QueuedMessage[];
+  pendingForms: PendingFormRequest[];
 }
 
 function ancestorDirs(path: string): string[] {
@@ -221,6 +225,8 @@ interface Store {
   removeQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => void;
   popQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => QueuedMessage | null;
   sendQueuedNow: (workspace: WorkspaceIdentity, messageID: string) => Promise<void>;
+  submitForm: (workspace: WorkspaceIdentity, formID: string, answers: FormAnswers) => Promise<void>;
+  dismissForm: (workspace: WorkspaceIdentity, formID: string) => void;
   reorderQueuedMessage: (workspace: WorkspaceIdentity, fromID: string, toID: string) => void;
   pendingCreate: PendingCreate | null;
   pendingRename: { path: string } | null;
@@ -348,8 +354,7 @@ const AUX_CHAT_STREAM_TYPES = new Set([
   "session.compaction.failed"
 ]);
 
-function normalizeStreamEvent(msg: BackendMessage): ChatStreamEvent | null {
-  if (msg.kind !== "event") return null;
+function normalizeStreamEvent(msg: BackendMessage): ChatStreamEvent | null {  if (msg.kind !== "event") return null;
   const event = msg.data as Record<string, any> | undefined;
   const data = (event?.data ?? event?.properties ?? event) as Record<string, any> | undefined;
   const rawType = msg.type ?? event?.type ?? event?.event ?? "";
@@ -436,7 +441,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const [busyBySession, setBusyBySession] = useState<Record<string, boolean>>({});
   const [todosByWorkspace, setTodosByWorkspace] = useState<Record<string, TodoItem[]>>({});
   const [transcriptsBySession, setTranscriptsBySession] = useState<Record<string, TranscriptItem[]>>({});
-  const [inboxBySession, setInboxBySession] = useState<Record<string, SessionInboxEntry[]>>({});  const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
+  const [inboxBySession, setInboxBySession] = useState<Record<string, SessionInboxEntry[]>>({});
+  const [formsBySession, setFormsBySession] = useState<Record<string, PendingFormRequest[]>>({});
+  const [tabsByWorkspace, setTabsByWorkspace] = useState<Record<string, Tab[]>>({});
   const [activePathByWorkspace, setActivePathByWorkspace] = useState<Record<string, string | null>>({});
   const [singleFileByWorkspace, setSingleFileByWorkspace] = useState<Record<string, string>>({});
   const [agentFilesByWorkspace, setAgentFilesByWorkspace] = useState<Record<string, Map<string, AgentFileState>>>({});
@@ -523,6 +530,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   transcriptsBySessionRef.current = transcriptsBySession;
   const inboxBySessionRef = useRef(inboxBySession);
   inboxBySessionRef.current = inboxBySession;
+  const formsBySessionRef = useRef(formsBySession);
+  formsBySessionRef.current = formsBySession;
   const busyBySessionRef = useRef(busyBySession);
   busyBySessionRef.current = busyBySession;
   const sessionAbortFlagsRef = useRef(sessionAbortFlags);
@@ -812,6 +821,22 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }
   }, []);
 
+  const refreshForms = useCallback(async (sessionID: string): Promise<void> => {
+    const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
+    if (!panel) return;
+    try {
+      const forms = await window.openshell.formsList(panel.workspace);
+      setFormsBySession((current) => ({ ...current, [sessionID]: forms }));
+    } catch {
+      setFormsBySession((current) => {
+        if (!(sessionID in current)) return current;
+        const { [sessionID]: _dropped, ...rest } = current;
+        void _dropped;
+        return rest;
+      });
+    }
+  }, []);
+
   const removeQueuedMessage = useCallback((workspace: WorkspaceIdentity, messageID: string) => {
     const target = queueTargetFor(workspace);
     if (!target) return;
@@ -874,6 +899,32 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
+
+
+  const submitForm = useCallback(async (workspace: WorkspaceIdentity, formID: string, answers: FormAnswers): Promise<void> => {
+    const panel = panelFor(workspace);
+    if (!panel) return;
+    setFormsBySession((current) => ({
+      ...current,
+      [panel.id]: (current[panel.id] ?? []).filter((form) => form.id !== formID)
+    }));
+    try {
+      await window.openshell.formReply(workspace, formID, answers);
+    } catch (err) {
+      void refreshForms(panel.id);
+      if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [panelFor, refreshForms, toast]);
+
+  const dismissForm = useCallback((workspace: WorkspaceIdentity, formID: string): void => {
+    const panel = panelFor(workspace);
+    if (!panel) return;
+    setFormsBySession((current) => ({
+      ...current,
+      [panel.id]: (current[panel.id] ?? []).filter((form) => form.id !== formID)
+    }));
+    window.openshell.formCancel(workspace, formID).catch(() => {});
+  }, [panelFor]);
 
   const sendQueuedNow = useCallback(async (workspace: WorkspaceIdentity, messageID: string): Promise<void> => {
     const panel = panelFor(workspace);
@@ -1186,6 +1237,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setActiveSessionID(info.id);
     void hydrateTranscript(info.id);
     void refreshInbox(info.id);
+    void refreshForms(info.id);
     void loadRecovery(info.workspace);
     void loadModels(info.workspace);
     void loadAgents(info.workspace);
@@ -1211,6 +1263,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         setActiveSessionID(info.id);
         void hydrateTranscript(info.id);
     void refreshInbox(info.id);
+    void refreshForms(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -1255,6 +1308,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         setActiveSessionID(info.id);
         void hydrateTranscript(info.id);
     void refreshInbox(info.id);
+    void refreshForms(info.id);
         void loadRecovery(info.workspace);
         void loadModels(info.workspace);
         void loadAgents(info.workspace);
@@ -1296,6 +1350,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       setActiveSessionID(info.id);
       void hydrateTranscript(info.id);
     void refreshInbox(info.id);
+    void refreshForms(info.id);
       void loadRecovery(info.workspace);
       void loadModels(info.workspace);
       void loadAgents(info.workspace);
@@ -1362,6 +1417,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         setActiveSessionID(info.id);
         void hydrateTranscript(info.id);
     void refreshInbox(info.id);
+    void refreshForms(info.id);
         void loadRecovery(info.workspace);
         toast(`Opened ${info.directory}`);
         void loadModels(info.workspace);
@@ -2415,6 +2471,34 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         });
       }
 
+      switch (type) {
+        case "form.created": {
+          const normalized = normalizePendingForm({ ...(data.form as Record<string, any> | undefined), sessionID: targetSessionID });
+          if (normalized && targetSessionID) {
+            setFormsBySession((current) => ({
+              ...current,
+              [targetSessionID]: [
+                ...(current[targetSessionID] ?? []).filter((form) => form.id !== normalized.id),
+                normalized
+              ]
+            }));
+          }
+          break;
+        }
+        case "form.replied":
+        case "form.cancelled": {
+          const formID = typeof data.id === "string" ? data.id : "";
+          if (targetSessionID && formID) {
+            setFormsBySession((current) => {
+              const list = current[targetSessionID];
+              if (!list?.some((form) => form.id === formID)) return current;
+              return { ...current, [targetSessionID]: list.filter((form) => form.id !== formID) };
+            });
+          }
+          break;
+        }
+      }
+
       if (targetSessionID && AUX_CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
       }
@@ -2833,6 +2917,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         })),
         ...localQueue
       ];
+      const pendingForms = formsBySession[panel.id] ?? [];
       views[panel.workspace.id] = {
         session: panel,
         busy: activity.isWorking,
@@ -2850,7 +2935,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         streaming,
         turnStartedAt,
         queuedCount: queuedMessages.length,
-        queuedMessages
+        queuedMessages,
+        pendingForms
       };
     }
     return views;
@@ -2866,6 +2952,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     currentAgentByWorkspace,
     streamingStore,
     messageQueue,
+    formsBySession,
     sessionAbortFlags
   ]);
 
@@ -2946,6 +3033,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       popQueuedMessage,
       sendQueuedNow,
       reorderQueuedMessage,
+      submitForm,
+      dismissForm,
       pendingCreate,
       pendingRename,
       startCreate,
@@ -2967,6 +3056,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
       startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
       removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage,
+      submitForm, dismissForm,
       pendingCreate, pendingRename
     ]
   );
@@ -2997,7 +3087,8 @@ const EMPTY_VIEW: PanelView = {
   streaming: null,
   turnStartedAt: null,
   queuedCount: 0,
-  queuedMessages: []
+  queuedMessages: [],
+  pendingForms: []
 };
 
 export function usePanel(workspace: WorkspaceIdentity | null | undefined): PanelView {

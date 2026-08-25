@@ -67,6 +67,9 @@ Public methods (all used by IPC):
 | `listInbox(workspace)` | Lists the active session's queued user entries via `session.inbox.list` |
 | `cancelInbox(workspace, inboxID)` | Cancels a queued inbox entry via `session.inbox.cancel` |
 | `steerInbox(workspace, inboxID)` | Delivers a queued entry immediately via `session.inbox.steer` |
+| `listForms(workspace)` | Lists pending agent forms for the active session via `form.list` |
+| `replyForm(workspace, formID, answers)` | Submits field answers via `form.reply` |
+| `cancelForm(workspace, formID)` | Cancels a pending form via `form.cancel` |
 | `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
 | `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
 | `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
@@ -204,6 +207,9 @@ Internals:
 | `shell:inbox-list` | `(workspace) → SessionInboxEntry[]` |
 | `shell:inbox-cancel` | `(workspace, inboxID) → void` |
 | `shell:inbox-steer` | `(workspace, inboxID) → void` |
+| `shell:forms-list` | `(workspace) → PendingFormRequest[]` |
+| `shell:form-reply` | `(workspace, formID, answers) → void` |
+| `shell:form-cancel` | `(workspace, formID) → void` |
 | `shell:commands` | `(workspace) → CommandOption[]` (built-ins like `/compact` + opencode slash commands + skills for the session directory) |
 | `shell:run-command` | `(workspace, name, args?) → void` |
 | `shell:find-files` | `(workspace, query) → ReferenceOption[]` (`file.find` search for @-mentions; `rel` paths relative to the session directory) |

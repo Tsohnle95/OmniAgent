@@ -278,6 +278,26 @@ export interface SessionInboxEntry {
   createdAt: number;
 }
 
+export type FormAnswers = Record<string, string | number | boolean | string[]>;
+
+export interface PendingFormField {
+  key: string;
+  title?: string;
+  description?: string;
+  required?: boolean;
+  type: "string" | "number" | "integer" | "boolean" | "multiselect" | "external";
+  placeholder?: string;
+  url?: string;
+  options?: { value: string; label: string }[];
+}
+
+export interface PendingFormRequest {
+  id: string;
+  sessionID: string;
+  title: string;
+  fields: PendingFormField[];
+}
+
 export interface PromptFile {
   path: string;
   mention?: { start: number; end: number; text: string };

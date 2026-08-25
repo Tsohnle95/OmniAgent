@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePanel, useStore } from "../store";
 import { OpenCodeLiveActivity, OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
+import { FormPrompt } from "./FormPrompt";
 import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
 import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult, SessionInfo, TranscriptItem, WorkspaceIdentity } from "@shared/types";
@@ -1481,6 +1482,9 @@ export function AgentPanel({
 
       <div data-component="session-prompt-dock">
         {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
+        {(view.pendingForms ?? []).map((form) => (
+          <FormPrompt key={form.id} form={form} workspace={activeSession!.workspace} />
+        ))}
         <OpenCodeTodoDock todos={todos} />
         <Composer session={activeSession} />
       </div>

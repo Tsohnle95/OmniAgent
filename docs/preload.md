@@ -29,6 +29,9 @@ automatically.
 | `inboxList(workspace)` | `Promise<SessionInboxEntry[]>` — queued entries for the panel's session |
 | `inboxCancel(workspace, inboxID)` | `Promise<void>` — cancels a queued entry |
 | `inboxSteer(workspace, inboxID)` | `Promise<void>` — delivers a queued entry immediately |
+| `formsList(workspace)` | `Promise<PendingFormRequest[]>` — pending agent forms for the panel's session |
+| `formReply(workspace, formID, answers)` | `Promise<void>` — submits answers keyed by field |
+| `formCancel(workspace, formID)` | `Promise<void>` — dismisses a pending form |
 | `commands(workspace)` | `Promise<CommandOption[]>` — slash commands + skills for the session directory (`kind` distinguishes them) |
 | `runCommand(workspace, name, args?)` | `Promise<void>` — runs a slash command or skill in the addressed session |
 | `references(workspace, query)` | `Promise<ReferenceOption[]>` — `file.find` search results for @-mentions, `rel` paths relative to the session directory |

@@ -22,6 +22,8 @@ import type {
   PendingPermissionRequest,
   PermissionReply,
   ProjectInfo,
+  FormAnswers,
+  PendingFormRequest,
   PromptDelivery,
   PromptFile,
   SessionInboxEntry,
@@ -82,6 +84,7 @@ import {
 import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
 import { DeepSeekRuntimeAdapter } from "./runtimes/deepseek/deepseek-adapter";
 import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
+import { normalizePendingForm } from "@shared/forms";
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
   if (signal?.aborted) return resolve();
@@ -483,6 +486,7 @@ export type MutationPhase =
   | "rename:target-installed";
 
 type MutationPhaseHandler = (phase: MutationPhase, source: string, target: string) => void | Promise<void>;
+
 
 export class OpenShellBackend {
   private client: Client | null = null;
@@ -1774,6 +1778,28 @@ export class OpenShellBackend {
     if (!this.client) throw new Error("no active session");
     this.assertTarget(target);
     await this.client.session.inbox.steer({ sessionID: target.sessionID, inboxID });
+  }
+  async listForms(workspace: WorkspaceIdentity): Promise<PendingFormRequest[]> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    const res = await this.client.form.list({ sessionID: target.sessionID });
+    const arr = Array.isArray(res) ? res : (res as { data?: unknown }).data ?? [];
+    return (arr as Array<Record<string, unknown>>).map(normalizePendingForm).filter((form) => form !== null);
+  }
+
+  async replyForm(workspace: WorkspaceIdentity, formID: string, answers: FormAnswers): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    await this.client.form.reply({ sessionID: target.sessionID, formID, answer: answers });
+  }
+
+  async cancelForm(workspace: WorkspaceIdentity, formID: string): Promise<void> {
+    const target = this.activeTarget(workspace);
+    if (!this.client) throw new Error("no active session");
+    this.assertTarget(target);
+    await this.client.form.cancel({ sessionID: target.sessionID, formID });
   }
 
   async listCommands(workspace: WorkspaceIdentity): Promise<CommandOption[]> {

@@ -15,6 +15,8 @@ import type {
   PromptDelivery,
   PromptFile,
   SessionInboxEntry,
+  FormAnswers,
+  PendingFormRequest,
   ProviderCredentialAnswers,
   ProviderIntegration,
   ProviderUsageResult,
@@ -69,6 +71,12 @@ const api = {
     ipcRenderer.invoke("shell:inbox-cancel", workspace, inboxID),
   inboxSteer: (workspace: WorkspaceIdentity, inboxID: string): Promise<void> =>
     ipcRenderer.invoke("shell:inbox-steer", workspace, inboxID),
+  formsList: (workspace: WorkspaceIdentity): Promise<PendingFormRequest[]> =>
+    ipcRenderer.invoke("shell:forms-list", workspace),
+  formReply: (workspace: WorkspaceIdentity, formID: string, answers: FormAnswers): Promise<void> =>
+    ipcRenderer.invoke("shell:form-reply", workspace, formID, answers),
+  formCancel: (workspace: WorkspaceIdentity, formID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:form-cancel", workspace, formID),
   commands: (workspace: WorkspaceIdentity): Promise<CommandOption[]> => ipcRenderer.invoke("shell:commands", workspace),
   runCommand: (workspace: WorkspaceIdentity, name: string, args: string = ""): Promise<void> =>
     ipcRenderer.invoke("shell:run-command", workspace, name, args),
