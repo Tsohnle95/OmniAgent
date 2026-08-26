@@ -618,7 +618,7 @@
 }
 
 .agent-panel [data-component="session-prompt-dock"] > .composer {
-  width: min(100%, 140ch);
+  width: calc(min(100%, 140ch) * 0.75);
   margin-left: auto;
   margin-right: auto;
 }
