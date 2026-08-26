@@ -16,3 +16,6 @@ redesign
 .orbit-repo.json
 .orbit-live-build-failed
 design
+resources/icon.iconset/
+scripts/.electron-profile/
+scripts/.electron-cache/

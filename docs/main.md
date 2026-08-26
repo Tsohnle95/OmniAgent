@@ -302,8 +302,9 @@ to `DEFAULT_SESSION_SIZE` (1280×800). The app boots at the landing size; the
 renderer flips the view when the first panel opens and when the last one closes.
 
 The app icon (`resources/icon.svg` →
-rasterized `resources/icon.png` + `resources/icon.icns`, the paper-and-clay
-open-lid terminal mark) is set as the BrowserWindow `icon` on
+rasterized via `npm run generate-icons` into
+`resources/icon.png` + `resources/icon.icns`, the paper-and-clay
+open-lid terminal mark with transparent rounded-rect margins) is set as the BrowserWindow `icon` on
 Windows/Linux and via `app.dock.setIcon` on macOS; the window flash
 background is the warm `#161410`. On macOS, `npm run dev` and `npm start`
 use `scripts/launch.mjs` to run
