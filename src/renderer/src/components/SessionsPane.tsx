@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import type { CommandOption, ProjectInfo, SessionSummary } from "@shared/types";
+import type { ProjectInfo, SessionSummary } from "@shared/types";
 import { ChevronIcon, PlusIcon } from "./FileIcons";
-import { IconCheck, IconClose, IconFile, IconFolder, IconHistory, IconStarFilled } from "./icons";
+import { IconClose, IconFile, IconFolder, IconHistory, IconStarFilled } from "./icons";
 
 const PINNED_KEY = "openshell.pinnedSessions";
 
@@ -99,9 +99,6 @@ export function SessionsPane(): ReactNode {
   const [workspacesOpen, setWorkspacesOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
-  const [pluginsOpen, setPluginsOpen] = useState(false);
-  const [plugins, setPlugins] = useState<CommandOption[] | null>(null);
-  const pluginsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void loadSessions();
@@ -110,27 +107,6 @@ export function SessionsPane(): ReactNode {
       .then(setProjects)
       .catch(() => setProjects([]));
   }, [loadSessions]);
-
-  useEffect(() => {
-    if (!pluginsOpen || !session) return;
-    const workspace = session.workspace;
-    void window.openshell
-      .commands(workspace)
-      .then(setPlugins)
-      .catch(() => setPlugins([]));
-    const onDown = (e: PointerEvent): void => {
-      if (pluginsRef.current && !pluginsRef.current.contains(e.target as Node)) setPluginsOpen(false);
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") setPluginsOpen(false);
-    };
-    document.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown, true);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [pluginsOpen, session]);
 
   const runningPanels = useMemo(() => new Map(panels.map((panel) => [panel.id, panel])), [panels]);
   const byID = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions]);
@@ -182,7 +158,7 @@ export function SessionsPane(): ReactNode {
 
   return (
     <div className="sessions-pane">
-      <div className="sessions-actions" ref={pluginsRef}>
+      <div className="sessions-actions">
         <button className="sessions-new" onClick={newSession} title="Choose a folder for a new session">
           <PlusIcon />
           New Session
@@ -190,39 +166,6 @@ export function SessionsPane(): ReactNode {
         <button className="sessions-file" onClick={() => void selectFile()} title="Open a file" aria-label="Open a file">
           <IconFile />
         </button>
-        <button
-          className={`sessions-plugins ${pluginsOpen ? "open" : ""}`}
-          aria-expanded={pluginsOpen}
-          title="Commands and skills"
-          onClick={() => setPluginsOpen((o) => !o)}
-        >
-          Plugins
-        </button>
-        {pluginsOpen && (
-          <div className="sessions-plugins-menu">
-            {plugins === null ? (
-              <div className="sessions-empty">Loading…</div>
-            ) : plugins.length === 0 ? (
-              <div className="sessions-empty">No commands or skills available.</div>
-            ) : (
-              plugins.map((cmd) => (
-                <button
-                  key={`${cmd.kind ?? "command"}:${cmd.name}`}
-                  className="sessions-plugin-item"
-                  title={cmd.description}
-                  onClick={() => {
-                    void runCommand(cmd.name, undefined);
-                    setPluginsOpen(false);
-                  }}
-                >
-                  <span className="sessions-plugin-kind">{cmd.kind === "skill" ? "skill" : "cmd"}</span>
-                  <span className="sessions-plugin-name">{cmd.name}</span>
-                  {cmd.kind === "skill" && <IconCheck className="sessions-plugin-check" />}
-                </button>
-              ))
-            )}
-          </div>
-        )}
       </div>
 
       <section className="sessions-section">

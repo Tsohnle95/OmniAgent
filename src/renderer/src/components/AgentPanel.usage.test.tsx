@@ -94,7 +94,7 @@ describe("agent panel usage tracker", () => {
 
   it("colors the toggle glyph green when context fill is low", async () => {
     currentUsage = usage(10_000);
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
 
     expect(toggle(container).classList.contains("ok")).toBe(true);
     expect(toggle(container).classList.contains("warn")).toBe(false);
@@ -104,19 +104,19 @@ describe("agent panel usage tracker", () => {
 
   it("colors the toggle glyph amber at 60% and red at 85% fill", async () => {
     currentUsage = usage(60_000);
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     expect(toggle(container).classList.contains("warn")).toBe(true);
     expect(toggle(container).classList.contains("danger")).toBe(false);
 
     currentUsage = usage(85_000);
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     expect(toggle(container).classList.contains("danger")).toBe(true);
     expect(toggle(container).classList.contains("warn")).toBe(false);
   });
 
   it("shows context-window utilization with a fill bar, percent, and token counts", async () => {
     currentUsage = usage(25_000);
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     await act(async () => toggle(container).click());
 
     const context = container.querySelector(".agent-usage-context")!;
@@ -131,7 +131,7 @@ describe("agent panel usage tracker", () => {
 
   it("caps the fill at 100% when input tokens exceed the context limit", async () => {
     currentUsage = usage(150_000);
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     await act(async () => toggle(container).click());
 
     const context = container.querySelector(".agent-usage-context")!;
@@ -143,7 +143,7 @@ describe("agent panel usage tracker", () => {
   it("hides the context row and stays neutral when the model has no context limit", async () => {
     currentUsage = usage(10_000);
     currentModel = { id: "m", providerID: "p", name: "Model" };
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     await act(async () => toggle(container).click());
 
     expect(container.querySelector(".agent-usage-context")).toBeNull();

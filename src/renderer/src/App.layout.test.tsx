@@ -593,15 +593,14 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
+    const toggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!;
     await act(async () => {
-      container.querySelectorAll<HTMLElement>(".agent-panel .agent-collapse")[1]!.click();
+      toggle.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
     expect(agentWidths()).toEqual([280]);
-
-    const toggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!;
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
 
     await act(async () => {
       toggle.click();
@@ -620,7 +619,7 @@ describe("Layout panel sizing", () => {
 
     for (let cycle = 0; cycle < 2; cycle += 1) {
       await act(async () => {
-        container.querySelector<HTMLElement>(".agent-panel .agent-collapse")!.click();
+        container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!.click();
         await new Promise((resolve) => setTimeout(resolve, 20));
       });
       expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
@@ -653,7 +652,7 @@ describe("Layout panel sizing", () => {
     void handles;
 
     await act(async () => {
-      container.querySelectorAll<HTMLElement>(".agent-panel .agent-collapse")[0]!.click();
+      container.querySelector<HTMLElement>(".agent-col:not(:last-child) .agent-close")!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
@@ -663,7 +662,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([969]);
   });
 
-  it("keeps the anchor collapse control and closes only non-anchor panels", async () => {
+  it("keeps the close control on non-anchor panels only", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -674,8 +673,8 @@ describe("Layout panel sizing", () => {
     const cols = agentCols();
     expect(cols[0].querySelector(".agent-close")).not.toBeNull();
     expect(cols[1].querySelector(".agent-close")).toBeNull();
-    expect(cols[1].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
-    expect(cols[0].querySelector<HTMLElement>(".agent-collapse")).not.toBeNull();
+    expect(cols[0].querySelector(".agent-collapse")).toBeNull();
+    expect(cols[1].querySelector(".agent-collapse")).toBeNull();
   });
 
   it("agent mode collapses the file tray, splits agents evenly, and restores the tray on exit", async () => {
@@ -791,7 +790,7 @@ describe("Layout panel sizing", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
     await act(async () => {
-      container.querySelector<HTMLElement>(".agent-collapse")!.click();
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);

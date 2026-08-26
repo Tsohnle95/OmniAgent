@@ -15,7 +15,6 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconClose,
-  IconCollapse,
   IconDashboard,
   IconEye,
   IconEyeClosed,
@@ -1123,7 +1122,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
 export function AgentPanel({
   session,
   isAnchor,
-  onCollapse,
   onFocus,
   onClose,
   onResizeLeft,
@@ -1133,7 +1131,6 @@ export function AgentPanel({
 }: {
   session?: SessionInfo | null;
   isAnchor?: boolean;
-  onCollapse: () => void;
   onFocus?: () => void;
   onClose?: () => void;
   onResizeLeft?: (e: React.MouseEvent) => void;
@@ -1346,9 +1343,6 @@ export function AgentPanel({
             onClick={() => setUsageOpen((open) => !open)}
           >
             <IconDashboard />
-          </button>
-          <button className="icon-btn agent-collapse" title="Collapse agent panel" onClick={onCollapse}>
-            <IconCollapse />
           </button>
         </div>
         {usageOpen && (

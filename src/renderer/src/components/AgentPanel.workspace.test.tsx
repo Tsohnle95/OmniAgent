@@ -108,7 +108,7 @@ describe("composer workspace continuations", () => {
   });
 
   it("changes the panel's workspace from the header folder control", async () => {
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     const folder = container.querySelector<HTMLButtonElement>('button[aria-label="Change workspace"]')!;
     expect(folder).not.toBeNull();
     await act(async () => folder.click());
@@ -118,14 +118,14 @@ describe("composer workspace continuations", () => {
 
   it("shows active status beside the workspace name", async () => {
     currentSession = { ...session("working", 1), id: "working" };
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
 
     expect(container.querySelector(".agent-status-dot.working")).not.toBeNull();
     expect(container.querySelector(".agent-status-text")?.textContent).toBe("running command");
   });
 
   it("follows resized stream content only until the reader scrolls away", async () => {
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     const scroll = container.querySelector<HTMLDivElement>(".agent-scroll")!;
     Object.defineProperties(scroll, {
       clientHeight: { configurable: true, value: 100 },
@@ -134,7 +134,7 @@ describe("composer workspace continuations", () => {
     });
 
     panelTranscript = [{ kind: "user", id: "user-1", text: "Inspect" }];
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
     expect(scroll.scrollTop).toBe(500);
 
     Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 700, writable: true });
@@ -150,7 +150,7 @@ describe("composer workspace continuations", () => {
 
   it("returns from a child agent session to its parent", async () => {
     currentSession = { ...session("child", 1), id: "child", parentID: "parent", title: "Review changes", agent: "review" };
-    await act(async () => root.render(<AgentPanel onCollapse={() => {}} />));
+    await act(async () => root.render(<AgentPanel />));
 
     await act(async () => container.querySelector<HTMLButtonElement>(".agent-session-back")!.click());
     expect(reopenSessionMock).toHaveBeenCalledWith("parent");

@@ -45,18 +45,6 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
       <button
         type="button"
         className="tree-row-action"
-        title="New File"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          startCreate(parent, "file");
-        }}
-      >
-        <PlusIcon />
-      </button>
-      <button
-        type="button"
-        className="tree-row-action"
         title="New Folder"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -288,10 +276,6 @@ function ExplorerMenu(): ReactNode {
 
   return (
     <div className="ctx-menu" ref={menuRef} style={{ left, top }}>
-      <button className="ctx-item" onClick={() => startCreate(parent, "file")}>
-        <PlusIcon />
-        New File…
-      </button>
       <button className="ctx-item" onClick={() => startCreate(parent, "dir")}>
         <FolderPlusIcon />
         New Folder…
@@ -664,13 +648,6 @@ export function FileSidebar({
            <span>EXPLORER</span>
          </button>
          <span className="section-actions">
-          <button
-            className="tree-row-action"
-            title="New File"
-            onClick={() => startCreate("", "file")}
-          >
-            <PlusIcon />
-          </button>
           <button
             className="tree-row-action"
             title="New Folder"

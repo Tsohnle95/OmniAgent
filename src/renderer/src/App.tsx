@@ -200,7 +200,6 @@ function PanelColumn({
       setSettling(false);
     }, 200);
   }, []);
-  const collapse = useCallback(() => onSlot((current) => ({ ...current, open: false })), [onSlot]);
   const open = useCallback(() => onSlot((current) => ({ ...current, open: true })), [onSlot]);
   const resizeRight = useDragResize(
     slot.width,
@@ -240,7 +239,7 @@ function PanelColumn({
   }
   return (
     <div className={`agent-col ${settling ? "settling" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
-      <AgentPanel session={session} isAnchor={isAnchor} onCollapse={collapse} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? exitModeOnRelease : resizeLeft} onResizeRight={freeMove ? exitModeOnRelease : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragEnd={freeMove ? onManualAdjust : undefined} />
+      <AgentPanel session={session} isAnchor={isAnchor} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? exitModeOnRelease : resizeLeft} onResizeRight={freeMove ? exitModeOnRelease : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragEnd={freeMove ? onManualAdjust : undefined} />
     </div>
   );
 }

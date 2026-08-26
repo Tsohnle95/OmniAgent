@@ -117,7 +117,7 @@ describe("unknown baseline presentation", () => {
     expect(container.querySelector("[data-testid=diff-editor]")).toBeNull();
   });
 
-  it("enables the diff overview ruler for known baselines", () => {
+  it("disables the diff overview ruler for known baselines", () => {
     const knownTab: Tab = {
       ...tab,
       baseline: { kind: "known", content: "before" }
@@ -127,7 +127,7 @@ describe("unknown baseline presentation", () => {
 
     act(() => root.render(<ThemeProvider><EditorPane /></ThemeProvider>));
 
-    expect(container.querySelector("[data-testid=diff-editor]")?.getAttribute("data-overview-ruler")).toBe("true");
+    expect(container.querySelector("[data-testid=diff-editor]")?.getAttribute("data-overview-ruler")).toBe("false");
     expect(container.querySelector("[data-testid=diff-editor]")?.getAttribute("data-scrollbar-width")).toBe("3");
   });
 });

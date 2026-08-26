@@ -134,21 +134,12 @@ describe("FileSidebar drag-and-drop moves", () => {
     expect(row(container, "alpha")).toBeTruthy();
   });
 
-  it("creates a root file from the explorer header action", () => {
-    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    const actions = container.querySelector<HTMLElement>(".section-actions")!;
-    expect(actions).toBeTruthy();
-    const buttons = actions.querySelectorAll<HTMLButtonElement>("button");
-    expect(buttons).toHaveLength(2);
-    act(() => buttons[0].click());
-    expect(store.startCreate).toHaveBeenCalledWith("", "file");
-  });
-
   it("creates a root folder from the explorer header action", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
     const actions = container.querySelector<HTMLElement>(".section-actions")!;
     const buttons = actions.querySelectorAll<HTMLButtonElement>("button");
-    act(() => buttons[1].click());
+    expect(buttons).toHaveLength(1);
+    act(() => buttons[0].click());
     expect(store.startCreate).toHaveBeenCalledWith("", "dir");
   });
 

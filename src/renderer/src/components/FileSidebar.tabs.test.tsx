@@ -138,7 +138,6 @@ describe("FileSidebar tabs and sessions pane", () => {
     await act(async () => container.querySelector<HTMLButtonElement>(".sessions-file")!.click());
     expect(store.selectFile).toHaveBeenCalledOnce();
 
-    expect(container.querySelector(".sessions-plugins")).not.toBeNull();
     expect(store.loadSessions).toHaveBeenCalled();
     expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.textContent)).toEqual([
       "Open now",
@@ -226,20 +225,6 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(history.textContent).not.toContain("Running row");
     await act(async () => closedRow.click());
     expect(store.reopenSession).toHaveBeenCalledWith("closed");
-  });
-
-  it("runs a plugin command from the plugins menu", async () => {
-    await render();
-    await settle();
-
-    await act(async () => container.querySelector<HTMLButtonElement>(".sessions-plugins")!.click());
-    await settle();
-
-    const item = container.querySelector<HTMLButtonElement>(".sessions-plugin-item")!;
-    expect(item.textContent).toContain("compact");
-    await act(async () => item.click());
-    expect(store.runCommand).toHaveBeenCalledWith("compact", undefined);
-    expect(container.querySelector(".sessions-plugins-menu")).toBeNull();
   });
 
   it("nests each workspace's sessions under its own dropdown", async () => {
