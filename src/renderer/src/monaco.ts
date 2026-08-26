@@ -108,6 +108,7 @@ const LANGUAGE_BY_EXT: Record<string, string> = {
   jsonc: "json",
   css: "css",
   scss: "scss",
+  sass: "sass",
   less: "less",
   html: "html",
   htm: "html",

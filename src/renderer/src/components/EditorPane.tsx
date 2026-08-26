@@ -16,6 +16,10 @@ const EDITOR_OPTIONS = {
   fontFamily: "'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
   minimap: { enabled: false },
   automaticLayout: true,
+  folding: true,
+  glyphMargin: true,
+  showFoldingControls: "mouseover" as const,
+  foldingHighlight: true,
   tabSize: 2,
   scrollBeyondLastLine: false,
   smoothScrolling: true,
@@ -266,9 +270,6 @@ export function EditorPane(): ReactNode {
             <OrbitMark size={40} />
           </div>
           <p>Select a file from the explorer to view or edit it.</p>
-          <p className="editor-empty-sub">
-            Observed workspace file changes appear under <b>Changes</b>. A diff is shown when pre-change content is known.
-          </p>
         </div>
       ) : (
         <>

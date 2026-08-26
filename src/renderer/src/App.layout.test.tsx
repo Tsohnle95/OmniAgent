@@ -145,7 +145,7 @@ describe("Layout panel sizing", () => {
     });
 
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    expect(gridCols()[0]).toBe("280px");
+    expect(gridCols()[0]).toBe("230px");
     expect(container.querySelector(".sidebar")).not.toBeNull();
   });
 
@@ -268,9 +268,9 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
-    expect(gridCols()[0]).toBe("271px");
+    expect(gridCols()[0]).toBe("230px");
     expect(agentLefts()[0]).toBe(0);
-    expect(agentWidths()[0]).toBeCloseTo(1208, 0);
+    expect(agentWidths()[0]).toBeCloseTo(1249, 0);
     expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
   });
 
@@ -288,7 +288,7 @@ describe("Layout panel sizing", () => {
       container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
-    expect(gridCols()[0]).toBe("280px");
+    expect(gridCols()[0]).toBe("230px");
     expect(container.querySelector(".sidebar")).not.toBeNull();
   });
 
@@ -305,11 +305,11 @@ describe("Layout panel sizing", () => {
       container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-sidebar"]')!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
-    expect(gridCols()[0]).toBe("280px");
+    expect(gridCols()[0]).toBe("230px");
 
     const divider = container.querySelector<HTMLElement>(".divider")!;
     await act(async () => {
-      divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 280 }));
+      divider.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 230 }));
       window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300 }));
       window.dispatchEvent(new MouseEvent("mouseup", {}));
       await new Promise((resolve) => setTimeout(resolve, 20));

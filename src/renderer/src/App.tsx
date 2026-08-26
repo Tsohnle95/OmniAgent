@@ -529,7 +529,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   ].join(" ");
 
   const setSidebarOpen = (open: boolean): void => {
-    if (open) setSideW(SIDE_DEFAULT_W);
     setSideOpen(open);
   };
 
