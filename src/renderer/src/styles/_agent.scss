@@ -618,7 +618,7 @@
 }
 
 .agent-panel [data-component="session-prompt-dock"] > .composer {
-  max-width: min(100%, 140ch);
+  max-width: min(100%, 100ch);
 }
 
 .agent-empty { color: var(--text-dim); font-size: 13px; }
