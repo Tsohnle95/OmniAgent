@@ -70,7 +70,9 @@
 
 [data-component="live-activity"] {
   position: relative;
-  width: 100%;
+  width: min(100%, 140ch);
+  margin-left: auto;
+  margin-right: auto;
   min-height: 33px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
