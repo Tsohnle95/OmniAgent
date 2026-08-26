@@ -27,8 +27,6 @@ const EDITOR_OPTIONS = {
   padding: { top: 10, bottom: 10 },
   renderWhitespace: "none" as const,
   scrollbar: { verticalScrollbarSize: 3, horizontalScrollbarSize: 3 },
-  glyphMargin: false,
-  folding: false,
   lineNumbersMinChars: 3,
   lineDecorationsWidth: 5
 };
