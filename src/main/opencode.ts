@@ -123,6 +123,11 @@ const BUILTIN_COMMANDS: {
     name: "compact",
     description: "Summarize the session to free up context",
     run: (client, sessionID) => client.session.compact({ sessionID })
+  },
+  {
+    name: "compress",
+    description: "Alias of /compact — summarize the session to free up context",
+    run: (client, sessionID) => client.session.compact({ sessionID })
   }
 ];
 

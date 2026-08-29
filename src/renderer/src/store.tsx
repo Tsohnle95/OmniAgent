@@ -1666,10 +1666,15 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     if (!target) return;
     try {
       await window.openshell.runCommand(target, name, args);
+      if (name === "compact" || name === "compress") toast("Compacting session…");
     } catch (error) {
-      if (panelFor(target)) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (panelFor(target)) {
+        toast(message, "error");
+        throw error;
+      }
     }
-  }, [panelFor]);
+  }, [panelFor, toast]);
 
   const stop = useCallback(async (workspace?: WorkspaceIdentity) => {
     const target = workspace ?? sessionRef.current?.workspace;

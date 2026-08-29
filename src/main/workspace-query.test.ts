@@ -174,6 +174,7 @@ describe("built-in commands and prompt files", () => {
 
     expect(await backend.listCommands({ id: "11111111-1111-4111-8111-111111111111", generation: 1 })).toEqual([
       { name: "compact", description: "Summarize the session to free up context", kind: "command" },
+      { name: "compress", description: "Alias of /compact — summarize the session to free up context", kind: "command" },
       { name: "project-cmd", description: "Runs a thing", kind: "command" },
       { name: "project-skill", kind: "skill" }
     ]);
