@@ -258,6 +258,67 @@ describe("createStreamPipeline", () => {
     expect(errorLog.mock.calls.some((args) => String(args[0]).includes("stream failed"))).toBe(false);
   });
 
+  it("fires onStreamEnd when the SSE stream ends cleanly", async () => {
+    const onStreamEnd = vi.fn();
+    let attempt = 0;
+    const subscribe = async (signal: AbortSignal): Promise<AsyncIterable<RawStreamEvent>> => {
+      const current = attempt++;
+      return {
+        [Symbol.asyncIterator](): AsyncIterator<RawStreamEvent> {
+          let yielded = false;
+          return {
+            next: async (): Promise<IteratorResult<RawStreamEvent>> => {
+              // First attempt: yield one event, then end cleanly.
+              if (current === 0 && !yielded) {
+                yielded = true;
+                return { value: textDelta("a"), done: false };
+              }
+              if (current === 0) return { done: true, value: undefined };
+              // Reconnected attempts stay open until aborted.
+              if (!signal.aborted) {
+                await new Promise<void>((resolve) =>
+                  signal.addEventListener("abort", () => resolve(), { once: true })
+                );
+              }
+              return { done: true, value: undefined };
+            }
+          };
+        }
+      };
+    };
+    const pipeline = createStreamPipeline({
+      subscribe,
+      onEvents: () => {},
+      onStreamEnd
+    });
+
+    const run = pipeline.run(new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
+    pipeline.cleanup();
+    await run;
+
+    expect(onStreamEnd).toHaveBeenCalled();
+  });
+
+  it("fires onStreamEnd when the heartbeat aborts a silent stream", async () => {
+    const onStreamEnd = vi.fn();
+    const { subscribe } = createSubscribe([]);
+    const pipeline = createStreamPipeline({
+      subscribe,
+      onEvents: () => {},
+      onStreamEnd
+    });
+
+    const run = pipeline.run(new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(31_000);
+    await vi.advanceTimersByTimeAsync(1);
+    pipeline.cleanup();
+    await run;
+
+    expect(onStreamEnd).toHaveBeenCalled();
+  });
+
   it("backs off and retries after a stream failure", async () => {
     const onStreamError = vi.fn();
     const { subscribe, calls } = createSubscribe([], { failFirst: true });

@@ -33,7 +33,11 @@ key. A 30s heartbeat aborts a silent stream and reconnects immediately;
 stream failures retry with exponential backoff (250ms base, ×2, 5s cap). The
 backend drops its client and rediscovers the service on stream errors, and
 after a reconnect it emits a synthetic `server.connected` so the renderer
-re-materializes open sessions.
+re-materializes open sessions. The pipeline also emits `server.connected`
+whenever the SSE stream ends cleanly (`onStreamEnd`) or the heartbeat aborts a
+silent stream, so a stream that goes quiet mid-response (server-side stall
+after a large response) still triggers a full re-materialization that recovers
+any terminal events (e.g. `session.execution.succeeded`) missed in the gap.
 
 The renderer keeps an authoritative per-session chat store
 (`src/renderer/src/chat-store.ts`): server messages and parts in binary-search

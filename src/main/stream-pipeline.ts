@@ -25,6 +25,7 @@ export interface StreamPipelineOptions {
   onEvents: (directory: string, events: RawStreamEvent[]) => void | Promise<void>;
   onStreamError?: (reason: string) => void;
   onReconnect?: () => void;
+  onStreamEnd?: () => void;
   heartbeatTimeoutMs?: number;
   reconnectDelayMs?: number;
 }
@@ -145,7 +146,8 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
     subscribe,
     onEvents,
     onStreamError,
-    onReconnect
+    onReconnect,
+    onStreamEnd
   } = options;
   const heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? DEFAULT_HEARTBEAT_TIMEOUT_MS;
   const reconnectDelayMs = options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS;
@@ -289,6 +291,7 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
     if (heartbeat) clearTimeout(heartbeat);
     heartbeat = setTimeout(() => {
       attemptAbortReason = "sse_heartbeat_timeout";
+      if (onStreamEnd) onStreamEnd();
       attempt?.abort();
     }, heartbeatTimeoutMs);
   };
@@ -340,6 +343,7 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
         let retryDelayMs = reconnectDelayMs;
         try {
           await runAttempt(attempt.signal);
+          if (!aborted() && onStreamEnd) onStreamEnd();
         } catch (error) {
           if (!isAbortError(error)) {
             consecutiveFailures += 1;

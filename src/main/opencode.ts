@@ -727,6 +727,14 @@ export class OpenShellBackend {
           return;
         }
         this.emit({ kind: "event", type: "server.connected", data: {} });
+      },
+      onStreamEnd: () => {
+        // The SSE stream ended (cleanly or via heartbeat abort). Emit
+        // server.connected so the renderer re-materializes session state
+        // from the service, recovering any terminal events (e.g.
+        // session.execution.succeeded) that were lost when the stream
+        // went silent mid-response.
+        this.emit({ kind: "event", type: "server.connected", data: {} });
       }
     });
     await pipeline.run(signal);
