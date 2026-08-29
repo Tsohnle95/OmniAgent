@@ -413,7 +413,8 @@ const EMPTY_TABS: Tab[] = [];
 const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
 const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
-const STREAM_SETTLE_MS = 60_000;
+const STREAM_SETTLE_MS = 15_000;
+const STREAM_SETTLE_IDLE_MS = 2_000;
 const STREAM_SETTLE_POLL_MS = 1_000;
 const ABORT_RESTORE_SUPPRESS_MS = 10_000;
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
@@ -778,25 +779,60 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   }, [chatStateFor, commitStreaming]);
 
   useEffect(() => {
-    const finalizeTrailingAssistant = (sessionID: string): void => {
+    const finalizeTrailingAssistant = (sessionID: string, reason: "settle" | "idle"): void => {
+      const wasBusy = Boolean(busyBySessionRef.current[sessionID]);
       completeLatestIncomplete(chatStateFor(sessionID), sessionID);
       applyProjection(sessionID);
       reconcileStreaming(sessionID);
       setSessionBusy(sessionID, false);
+      if (wasBusy) {
+        const detail = reason === "settle" ? "Turn stalled — recovered" : "Recovered incomplete turn";
+        const id = ++toastId;
+        setToasts((prev) => [...prev.slice(-3), { id, text: detail, tone: "info" }]);
+        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+      }
     };
     const timer = setInterval(() => {
       const now = Date.now();
       for (const panel of panelsRef.current) {
         const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
         const trailing = [...transcript].reverse().find((item) => item.kind === "assistant");
-        if (trailing?.kind !== "assistant" || trailing.completed) continue;
-        if (busyBySessionRef.current[panel.id]) {
-          if (trailing.retry) continue;
+        const isBusy = Boolean(busyBySessionRef.current[panel.id]);
+        if (trailing?.kind !== "assistant" || trailing.completed) {
+          if (!isBusy) continue;
           const lastActivity = lastStreamActivityRef.current[panel.id];
-          if (lastActivity === undefined) lastStreamActivityRef.current[panel.id] = now;
-          else if (now - lastActivity < STREAM_SETTLE_MS) continue;
+          if (lastActivity === undefined) {
+            lastStreamActivityRef.current[panel.id] = now;
+            continue;
+          }
+          if (now - lastActivity < STREAM_SETTLE_MS) continue;
+          setSessionBusy(panel.id, false);
+          const id = ++toastId;
+          setToasts((prev) => [...prev.slice(-3), { id, text: "Turn stalled — recovered", tone: "info" }]);
+          setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+          continue;
         }
-        finalizeTrailingAssistant(panel.id);
+        if (!isBusy) {
+          const lastActivity = lastStreamActivityRef.current[panel.id];
+          if (lastActivity === undefined) {
+            lastStreamActivityRef.current[panel.id] = now;
+            continue;
+          }
+          if (now - lastActivity < STREAM_SETTLE_IDLE_MS) continue;
+          finalizeTrailingAssistant(panel.id, "idle");
+          continue;
+        }
+        if (trailing.retry) {
+          const next = trailing.retry.next;
+          if (typeof next === "number" && next > now && next - now < 60_000) continue;
+        }
+        const lastActivity = lastStreamActivityRef.current[panel.id];
+        if (lastActivity === undefined) {
+          lastStreamActivityRef.current[panel.id] = now;
+          continue;
+        }
+        if (now - lastActivity < STREAM_SETTLE_MS) continue;
+        finalizeTrailingAssistant(panel.id, "settle");
       }
     }, STREAM_SETTLE_POLL_MS);
     return () => clearInterval(timer);
@@ -894,11 +930,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       applyProjection(sessionID);
       reconcileStreaming(sessionID);
       setTodosFor(panel.workspace.id, snapshot.todos);
+      const trailing = [...snapshot.transcript].reverse().find((item) => item.kind === "assistant");
+      if (!trailing || trailing.completed) setSessionBusy(sessionID, false);
     } catch {
     } finally {
       materializingRef.current.delete(sessionID);
     }
-  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor]);
+  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor, setSessionBusy]);
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;

@@ -88,14 +88,14 @@ describe("store stream settle", () => {
   it("marks a reopened stale turn busy and settles it after the quiet window", async () => {
     expect(store.busy).toBe(true);
 
-    await act(async () => { vi.advanceTimersByTime(61_500); });
+    await act(async () => { vi.advanceTimersByTime(16_500); });
 
     expect(store.busy).toBe(false);
     expect(store.transcript.some((item) => item.kind === "assistant" && item.completed)).toBe(true);
   });
 
   it("restores busy when stream content arrives on a settled session", async () => {
-    await act(async () => { vi.advanceTimersByTime(61_500); });
+    await act(async () => { vi.advanceTimersByTime(16_500); });
     expect(store.busy).toBe(false);
 
     const sessionID = store.activeSessionID!;
@@ -112,7 +112,7 @@ describe("store stream settle", () => {
 
     expect(store.busy).toBe(true);
 
-    await act(async () => { vi.advanceTimersByTime(61_500); });
+    await act(async () => { vi.advanceTimersByTime(16_500); });
 
     expect(store.busy).toBe(false);
   });
@@ -219,7 +219,7 @@ describe("store stream settle", () => {
   });
 
   it("keeps pushed execution state authoritative after prompt submission without polling history", async () => {
-    await act(async () => { vi.advanceTimersByTime(61_500); });
+    await act(async () => { vi.advanceTimersByTime(16_500); });
     expect(store.busy).toBe(false);
 
     let finishPrompt: ((value: SessionTranscript) => void) | undefined;
