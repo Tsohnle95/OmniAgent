@@ -186,7 +186,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
         <div className="settings-list">
           <SettingRow
             title="Agent runtime"
-            detail="Choose which agent runtime handles new workspaces. Change takes effect for the next folder you open."
+            detail="Choose which agent runtime handles sessions. Open sessions keep their runtime until the next app launch, which reopens them under this mode."
             control={<select className="settings-select" value={selectedRuntimeID} onChange={(event) => setSelectedRuntimeID(event.target.value as RuntimeID)}>{(runtimes.length > 0 ? runtimes : [{ id: "opencode", name: "OpenCode", version: null, available: true }]).map((runtime) => (
               <option key={runtime.id} value={runtime.id} disabled={!runtime.available}>{runtime.name}{runtime.version ? ` ${runtime.version}` : ""}{runtime.available ? "" : " (not installed)"}</option>
             ))}</select>}

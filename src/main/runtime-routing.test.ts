@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -79,5 +79,37 @@ describe("runtime routing", () => {
     expect(reopened.session).toMatchObject({ id: "deepseek-session", runtimeID: "deepseek" });
     expect(reopenedRuntime.connect).toHaveBeenCalledOnce();
     await reopenedBackend.stop();
+  });
+
+  it("remaps a cold-reopened session to the selected runtime on the same directory", async () => {
+    const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), "orbit-runtime-remap-")));
+    roots.push(directory);
+    const client = {
+      session: {
+        create: vi.fn(async ({ location }: { location: { directory: string } }) => ({
+          id: `opencode-${location.directory.split("/").pop()}`
+        })),
+        get: vi.fn(async ({ sessionID }: { sessionID: string }) => ({
+          id: sessionID,
+          location: { directory }
+        }))
+      },
+      message: { list: vi.fn(async () => []) },
+      file: { read: vi.fn(async () => "content") }
+    };
+    const runtime = adapter(directory);
+    const backend = new OpenShellBackend(() => {}, () => runtime, new RuntimeSessionIndex(path.join(directory, "runtime-sessions.json")));
+    const state = backend as unknown as { client: unknown };
+    state.client = client;
+    const opencode = await backend.openSession(directory, 1);
+    expect(opencode.runtimeID ?? "opencode").toBe("opencode");
+    await backend.closeSession(opencode.workspace);
+
+    const remapped = await backend.openSessionById(opencode.id, 2, "deepseek");
+    expect(remapped.session).toMatchObject({ runtimeID: "deepseek", directory });
+    expect(remapped.session.id).not.toBe(opencode.id);
+    expect(runtime.createSession).toHaveBeenCalledWith(directory);
+    expect(client.session.get).toHaveBeenCalledWith({ sessionID: opencode.id });
+    await backend.stop();
   });
 });

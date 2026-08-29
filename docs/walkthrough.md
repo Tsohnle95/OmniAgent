@@ -221,6 +221,15 @@ chosen directory, while the durable runtime-session index records enough
 identity to reopen that native session after an app restart. Controls whose
 manifest capability is false are omitted rather than allowed to fail later.
 
+The selected runtime is a global mode for the next launch: startup restoration
+reopens every open session through `openSessionById(sessionID, generation,
+selectedRuntimeID)`, and when a session's native runtime differs from the
+selected one and no context is active yet, main remaps it — opening the same
+directory under the requested runtime (a fresh native session) instead of the
+session's original runtime. Sessions already open in the current process keep
+their own runtime, so the mode applies on the next app open rather than
+mid-session.
+
 Both pickers follow the same pattern: `loadModels`/`loadAgents` fetch
 catalogs (location = session directory) and the current pick via
 `modelDefault()`, seeded live by `session.model.selected`. Switching calls

@@ -1532,13 +1532,39 @@ export class OpenShellBackend {
     throw new Error(`could not load conversation history (${lastError instanceof Error ? lastError.message : String(lastError)})`);
   }
 
+  private async sessionDirectory(sessionID: string, nativeRuntimeID: RuntimeID, persistedDirectory?: string): Promise<string> {
+    if (nativeRuntimeID === "deepseek") {
+      const runtime = this.runtimeAdapters.get(sessionID);
+      if (runtime) return (await runtime.sessionInfo(sessionID)).directory;
+      if (persistedDirectory) return persistedDirectory;
+      throw new Error("DeepSeek session directory is unavailable");
+    }
+    if (!this.client) throw new Error("not connected to opencode service");
+    const res = await this.client.session.get({ sessionID });
+    const info = res as { location?: { directory?: string }; data?: { location?: { directory?: string } } };
+    const directory = info.location?.directory ?? info.data?.location?.directory;
+    if (!directory) throw new Error("session not found");
+    const resolved = await this.resolveOpenCodeSessionDirectory(directory, (res as { projectID?: string }).projectID);
+    return resolved.directory;
+  }
+
   async openSessionById(sessionID: string, acceptedGeneration?: number, runtimeID?: RuntimeID): Promise<ReopenedSession> {
     if (acceptedGeneration !== undefined && !Number.isSafeInteger(acceptedGeneration)) {
       throw new Error("invalid activation generation");
     }
     let runtime = this.runtimeAdapters.get(sessionID);
     const persistedRuntime = await this.runtimeSessionIndex.get(sessionID);
-    if (runtimeID === "deepseek" || runtime || persistedRuntime?.runtimeID === "deepseek") {
+    const nativeRuntimeID: RuntimeID = runtime ? runtime.manifest.id : persistedRuntime?.runtimeID ?? "opencode";
+    const requested = runtimeID ?? nativeRuntimeID;
+    if (!this.contextBySessionID(sessionID) && requested !== nativeRuntimeID) {
+      const remapped = await this.openSession(
+        await this.sessionDirectory(sessionID, nativeRuntimeID, persistedRuntime?.directory),
+        acceptedGeneration,
+        requested
+      );
+      return { session: remapped, transcript: [], todos: [], usage: null };
+    }
+    if (nativeRuntimeID === "deepseek") {
       if (!runtime && persistedRuntime) {
         runtime = this.runtimeFactory("deepseek", persistedRuntime.directory);
         if (!(await runtime.connect())) throw new Error("DeepSeek Harness is not available");

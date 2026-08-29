@@ -23,7 +23,7 @@ automatically.
 | `sessions()` | `Promise<SessionSummary[]>` — recent session list |
 | `activeSessions()` | `Promise<SessionInfo[]>` — currently open backend sessions in activation order; the last element is the most recently activated (used for startup restore) |
 | `closeSession(workspace)` | `Promise<void>` — tears down the backend context when a panel closes; the opencode session remains reopenable |
-| `openSessionById(sessionID, generation, runtimeID?)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions and resolves persisted runtime identity when omitted |
+| `openSessionById(sessionID, generation, runtimeID?)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions and resolves persisted runtime identity when omitted. A `runtimeID` that differs from the session's native runtime and targets no active context remaps the session to the requested runtime on the same directory |
 | `sessionTranscript(sessionID)` | `Promise<{transcript, todos}>` — authoritative message replay used to materialize incomplete stream snapshots |
 | `prompt(workspace, text, files?, delivery?)` | Sends the prompt; `delivery` is `"queue"` or `"steer"` for follow-ups while busy |
 | `inboxList(workspace)` | `Promise<SessionInboxEntry[]>` — queued entries for the panel's session |

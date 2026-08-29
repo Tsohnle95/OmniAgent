@@ -207,7 +207,7 @@ describe("agent and model picker state across sessions", () => {
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/root"));
 
-    let pending!: Promise<void>;
+    let pending!: Promise<SessionInfo | null>;
     await act(async () => {
       pending = store.reopenSession("session-child");
       await Promise.resolve();

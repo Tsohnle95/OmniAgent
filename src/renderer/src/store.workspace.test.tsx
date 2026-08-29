@@ -310,7 +310,7 @@ describe("store workspace continuations", () => {
     await act(async () => startup.resolve([info("/restored", 2)]));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
-    expect(openSessionById).toHaveBeenCalledWith("session-2", expect.any(Number));
+    expect(openSessionById).toHaveBeenCalledWith("session-2", expect.any(Number), "opencode");
     expect(store.panels.map((panel) => panel.directory).sort()).toEqual(["/chosen", "/restored"]);
     expect(store.session?.directory).toBe("/chosen");
   });
@@ -387,8 +387,8 @@ describe("store workspace continuations", () => {
     const closeSession = vi.fn(async () => {});
     window.openshell = api({ openSessionById, closeSession });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
-    let olderPending!: Promise<void>;
-    let newerPending!: Promise<void>;
+    let olderPending!: Promise<SessionInfo | null>;
+    let newerPending!: Promise<SessionInfo | null>;
     await act(async () => { olderPending = store.reopenSession("older"); });
     await act(async () => { newerPending = store.reopenSession("newer"); });
     await act(async () => newer.resolve({ session: info("/newer", 2), transcript: [], todos: [], usage: null }));

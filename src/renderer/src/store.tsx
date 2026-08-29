@@ -200,7 +200,7 @@ interface Store {
   dropIntoExplorer: (paths: string[]) => Promise<void>;
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
   changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
-  reopenSession: (sessionID: string, silent?: boolean) => Promise<void>;
+  reopenSession: (sessionID: string, silent?: boolean) => Promise<SessionInfo | null>;
   loadSessions: () => Promise<void>;
   sendPrompt: (text: string, files?: PromptFile[], workspace?: WorkspaceIdentity) => Promise<void>;
   runCommand: (name: string, args?: string, workspace?: WorkspaceIdentity) => Promise<void>;
@@ -1472,7 +1472,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   }, [replacePanels, toast, loadModels, loadAgents, loadRecovery, loadSessions, hydrateTranscript, selectedRuntimeID]);
 
   const reopenSession = useCallback(
-    async (sessionID: string, silent = false) => {
+    async (sessionID: string, silent = false): Promise<SessionInfo | null> => {
       const existing = panelForSession(sessionID);
       if (existing) {
         if (!transcriptsBySessionRef.current[sessionID]) void hydrateTranscript(sessionID);
@@ -1480,7 +1480,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           focusSession(sessionID);
           void loadSessions();
         }
-        return;
+        return existing;
       }
       const request = ++requestSeqRef.current;
       const activation = silent ? 0 : ++activationSeqRef.current;
@@ -1488,10 +1488,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         replacingSessionIDsRef.current.set(sessionID, (replacingSessionIDsRef.current.get(sessionID) ?? 0) + 1);
       }
       try {
-        const reopened = await window.openshell.openSessionById(sessionID, request);
+        const reopened = await window.openshell.openSessionById(sessionID, request, selectedRuntimeID);
         if (!silent && activation !== activationSeqRef.current) {
           await window.openshell.closeSession(reopened.session.workspace).catch(() => {});
-          return;
+          return null;
         }
         if (silent) {
           attachPanel(reopened.session);
@@ -1536,8 +1536,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         void loadModels(reopened.session.workspace);
         void loadAgents(reopened.session.workspace);
         void loadSessions();
+        return reopened.session;
       } catch (err) {
         toast(err instanceof Error ? err.message : String(err), "error");
+        return null;
       } finally {
         if (!silent) {
           const pending = replacingSessionIDsRef.current.get(sessionID) ?? 0;
@@ -1546,7 +1548,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
       }
     },
-    [attachPanel, replacePanels, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs]
+    [attachPanel, replacePanels, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs, selectedRuntimeID]
   );
 
   const sendPrompt = useCallback(
@@ -2873,10 +2875,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     void tryConnect();
     const permissionTimer = setInterval(() => void reconcilePermissions(), 3000);
     void window.openshell.activeSessions().then((list) => {
-      void Promise.all(list.map((session) => reopenSession(session.id, true))).then(() => {
+      void Promise.all(list.map((session) => reopenSession(session.id, true))).then((restored) => {
         if (!userActivatedRef.current && list.length > 0) {
-          const primary = list[list.length - 1];
-          focusSession(primary.id);
+          const primary = restored[restored.length - 1] ?? restored[restored.length - 2] ?? null;
+          if (primary) focusSession(primary.id);
         }
       });
     });
