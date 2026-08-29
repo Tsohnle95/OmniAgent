@@ -839,15 +839,21 @@ export default function App(): ReactNode {
 function Root(): ReactNode {
   const { session, toggleWordWrap } = useStore();
   const wasOpen = useRef(false);
+  const pendingView = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (session && !wasOpen.current) {
-      void window.openshell.windowView("session").catch(() => {});
-    }
-    if (!session && wasOpen.current) {
-      void window.openshell.windowView("landing").catch(() => {});
-    }
-    wasOpen.current = Boolean(session);
+    if (pendingView.current) clearTimeout(pendingView.current);
+    const isOpen = Boolean(session);
+    if (isOpen === wasOpen.current) return;
+    pendingView.current = setTimeout(() => {
+      pendingView.current = null;
+      if (isOpen && !wasOpen.current) void window.openshell.windowView("session").catch(() => {});
+      if (!isOpen && wasOpen.current) void window.openshell.windowView("landing").catch(() => {});
+      wasOpen.current = isOpen;
+    }, 120);
+    return () => {
+      if (pendingView.current) clearTimeout(pendingView.current);
+    };
   }, [session]);
 
   useEffect(() => {
