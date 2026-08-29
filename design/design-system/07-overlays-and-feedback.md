@@ -26,11 +26,11 @@ The per-agent metrics + provider health popover top-locked to the agent header.
 
 ```css
 .agent-usage-popup {
-  absolute top calc(100%+6) right10 width min(300, 100-20) max calc(100vw-40)
-  bg var(--bg-elev) border 1/--border-strong radius-lg shadow-md z 60
+  absolute top54 right10 width min(360, 100-20) bottom10
+  bg var(--bg-elev) border 1/--border-strong radius-lg shadow-md z 80
 }
   ::before { 8×8 rotated 45 right14 top-5 same bg + top/left borders — CSS arrow}
-  .agent-usage-scroll { max 100dvh-84 overflow-y overscroll-contain gutter stable radius inherit } _agent.scss:264
+  .agent-usage-scroll { flex1 min-height0 overflow-y overscroll-contain gutter stable radius inherit } _agent.scss:270
 ```
 
 Inside (`_agent.scss:287`):

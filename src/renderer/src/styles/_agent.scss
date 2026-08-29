@@ -254,7 +254,7 @@
   position: absolute;
   top: 54px;
   right: 10px;
-  left: 10px;
+  width: min(360px, calc(100% - 20px));
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);

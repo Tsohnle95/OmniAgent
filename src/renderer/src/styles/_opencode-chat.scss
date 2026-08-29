@@ -2,7 +2,7 @@
   --v2-background-bg-base: var(--agent-bg-base);
   --v2-background-bg-deep: var(--agent-bg-deep);
   --v2-background-bg-layer-01: var(--agent-bg-layer);
-  --v2-background-bg-layer-02: background-color: #eee5d4;
+  --v2-background-bg-layer-02: var(--agent-bg-layer);
   --v2-background-bg-layer-03: var(--agent-bg-active);
   --v2-text-text-base: var(--agent-chat-ink);
   --v2-text-text-muted: var(--text-dim);
@@ -466,7 +466,7 @@
   overflow-y: auto;
   border: 0.5px solid var(--v2-border-border-base);
   border-radius: 6px;
-  background: #eee5d4;
+  background: var(--agent-bg-layer);
   font-size: 13px;
 }
 [data-component="markdown"] pre code {
