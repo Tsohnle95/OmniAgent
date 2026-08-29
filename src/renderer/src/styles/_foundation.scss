@@ -135,14 +135,8 @@ html, body, #root {
   overflow: hidden;
 }
 
-html {
-  background: transparent;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
 body {
-  background: transparent;
+  background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 13px;
@@ -151,10 +145,7 @@ body {
   user-select: none;
 }
 
-#root {
-  position: relative;
-  background: transparent;
-}
+#root { position: relative; }
 
 ::selection {
   background: rgba(126, 153, 132, 0.32);
