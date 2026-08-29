@@ -129,6 +129,7 @@ export interface PanelView {
   transcript: TranscriptItem[];
   todos: TodoItem[];
   sessionUsage: SessionUsage | null;
+  compactionBaseline: number | null;
   models: ModelOption[];
   currentModel: ModelOption | null;
   agents: AgentOption[];
@@ -471,6 +472,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [usageBySession, setUsageBySession] = useState<Record<string, SessionUsage>>({});
+  const [compactionBaselineBySession, setCompactionBaselineBySession] = useState<Record<string, number>>(() => {
+    try {
+      const raw = window.localStorage.getItem("compactionBaseline");
+      return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    } catch {
+      return {};
+    }
+  });
   const [providerUsage, setProviderUsage] = useState<ProviderUsageResult[]>([]);
   const [providerUsageLoading, setProviderUsageLoading] = useState(false);
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
@@ -490,6 +499,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     if (!session) return;
     setHiddenPathsByWorkspace((current) => ({ ...current, [session.workspace.id]: new Set() }));
   }, [session?.directory, session?.workspace.id]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("compactionBaseline", JSON.stringify(compactionBaselineBySession));
+    } catch {}
+  }, [compactionBaselineBySession]);
   const busy = session ? Boolean(busyBySession[session.id]) : false;
   const todos = session ? (todosByWorkspace[session.workspace.id] ?? []) : [];
   const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
@@ -531,10 +545,30 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     });
   }, [panels, transcriptsBySession]);
 
+  useEffect(() => {
+    let changed = false;
+    const next: Record<string, number> = { ...compactionBaselineBySession };
+    for (const panel of panels) {
+      const transcript = transcriptsBySession[panel.id];
+      const usage = usageBySession[panel.id];
+      if (!transcript || !usage) continue;
+      if (compactionBaselineBySession[panel.id] != null) continue;
+      if (!transcript.some((item) => item.kind === "compaction")) continue;
+      if (usage.tokens.input <= 10000) continue;
+      next[panel.id] = Math.max(0, usage.tokens.input - 10000);
+      changed = true;
+    }
+    if (changed) setCompactionBaselineBySession(next);
+  }, [panels, transcriptsBySession, usageBySession, compactionBaselineBySession]);
+
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
   const transcriptsBySessionRef = useRef(transcriptsBySession);
   transcriptsBySessionRef.current = transcriptsBySession;
+  const usageBySessionRef = useRef(usageBySession);
+  usageBySessionRef.current = usageBySession;
+  const compactionBaselineBySessionRef = useRef(compactionBaselineBySession);
+  compactionBaselineBySessionRef.current = compactionBaselineBySession;
   const inboxBySessionRef = useRef(inboxBySession);
   inboxBySessionRef.current = inboxBySession;
   const formsBySessionRef = useRef(formsBySession);
@@ -947,7 +981,18 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       applyProjection(sessionID);
       reconcileStreaming(sessionID);
       setTodosFor(panel.workspace.id, snapshot.todos);
-      if (usage) setUsageBySession((current) => retainSessionRecord(current, sessionID, usage, protectedSessionIDs()));
+      if (usage) {
+        setUsageBySession((current) => retainSessionRecord(current, sessionID, usage, protectedSessionIDs()));
+        const hasCompaction = snapshot.transcript.some((item) => item.kind === "compaction");
+        const existingBaseline = compactionBaselineBySessionRef.current[sessionID];
+        if (hasCompaction && (existingBaseline == null) && usage.tokens.input > 10000) {
+          const estimatedWindow = 10000;
+          setCompactionBaselineBySession((prev) => ({
+            ...prev,
+            [sessionID]: Math.max(0, usage.tokens.input - estimatedWindow)
+          }));
+        }
+      }
       const trailing = [...snapshot.transcript].reverse().find((item) => item.kind === "assistant");
       if (!trailing || trailing.completed) setSessionBusy(sessionID, false);
     } catch {
@@ -1154,6 +1199,12 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     });
     chatStatesRef.current.delete(sessionID);
     materializingRef.current.delete(sessionID);
+    setCompactionBaselineBySession((current) => {
+      if (!(sessionID in current)) return current;
+      const { [sessionID]: _dropped, ...rest } = current;
+      void _dropped;
+      return rest;
+    });
     if (closing) {
       void window.openshell.closeSession(closing.workspace).catch(() => {});
     }
@@ -1309,6 +1360,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     delete todoKeysRef.current[oldWorkspaceID];
     setBusyBySession((current) => dropKey(current, old.id));
     setUsageBySession((current) => dropKey(current, old.id));
+    setCompactionBaselineBySession((current) => dropKey(current, old.id));
     setTranscriptsBySession((current) => dropKey(current, old.id));
     setSessionAbortFlags((current) => dropKey(current, old.id));
     setTodosByWorkspace((current) => dropKey(current, oldWorkspaceID));
@@ -2625,7 +2677,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
 
       if (targetSessionID && AUX_CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
-        if (type === "session.compaction.ended" || type === "session.compaction.failed") {
+        if (type === "session.compaction.ended") {
+          const currentInput = usageBySessionRef.current[targetSessionID]?.tokens.input ?? 0;
+          if (currentInput > 0) {
+            setCompactionBaselineBySession((prev) => ({ ...prev, [targetSessionID]: currentInput }));
+          }
+          void refreshSessionUsage(targetSessionID);
+        } else if (type === "session.compaction.failed") {
           void refreshSessionUsage(targetSessionID);
         }
       }
@@ -3048,12 +3106,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         ...localQueue
       ];
       const pendingForms = formsBySession[panel.id] ?? [];
+      const compactionBaseline = compactionBaselineBySession[panel.id] ?? null;
       views[panel.workspace.id] = {
         session: panel,
         busy: activity.isWorking,
         transcript,
         todos: todosByWorkspace[panel.workspace.id] ?? [],
         sessionUsage: usageBySession[panel.id] ?? null,
+        compactionBaseline,
         models: modelsByWorkspace[panel.workspace.id] ?? [],
         currentModel: currentModelByWorkspace[panel.workspace.id] ?? null,
         agents: agentsByWorkspace[panel.workspace.id] ?? [],
@@ -3077,6 +3137,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     transcriptsBySession,
     todosByWorkspace,
     usageBySession,
+    compactionBaselineBySession,
     modelsByWorkspace,
     currentModelByWorkspace,
     agentsByWorkspace,
@@ -3212,6 +3273,7 @@ const EMPTY_VIEW: PanelView = {
   transcript: [],
   todos: [],
   sessionUsage: null,
+  compactionBaseline: null,
   models: [],
   currentModel: null,
   agents: [],

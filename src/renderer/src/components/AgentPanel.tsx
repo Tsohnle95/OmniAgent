@@ -1151,7 +1151,7 @@ export function AgentPanel({
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
-  const { busy, todos, transcript, sessionUsage, currentModel, turnStartedAt, assistantStatus } = view;
+  const { busy, todos, transcript, sessionUsage, compactionBaseline, currentModel, turnStartedAt, assistantStatus } = view;
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const observedTopRef = useRef(0);
@@ -1210,7 +1210,10 @@ export function AgentPanel({
     typeof currentModel?.limit?.context === "number" && Number.isFinite(currentModel.limit.context) && currentModel.limit.context > 0
       ? currentModel.limit.context
       : null;
-  const contextUsed = usage ? usage.tokens.input : 0;
+  const rawContextUsed = usage ? usage.tokens.input : 0;
+  const contextUsed = usage && compactionBaseline !== null && compactionBaseline !== undefined
+    ? Math.max(0, rawContextUsed - compactionBaseline)
+    : rawContextUsed;
   const contextFraction = contextLimit ? Math.min(1, Math.max(0, contextUsed / contextLimit)) : 0;
   const contextPercent = contextFraction * 100;
   const glyphTone = contextLimit ? contextTone(contextPercent) : null;
@@ -1378,6 +1381,11 @@ export function AgentPanel({
                       <span>{formatTokens(contextUsed)}</span>
                       <span>of {formatTokens(contextLimit)} tokens</span>
                     </div>
+                    {compactionBaseline !== null && compactionBaseline > 0 && (
+                      <div className="agent-usage-context-note" style={{ fontSize: "11px", color: "var(--v2-text-text-muted)", marginTop: "4px" }}>
+                        {formatTokens(rawContextUsed)} total · {formatTokens(compactionBaseline)} before last compaction
+                      </div>
+                    )}
                   </div>
                 )}
                 {usageTotal > 0 && (
