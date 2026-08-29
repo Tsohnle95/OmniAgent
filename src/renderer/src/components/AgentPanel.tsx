@@ -221,6 +221,12 @@ function contextTone(percent: number): "ok" | "warn" | "danger" {
   return "ok";
 }
 
+function cacheTone(percent: number): "ok" | "warn" | "danger" {
+  if (percent >= 85) return "danger";
+  if (percent >= 60) return "warn";
+  return "ok";
+}
+
 function formatCredits(credits: ProviderUsageCredits): string {
   if (credits.unlimited) return "Unlimited";
   if (credits.used != null && credits.total != null) {
@@ -1204,6 +1210,8 @@ export function AgentPanel({
   const usageTotal = usage
     ? usage.tokens.input + usage.tokens.output + usage.tokens.reasoning + usage.tokens.cache.read + usage.tokens.cache.write
     : 0;
+  const cacheTotal = usage ? usage.tokens.cache.read + usage.tokens.cache.write : 0;
+  const cachePercent = usageTotal > 0 ? (cacheTotal / usageTotal) * 100 : 0;
   const usageShare = (count: number): string =>
     usageTotal > 0 ? `${(count / usageTotal) * 100}%` : "0%";
   const contextLimit =
@@ -1416,6 +1424,12 @@ export function AgentPanel({
                   <div className="agent-usage-row">
                     <span className="agent-usage-row-label">Cache write</span>
                     <span className="agent-usage-row-value">{formatTokens(usage.tokens.cache.write)}</span>
+                  </div>
+                  <div className="agent-usage-row agent-usage-cache-total">
+                    <span className="agent-usage-row-label">Cache</span>
+                    <span className="agent-usage-row-value agent-usage-cache-value">
+                      {cacheTotal > 0 ? `${formatTokens(cacheTotal)} · ${Math.round(cachePercent)}%` : formatTokens(cacheTotal)}
+                    </span>
                   </div>
                 </div>
                 <div className="agent-usage-total">

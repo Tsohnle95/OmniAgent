@@ -63,6 +63,13 @@ function usage(input: number): SessionUsage {
   };
 }
 
+function usageWithCache(input: number, cacheRead: number, cacheWrite = 0): SessionUsage {
+  return {
+    cost: 0,
+    tokens: { input, output: 0, reasoning: 0, cache: { read: cacheRead, write: cacheWrite } }
+  };
+}
+
 function model(context: number): ModelOption {
   return { id: "m", providerID: "p", name: "Model", limit: { context } };
 }
@@ -153,5 +160,36 @@ describe("agent panel usage tracker", () => {
     expect(classes.contains("warn")).toBe(false);
     expect(classes.contains("danger")).toBe(false);
     expect(classes.contains("neutral")).toBe(true);
+  });
+
+  it("shows a cache percentage for cache read plus write tokens", async () => {
+    currentUsage = usageWithCache(40_000, 10_000, 0);
+    await act(async () => root.render(<AgentPanel />));
+    await act(async () => toggle(container).click());
+
+    const cache = container.querySelector(".agent-usage-cache-total")!;
+    expect(cache.querySelector(".agent-usage-row-label")!.textContent).toBe("Cache");
+    expect(cache.querySelector(".agent-usage-row-value")!.textContent).toContain("10.0k");
+    expect(cache.querySelector(".agent-usage-row-value")!.textContent).toContain("20%");
+  });
+
+  it("shows the cache percentage from combined read and write tokens", async () => {
+    currentUsage = usageWithCache(45_000, 10_000, 5_000);
+    await act(async () => root.render(<AgentPanel />));
+    await act(async () => toggle(container).click());
+
+    const cache = container.querySelector(".agent-usage-cache-total")!;
+    expect(cache.querySelector(".agent-usage-row-value")!.textContent).toContain("15.0k");
+    expect(cache.querySelector(".agent-usage-row-value")!.textContent).toContain("25%");
+  });
+
+  it("omits the percentage when there is no cached traffic", async () => {
+    currentUsage = usageWithCache(40_000, 0, 0);
+    await act(async () => root.render(<AgentPanel />));
+    await act(async () => toggle(container).click());
+
+    const cache = container.querySelector(".agent-usage-cache-total")!;
+    expect(cache.querySelector(".agent-usage-row-value")!.textContent).toContain("0");
+    expect(cache.querySelector(".agent-usage-row-value")!.textContent).not.toContain("%");
   });
 });
