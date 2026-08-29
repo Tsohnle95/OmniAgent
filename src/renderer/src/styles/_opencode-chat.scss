@@ -1177,7 +1177,7 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 5px 5px;
+  padding: 0 3px 3px;
   background: var(--v2-background-bg-base);
 }
 
@@ -1298,15 +1298,15 @@
 [data-component="session-todo-dock"] + .composer { margin-top: -18px; }
 
 .agent-panel .composer-body {
-  min-height: 96px;
+  min-height: 72px;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0;
   overflow: hidden;
   border: 0.5px solid var(--v2-border-border-base);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--agent-composer-background);
   border-color: var(--agent-composer-border);
   box-shadow: var(--agent-composer-shadow);
@@ -1322,30 +1322,37 @@
 .agent-panel .composer-input {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
-  max-height: 180px;
-  padding: 12px 16px 6px;
+  min-height: 36px;
+  max-height: 120px;
+  padding: 8px 10px 4px;
   color: var(--v2-text-text-base);
-  font: var(--font-weight-regular) 13px/20px var(--font-family-sans);
+  font: var(--font-weight-regular) 12.5px/18px var(--font-family-sans);
+  grid-column: 1 / -1;
 }
 
 .agent-panel .composer-input::placeholder { color: var(--v2-text-text-faint); }
 
 .agent-panel .composer-actions {
-  width: 100%;
-  height: 44px;
-  min-height: 44px;
-  padding: 0 12px 8px;
+  grid-column: 2;
+  grid-row: 2;
+  width: auto;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 8px 6px 4px;
   gap: 4px;
   min-width: 0;
+  align-self: center;
 }
 
 .agent-panel .composer-chips {
-  width: 100%;
-  padding: 0 12px 12px;
-  gap: 6px;
+  grid-column: 1;
+  grid-row: 2;
+  width: auto;
+  padding: 0 4px 6px 8px;
+  gap: 4px;
   min-width: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-self: center;
 }
 
 @container (min-width: 440px) {
@@ -1360,8 +1367,8 @@
     grid-column: 2;
     grid-row: 2;
     width: auto;
-    height: 40px;
-    min-height: 40px;
+    height: 32px;
+    min-height: 32px;
     padding-left: 4px;
   }
 
@@ -1374,23 +1381,27 @@
 
 .agent-panel .composer-icon-button,
 .agent-panel .composer-approval {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   color: var(--v2-icon-icon-muted);
 }
 
 .agent-panel .composer-selector {
-  height: 28px;
-  padding: 4px 5px;
+  height: 22px;
+  padding: 2px 7px;
   color: var(--v2-text-text-muted);
-  font-size: 13px;
+  font-size: 11px;
+  gap: 4px;
 }
+
+.agent-panel .composer-selector.model { flex: 0 1 112px; min-width: 0; max-width: 42vw; }
+.agent-panel .composer-selector.strength { flex: 0 0 auto; max-width: 68px; }
 
 .agent-panel .composer-send {
   position: relative;
-  width: 28px;
+  width: 26px;
   cursor: pointer;
-  height: 28px;
+  height: 26px;
   border: none;
   border-radius: var(--radius-full);
   background: var(--agent-send-background);
@@ -1407,6 +1418,8 @@
 .agent-panel .composer-send:disabled { opacity: 0.55; }
 .agent-panel .composer-send.stop { background: var(--red); color: #ffffff; }
 
+.agent-panel .composer-attachment { padding: 3px 4px 3px 6px; font-size: 10px; }
+
 @media (prefers-reduced-motion: reduce) {
   [data-component="text-shimmer"] [data-slot="text-shimmer-char-shimmer"] { animation: none; color: inherit; -webkit-text-fill-color: currentColor; background: none; }
   [data-component="text-shimmer"] [data-slot="text-shimmer-char-base"] { opacity: 1; }
@@ -1414,4 +1427,21 @@
   [data-slot="todo-active-dot"],
   [data-slot="assistant-activity-pulse"] { animation: none; }
   [data-component="session-progress-indicator-v2"] [data-dot="12"] { opacity: 1; }
+}
+
+@container (max-width: 360px) {
+  [data-component="session-prompt-dock"] { padding: 0 2px 2px; }
+  .agent-panel .composer-body { min-height: 64px; border-radius: 8px; gap: 0; }
+  .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 8px 4px; font-size: 12px; line-height: 16px; }
+  .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 4px 3px; gap: 3px; }
+  .agent-panel .composer-chips { padding: 0 3px 4px 6px; gap: 3px; }
+  .agent-panel .composer-icon-button,
+  .agent-panel .composer-approval { width: 22px; height: 22px; }
+  .agent-panel .composer-icon-button .codicon,
+  .agent-panel .composer-approval .codicon { font-size: 12px; }
+  .agent-panel .composer-selector { height: 20px; padding: 0 6px; font-size: 10.5px; gap: 3px; }
+  .agent-panel .composer-selector.model { flex-basis: 96px; max-width: 38vw; }
+  .agent-panel .composer-selector.strength { max-width: 60px; }
+  .agent-panel .composer-send { width: 24px; height: 24px; }
+  .agent-panel .composer-send .codicon { font-size: 11px; }
 }

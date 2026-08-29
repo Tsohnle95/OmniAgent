@@ -198,13 +198,7 @@
   .agent-header-actions { gap: 2px; }
 }
 
-@container (max-width: 360px) {
-  [data-component="session-prompt-dock"] { padding-inline: 2px; }
-  .composer { margin-inline: 4px 6px; }
-  .agent-panel .composer-input { padding: 10px 10px 4px; }
-  .agent-panel .composer-actions { height: 38px; min-height: 38px; padding: 0 8px 6px; }
-  .agent-panel .composer-chips { padding: 0 8px 8px; }
-}
+
 
 .agent-turn-timer-dot {
   width: 5px;

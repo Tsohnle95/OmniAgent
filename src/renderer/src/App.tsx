@@ -8,7 +8,6 @@ import { EditorPane } from "./components/EditorPane";
 import { AgentPanel } from "./components/AgentPanel";
 import { TerminalTray } from "./components/TerminalTray";
 import { RecoveryNotice } from "./components/RecoveryNotice";
-import { StatusBar } from "./components/StatusBar";
 import { OrbitMark } from "./components/OrbitMark";
 import { SettingsPage } from "./components/SettingsPage";
 import { SettingsSidebar, type SettingsSection } from "./components/SettingsSidebar";
@@ -707,6 +706,18 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             <IconTerminal />
           </button>
           <button
+            className={`icon-btn ${settingsOpen ? "on" : ""}`}
+            title={settingsOpen ? "Back to workspace" : "Settings"}
+            aria-label={settingsOpen ? "Back to workspace" : "Settings"}
+            aria-pressed={settingsOpen}
+            onClick={() => {
+              if (!settingsOpen) setSidebarOpen(true);
+              setSettingsOpen((open) => !open);
+            }}
+          >
+            <IconGear />
+          </button>
+          <button
             className={`icon-btn ${anchorOpen ? "on" : ""}`}
             data-panel-action="toggle-agent-panel"
             title={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
@@ -789,19 +800,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </div>}
       </div>
 
-      {settingsOpen ? <div className="statusbar settings-statusbar" aria-hidden /> : <StatusBar />}
-      <button
-        className={`icon-btn app-settings-btn ${settingsOpen ? "on" : ""}`}
-        title={settingsOpen ? "Back to workspace" : "Settings"}
-        aria-label={settingsOpen ? "Back to workspace" : "Settings"}
-        aria-pressed={settingsOpen}
-        onClick={() => {
-          if (!settingsOpen) setSidebarOpen(true);
-          setSettingsOpen((open) => !open);
-        }}
-      >
-        <IconGear />
-      </button>
       <Toasts />
       <RecoveryNotice />
     </div>
