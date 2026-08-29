@@ -919,24 +919,42 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     commitQueue(reorderQueue(messageQueueRef.current, target, fromID, toID));
   }, [queueTargetFor, commitQueue]);
 
+  const refreshSessionUsage = useCallback(async (sessionID: string): Promise<void> => {
+    if (!panelForSession(sessionID)) return;
+    try {
+      const usage = await (window.openshell.sessionUsage
+        ? window.openshell.sessionUsage(sessionID)
+        : Promise.resolve(null));
+      if (!panelForSession(sessionID) || !usage) return;
+      setUsageBySession((current) => retainSessionRecord(current, sessionID, usage, protectedSessionIDs()));
+    } catch {
+    }
+  }, [panelForSession, protectedSessionIDs]);
+
   const materializeSession = useCallback(async (sessionID: string): Promise<void> => {
     const panel = panelForSession(sessionID);
     if (!panel || materializingRef.current.has(sessionID)) return;
     materializingRef.current.add(sessionID);
     try {
-      const snapshot = await window.openshell.sessionTranscript(sessionID);
+      const [snapshot, usage] = await Promise.all([
+        window.openshell.sessionTranscript(sessionID),
+        window.openshell.sessionUsage
+          ? window.openshell.sessionUsage(sessionID).catch(() => null)
+          : Promise.resolve(null)
+      ]);
       if (!panelForSession(sessionID)) return;
       hydrateChatState(chatStateFor(sessionID), sessionID, snapshot.transcript);
       applyProjection(sessionID);
       reconcileStreaming(sessionID);
       setTodosFor(panel.workspace.id, snapshot.todos);
+      if (usage) setUsageBySession((current) => retainSessionRecord(current, sessionID, usage, protectedSessionIDs()));
       const trailing = [...snapshot.transcript].reverse().find((item) => item.kind === "assistant");
       if (!trailing || trailing.completed) setSessionBusy(sessionID, false);
     } catch {
     } finally {
       materializingRef.current.delete(sessionID);
     }
-  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor, setSessionBusy]);
+  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor, setSessionBusy, protectedSessionIDs]);
 
   const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
     const id = ++toastId;
@@ -1666,7 +1684,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     if (!target) return;
     try {
       await window.openshell.runCommand(target, name, args);
-      if (name === "compact" || name === "compress") toast("Compacting session…");
+      if (name === "compact" || name === "compress") {
+        toast("Compacting session…");
+        const panel = panelFor(target);
+        if (panel) setTimeout(() => void refreshSessionUsage(panel.id), 1500);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (panelFor(target)) {
@@ -1674,7 +1696,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         throw error;
       }
     }
-  }, [panelFor, toast]);
+  }, [panelFor, toast, refreshSessionUsage]);
 
   const stop = useCallback(async (workspace?: WorkspaceIdentity) => {
     const target = workspace ?? sessionRef.current?.workspace;
@@ -2603,6 +2625,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
 
       if (targetSessionID && AUX_CHAT_STREAM_TYPES.has(type)) {
         updateSessionTranscript(targetSessionID, (prev) => reduceChatStream(prev, streamEvent));
+        if (type === "session.compaction.ended" || type === "session.compaction.failed") {
+          void refreshSessionUsage(targetSessionID);
+        }
       }
 
       switch (type) {
@@ -2955,6 +2980,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     chatStateFor,
     applyProjection,
     materializeSession,
+    refreshSessionUsage,
     reconcilePermissions,
     persistence
   ]);

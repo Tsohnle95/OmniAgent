@@ -62,6 +62,7 @@ Public methods (all used by IPC):
 | `closeSession(workspace)` | Tears down the addressed context (stops its watcher, removes it from the context map) when its panel closes; the opencode session itself stays alive so recents can reopen it |
 | `openSessionById(sessionID, generation?, runtimeID?)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one. When a `runtimeID` is passed for a session whose native runtime differs and no context is active, remaps it to the requested runtime by opening the same directory (fresh native session) instead of the session's original runtime |
 | `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
+| `sessionUsage(sessionID)` | Loads `session.get` and returns the normalized `SessionUsage` (`cost` + `tokens`) or `null` when unavailable; called after compaction to refresh the context-window display |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
 | `prompt(workspace, text, files?, delivery?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt`; `delivery` forwards `queue`/`steer` for native inbox queuing |
 | `listInbox(workspace)` | Lists the active session's queued user entries via `session.inbox.list` |
@@ -80,8 +81,8 @@ Public methods (all used by IPC):
 | `listMcpServers(workspace)` | Lists configured MCP servers and their connection status via `mcp.list` |
 | `listPlugins(workspace)` | Lists active plugins and their source via `plugin.list` |
 | `listSkills(workspace)` | Lists workspace skills via `skill.list` |
-| `listCommands(workspace)` | Built-ins (`/compact`) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
-| `runCommand(workspace, name, args?)` | Routes built-ins (`/compact` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
+| `listCommands(workspace)` | Built-ins (`/compact` + `/compress` alias) + `command.list({location})` + `skill.list({location})` → `CommandOption[]` (`kind: "command" | "skill"`) for the session directory |
+| `runCommand(workspace, name, args?)` | Routes built-ins (`/compact`/`/compress` → `session.compact`), otherwise captures and verifies the context around skill lookup and command mutation |
 | `searchFiles(workspace, query)` | `file.find({location, query, type: "file"})` → `ReferenceOption[]`; `rel` is the path relative to the session directory, `path` is absolute for prompt attachment |
 | `interrupt(workspace)` | Interrupts the captured session and rejects stale completion |
 | `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured context session |
@@ -219,6 +220,7 @@ Internals:
 | `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `shell:open-session-id` | `(sessionID, generation, runtimeID?) → ReopenedSession`; persisted runtime identity resolves omitted ids; a differing `runtimeID` with no active context remaps the session to the requested runtime on the same directory |
 | `shell:session-transcript` | `(sessionID) → { transcript, todos }` — stream materialization snapshot; does not activate a context |
+| `shell:session-usage` | `(sessionID) → SessionUsage \| null` — normalized `cost`/`tokens` for the addressed session; materialization and compaction refresh the live usage popup |
 | `shell:prompt` | `(workspace, text, files?, delivery?) → SessionTranscript` |
 | `shell:inbox-list` | `(workspace) → SessionInboxEntry[]` |
 | `shell:inbox-cancel` | `(workspace, inboxID) → void` |

@@ -1658,6 +1658,28 @@ export class OpenShellBackend {
     return { transcript: replayTranscript(history), todos: replayTodos(history) };
   }
 
+  async sessionUsage(sessionID: string): Promise<SessionUsage | null> {
+    if (this.runtimeAdapters.get(sessionID)) return null;
+    if (!this.client) return null;
+    const res = await this.client.session.get({ sessionID }).catch(() => null);
+    if (!res) return null;
+    const raw = (res as { data?: Record<string, unknown> }).data ?? res as Record<string, unknown>;
+    const cost = raw.cost;
+    const tokens = raw.tokens as Record<string, unknown> | undefined;
+    if (typeof cost !== "number" || !tokens) return null;
+    const num = (n: unknown): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+    const cache = tokens.cache as Record<string, unknown> | undefined;
+    return {
+      cost,
+      tokens: {
+        input: num(tokens.input),
+        output: num(tokens.output),
+        reasoning: num(tokens.reasoning),
+        cache: { read: num(cache?.read), write: num(cache?.write) }
+      }
+    };
+  }
+
   async getState(): Promise<SessionInfo | null> {
     return this.primaryContext()?.sessionInfo ?? null;
   }

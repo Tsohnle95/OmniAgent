@@ -590,6 +590,10 @@ function registerIpc(): void {
     backend.sessionTranscript(sessionId(sessionID))
   );
 
+  handleTrusted("shell:session-usage", async (_e, sessionID: string) =>
+    backend.sessionUsage(sessionId(sessionID))
+  );
+
   handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery) => {
     const payload = promptPayload(workspace, text, files);
     return backend.prompt(payload.workspace, payload.text, payload.files, delivery);

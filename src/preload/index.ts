@@ -15,6 +15,7 @@ import type {
   PromptDelivery,
   PromptFile,
   SessionInboxEntry,
+  SessionUsage,
   FormAnswers,
   PendingFormRequest,
   ProviderCredentialAnswers,
@@ -69,6 +70,8 @@ const api = {
     ipcRenderer.invoke("shell:open-session-id", sessionID, generation, runtimeID),
   sessionTranscript: (sessionID: string): Promise<SessionTranscript> =>
     ipcRenderer.invoke("shell:session-transcript", sessionID),
+  sessionUsage: (sessionID: string): Promise<SessionUsage | null> =>
+    ipcRenderer.invoke("shell:session-usage", sessionID),
   prompt: (workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery): Promise<SessionTranscript> =>
     ipcRenderer.invoke("shell:prompt", workspace, text, files, delivery),
   inboxList: (workspace: WorkspaceIdentity): Promise<SessionInboxEntry[]> =>
