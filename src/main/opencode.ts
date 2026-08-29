@@ -471,6 +471,7 @@ interface WatchContext {
   snapshots: Map<string, FileBaseline>;
   lastKnown: Map<string, string>;
   hasGit: boolean | null;
+  gitRoot?: string | null;
   timers: Map<string, ReturnType<typeof setTimeout>>;
   importing?: number;
   suppressedUntil?: Map<string, number>;
@@ -1105,21 +1106,38 @@ export class OpenShellBackend {
   private async gitShow(context: WatchContext, rel: string): Promise<string | null> {
     if (context.hasGit === false) return null;
     if (context.hasGit === null) {
-      try {
-        await fsp.access(path.join(context.root, ".git"));
-        if (!this.currentWatch(context)) return null;
+      let cur: string | null = context.root;
+      let gitRoot: string | null = null;
+      while (cur) {
+        try {
+          await fsp.access(path.join(cur, ".git"));
+          gitRoot = cur;
+          break;
+        } catch {
+          const parent = path.dirname(cur);
+          if (parent === cur) break;
+          cur = parent;
+        }
+      }
+      if (!this.currentWatch(context)) return null;
+      if (gitRoot) {
         context.hasGit = true;
-      } catch {
-        if (!this.currentWatch(context)) return null;
+        (context as { gitRoot: string | null }).gitRoot = gitRoot;
+      } else {
         context.hasGit = false;
+        (context as { gitRoot: string | null }).gitRoot = null;
         return null;
       }
     }
+    const gitRoot = (context as { gitRoot: string | null }).gitRoot ?? context.root;
+    const abs = path.isAbsolute(rel) ? rel : path.join(context.root, rel);
+    const relGit = path.relative(gitRoot, abs).split(path.sep).join("/");
+    if (!relGit || relGit.startsWith("..")) return null;
     return new Promise((resolve) => {
       execFile(
         "git",
-        ["show", `HEAD:${rel}`],
-        { cwd: context.root, maxBuffer: 16 * 1024 * 1024, timeout: 10_000 },
+        ["show", `HEAD:${relGit}`],
+        { cwd: gitRoot, maxBuffer: 16 * 1024 * 1024, timeout: 10_000 },
         (err, stdout) => {
           resolve(err ? null : stdout);
         }
@@ -1378,6 +1396,7 @@ export class OpenShellBackend {
         snapshots: new Map(),
         lastKnown: new Map(),
         hasGit: null,
+        gitRoot: null,
         timers: new Map()
       },
       watcher: null,
