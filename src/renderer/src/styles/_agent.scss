@@ -258,7 +258,7 @@
 
 .agent-usage-popup {
   position: absolute;
-  top: calc(100% + 6px);
+  top: 60px;
   right: 10px;
   width: min(300px, calc(100% - 20px));
   max-width: calc(100vw - 40px);
@@ -266,12 +266,19 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  z-index: 60;
+  z-index: 80;
+  bottom: 8px;
+  min-height: 120px;
+  max-height: calc(100dvh - 100px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .agent-usage-scroll {
   box-sizing: border-box;
-  max-height: calc(100dvh - 84px);
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 10px 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
