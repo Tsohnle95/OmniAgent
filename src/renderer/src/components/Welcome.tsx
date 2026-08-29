@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { droppedFilePaths } from "../drop";
-import type { SessionSummary } from "@shared/types";
+import type { ProjectInfo, SessionSummary } from "@shared/types";
+import { PlusIcon } from "./FileIcons";
 
 function formatWhen(ts: number): string {
   if (!ts) return "";
@@ -49,43 +50,63 @@ function FolderGlyph(): ReactNode {
   );
 }
 
-type WorkspaceGroup = { directory: string; sessions: SessionSummary[] };
+type WorkspaceGroup = { directory: string; name: string; sessions: SessionSummary[] };
 
-function workspaceGroups(sessions: SessionSummary[]): WorkspaceGroup[] {
-  const byDirectory = new Map<string, SessionSummary[]>();
+function workspaceGroups(sessions: SessionSummary[], projects: ProjectInfo[]): WorkspaceGroup[] {
+  const byDirectory = new Map<string, { name: string; sessions: SessionSummary[] }>();
+  for (const project of projects) {
+    if (!project.directory) continue;
+    byDirectory.set(project.directory, { name: project.name, sessions: [] });
+  }
   for (const session of sessions) {
-    const list = byDirectory.get(session.directory) ?? [];
-    list.push(session);
-    byDirectory.set(session.directory, list);
+    const entry = byDirectory.get(session.directory);
+    if (entry) entry.sessions.push(session);
+    else
+      byDirectory.set(session.directory, {
+        name: session.directory.split("/").filter(Boolean).pop() || session.directory,
+        sessions: [session]
+      });
   }
   return [...byDirectory.entries()]
-    .map(([directory, list]) => ({
+    .map(([directory, { name, sessions: list }]) => ({
       directory,
+      name,
       sessions: list.sort((left, right) => right.updatedAt - left.updatedAt)
     }))
-    .sort((left, right) => right.sessions[0].updatedAt - left.sessions[0].updatedAt);
+    .sort((left, right) => {
+      const leftTime = left.sessions[0]?.updatedAt ?? 0;
+      const rightTime = right.sessions[0]?.updatedAt ?? 0;
+      if (leftTime !== rightTime) return rightTime - leftTime;
+      return left.name.localeCompare(right.name);
+    });
 }
 
 export function Welcome(): ReactNode {
-  const { selectFolder, openFileWorkspace, reopenSession, selectedRuntimeID } = useStore();
+  const { selectFolder, openFileWorkspace, openSession, reopenSession, selectedRuntimeID } = useStore();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [closedSecs, setClosedSecs] = useState<Record<string, boolean>>({ recent: true, workspaces: true });
 
   useEffect(() => {
-    void window.openshell
-      .sessions()
-      .then((s) => setSessions(s))
-      .catch(() => setSessions([]))
-      .finally(() => setLoading(false));
+    void Promise.all([
+      window.openshell
+        .sessions()
+        .then((s) => setSessions(s))
+        .catch(() => setSessions([])),
+      window.openshell
+        .projects()
+        .then((p) => setProjects(p))
+        .catch(() => setProjects([]))
+    ]).finally(() => setLoading(false));
   }, []);
 
   const runtimeSessions = sessions
     .filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID)
     .sort((left, right) => right.updatedAt - left.updatedAt);
   const recentSessions = runtimeSessions.slice(0, 3);
-  const groups = workspaceGroups(runtimeSessions);
+  const groups = workspaceGroups(runtimeSessions, projects);
 
   const toggleGroup = (key: string): void =>
     setOpenGroups((current) => ({ ...current, [key]: !(current[key] ?? true) }));
@@ -160,34 +181,56 @@ export function Welcome(): ReactNode {
                 <Chev />
               </button>
               <div className="sd-body">
+                {!loading && groups.length === 0 && (
+                  <div className="sessions-empty" style={{ padding: "8px 2px", fontSize: 11.5, color: "var(--text-faint)" }}>
+                    No saved workspaces found.
+                  </div>
+                )}
                 {!loading &&
                   groups.map((group, groupIndex) => {
                     const open = openGroups[group.directory] ?? (groups.length === 1 || groupIndex === 1);
                     return (
                       <div className={`sd-grp${open ? " is-open" : ""}`} key={group.directory}>
-                        <button className="sd-wgh" type="button" onClick={() => toggleGroup(group.directory)} title={group.directory}>
-                          <Chev />
-                          <FolderGlyph />
-                          <span className="sd-wgname">{group.directory.split("/").filter(Boolean).pop() || group.directory}</span>
-                          <span className="sd-wgcnt">{group.sessions.length}</span>
-                        </button>
+                        <div className="sd-wgh-wrap">
+                          <button className="sd-wgh" type="button" onClick={() => toggleGroup(group.directory)} title={group.directory}>
+                            <Chev />
+                            <FolderGlyph />
+                            <span className="sd-wgname">{group.name}</span>
+                            <span className="sd-wgcnt">{group.sessions.length}</span>
+                          </button>
+                          <button
+                            className="sd-wg-new"
+                            type="button"
+                            title={`New session in ${group.name}`}
+                            aria-label={`New session in ${group.name}`}
+                            onClick={() => void openSession(group.directory)}
+                          >
+                            <PlusIcon />
+                          </button>
+                        </div>
                         <div className="sd-kids-wrap">
-                          <ul className="rows sd-kids">
-                            {group.sessions.slice(0, MAX_WORKSPACE_KIDS).map((session) => (
-                              <li key={session.id} className={`row${isLive(session) ? " is-live" : ""}`}>
-                                <button
-                                  className="rowlink"
-                                  type="button"
-                                  onClick={() => void reopenSession(session.id)}
-                                  title={session.title}
-                                >
-                                  <span className="row-dot" />
-                                  <span className="row-name">{session.title}</span>
-                                  <span className="row-meta">{formatWhen(session.updatedAt)}</span>
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
+                          {group.sessions.length === 0 ? (
+                            <div className="sessions-empty" style={{ padding: "4px 0 6px 12px", fontSize: 11, color: "var(--text-faint)" }}>
+                              No sessions yet.
+                            </div>
+                          ) : (
+                            <ul className="rows sd-kids">
+                              {group.sessions.slice(0, MAX_WORKSPACE_KIDS).map((session) => (
+                                <li key={session.id} className={`row${isLive(session) ? " is-live" : ""}`}>
+                                  <button
+                                    className="rowlink"
+                                    type="button"
+                                    onClick={() => void reopenSession(session.id)}
+                                    title={session.title}
+                                  >
+                                    <span className="row-dot" />
+                                    <span className="row-name">{session.title}</span>
+                                    <span className="row-meta">{formatWhen(session.updatedAt)}</span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </div>
                     );

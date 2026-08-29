@@ -198,11 +198,17 @@
   padding: 4px 0;
 }
 .welcome .sd-grp:last-child { border-bottom: 0; }
+.welcome .sd-wgh-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .welcome .sd-wgh {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: none;
   border: 0;
   padding: 7px 0;
@@ -229,6 +235,24 @@
   border-radius: 999px;
   padding: 2px 7px;
   flex: none;
+}
+.welcome .sd-wg-new {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.welcome .sd-wg-new:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 .welcome .sd-grp .sd-kids-wrap { display: none; }
 .welcome .sd-grp.is-open .sd-kids-wrap { display: block; }
