@@ -258,18 +258,16 @@
 
 .agent-usage-popup {
   position: absolute;
-  top: 60px;
+  top: 54px;
   right: 10px;
-  width: min(300px, calc(100% - 20px));
-  max-width: calc(100vw - 40px);
+  left: 10px;
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   z-index: 80;
-  bottom: 8px;
+  bottom: 10px;
   min-height: 120px;
-  max-height: calc(100dvh - 100px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

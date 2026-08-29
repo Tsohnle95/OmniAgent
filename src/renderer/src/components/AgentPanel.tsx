@@ -1155,6 +1155,7 @@ export function AgentPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const observedTopRef = useRef(0);
+  const panelRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const panelDragRef = useRef<number | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
@@ -1186,7 +1187,7 @@ export function AgentPanel({
   useEffect(() => {
     if (!usageOpen) return;
     const onDown = (e: MouseEvent): void => {
-      if (!headerRef.current?.contains(e.target as Node)) setUsageOpen(false);
+      if (!panelRef.current?.contains(e.target as Node)) setUsageOpen(false);
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") setUsageOpen(false);
@@ -1272,7 +1273,7 @@ export function AgentPanel({
   };
 
   return (
-    <div className="agent-panel" onMouseDownCapture={onFocus}>
+    <div className="agent-panel" ref={panelRef} onMouseDownCapture={onFocus}>
       {onResizeLeft && <div className="panel-resize-handle panel-resize-left" onMouseDown={onResizeLeft} />}
       {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
       <div className="agent-header" ref={headerRef} onMouseDown={startPanelDrag}>
@@ -1345,9 +1346,10 @@ export function AgentPanel({
             <IconDashboard />
           </button>
         </div>
-        {usageOpen && (
-          <div className="agent-usage-popup">
-            <div className="agent-usage-scroll">
+      </div>
+      {usageOpen && (
+        <div className="agent-usage-popup">
+          <div className="agent-usage-scroll">
             <div className="agent-usage-head">
               <IconDashboard />
               Session usage
@@ -1447,10 +1449,9 @@ export function AgentPanel({
                 providerUsage.map((result) => <ProviderUsageCard key={result.provider} result={result} />)
               )}
             </div>
-            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
         {transcript.length === 0 && (
