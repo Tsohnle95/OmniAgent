@@ -149,15 +149,11 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   user-select: none;
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 #root {
   position: relative;
   background: transparent;
-  border-radius: 12px;
-  overflow: hidden;
 }
 
 ::selection {
