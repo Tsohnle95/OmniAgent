@@ -57,6 +57,9 @@
   border-bottom: none;
   z-index: 50;
   -webkit-app-region: drag;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  overflow: hidden;
 }
 
 .darwin .titlebar { padding-left: 78px; }
