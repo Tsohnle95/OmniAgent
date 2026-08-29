@@ -121,10 +121,13 @@ opencode persists — OAuth entries from `~/.local/share/opencode/auth.json`
 calls each provider's usage endpoint directly — ChatGPT's
 `/backend-api/wham/usage` (weekly/monthly windows, spend control, plan
 type), Anthropic's `/api/oauth/usage` (5h + weekly utilization), GitHub
-Copilot's `copilot_internal/user` (credits/quota), and OpenCode Go's
+Copilot's `copilot_internal/user` (credits/quota), OpenCode Go's
 `https://opencode.ai/zen/go/v1/usage` (rolling, weekly, and monthly
-utilization). Tokens never leave the main process; the renderer only receives
-normalized provider snapshots.
+utilization), and Command Code's `api.commandcode.ai` `/alpha/whoami` +
+`/alpha/billing/credits` (5h and weekly rate-limit windows plus
+monthly/purchased/free credit balances; org accounts resolve their
+`org.id` before querying credits). Tokens never leave the main process; the
+renderer only receives normalized provider snapshots.
 
 Internals:
 

@@ -121,6 +121,7 @@ function providerKeyForAccountUrl(url: string | undefined): string | null {
 function providerKeyForCredentialId(id: string): string | null {
   if (id === "openai") return "openai";
   if (id === "opencode-go") return "opencode-go";
+  if (id === "command-code") return "command-code";
   return null;
 }
 
@@ -742,6 +743,101 @@ function goUsageWindow(id: string, label: string, raw: unknown): UsageWindow | n
   return { id, label, usedPercent: Math.min(100, Math.max(0, percent)), windowMinutes: null, resetsAt: Number.isFinite(resetsAt) ? resetsAt : null };
 }
 
+interface CommandCodeLimit {
+  used?: unknown;
+  cap?: unknown;
+  resetAt?: unknown;
+}
+
+function commandCodeLimitWindow(id: string, label: string, raw: CommandCodeLimit | null, windowMinutes: number): UsageWindow | null {
+  if (!raw) return null;
+  const used = Number(raw.used);
+  const cap = Number(raw.cap);
+  if (!Number.isFinite(used) || !Number.isFinite(cap) || cap <= 0) return null;
+  const resetRaw = Number(raw.resetAt);
+  const resetsAt = Number.isFinite(resetRaw) && resetRaw > 0
+    ? (resetRaw >= 1_000_000_000_000 ? Math.floor(resetRaw / 1000) : Math.floor(resetRaw))
+    : null;
+  return {
+    id,
+    label,
+    usedPercent: clampPercent((used / cap) * 100),
+    windowMinutes,
+    resetsAt
+  };
+}
+
+interface CommandCodeCredits {
+  monthlyCredits?: unknown;
+  purchasedCredits?: unknown;
+  freeCredits?: unknown;
+}
+
+function commandCodeCredits(raw: CommandCodeCredits | null): ProviderUsageCredits | null {
+  if (!raw) return null;
+  const monthly = creditCount(raw.monthlyCredits);
+  const purchased = creditCount(raw.purchasedCredits);
+  const free = creditCount(raw.freeCredits);
+  const total = [monthly, purchased, free].filter((value): value is number => value !== null).reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return null;
+  return {
+    hasCredits: true,
+    unlimited: false,
+    balance: String(total),
+    label: "Command Code Credits",
+    total,
+    used: null,
+    remaining: total
+  };
+}
+
+async function fetchCommandCode(entry: OAuthEntry): Promise<ProviderUsageResult> {
+  const displayName = "Command Code";
+  if (!entry.access) return errorResult("command-code", displayName, "missing_oauth", `${displayName} is not authenticated. Run: opencode auth login`);
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${entry.access}`,
+    Accept: "application/json"
+  };
+  const identity = await fetchJson("https://api.commandcode.ai/alpha/whoami", headers);
+  if (!identity) return errorResult("command-code", displayName, "fetch_failed", `${displayName} usage request failed (network)`, true);
+  if (identity.status === 401 || identity.status === 403) {
+    return errorResult("command-code", displayName, "reauth_required", `${displayName} authentication failed. Run: opencode auth login`);
+  }
+  if (!identity.ok) return errorResult("command-code", displayName, "fetch_failed", `${displayName} usage request failed (${identity.status})`, true);
+
+  const whoami = asRecord(identity.body);
+  const org = asRecord(whoami?.org);
+  const orgId = typeof org?.id === "string" ? org.id.trim() : "";
+  const creditsPath = orgId
+    ? `/alpha/billing/credits?orgId=${encodeURIComponent(orgId)}`
+    : "/alpha/billing/credits";
+  const response = await fetchJson(`https://api.commandcode.ai${creditsPath}`, headers);
+  if (!response) return errorResult("command-code", displayName, "fetch_failed", `${displayName} usage request failed (network)`, true);
+  if (response.status === 401 || response.status === 403) {
+    return errorResult("command-code", displayName, "reauth_required", `${displayName} authentication failed. Run: opencode auth login`);
+  }
+  if (!response.ok) return errorResult("command-code", displayName, "fetch_failed", `${displayName} usage request failed (${response.status})`, true);
+
+  const body = asRecord(response.body);
+  if (!body) return errorResult("command-code", displayName, "fetch_failed", `${displayName} usage request failed (empty response)`, true);
+
+  const limits = asRecord(body.windowLimits);
+  const fiveHour = commandCodeLimitWindow("5h", "5h", (limits?.fiveHour ?? null) as CommandCodeLimit | null, 5 * 60);
+  const weekly = commandCodeLimitWindow("weekly", "Weekly", (limits?.weekly ?? null) as CommandCodeLimit | null, 7 * 24 * 60);
+  const credits = commandCodeCredits(asRecord(body.credits) as CommandCodeCredits | null);
+  const windows = [fiveHour, weekly].filter((window): window is UsageWindow => window !== null);
+  if (windows.length === 0 && !credits) {
+    return errorResult("command-code", displayName, "fetch_failed", `${displayName} usage data could not be parsed`, true);
+  }
+  return {
+    provider: "command-code",
+    displayName,
+    status: "ok",
+    snapshot: { windows, credits, planType: null, updatedAt: Date.now() }
+  };
+}
+
 interface ProviderSpec {
   fetch: (entry: OAuthEntry) => Promise<ProviderUsageResult>;
 }
@@ -750,7 +846,8 @@ const PROVIDERS: Record<string, ProviderSpec> = {
   openai: { fetch: fetchChatgpt },
   anthropic: { fetch: fetchClaude },
   "github-copilot": { fetch: fetchCopilot },
-  "opencode-go": { fetch: fetchOpencodeGo }
+  "opencode-go": { fetch: fetchOpencodeGo },
+  "command-code": { fetch: fetchCommandCode }
 };
 
 const SNAPSHOT_MAX_AGE_MS = 15 * 60 * 1000;

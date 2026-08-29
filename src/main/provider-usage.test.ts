@@ -104,4 +104,57 @@ describe("provider usage from opencode store", () => {
     const results = await fetchProviderUsage();
     expect(results).toEqual([]);
   });
+
+  it("reports Command Code 5h and weekly windows plus credit balances", async () => {
+    mockDbRows([], [{ integration_id: "command-code", value: "cc-token", active: 1 }]);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ org: { id: "org-123" } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        windowLimits: {
+          fiveHour: { used: 12, cap: 100, resetAt: 1787000000 },
+          weekly: { used: 45, cap: 60, resetAt: 1787600000 }
+        },
+        credits: { monthlyCredits: 500, purchasedCredits: 20, freeCredits: 5 }
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await fetchProviderUsage();
+    const cc = results.find((result) => result.provider === "command-code");
+    expect(cc).toBeDefined();
+    expect(cc!.status).toBe("ok");
+    expect(cc!.snapshot?.windows.map((window) => [window.label, Math.round(window.usedPercent), window.windowMinutes])).toEqual([
+      ["5h", 12, 300], ["Weekly", 75, 10080]
+    ]);
+    expect(cc!.snapshot?.credits).toMatchObject({ label: "Command Code Credits", total: 525, remaining: 525 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.commandcode.ai/alpha/billing/credits?orgId=org-123",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer cc-token" }) })
+    );
+  });
+
+  it("uses the personal credits endpoint when Command Code has no org", async () => {
+    mockDbRows([], [{ integration_id: "command-code", value: "cc-token", active: 1 }]);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        windowLimits: { fiveHour: { used: 1, cap: 100, resetAt: 1787000000 } },
+        credits: {}
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await fetchProviderUsage();
+    const cc = results.find((result) => result.provider === "command-code");
+    expect(cc?.snapshot?.windows.map((window) => window.label)).toEqual(["5h"]);
+    expect(fetchMock.mock.calls[1][0]).toBe("https://api.commandcode.ai/alpha/billing/credits");
+  });
+
+  it("reports Command Code auth failure when the API rejects the token", async () => {
+    mockDbRows([], [{ integration_id: "command-code", value: "cc-token", active: 1 }]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 401 })));
+
+    const results = await fetchProviderUsage();
+    const cc = results.find((result) => result.provider === "command-code");
+    expect(cc?.status).toBe("unauthenticated");
+    expect(cc?.error?.code).toBe("reauth_required");
+  });
 });
