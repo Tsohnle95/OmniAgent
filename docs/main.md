@@ -126,7 +126,10 @@ Copilot's `copilot_internal/user` (credits/quota), OpenCode Go's
 utilization), and Command Code's `api.commandcode.ai` `/alpha/whoami` +
 `/alpha/billing/credits` (5h and weekly rate-limit windows plus
 monthly/purchased/free credit balances; org accounts resolve their
-`org.id` before querying credits). Tokens never leave the main process; the
+`org.id` before querying credits). Command Code also falls back to the
+`COMMAND_CODE_API_KEY` environment variable when no auth-store credential
+exists, so config-file providers (`apiKey: "{env:COMMAND_CODE_API_KEY}"`)
+work without an auth login. Tokens never leave the main process; the
 renderer only receives normalized provider snapshots.
 
 Internals:

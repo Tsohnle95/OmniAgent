@@ -793,7 +793,9 @@ function commandCodeCredits(raw: CommandCodeCredits | null): ProviderUsageCredit
 
 async function fetchCommandCode(entry: OAuthEntry): Promise<ProviderUsageResult> {
   const displayName = "Command Code";
-  if (!entry.access) return errorResult("command-code", displayName, "missing_oauth", `${displayName} is not authenticated. Run: opencode auth login`);
+  if (!entry.access) {
+    return errorResult("command-code", displayName, "missing_oauth", `${displayName} is not authenticated. Set COMMAND_CODE_API_KEY or run: opencode auth login`);
+  }
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${entry.access}`,
@@ -840,6 +842,7 @@ async function fetchCommandCode(entry: OAuthEntry): Promise<ProviderUsageResult>
 
 interface ProviderSpec {
   fetch: (entry: OAuthEntry) => Promise<ProviderUsageResult>;
+  envKey?: string;
 }
 
 const PROVIDERS: Record<string, ProviderSpec> = {
@@ -847,7 +850,7 @@ const PROVIDERS: Record<string, ProviderSpec> = {
   anthropic: { fetch: fetchClaude },
   "github-copilot": { fetch: fetchCopilot },
   "opencode-go": { fetch: fetchOpencodeGo },
-  "command-code": { fetch: fetchCommandCode }
+  "command-code": { fetch: fetchCommandCode, envKey: "COMMAND_CODE_API_KEY" }
 };
 
 const SNAPSHOT_MAX_AGE_MS = 15 * 60 * 1000;
@@ -894,7 +897,9 @@ export async function fetchProviderUsage(): Promise<ProviderUsageResult[]> {
   const auth = await readOAuthEntries();
   const results: ProviderUsageResult[] = [];
   for (const [provider, spec] of Object.entries(PROVIDERS)) {
-    const entry = auth[provider];
+    const entry = auth[provider] ?? (spec.envKey && process.env[spec.envKey]
+      ? { type: "oauth", access: process.env[spec.envKey] }
+      : null);
     if (!entry) continue;
     results.push(await spec.fetch(entry));
   }
