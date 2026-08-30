@@ -1162,12 +1162,23 @@
 [data-component="session-turn"] [data-slot="session-turn-assistant-content"],
 [data-component="assistant-activity-stack"] { position: relative; }
 [data-component="turn-actions"] {
-  display: none;
-  height: 0;
-  overflow: visible;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 6;
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
 .opencode-row:hover [data-component="turn-actions"],
-[data-component="turn-actions"]:focus-within { display: block; }
+[data-component="turn-actions"]:focus-within {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.15s ease;
+}
 .turn-action { position: relative; top: 1px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0.5px solid var(--v2-border-border-base); border-radius: 5px; background: var(--v2-background-bg-base); color: var(--v2-text-text-muted); font-size: 11px; cursor: pointer; }
 .turn-action:hover { background: var(--v2-background-bg-layer-01); color: var(--v2-text-text-base); }
 
