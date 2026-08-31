@@ -178,14 +178,14 @@ function ReasoningPart({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span data-slot="reasoning-part-title">Thought</span>
+        <span data-slot="reasoning-part-title">{active ? <TextShimmer text="Thinking" tone="thinking" /> : "Thought"}</span>
         {summary && <span data-slot="reasoning-part-separator" aria-hidden="true" />}
         {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
         <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
       </button>
       {open && (
-        <div data-slot="reasoning-part-content" id={contentID} onClick={() => setOpen(false)}>
-          {part.text}
+        <div data-slot="reasoning-part-content" id={contentID}>
+          <Markdown text={part.text} streaming={active} />
         </div>
       )}
     </div>
@@ -225,7 +225,16 @@ function parseInput(value: string | undefined): Record<string, unknown> {
       ? parsed as Record<string, unknown>
       : {};
   } catch {
-    return {};
+    const partial: Record<string, string> = {};
+    for (const field of ["command", "filePath", "file_path", "path", "pattern", "query", "url", "description", "prompt"]) {
+      const match = new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)`).exec(value);
+      if (!match) continue;
+      partial[field] = match[1]
+        .replace(/\\n/g, "\n")
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\");
+    }
+    return partial;
   }
 }
 
@@ -505,11 +514,65 @@ function latestVisibleLine(text: string): string {
   return line.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1");
 }
 
+function formatDuration(duration: number): string {
+  const seconds = Math.max(0, Math.floor(duration / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
+}
+
+function useElapsed(startedAt: number | undefined, active: boolean): string {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active || !startedAt) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active, startedAt]);
+  return startedAt ? formatDuration(Math.max(0, now - startedAt)) : "";
+}
+
+function toolActivityTitle(tool: ToolCallView): string {
+  const name = toolKey(tool.title);
+  if (name === "read") return "Reading";
+  if (name === "list") return "Listing files";
+  if (name === "glob") return "Finding files";
+  if (name === "grep") return "Searching code";
+  if (name === "webfetch") return "Fetching page";
+  if (name === "websearch") return "Searching the web";
+  if (name === "bash" || name === "shell") return "Running command";
+  if (name === "edit") return "Editing file";
+  if (name === "write") return "Writing file";
+  if (name === "patch" || name === "applypatch") return "Applying changes";
+  if (name === "task" || name === "subagent") return "Delegating task";
+  if (name === "question") return "Waiting for input";
+  const title = titleCase(tool.title);
+  return title === "Tool" ? "Using tool" : `Using ${title}`;
+}
+
+function progressText(progress: string): string {
+  const direct = progress.trim();
+  if (!direct) return "";
+  try {
+    const value = JSON.parse(direct) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return direct;
+    const record = value as Record<string, unknown>;
+    for (const key of ["message", "status", "detail", "phase", "title"]) {
+      if (typeof record[key] === "string" && record[key]) return record[key];
+    }
+  } catch {
+    return direct;
+  }
+  return direct;
+}
+
 function liveActivity(transcript: TranscriptItem[], statusText: string | null | undefined): {
   kind: "reasoning" | "tool" | "text" | "shell" | "working";
   title: string;
   detail: string;
   state: "running" | "complete" | "failed";
+  startedAt?: number;
 } {
   for (let itemIndex = transcript.length - 1; itemIndex >= 0; itemIndex -= 1) {
     const item = transcript[itemIndex];
@@ -525,11 +588,17 @@ function liveActivity(transcript: TranscriptItem[], statusText: string | null | 
     if (item.kind !== "assistant") continue;
     for (let partIndex = item.parts.length - 1; partIndex >= 0; partIndex -= 1) {
       const part = item.parts[partIndex];
-      if (part.kind === "reasoning" && part.text.trim()) {
-        return { kind: "reasoning", title: "Thinking", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
+      if (part.kind === "reasoning") {
+        if (part.text.trim()) {
+          return { kind: "reasoning", title: "Thinking", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
+        }
+        if (!part.complete) return { kind: "reasoning", title: "Thinking", detail: "", state: "running" };
       }
-      if (part.kind === "text" && part.text.trim()) {
-        return { kind: "text", title: "Writing response", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
+      if (part.kind === "text") {
+        if (part.text.trim()) {
+          return { kind: "text", title: "Writing response", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
+        }
+        if (!part.complete) return { kind: "text", title: "Writing response", detail: "", state: "running" };
       }
       if (part.kind === "tool") {
         const presentation = toolPresentation(part.tool);
@@ -538,12 +607,19 @@ function liveActivity(transcript: TranscriptItem[], statusText: string | null | 
           return {
             kind: "tool",
             title: state === "failed" ? "Action failed" : "Working with tools",
-            detail: "",
-            state: state === "failed" ? "failed" : "running"
+            detail: part.tool.progress ? progressText(part.tool.progress) : "",
+            state: state === "failed" ? "failed" : "running",
+            startedAt: part.tool.startedAt
           };
         }
-        const verb = state === "running" ? presentation.title : state === "failed" ? `${presentation.title} failed` : `${presentation.title} complete`;
-        return { kind: "tool", title: verb, detail: presentation.subtitle, state };
+        const title = state === "running" ? toolActivityTitle(part.tool) : state === "failed" ? `${presentation.title} failed` : `${presentation.title} complete`;
+        return {
+          kind: "tool",
+          title,
+          detail: part.tool.progress && state === "running" ? progressText(part.tool.progress) : presentation.subtitle,
+          state,
+          startedAt: part.tool.startedAt
+        };
       }
     }
   }
@@ -561,13 +637,18 @@ export const OpenCodeLiveActivity = memo(function OpenCodeLiveActivity({
   statusText?: string | null;
 }): ReactNode {
   const activity = useMemo(() => liveActivity(transcript, statusText), [transcript, statusText]);
-  const label = activity.kind === "reasoning" || statusText?.toLowerCase() === "thinking" ? "Thinking" : "Working";
+  const elapsed = useElapsed(activity.startedAt, busy && activity.state === "running");
   return (
     <div data-component="live-activity-dock" data-visible={busy ? "true" : "false"} aria-hidden={!busy}>
       <div data-component="live-activity" data-kind={activity.kind} data-state={activity.state} role="status" aria-live="polite">
+        <span data-slot="live-activity-indicator" aria-hidden="true">
+          <span data-slot="live-activity-pulse" />
+        </span>
         <div data-slot="live-activity-copy">
-          <div data-slot="live-activity-title"><TextShimmer text={label} tone="thinking" /></div>
+          <div data-slot="live-activity-title"><TextShimmer text={activity.title} tone="thinking" /></div>
+          {activity.detail && <div data-slot="live-activity-detail" title={activity.detail}>{activity.detail}</div>}
         </div>
+        {elapsed && <span data-slot="live-activity-time">{elapsed}</span>}
       </div>
     </div>
   );
@@ -717,6 +798,7 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
                 </div>
               </div>
             </div>
+            <ToolState tool={tool} />
             {expandable && <span data-slot="collapsible-arrow" className="codicon codicon-chevron-down" />}
           </div>
         </button>
@@ -739,6 +821,22 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
         )}
       </div>
     </div>
+  );
+}
+
+function ToolState({ tool }: { tool: ToolCallView }): ReactNode {
+  const label = tool.status === "running"
+    ? "Running"
+    : tool.status === "failed"
+      ? "Failed"
+      : tool.duration !== undefined
+        ? formatDuration(tool.duration)
+        : "Done";
+  return (
+    <span data-slot="tool-state" data-state={tool.status}>
+      {tool.status === "running" && <span data-slot="tool-state-pulse" aria-hidden="true" />}
+      {label}
+    </span>
   );
 }
 
@@ -935,6 +1033,13 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
     }];
   }) : [];
   const expandable = input.length > 0 || output.length > 0 || files.length > 0 || subCalls.length > 0;
+  const autoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (autoExpandedRef.current || (!output && tool.status !== "failed")) return;
+    if (tool.status !== "running" && tool.status !== "failed") return;
+    autoExpandedRef.current = true;
+    setOpen(true);
+  }, [output, tool.status]);
   const displayInput = input.length > OUTPUT_LIMIT ? `${input.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : input;
   const displayOutput = output.length > OUTPUT_LIMIT ? `${output.slice(0, OUTPUT_LIMIT)}\n… (truncated)` : output;
   const activateSubtitle = (): void => {
@@ -982,11 +1087,12 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
                 </div>
               </div>
             </div>
+            <ToolState tool={tool} />
             {expandable && <span data-slot="collapsible-arrow" className="codicon codicon-chevron-down" />}
           </div>
         </button>
         {tool.progress && tool.status === "running" && (
-          <div data-slot="tool-progress">{tool.progress}</div>
+          <div data-slot="tool-progress"><TextShimmer text={progressText(tool.progress)} /></div>
         )}
         {expandable && open && (
           <div data-slot="collapsible-content">
@@ -994,14 +1100,14 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
               <div data-component="tool-io">
                 {input && (
                   <div data-component="tool-io-section">
-                    <span data-slot="tool-io-label">IN</span>
+                    <span data-slot="tool-io-label">{["bash", "shell"].includes(toolKey(tool.title)) ? "COMMAND" : "IN"}</span>
                     <pre data-slot="tool-io-text">{displayInput}</pre>
                   </div>
                 )}
                 {input && output && <span data-slot="tool-io-divider" />}
                 {output && (
                   <div data-component="tool-io-section">
-                    <span data-slot="tool-io-label">OUT</span>
+                    <span data-slot="tool-io-label">{["bash", "shell"].includes(toolKey(tool.title)) ? "OUTPUT" : "OUT"}</span>
                     <pre data-slot="tool-io-text" data-error={tool.status === "failed" ? "true" : undefined}>{displayOutput}</pre>
                   </div>
                 )}
