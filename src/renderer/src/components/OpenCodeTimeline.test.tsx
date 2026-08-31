@@ -290,6 +290,21 @@ describe("OpenCodeTimeline chronology", () => {
     expect(container.querySelector("[data-slot='live-activity-detail']")?.textContent).toBe("npm run type");
   });
 
+  it("falls back to turn elapsed time when the active call has no start timestamp", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T12:00:30.000Z"));
+    const running = toolAssistant("tool-live", "tool", {}) as Extract<TranscriptItem, { kind: "assistant" }>;
+    running.completed = false;
+    const part = running.parts[0];
+    if (part.kind === "tool") part.tool.status = "running";
+
+    act(() => root.render(<OpenCodeLiveActivity transcript={[running]} busy turnStartedAt={Date.now() - 30_000} />));
+
+    expect(container.querySelector("[data-slot='live-activity-title'] [data-component='text-shimmer']")?.getAttribute("aria-label")).toBe("Running tool call");
+    expect(container.querySelector("[data-slot='live-activity-detail']")?.textContent).toBe("Waiting for tool details");
+    expect(container.querySelector("[data-slot='live-activity-time']")?.textContent).toBe("30s");
+  });
+
   it("renders reasoning blocks independently in their assistant node", () => {
     const transcript: TranscriptItem[] = [{
       kind: "assistant",
@@ -416,7 +431,7 @@ describe("OpenCodeTimeline chronology", () => {
     }];
     act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
 
-    expect(container.querySelector("[data-slot='basic-tool-tool-title']")?.textContent).toBe("Tool");
+    expect(container.querySelector("[data-slot='basic-tool-tool-title']")?.textContent).toBe("Tool call");
     expect(container.textContent).not.toContain("limit=40");
     expect(container.textContent).not.toContain("content=private");
     expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")?.getAttribute("title")).toBe("a very long diagnostic detail");
@@ -450,6 +465,22 @@ describe("OpenCodeTimeline chronology", () => {
     expect(container.querySelector("[data-slot='collapsible-content']")).not.toBeNull();
     expect([...container.querySelectorAll("[data-slot='tool-io-label']")].map((node) => node.textContent)).toEqual(["COMMAND", "OUTPUT"]);
     expect(container.querySelector("[data-slot='tool-io-text']")?.textContent).toBe(JSON.stringify({ command: "npm test" }, null, 2));
+  });
+
+  it("keeps failed calls compact while surfacing their error inline", () => {
+    const failed = toolAssistant("tool", "tool", { path: "/repo/source b", limit: 2000 }) as Extract<TranscriptItem, { kind: "assistant" }>;
+    const part = failed.parts[0];
+    if (part.kind === "tool") {
+      part.tool.status = "failed";
+      part.tool.output = "File not found: /repo/source b";
+    }
+
+    act(() => root.render(<OpenCodeTimeline transcript={[failed]} busy={false} lastAssistantId={null} />));
+
+    expect(container.querySelector("[data-slot='basic-tool-tool-title']")?.textContent).toBe("Inspect");
+    expect(container.querySelector("[data-slot='tool-state']")?.textContent).toContain("Failed");
+    expect(container.querySelector("[data-slot='tool-error-summary']")?.textContent).toBe("File not found: /repo/source b");
+    expect(container.querySelector("[data-slot='collapsible-content']")).toBeNull();
   });
 
   it.each(events)("keeps an interleaved %s event between assistant runs", (_name, event, row) => {
@@ -489,17 +520,28 @@ describe("OpenCodeTimeline chronology", () => {
     expect(note?.querySelector("[data-slot='session-note-text']")?.textContent).toBe("Interrupted");
   });
 
-  it("renders every context tool instead of replacing them with an exploring summary", () => {
+  it("summarizes contiguous completed exploration while retaining expandable call details", () => {
     const read = toolAssistant("read", "read", { filePath: "/repo/src/main.ts" }) as Extract<TranscriptItem, { kind: "assistant" }>;
     const grep = toolAssistant("grep", "grep", { pattern: "stream", path: "/repo/src" }) as Extract<TranscriptItem, { kind: "assistant" }>;
     const transcript: TranscriptItem[] = [{ ...read, parts: [...read.parts, ...grep.parts] }];
     act(() => root.render(<OpenCodeTimeline transcript={transcript} busy={false} lastAssistantId={null} />));
 
-    const titles = [...container.querySelectorAll("[data-slot='basic-tool-tool-title']")]
-      .map((node) => node.textContent);
+    expect(container.querySelector("[data-slot='context-tool-title']")?.textContent).toBe("Explored 2 items");
+    expect(container.querySelector("[data-slot='context-tool-preview']")?.textContent).toContain("main.ts");
+    expect(container.querySelector("[data-slot='context-tool-list']")).toBeNull();
+
+    act(() => container.querySelector<HTMLButtonElement>("[data-slot='context-tool-trigger']")!.click());
+
+    const titles = [...container.querySelectorAll("[data-slot='basic-tool-tool-title']")].map((node) => node.textContent);
     expect(titles).toEqual(["Read", "Grep"]);
-    expect(container.textContent).not.toContain("Exploring");
-    expect(container.textContent).not.toContain("Explored");
+  });
+
+  it("infers an inspect call and target from a generic path-shaped tool record", () => {
+    const generic = toolAssistant("tool", "tool", { path: "/repo/source b", limit: 2000 }) as Extract<TranscriptItem, { kind: "assistant" }>;
+    act(() => root.render(<OpenCodeTimeline transcript={[generic]} busy={false} lastAssistantId={null} />));
+
+    expect(container.querySelector("[data-slot='basic-tool-tool-title']")?.textContent).toBe("Inspect");
+    expect(container.querySelector("[data-slot='basic-tool-tool-subtitle']")?.textContent).toBe("/repo/source b");
   });
 });
 

@@ -266,6 +266,27 @@ function toolKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
 
+function toolInput(tool: ToolCallView): Record<string, unknown> {
+  if (tool.inputValue && typeof tool.inputValue === "object" && !Array.isArray(tool.inputValue)) {
+    return tool.inputValue as Record<string, unknown>;
+  }
+  return parseInput(tool.input);
+}
+
+function effectiveToolKey(tool: ToolCallView): string {
+  const explicit = toolKey(tool.title);
+  if (explicit && explicit !== "tool") return explicit;
+  const input = toolInput(tool);
+  if (typeof input.command === "string") return "shell";
+  if (typeof input.filePath === "string" || typeof input.file_path === "string") return "read";
+  if (typeof input.pattern === "string") return "grep";
+  if (typeof input.query === "string") return "search";
+  if (typeof input.url === "string") return "webfetch";
+  if (typeof input.path === "string") return "inspect";
+  if (typeof input.prompt === "string" || typeof input.description === "string") return "task";
+  return explicit || "tool";
+}
+
 interface SubagentRef {
   id: string;
   agent: string;
@@ -445,13 +466,13 @@ function consolidateSubagentTools(
 }
 
 function toolPresentation(tool: ToolCallView): { title: string; subtitle: string; path?: string } {
-  const name = toolKey(tool.title);
-  const input = parseInput(tool.input);
+  const name = effectiveToolKey(tool);
+  const input = toolInput(tool);
   const native = tool.metadata?.deepseek;
   const nativeRecord = native && typeof native === "object" && !Array.isArray(native) ? native as Record<string, unknown> : null;
   const rawView = nativeRecord?.resultView ?? nativeRecord?.callView;
   const view = rawView && typeof rawView === "object" && !Array.isArray(rawView) ? rawView as Record<string, unknown> : null;
-  let title = titleCase(tool.title);
+  let title = name === "tool" ? "Tool call" : titleCase(tool.title);
   let subtitle = tool.detail.replace(/^\$\s*/, "");
   let path: string | undefined;
   if (name === "read") {
@@ -462,6 +483,10 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
     title = "List";
     path = typeof input.path === "string" ? input.path : tool.paths?.[0];
     subtitle = fileName(path);
+  } else if (name === "inspect") {
+    title = "Inspect";
+    path = typeof input.path === "string" ? input.path : tool.paths?.[0];
+    subtitle = typeof path === "string" ? path : subtitle;
   } else if (name === "glob") {
     title = "Glob";
     subtitle = typeof input.pattern === "string" ? input.pattern : subtitle;
@@ -471,7 +496,7 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   } else if (name === "webfetch") {
     title = "Webfetch";
     subtitle = typeof input.url === "string" ? input.url : subtitle;
-  } else if (name === "websearch") {
+  } else if (name === "websearch" || name === "search") {
     title = "Web Search";
     subtitle = typeof input.query === "string" ? input.query : subtitle;
   } else if (name === "task") {
@@ -534,13 +559,14 @@ function useElapsed(startedAt: number | undefined, active: boolean): string {
 }
 
 function toolActivityTitle(tool: ToolCallView): string {
-  const name = toolKey(tool.title);
+  const name = effectiveToolKey(tool);
   if (name === "read") return "Reading";
   if (name === "list") return "Listing files";
   if (name === "glob") return "Finding files";
   if (name === "grep") return "Searching code";
+  if (name === "inspect") return "Inspecting path";
   if (name === "webfetch") return "Fetching page";
-  if (name === "websearch") return "Searching the web";
+  if (name === "websearch" || name === "search") return "Searching";
   if (name === "bash" || name === "shell") return "Running command";
   if (name === "edit") return "Editing file";
   if (name === "write") return "Writing file";
@@ -548,7 +574,7 @@ function toolActivityTitle(tool: ToolCallView): string {
   if (name === "task" || name === "subagent") return "Delegating task";
   if (name === "question") return "Waiting for input";
   const title = titleCase(tool.title);
-  return title === "Tool" ? "Using tool" : `Using ${title}`;
+  return title === "Tool" ? "Running tool call" : `Using ${title}`;
 }
 
 function progressText(progress: string): string {
@@ -603,11 +629,11 @@ function liveActivity(transcript: TranscriptItem[], statusText: string | null | 
       if (part.kind === "tool") {
         const presentation = toolPresentation(part.tool);
         const state = part.tool.status === "running" ? "running" : part.tool.status === "failed" ? "failed" : "complete";
-        if (presentation.title === "Tool" && !presentation.subtitle) {
+        if (presentation.title === "Tool call" && !presentation.subtitle) {
           return {
             kind: "tool",
-            title: state === "failed" ? "Action failed" : "Working with tools",
-            detail: part.tool.progress ? progressText(part.tool.progress) : "",
+            title: state === "failed" ? "Tool call failed" : "Running tool call",
+            detail: part.tool.progress ? progressText(part.tool.progress) : "Waiting for tool details",
             state: state === "failed" ? "failed" : "running",
             startedAt: part.tool.startedAt
           };
@@ -630,14 +656,16 @@ function liveActivity(transcript: TranscriptItem[], statusText: string | null | 
 export const OpenCodeLiveActivity = memo(function OpenCodeLiveActivity({
   transcript,
   busy,
-  statusText
+  statusText,
+  turnStartedAt
 }: {
   transcript: TranscriptItem[];
   busy: boolean;
   statusText?: string | null;
+  turnStartedAt?: number | null;
 }): ReactNode {
   const activity = useMemo(() => liveActivity(transcript, statusText), [transcript, statusText]);
-  const elapsed = useElapsed(activity.startedAt, busy && activity.state === "running");
+  const elapsed = useElapsed(activity.startedAt ?? turnStartedAt ?? undefined, busy && activity.state === "running");
   return (
     <div data-component="live-activity-dock" data-visible={busy ? "true" : "false"} aria-hidden={!busy}>
       <div data-component="live-activity" data-kind={activity.kind} data-state={activity.state} role="status" aria-live="polite">
@@ -825,6 +853,7 @@ function EditToolCard({ tool, session }: { tool: ToolCallView; session: SessionI
 }
 
 function ToolState({ tool }: { tool: ToolCallView }): ReactNode {
+  if (tool.status === "success" && (tool.duration === undefined || tool.duration < 1000)) return null;
   const label = tool.status === "running"
     ? "Running"
     : tool.status === "failed"
@@ -1035,8 +1064,7 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   const expandable = input.length > 0 || output.length > 0 || files.length > 0 || subCalls.length > 0;
   const autoExpandedRef = useRef(false);
   useEffect(() => {
-    if (autoExpandedRef.current || (!output && tool.status !== "failed")) return;
-    if (tool.status !== "running" && tool.status !== "failed") return;
+    if (autoExpandedRef.current || !output || tool.status !== "running") return;
     autoExpandedRef.current = true;
     setOpen(true);
   }, [output, tool.status]);
@@ -1054,7 +1082,7 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
   if (toolKey(tool.title) === "task" || toolKey(tool.title) === "subagent") return <TaskTool tool={tool} session={session} />;
 
   return (
-    <div data-component="tool-part-wrapper" data-tool={toolKey(tool.title)} data-status={tool.status} data-timeline-part-id={tool.id}>
+    <div data-component="tool-part-wrapper" data-tool={effectiveToolKey(tool)} data-status={tool.status} data-timeline-part-id={tool.id}>
       <div className="tool-collapsible" data-expanded={open ? "true" : undefined}>
         <button
           data-slot="collapsible-trigger"
@@ -1091,6 +1119,9 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
             {expandable && <span data-slot="collapsible-arrow" className="codicon codicon-chevron-down" />}
           </div>
         </button>
+        {tool.status === "failed" && output && (
+          <div data-slot="tool-error-summary" title={output}>{output.trim().split("\n", 1)[0]}</div>
+        )}
         {tool.progress && tool.status === "running" && (
           <div data-slot="tool-progress"><TextShimmer text={progressText(tool.progress)} /></div>
         )}
@@ -1100,14 +1131,14 @@ function ToolPart({ tool, session }: { tool: ToolCallView; session: SessionInfo 
               <div data-component="tool-io">
                 {input && (
                   <div data-component="tool-io-section">
-                    <span data-slot="tool-io-label">{["bash", "shell"].includes(toolKey(tool.title)) ? "COMMAND" : "IN"}</span>
+                    <span data-slot="tool-io-label">{["bash", "shell"].includes(effectiveToolKey(tool)) ? "COMMAND" : "IN"}</span>
                     <pre data-slot="tool-io-text">{displayInput}</pre>
                   </div>
                 )}
                 {input && output && <span data-slot="tool-io-divider" />}
                 {output && (
                   <div data-component="tool-io-section">
-                    <span data-slot="tool-io-label">{["bash", "shell"].includes(toolKey(tool.title)) ? "OUTPUT" : "OUT"}</span>
+                    <span data-slot="tool-io-label">{["bash", "shell"].includes(effectiveToolKey(tool)) ? "OUTPUT" : "OUT"}</span>
                     <pre data-slot="tool-io-text" data-error={tool.status === "failed" ? "true" : undefined}>{displayOutput}</pre>
                   </div>
                 )}
@@ -1172,6 +1203,57 @@ function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }>
   );
 }
 
+type ActivityPart = Exclude<AssistantPart, { kind: "text" }>;
+type ActivityEntry = ActivityPart | { kind: "context-group"; id: string; tools: ToolCallView[] };
+
+function isCompletedContextPart(part: ActivityPart): part is Extract<ActivityPart, { kind: "tool" }> {
+  return part.kind === "tool" && part.tool.status === "success" && ["read", "list", "glob", "grep", "inspect"].includes(effectiveToolKey(part.tool));
+}
+
+function groupContextParts(parts: ActivityPart[]): ActivityEntry[] {
+  const grouped: ActivityEntry[] = [];
+  let index = 0;
+  while (index < parts.length) {
+    const part = parts[index];
+    if (!isCompletedContextPart(part)) {
+      grouped.push(part);
+      index += 1;
+      continue;
+    }
+    const context: Extract<ActivityPart, { kind: "tool" }>[] = [part];
+    let cursor = index + 1;
+    while (cursor < parts.length && isCompletedContextPart(parts[cursor])) {
+      context.push(parts[cursor] as Extract<ActivityPart, { kind: "tool" }>);
+      cursor += 1;
+    }
+    if (context.length < 2) grouped.push(...context);
+    else grouped.push({ kind: "context-group", id: `context:${context[0].id}`, tools: context.map((entry) => entry.tool) });
+    index = cursor;
+  }
+  return grouped;
+}
+
+function ContextToolGroup({ tools, session }: { tools: ToolCallView[]; session: SessionInfo | null }): ReactNode {
+  const [open, setOpen] = useState(false);
+  const labels = [...new Set(tools.map((tool) => toolPresentation(tool).subtitle).filter(Boolean))];
+  const preview = labels.slice(0, 3).join(", ");
+  const remaining = Math.max(0, labels.length - 3);
+  return (
+    <div data-component="context-tool-group" data-expanded={open ? "true" : undefined}>
+      <button data-slot="context-tool-trigger" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <span data-slot="context-tool-title">Explored {tools.length} {tools.length === 1 ? "item" : "items"}</span>
+        {preview && <span data-slot="context-tool-preview" title={labels.join(", ")}>{preview}{remaining ? ` +${remaining}` : ""}</span>}
+        <span data-slot="collapsible-arrow" className="codicon codicon-chevron-down" />
+      </button>
+      {open && (
+        <div data-slot="context-tool-list">
+          {tools.map((tool) => <ToolPart tool={tool} session={session} key={tool.id} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AssistantNode({
   item,
   streaming,
@@ -1231,7 +1313,15 @@ function AssistantNode({
     rows.push(
       <TimelineRow tag="AssistantActivity" previous={previous} key={`${item.id}:activity:${group.entries[0]?.id ?? rows.length}`}>
         <div data-slot="session-turn-assistant-content" data-component="assistant-activity-stack">
-          {group.entries.map((part) => {
+          {groupContextParts(group.entries).map((part) => {
+            if (part.kind === "context-group") {
+              return (
+                <div data-component="assistant-activity-entry" data-kind="context" data-state="complete" key={part.id}>
+                  <span data-slot="assistant-activity-marker" aria-hidden="true"><span className="codicon codicon-check" /></span>
+                  <div data-slot="assistant-activity-content"><ContextToolGroup tools={part.tools} session={session} /></div>
+                </div>
+              );
+            }
             const running = part.kind === "reasoning"
               ? streaming && part.id === lastPart?.id && !part.complete
               : part.tool.status === "running";

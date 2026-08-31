@@ -1497,6 +1497,7 @@ export function AgentPanel({
         transcript={transcript}
         busy={busy}
         statusText={assistantStatus?.statusText}
+        turnStartedAt={turnStartedAt}
       />
 
       <div data-component="session-prompt-dock">
