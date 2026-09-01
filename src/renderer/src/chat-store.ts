@@ -1,4 +1,5 @@
 import type { AssistantPartView, TranscriptItem } from "@shared/types";
+import { formatFailure, normalizeFailure } from "@shared/errors";
 import { partFromProjection, type ChatStreamEvent } from "./chat-stream";
 import { Binary } from "./binary";
 
@@ -111,13 +112,8 @@ function toolPartID(messageID: string, callID: string): string {
   return `${messageID}:tool:${callID}`;
 }
 
-function errorText(error: unknown): string {
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object") {
-    const value = error as Record<string, unknown>;
-    if (typeof value.message === "string") return value.message;
-  }
-  return error == null ? "" : String(error);
+function errorText(error: unknown, fallbackCode = "ORBIT_RUNTIME_FAILURE", fallbackMessage = "Operation failed"): string {
+  return formatFailure(error, fallbackCode, fallbackMessage);
 }
 
 export interface RateLimitAction {
@@ -212,6 +208,28 @@ function setChatSessionStatus(draft: ChatDirectoryState, sessionID: string, stat
   return true;
 }
 
+function failLatestIncomplete(
+  draft: ChatDirectoryState,
+  sessionID: string,
+  error: unknown,
+  fallbackCode: string,
+  fallbackMessage: string
+): boolean {
+  const messages = draft.message[sessionID];
+  if (!messages) return false;
+  const failure = normalizeFailure(error, fallbackCode, fallbackMessage);
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "assistant") continue;
+    if (message.time?.completed || message.finish) continue;
+    const next = [...messages];
+    next[index] = { ...message, time: { ...message.time, completed: Date.now() }, error: failure };
+    draft.message[sessionID] = next;
+    return true;
+  }
+  return false;
+}
+
 function areJsonEquivalent(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (left === undefined || right === undefined) return left === right;
@@ -245,7 +263,7 @@ function retryRecord(value: unknown): ChatMessageRecord["retry"] | undefined {
   if (!value || typeof value !== "object") return undefined;
   const raw = value as Record<string, unknown>;
   const attempt = Number(raw.attempt ?? 1);
-  const message = errorText((raw as { error?: unknown }).error) || "Retrying";
+  const message = errorText((raw as { error?: unknown }).error, "ORBIT_RETRY_SCHEDULED", "Retrying");
   const next = Number(raw.at ?? 0) || undefined;
   return { attempt, message, ...(next !== undefined ? { next } : {}) };
 }
@@ -446,7 +464,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         : raw?.type === "idle"
           ? { type: "idle" }
           : raw?.type === "retry"
-            ? { type: "retry", attempt: Number(raw.attempt ?? 1), message: String(raw.message ?? "Retrying"), next: Number(raw.next ?? 0) }
+            ? { type: "retry", attempt: Number(raw.attempt ?? 1), message: formatFailure(raw.message, "ORBIT_RETRY_SCHEDULED", "Retrying"), next: Number(raw.next ?? 0) }
             : raw?.type === "error"
               ? { type: "error" }
               : null;
@@ -463,11 +481,8 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       return true;
     }
     case "session.error": {
-      const completed = completeLatestIncomplete(draft, sessionID);
-      const status: ChatSessionStatus = { type: "idle" };
-      if (!completed && areSessionStatusesEqual(draft.session_status[sessionID], status)) return false;
-      draft.session_status = { ...draft.session_status, [sessionID]: status };
-      return true;
+      const failed = failLatestIncomplete(draft, sessionID, data.error, "ORBIT_SESSION_ERROR", "Session failed");
+      return setChatSessionStatus(draft, sessionID, { type: "error" }) || failed;
     }
     case "message.updated": {
       const info = (data.info ?? data) as Record<string, any>;
@@ -641,7 +656,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         sessionID,
         role: "assistant",
         time: { created: event.created, completed: event.created },
-        error: { message: errorText(data.error) || "Step failed" }
+        error: normalizeFailure(data.error, "ORBIT_STEP_FAILED", "Step failed")
       });
       setChatSessionStatus(draft, sessionID, { type: "error" });
       return true;
@@ -882,7 +897,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
       if (!messageID) return false;
       const retry = {
         attempt: Number(data.attempt ?? 1),
-        message: errorText(data.error) || "Retrying",
+        message: errorText(data.error, "ORBIT_RETRY_SCHEDULED", "Retrying"),
         next: Number(data.at ?? data.next ?? 0) || undefined
       };
       setChatSessionStatus(draft, sessionID, {
@@ -910,8 +925,10 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
     }
     case "session.execution.failed":
     case "session.execution.interrupted": {
-      const completed = completeLatestIncomplete(draft, sessionID);
-      return setChatSessionStatus(draft, sessionID, { type: "error" }) || completed;
+      const failed = event.type === "session.execution.failed"
+        ? failLatestIncomplete(draft, sessionID, data.error, "ORBIT_EXECUTION_FAILED", "Execution failed")
+        : completeLatestIncomplete(draft, sessionID);
+      return setChatSessionStatus(draft, sessionID, { type: "error" }) || failed;
     }
     default:
       return false;
@@ -971,12 +988,12 @@ export function projectAssistantItems(draft: ChatDirectoryState, sessionID: stri
       id: message.id,
       messageID: message.id,
       parts,
-      completed: Boolean(message.time?.completed ?? message.finish),
+      completed: Boolean(message.time?.completed ?? message.finish ?? (message.error && !message.retry)),
       ...(retry && typeof retry === "object"
         ? {
             retry: {
               attempt: Number((retry as Record<string, unknown>).attempt ?? 1),
-              message: String((retry as Record<string, unknown>).message ?? "Retrying"),
+              message: formatFailure((retry as Record<string, unknown>).message, "ORBIT_RETRY_SCHEDULED", "Retrying"),
               next: Number((retry as Record<string, unknown>).next ?? 0) || undefined
             }
           }

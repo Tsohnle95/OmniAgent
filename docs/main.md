@@ -47,7 +47,7 @@ Public methods (all used by IPC):
 | Method | Purpose |
 |---|---|
 | `connect()` | `Service.discover()` → `Service.ensure({command:["opencode2","serve","--service"]})` → `OpenCode.make` |
-| `start()` | Start the SSE event loop if one is not already running |
+| `start()` | Start the SSE event loop if one is not already running; unexpected loop failures are forwarded as structured `global.error` events |
 | `stop()` | Abort and invalidate the active SSE loop lifecycle, then stop every context's fs watcher |
 | `onMessage(cb)` | Subscribe to outbound messages; returns unsubscribe |
 | `beginActivation(requestGeneration)` | Accept a renderer user action before native dialog/backend awaits and return a fresh backend generation token |
@@ -64,7 +64,7 @@ Public methods (all used by IPC):
 | `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
 | `sessionUsage(sessionID)` | Loads `session.get` and returns the normalized `SessionUsage` (`cost` + `tokens`) or `null` when unavailable; called after compaction to refresh the context-window display |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
-| `prompt(workspace, text, files?, delivery?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt`; `delivery` forwards `queue`/`steer` for native inbox queuing |
+| `prompt(workspace, text, files?, delivery?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt`; `delivery` forwards `queue`/`steer` for native inbox queuing; IPC failures are normalized to a stable code and message before returning to the renderer |
 | `listInbox(workspace)` | Lists the active session's queued user entries via `session.inbox.list` |
 | `cancelInbox(workspace, inboxID)` | Cancels a queued inbox entry via `session.inbox.cancel` |
 | `steerInbox(workspace, inboxID)` | Delivers a queued entry immediately via `session.inbox.steer` |
@@ -143,7 +143,8 @@ Internals:
   attempt rediscovers the service, and reconnects emit a synthetic
   `server.connected` so the renderer re-materializes open sessions.
   `deliverEvents` forwards each event as `{kind:"event", type, data}` and
-  runs `handleServerEvent` (see `docs/events.md`). Stop/restart serializes
+  runs `handleServerEvent` (see `docs/events.md`); handler failures are emitted
+  as session-scoped or global structured errors. Stop/restart serializes
   subscription lifetimes, and filesystem side handling requires a matching
   top-level event location.
 - `activateSession(info)` — canonicalizes, mints a fresh

@@ -19,6 +19,13 @@ the corresponding `session.text.*`, `session.reasoning.*`, and
 publishing `session.retry.scheduled`. Prompt submission never drives a history
 polling loop, so pushed events are the live authority for both runtimes.
 
+Failure records use the shared `{code, message, details?}` shape from
+`src/shared/errors.ts`. Missing provider/runtime codes receive a stable `ORBIT_*`
+code, and the renderer includes the code in the persistent timeline error and
+toast. Prompt IPC rejection, runtime execution failure, stream failure, malformed
+events, and event-delivery failure all produce a report instead of being silently
+dropped.
+
 Incoming events use the same scheduling strategy as OpenChamber: the main
 process queues events per directory and flushes one batch per 33ms frame.
 Deltas for the same part (`session.text.delta`, `session.reasoning.delta`,
@@ -70,7 +77,8 @@ regressing longer live text.
 | `session.execution.failed` | Authoritatively marks the chat session non-busy with an error state, completes the active assistant, clears retry state, and adds an error status line |
 | `session.execution.interrupted` | Authoritatively marks the chat session non-busy with an error state, completes the active assistant, clears retry state, and adds an error status line |
 | `session.idle` | Sets `busy = false` and completes the active assistant |
-| `session.error` | Sets `busy = false` and completes the active assistant so a failed run cannot leave the composer stuck on the running/stop icon |
+| `session.error` | Records the structured failure on the active assistant, marks the chat session errored, sets `busy = false`, and adds a persistent error status line so a failed run cannot disappear or leave the composer stuck on the running/stop icon |
+| `global.error` | Shows a structured background/transport failure in the error toast when no session can be safely attached |
 | `session.status` | Mirrors OpenCode `busy` / `idle` / `retry` / `error`; an `error` status clears `busy` (and the chat store records a non-busy `error` status); retry details attach to the latest assistant. A retry carrying a `free_tier_limit` or `account_rate_limit` action appends an error `status` transcript item (`buildRateLimitNotice` in `src/renderer/src/chat-store.ts`) on the first attempt so the user sees the rate-limit reason and resolution link inline |
 | `session.step.started` | Creates or reopens the addressed assistant message in the authoritative chat store, marks the chat session busy, clears its retry/error state, and completes a different unfinished assistant |
 | `session.step.ended` | Completes the addressed assistant message; a terminal finish marks the chat session idle while `tool-calls` keeps the multi-step turn active |

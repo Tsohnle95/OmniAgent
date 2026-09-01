@@ -2,29 +2,35 @@ export class BackendEventLoop {
   private generation = 0;
   private controller: AbortController | null = null;
   private running: Promise<void> | null = null;
-  private pending: ((signal: AbortSignal, generation: number) => Promise<void>) | null = null;
+  private pending: {
+    run: (signal: AbortSignal, generation: number) => Promise<void>;
+    onError?: (error: unknown) => void;
+  } | null = null;
 
-  start(run: (signal: AbortSignal, generation: number) => Promise<void>): void {
+  start(run: (signal: AbortSignal, generation: number) => Promise<void>, onError?: (error: unknown) => void): void {
     if (this.running) {
-      if (this.controller?.signal.aborted) this.pending = run;
+      if (this.controller?.signal.aborted) this.pending = { run, onError };
       return;
     }
-    this.launch(run);
+    this.launch(run, onError);
   }
 
-  private launch(run: (signal: AbortSignal, generation: number) => Promise<void>): void {
+  private launch(run: (signal: AbortSignal, generation: number) => Promise<void>, onError?: (error: unknown) => void): void {
     const generation = ++this.generation;
     const controller = new AbortController();
     this.controller = controller;
     const running = Promise.resolve().then(() => run(controller.signal, generation));
     this.running = running;
+    void running.catch((error) => {
+      if (!controller.signal.aborted) onError?.(error);
+    }).catch(() => {});
     void running.finally(() => {
       if (this.running !== running) return;
       this.running = null;
       this.controller = null;
       const pending = this.pending;
       this.pending = null;
-      if (pending) this.launch(pending);
+      if (pending) this.launch(pending.run, pending.onError);
     }).catch(() => {});
   }
 

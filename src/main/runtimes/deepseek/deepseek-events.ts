@@ -1,4 +1,5 @@
 import type { AssistantPartView, SessionTranscript, TodoItem, ToolCallView, TranscriptItem } from "@shared/types";
+import { formatFailure, normalizeFailure } from "@shared/errors";
 import type { RuntimeEvent } from "../runtime-adapter";
 
 interface HistoryEntry {
@@ -78,11 +79,16 @@ function internalContext(source: Record<string, unknown> | null): boolean {
     (source?.kind === "plugin" && source.plugin === "@deepseek-ai/dsh-system-prompt");
 }
 
-function turnError(data: Record<string, unknown>): string | null {
+function turnFailure(data: Record<string, unknown>) {
   const reason = record(data.reason);
   if (reason?.kind !== "error") return null;
   const error = record(reason.error) ?? record(reason.failure);
-  return typeof error?.message === "string" ? error.message : "DeepSeek Harness failed";
+  return normalizeFailure(error ?? reason.failure, "DEEPSEEK_TURN_FAILED", "DeepSeek Harness failed");
+}
+
+function turnError(data: Record<string, unknown>): string | null {
+  const failure = turnFailure(data);
+  return failure ? formatFailure(failure) : null;
 }
 
 export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
@@ -161,7 +167,9 @@ export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
       const tool = tools.get(callID);
       if (tool) {
         tool.status = event.data.error ? "failed" : "success";
-        tool.output = toolOutput(message);
+        tool.output = toolOutput(message) || (event.data.error !== undefined
+          ? formatFailure(event.data.error, "DEEPSEEK_TOOL_FAILED", "Tool failed")
+          : "");
         tool.duration = event.time && tool.startedAt ? Math.max(0, event.time - tool.startedAt) : undefined;
         tool.title = viewTitle(entry.view, tool.title);
       }
@@ -179,14 +187,20 @@ export function deepSeekTranscript(entries: HistoryEntry[]): SessionTranscript {
 
 export function deepSeekRuntimeEvent(payload: Record<string, unknown>): RuntimeEvent | null {
   if (payload.type === "host/session-status") return payload.running ? { type: "execution.started" } : { type: "execution.idle" };
-  if (payload.type === "host/agent-error") return { type: "execution.error", message: String(payload.message ?? "DeepSeek Harness failed") };
+  if (payload.type === "host/agent-error") {
+    const failure = normalizeFailure(payload, "DEEPSEEK_AGENT_FAILED", "DeepSeek Harness failed");
+    return { type: "execution.error", code: failure.code, message: failure.message };
+  }
   if (payload.type !== "session/event") return null;
   const event = record(payload.event);
   if (event?.type === "turn/start") return { type: "execution.started" };
   if (event?.type === "turn/end") {
     const data = record(event.data);
-    const error = data ? turnError(data) : null;
-    return error ? { type: "execution.error", message: error } : { type: "execution.idle" };
+    if (!data) return { type: "execution.error", code: "DEEPSEEK_TURN_INVALID", message: "DeepSeek Harness returned an invalid turn result" };
+    const failure = turnFailure(data);
+    return failure
+      ? { type: "execution.error", code: failure.code, message: failure.message }
+      : { type: "execution.idle" };
   }
   if (event?.type === "todo/write") {
     const data = record(event.data);

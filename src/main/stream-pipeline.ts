@@ -1,3 +1,5 @@
+import { formatFailure, normalizeFailure } from "@shared/errors";
+
 export type RawStreamEvent = Record<string, unknown>;
 
 const FLUSH_FRAME_MS = 33;
@@ -177,9 +179,11 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
     queue.coalesced.clear();
 
     queue.last = Date.now();
-    void Promise.resolve(onEvents(directory, events)).finally(() => {
-      events.length = 0;
-    });
+    void Promise.resolve(onEvents(directory, events))
+      .catch((error) => onStreamError?.(formatFailure(error, "ORBIT_EVENT_DELIVERY_FAILED", "Event delivery failed")))
+      .finally(() => {
+        events.length = 0;
+      });
   };
 
   const flushAll = (): void => {
@@ -311,7 +315,7 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
       streamErrorLogged = false;
 
       const payload = resolveEventPayload((event.payload as RawStreamEvent | undefined) ?? event);
-      if (!payload) continue;
+      if (!payload) throw Object.assign(new Error("Live event stream returned an invalid event"), { code: "ORBIT_STREAM_INVALID_EVENT" });
       const directory = resolveEventDirectory(event, payload);
       enqueueEvent(directory, payload);
 
@@ -348,10 +352,8 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
               streamErrorLogged = true;
               console.error("[orbit] stream failed", error);
             }
-            const reason = typeof error === "object" && error !== null
-              ? stringField((error as { message?: unknown }).message)
-              : "";
-            notifyDisconnected(reason ? `sse_error:${reason.slice(0, 80)}` : "sse_error:unknown");
+            const failure = normalizeFailure(error, "ORBIT_STREAM_FAILED", "Live event stream failed");
+            notifyDisconnected(formatFailure(failure));
             retryDelayMs = computeRetryDelay(consecutiveFailures);
           }
         } finally {

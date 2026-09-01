@@ -14,6 +14,7 @@ import {
   type TrustedApplicationLocation
 } from "./security";
 import { safeExternalUrl } from "@shared/url-policy";
+import { formatFailure, normalizeFailure } from "@shared/errors";
 import { validateWithW3c } from "./w3c-validation";
 import {
   DEFAULT_SESSION_SIZE,
@@ -595,8 +596,16 @@ function registerIpc(): void {
   );
 
   handleTrusted("shell:prompt", async (_e, workspace: WorkspaceIdentity, text: string, files: PromptFile[] = [], delivery?: PromptDelivery) => {
-    const payload = promptPayload(workspace, text, files);
-    return backend.prompt(payload.workspace, payload.text, payload.files, delivery);
+    try {
+      const payload = promptPayload(workspace, text, files);
+      return await backend.prompt(payload.workspace, payload.text, payload.files, delivery);
+    } catch (error) {
+      const failure = normalizeFailure(error, "ORBIT_PROMPT_FAILED", "Prompt failed");
+      const reported = new Error(formatFailure(failure));
+      reported.name = failure.code;
+      Object.assign(reported, failure);
+      throw reported;
+    }
   });
 
   handleTrusted("shell:inbox-list", async (_e, workspace: WorkspaceIdentity) => backend.listInbox(workspace));

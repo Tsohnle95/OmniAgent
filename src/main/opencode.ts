@@ -91,6 +91,7 @@ import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
 import { DeepSeekRuntimeAdapter } from "./runtimes/deepseek/deepseek-adapter";
 import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
 import { normalizePendingForm } from "@shared/forms";
+import { formatFailure, normalizeFailure } from "@shared/errors";
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
   if (signal?.aborted) return resolve();
@@ -230,6 +231,24 @@ function toolContentViews(content: unknown): ToolContentView[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+function eventSessionID(...values: unknown[]): string | undefined {
+  const pending = [...values];
+  const seen = new Set<unknown>();
+  for (let depth = 0; pending.length > 0 && depth < 16; depth += 1) {
+    const value = pending.shift();
+    if (!value || typeof value !== "object" || seen.has(value)) continue;
+    seen.add(value);
+    const source = value as Record<string, unknown>;
+    for (const key of ["sessionID", "sessionId"]) {
+      if (typeof source[key] === "string" && source[key]) return source[key] as string;
+    }
+    for (const key of ["data", "properties", "info", "part", "message", "error"]) {
+      if (source[key] && typeof source[key] === "object") pending.push(source[key]);
+    }
+  }
+  return undefined;
+}
+
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -255,7 +274,9 @@ function replayToolCard(part: Record<string, unknown>): ToolCallView {
     input: toolInputText(input),
     output: retainOutput(
       toolContentText(state.content as unknown[] | undefined) ||
-      String(state.output ?? (state.error as { message?: string } | undefined)?.message ?? state.error ?? "")
+      (state.error !== undefined
+        ? formatFailure(state.error, "ORBIT_TOOL_FAILED", "Tool failed")
+        : String(state.output ?? ""))
     ),
     startedAt: time.created ?? Date.now(),
     duration: completed ? Math.max(0, completed - ran) : undefined,
@@ -437,15 +458,16 @@ export function replayTranscript(messages: unknown[]): TranscriptItem[] {
             ? {
                 retry: {
                   attempt: Number((info.retry as Record<string, unknown>).attempt ?? 1),
-                  message: String(
-                    ((info.retry as Record<string, unknown>).error as { message?: unknown } | undefined)?.message ??
+                  message: formatFailure(
+                    (info.retry as Record<string, unknown>).error,
+                    "ORBIT_RETRY_SCHEDULED",
                     "Retrying"
                   ),
                   next: Number((info.retry as Record<string, unknown>).at ?? 0) || undefined
                 }
               }
             : {}),
-          ...(info.error ? { error: String((info.error as { message?: unknown }).message ?? info.error) } : {})
+          ...(info.error ? { error: formatFailure(info.error, "ORBIT_ASSISTANT_FAILED", "Assistant failed") } : {})
         });
       }
       continue;
@@ -461,7 +483,7 @@ export function replayTranscript(messages: unknown[]): TranscriptItem[] {
         reason: info.reason === "manual" ? "manual" : "auto",
         summary: String(info.summary ?? ""),
         ...(typeof info.recent === "string" ? { recent: info.recent } : {}),
-        ...(info.error ? { error: String(record(info.error)?.message ?? info.error) } : {})
+        ...(info.error ? { error: formatFailure(info.error, "ORBIT_COMPACTION_FAILED", "Compaction failed") } : {})
       });
     }
   }
@@ -682,7 +704,14 @@ export class OpenShellBackend {
 
   start(): void {
     this.stopped = false;
-    this.eventLoop.start((signal, generation) => this.runEventLoop(signal, generation));
+    this.eventLoop.start(
+      (signal, generation) => this.runEventLoop(signal, generation),
+      (error) => this.emit({
+        kind: "event",
+        type: "global.error",
+        data: { error: normalizeFailure(error, "ORBIT_EVENT_LOOP_FAILED", "Background event loop failed") }
+      })
+    );
   }
 
   private startRuntimeSubscription(sessionID: string, runtime: RuntimeAdapter): void {
@@ -702,7 +731,14 @@ export class OpenShellBackend {
             this.emit({ kind: "event", type: "session.idle", data: { sessionID: targetSessionID } });
           } else if (event.type === "execution.error") {
             this.emit({ kind: "event", type: "server.connected", data: {} });
-            this.emit({ kind: "event", type: "session.error", data: { sessionID: targetSessionID, error: { message: event.message } } });
+            this.emit({
+              kind: "event",
+              type: "session.error",
+              data: {
+                sessionID: targetSessionID,
+                error: { code: event.code ?? "ORBIT_RUNTIME_EXECUTION_FAILED", message: event.message }
+              }
+            });
           } else if (event.type === "stream.event") {
             this.emit({
               kind: "event",
@@ -721,7 +757,8 @@ export class OpenShellBackend {
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          this.emit({ kind: "event", type: "session.error", data: { sessionID, error: { message: error instanceof Error ? error.message : String(error) } } });
+          const failure = normalizeFailure(error, "ORBIT_RUNTIME_STREAM_FAILED", "Runtime event stream failed");
+          this.emit({ kind: "event", type: "session.error", data: { sessionID, error: failure } });
         }
       } finally {
         if (this.runtimeSubscriptions.get(sessionID) === controller) this.runtimeSubscriptions.delete(sessionID);
@@ -739,6 +776,13 @@ export class OpenShellBackend {
           return;
         }
         this.emit({ kind: "event", type: "server.connected", data: {} });
+      },
+      onStreamError: (reason) => {
+        this.emit({
+          kind: "event",
+          type: "global.error",
+          data: { error: normalizeFailure(reason, "ORBIT_STREAM_FAILED", "Live event stream failed") }
+        });
       },
       onStreamEnd: () => {
         // The SSE stream ended (cleanly or via heartbeat abort). Emit
@@ -784,7 +828,17 @@ export class OpenShellBackend {
       };
       const type = typed.type ?? typed.event ?? "unknown";
       this.emit({ kind: "event", type, data: evt });
-      await this.handleServerEvent(type, typed.data ?? typed.properties, typed.location).catch(() => {});
+      const eventData = typed.data ?? typed.properties;
+      try {
+        await this.handleServerEvent(type, eventData, typed.location);
+      } catch (error) {
+        const failure = normalizeFailure(error, "ORBIT_EVENT_HANDLER_FAILED", `Failed handling ${type}`);
+        const sessionID = eventSessionID(eventData, evt, typed.location);
+        const data = { error: { ...failure, message: `${type}: ${failure.message}` }, eventType: type };
+        this.emit(sessionID
+          ? { kind: "event", type: "session.error", data: { sessionID, ...data } }
+          : { kind: "event", type: "global.error", data });
+      }
       if (!this.eventLoop.current(generation)) return;
     }
   }
@@ -1994,12 +2048,12 @@ export class OpenShellBackend {
     const target = this.activeTarget(workspace);
     const runtime = this.contextFor(workspace).runtime;
     if (runtime) {
-      await runtime.interrupt(target.sessionID).catch(() => {});
+      await runtime.interrupt(target.sessionID);
       this.assertTarget(target);
       return;
     }
-    if (!this.client) return;
-    await this.client.session.interrupt({ sessionID: target.sessionID }).catch(() => {});
+    if (!this.client) throw new Error("no active session");
+    await this.client.session.interrupt({ sessionID: target.sessionID });
     this.assertTarget(target);
   }
 

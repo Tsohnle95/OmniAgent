@@ -122,6 +122,12 @@ All backend→renderer message kinds are defined in
 Renderer→main is synchronous invoke over `shell:*` channels; the full
 table is in `docs/main.md`.
 
+Prompt failures are normalized through `src/shared/errors.ts`. Submission
+rejections preserve native codes when available or receive a stable `ORBIT_*`
+code; runtime, stream, malformed-event, and event-handler failures are forwarded
+as structured session/global events so the renderer can retain both the message
+and code.
+
 ## Renderer trust boundary
 
 The application window is explicitly sandboxed with context isolation and no

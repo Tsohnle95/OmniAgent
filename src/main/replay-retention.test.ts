@@ -32,7 +32,7 @@ describe("replay retention", () => {
     expect(transcript[0]).toMatchObject({
       kind: "assistant",
       completed: true,
-      error: "provider failed",
+      error: "[ORBIT_ASSISTANT_FAILED] provider failed",
       parts: [{ kind: "tool", tool: { status: "failed" } }]
     });
   });

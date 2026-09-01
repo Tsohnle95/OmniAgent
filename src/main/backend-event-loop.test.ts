@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BackendEventLoop } from "./backend-event-loop";
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
@@ -14,6 +14,16 @@ async function turn(): Promise<void> {
 }
 
 describe("BackendEventLoop", () => {
+  it("reports unexpected run failures", async () => {
+    const loop = new BackendEventLoop();
+    const error = new Error("event loop failed");
+    const onError = vi.fn();
+    loop.start(async () => { throw error; }, onError);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(onError).toHaveBeenCalledWith(error);
+    expect(loop.active()).toBe(false);
+  });
+
   it("deduplicates starts until a completed run releases the lifecycle", async () => {
     const loop = new BackendEventLoop();
     const subscription = deferred();

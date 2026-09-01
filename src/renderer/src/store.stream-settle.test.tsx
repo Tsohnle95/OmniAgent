@@ -267,4 +267,47 @@ describe("store stream settle", () => {
 
     expect(store.busy).toBe(false);
   });
+
+  it("retains prompt IPC failures in the transcript with their code", async () => {
+    await act(async () => { vi.advanceTimersByTime(16_500); });
+    window.openshell.prompt = vi.fn(async () => {
+      throw Object.assign(new Error("model unavailable"), { code: "MODEL_UNAVAILABLE" });
+    });
+
+    await act(async () => { await store.sendPrompt("this fails"); });
+
+    expect(store.busy).toBe(false);
+    expect(store.transcript).toContainEqual(expect.objectContaining({
+      kind: "status",
+      text: "[MODEL_UNAVAILABLE] model unavailable",
+      tone: "error"
+    }));
+  });
+
+  it("retains runtime session failures and settles the composer", async () => {
+    const sessionID = store.activeSessionID!;
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.status",
+        data: { id: "busy-before-error", created: Date.now(), data: { sessionID, status: { type: "busy" } } }
+      });
+      messageHandler!({
+        kind: "event",
+        type: "session.error",
+        data: {
+          id: "runtime-error",
+          created: Date.now(),
+          data: { sessionID, error: { code: "PROVIDER_AUTH", message: "Provider authentication failed" } }
+        }
+      });
+    });
+
+    expect(store.busy).toBe(false);
+    expect(store.transcript).toContainEqual(expect.objectContaining({
+      kind: "status",
+      text: "[PROVIDER_AUTH] Provider authentication failed",
+      tone: "error"
+    }));
+  });
 });

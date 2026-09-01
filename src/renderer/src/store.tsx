@@ -10,6 +10,7 @@ import {
   type ReactNode
 } from "react";
 import { normalizePendingForm } from "@shared/forms";
+import { formatFailure, normalizeFailure } from "@shared/errors";
 import type {
   AgentFileState,
   AgentOption,
@@ -403,9 +404,25 @@ function streamEventShowsActiveWork(event: ChatStreamEvent): boolean {
     const part = (event.data.part ?? event.data) as Record<string, any>;
     const state = part.state as Record<string, any> | undefined;
     const status = String(state?.status ?? "");
-    return !part.time?.completed && !["completed", "error", "failed", "success"].includes(status);
+    return !part.time?.completed && !["completed", "error", "failed", "success", "aborted", "timeout", "cancelled"].includes(status);
   }
   return false;
+}
+
+function failureForStreamEvent(type: string, data: Record<string, any>): { error: unknown; code: string; message: string } | null {
+  if (type === "session.step.failed") return { error: data.error, code: "ORBIT_STEP_FAILED", message: "Step failed" };
+  if (type === "session.execution.failed") return { error: data.error, code: "ORBIT_EXECUTION_FAILED", message: "Execution failed" };
+  if (type === "session.tool.failed") return { error: data.error, code: "ORBIT_TOOL_FAILED", message: "Tool failed" };
+  if (type === "session.retry.scheduled") return { error: data.error, code: "ORBIT_RETRY_SCHEDULED", message: "Retry scheduled" };
+  if (type === "message.updated" && data.info?.error) return { error: data.info.error, code: "ORBIT_ASSISTANT_FAILED", message: "Assistant failed" };
+  if (type === "message.part.updated") {
+    const part = (data.part ?? data) as Record<string, any>;
+    const state = part.state as Record<string, any> | undefined;
+    if (["error", "failed", "aborted", "timeout", "cancelled"].includes(String(state?.status))) {
+      return { error: state?.error, code: "ORBIT_TOOL_FAILED", message: "Tool failed" };
+    }
+  }
+  return null;
 }
 
 let toastId = 0;
@@ -881,21 +898,24 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     return panel ? createMessageQueueTarget(panel.id, panel.workspace.id) : null;
   }, [panelFor]);
 
+  const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
+    const id = ++toastId;
+    setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  }, []);
+
   const refreshInbox = useCallback(async (sessionID: string): Promise<void> => {
     const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
     if (!panel) return;
     try {
       const entries = await window.openshell.inboxList(panel.workspace);
       setInboxBySession((current) => ({ ...current, [sessionID]: entries }));
-    } catch {
-      setInboxBySession((current) => {
-        if (!(sessionID in current)) return current;
-        const { [sessionID]: _dropped, ...rest } = current;
-        void _dropped;
-        return rest;
-      });
+    } catch (error) {
+      if (panelForSession(sessionID)) {
+        toast(formatFailure(error, "ORBIT_INBOX_REFRESH_FAILED", "Queued prompts could not be refreshed"), "error");
+      }
     }
-  }, []);
+  }, [panelForSession, toast]);
 
   const refreshForms = useCallback(async (sessionID: string): Promise<void> => {
     const panel = panelsRef.current.find((candidate) => candidate.id === sessionID);
@@ -995,18 +1015,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       }
       const trailing = [...snapshot.transcript].reverse().find((item) => item.kind === "assistant");
       if (!trailing || trailing.completed) setSessionBusy(sessionID, false);
-    } catch {
+    } catch (error) {
+      if (panelForSession(sessionID)) {
+        toast(formatFailure(error, "ORBIT_SESSION_MATERIALIZE_FAILED", "Session state could not be refreshed"), "error");
+      }
     } finally {
       materializingRef.current.delete(sessionID);
     }
-  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor, setSessionBusy, protectedSessionIDs]);
-
-  const toast = useCallback((text: string, tone: "info" | "error" = "info") => {
-    const id = ++toastId;
-    setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
-  }, []);
-
+  }, [panelForSession, chatStateFor, applyProjection, reconcileStreaming, setTodosFor, setSessionBusy, protectedSessionIDs, toast]);
 
   const submitForm = useCallback(async (workspace: WorkspaceIdentity, formID: string, answers: FormAnswers): Promise<void> => {
     const panel = panelFor(workspace);
@@ -1045,7 +1061,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         await window.openshell.inboxSteer(workspace, messageID);
       } catch (err) {
         void refreshInbox(panel.id);
-        if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+        const failure = formatFailure(err, "ORBIT_INBOX_STEER_FAILED", "Queued prompt could not be sent");
+        updateSessionTranscript(panel.id, (prev) => prev.some((item) => item.id === `queued-steer-error-${messageID}`)
+          ? prev
+          : [...prev, { kind: "status", id: `queued-steer-error-${messageID}`, text: failure, tone: "error" }]);
+        if (panelFor(workspace)) toast(failure, "error");
       }
       return;
     }
@@ -1067,9 +1087,19 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     try {
       await window.openshell.prompt(workspace, promptText, popped.attachments ?? []);
     } catch (err) {
-      if (panelFor(workspace)) toast(err instanceof Error ? err.message : String(err), "error");
+      const failure = formatFailure(err, "ORBIT_PROMPT_FAILED", "Queued prompt failed");
+      const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
+      if (queueTarget) commitQueue(addToQueue(messageQueueRef.current, queueTarget, {
+        content: promptText,
+        attachments: popped.attachments
+      }));
+      updateSessionTranscript(panel.id, (prev) => [
+        ...prev,
+        { kind: "status", id: `queued-error-${messageID}`, text: failure, tone: "error" }
+      ]);
+      if (panelFor(workspace)) toast(failure, "error");
     }
-  }, [panelFor, popQueuedMessage, updateSessionTranscript, toast, refreshInbox]);
+  }, [panelFor, popQueuedMessage, updateSessionTranscript, toast, refreshInbox, commitQueue]);
 
   const attachPanel = useCallback((info: SessionInfo): void => {
     panelsRef.current = panelsRef.current.some((panel) => panel.workspace.id === info.workspace.id)
@@ -1112,7 +1142,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
       } catch (err) {
         if (panelForSession(sessionID)) {
-          toast(err instanceof Error ? err.message : String(err), "error");
+          toast(formatFailure(err, "ORBIT_SESSION_OPEN_FAILED", "Session could not be opened"), "error");
         }
       }
     },
@@ -1663,9 +1693,15 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     async (text: string, files: PromptFile[] = [], workspace?: WorkspaceIdentity) => {
       const target = workspace ?? sessionRef.current?.workspace;
       const panel = target ? panelFor(target) : null;
-      if (!panel || !target) return;
+      if (!panel || !target) {
+        toast("[ORBIT_PROMPT_NO_SESSION] No active session is available for this prompt", "error");
+        return;
+      }
       const t = text.trim();
-      if (!t && files.length === 0) return;
+      if (!t && files.length === 0) {
+        toast("[ORBIT_PROMPT_EMPTY] Enter a prompt or attach a file", "error");
+        return;
+      }
       const promptText = t || "Review the attached files.";
       const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
       const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
@@ -1714,17 +1750,23 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           });
         }
       } catch (err) {
+        const failure = normalizeFailure(err, "ORBIT_PROMPT_FAILED", "Prompt failed");
+        const failureText = formatFailure(failure);
+        const failureID = `prompt-error-${userItem.id}`;
+        updateSessionTranscript(panel.id, (prev) => prev.some((item) => item.id === failureID)
+          ? prev
+          : [...prev, { kind: "status", id: failureID, text: failureText, tone: "error" }]);
         if (panelFor(target)) {
           if (delivery === "queue") {
             const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
             if (queueTarget) {
               commitQueue(addToQueue(messageQueueRef.current, queueTarget, { content: promptText, attachments: files }));
-              toast(`Queued locally: ${promptText}`);
+              toast(`${failureText}; queued locally: ${promptText}`, "error");
               return;
             }
           }
           setSessionBusy(panel.id, false);
-          toast(err instanceof Error ? err.message : String(err), "error");
+          toast(failureText, "error");
         }
       }
     },
@@ -1759,8 +1801,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       [panel.id]: { timestamp: Date.now(), acknowledged: false }
     }));
     setSessionBusy(panel.id, false);
-    await window.openshell.interrupt(target).catch(() => {});
-  }, [setSessionBusy, panelFor]);
+    await window.openshell.interrupt(target).catch((error) => {
+      toast(formatFailure(error, "ORBIT_INTERRUPT_FAILED", "The prompt could not be interrupted"), "error");
+    });
+  }, [setSessionBusy, panelFor, toast]);
 
   const refreshProviderUsage = useCallback(async () => {
     setProviderUsageLoading(true);
@@ -2729,6 +2773,13 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           }
           const materialization = typeof result === "boolean" ? undefined : result.materialization;
           if (materialization) void materializeSession(materialization.sessionID ?? targetSessionID);
+          const failure = failureForStreamEvent(type, data);
+          if (failure && targetSessionID && result === false) {
+            const failureText = formatFailure(failure.error, failure.code, failure.message);
+            updateSessionTranscript(targetSessionID, (prev) => prev.some((item) => item.id === `${streamEvent.id}-failure`)
+              ? prev
+              : [...prev, { kind: "status", id: `${streamEvent.id}-failure`, text: failureText, tone: "error" }]);
+          }
           syncStreaming(targetSessionID, previous);
           if (type === "message.part.delta" || type === "session.text.delta" || type === "session.reasoning.delta" || type === "session.tool.input.delta") {
             const touched = touchStreamingSession(streamingRef.current, targetSessionID);
@@ -2740,6 +2791,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         case "global.disposed": {
           for (const panel of panelsRef.current) void materializeSession(panel.id);
           void reconcilePermissions();
+          break;
+        }
+        case "global.error": {
+          toast(formatFailure(data.error, "ORBIT_GLOBAL_FAILURE", "Background operation failed"), "error");
           break;
         }
         case "session.created": {
@@ -2815,12 +2870,17 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           if (active && targetWorkspace) setTodosFor(targetWorkspace.id, []);
           const ok = type === "session.execution.succeeded";
           if (!ok && targetSessionID) {
+            const errorText = type === "session.execution.failed"
+              ? formatFailure(data.error, "ORBIT_EXECUTION_FAILED", "Execution failed")
+              : data.error
+                ? formatFailure(data.error, "ORBIT_EXECUTION_INTERRUPTED", "Execution interrupted")
+                : "Interrupted";
             updateSessionTranscript(targetSessionID, (prev) => [
-              ...prev,
+              ...prev.filter((item) => item.id !== `${streamEvent.id}-end`),
               {
                 kind: "status",
                 id: `${streamEvent.id}-end`,
-                text: type === "session.execution.interrupted" ? "Interrupted" : "Failed",
+                text: errorText,
                 tone: type === "session.execution.interrupted" ? "info" : "error"
               }
             ]);
@@ -2850,6 +2910,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
             if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
             syncStreaming(targetSessionID, previous);
+            const errorText = formatFailure(data.error, "ORBIT_SESSION_ERROR", "Session failed");
+            updateSessionTranscript(targetSessionID, (prev) => prev.some((item) => item.id === `${streamEvent.id}-error`)
+              ? prev
+              : [...prev, { kind: "status", id: `${streamEvent.id}-error`, text: errorText, tone: "error" }]);
           }
           break;
         }
@@ -2915,7 +2979,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             setSessionBusy(targetSessionID, true);
             if (attachRetryToLatestAssistant(chatStateFor(targetSessionID), targetSessionID, {
               attempt: Number(status.attempt ?? 1),
-              message: String(status.message ?? "Retrying"),
+              message: formatFailure(status.message, "ORBIT_RETRY_SCHEDULED", "Retrying"),
               next: status.next
             })) {
               applyProjection(targetSessionID);

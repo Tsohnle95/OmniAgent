@@ -296,7 +296,7 @@ describe("applyChatEvent", () => {
     }));
 
     expect(draft.session_status.s).toEqual({ type: "error" });
-    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({ completed: true, error: "Provider failed" });
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({ completed: true, error: "[ORBIT_STEP_FAILED] Provider failed" });
   });
 
   it("returns to retrying when a failed step schedules another attempt", () => {
@@ -317,7 +317,7 @@ describe("applyChatEvent", () => {
     expect(draft.session_status.s).toEqual({
       type: "retry",
       attempt: 2,
-      message: "Retrying",
+      message: "[ORBIT_RETRY_SCHEDULED] Retrying",
       next: 200
     });
   });
@@ -396,7 +396,8 @@ describe("applyChatEvent", () => {
 
     const items = projectAssistantItems(draft, "s");
 
-    expect(items[0]).toMatchObject({ messageID: "msg_1", completed: true });
+    expect(items[0]).toMatchObject({ messageID: "msg_1", completed: true, error: "[ORBIT_SESSION_ERROR] boom" });
+    expect(draft.session_status.s).toEqual({ type: "error" });
   });
 
   it("reports no change for a repeated idle with nothing left to complete", () => {
@@ -438,8 +439,8 @@ describe("applyChatEvent", () => {
     expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
       kind: "assistant",
       completed: false,
-      retry: { attempt: 2, message: "boom", next: 30_000 },
-      error: "Step failed"
+      retry: { attempt: 2, message: "[ORBIT_RETRY_SCHEDULED] boom", next: 30_000 },
+      error: "[ORBIT_RUNTIME_FAILURE] Step failed"
     });
   });
 });

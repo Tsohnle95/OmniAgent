@@ -356,6 +356,40 @@ describe("createStreamPipeline", () => {
     expect(onStreamError).toHaveBeenCalledOnce();
   });
 
+  it("reports malformed stream events instead of dropping them", async () => {
+    const onStreamError = vi.fn();
+    const { subscribe } = createSubscribe([{}]);
+    const pipeline = createStreamPipeline({
+      subscribe,
+      onEvents: () => {},
+      onStreamError
+    });
+
+    const run = pipeline.run(new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(1);
+    pipeline.cleanup();
+    await run;
+
+    expect(onStreamError).toHaveBeenCalledWith("[ORBIT_STREAM_INVALID_EVENT] Live event stream returned an invalid event");
+  });
+
+  it("reports an asynchronous event delivery failure", async () => {
+    const onStreamError = vi.fn();
+    const { subscribe } = createSubscribe([textDelta("a")]);
+    const pipeline = createStreamPipeline({
+      subscribe,
+      onEvents: async () => { throw new Error("renderer bridge failed"); },
+      onStreamError
+    });
+
+    const run = pipeline.run(new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(40);
+    pipeline.cleanup();
+    await run;
+
+    expect(onStreamError).toHaveBeenCalledWith("[ORBIT_EVENT_DELIVERY_FAILED] renderer bridge failed");
+  });
+
   it("flushes queued events on cleanup", async () => {
     const delivered: RawStreamEvent[][] = [];
     const { subscribe } = createSubscribe([textDelta("a")]);

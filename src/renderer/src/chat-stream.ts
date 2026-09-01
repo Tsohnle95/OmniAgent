@@ -1,4 +1,5 @@
 import type { AssistantPartView, ToolCallView, ToolContentView, TranscriptItem } from "@shared/types";
+import { formatFailure } from "@shared/errors";
 import { retainOutput, retainToolContent } from "@shared/retention";
 
 export interface ChatStreamEvent {
@@ -8,17 +9,8 @@ export interface ChatStreamEvent {
   data: Record<string, any>;
 }
 
-function errorText(error: unknown): string {
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object") {
-    const value = error as Record<string, unknown>;
-    if (typeof value.message === "string") return value.message;
-    if (value.data && typeof value.data === "object") {
-      const data = value.data as Record<string, unknown>;
-      if (typeof data.message === "string") return data.message;
-    }
-  }
-  return error == null ? "" : String(error);
+function errorText(error: unknown, fallbackCode = "ORBIT_RUNTIME_FAILURE", fallbackMessage = "Operation failed"): string {
+  return formatFailure(error, fallbackCode, fallbackMessage);
 }
 
 function stringify(value: unknown): string {
@@ -137,9 +129,11 @@ export function partFromProjection(part: Record<string, any>, created: number): 
   const completedAt = Number(part.time?.completed ?? state.time?.end ?? 0);
   const output = retainOutput(Array.isArray(state.content)
     ? toolOutput({ content: state.content })
-    : state.status === "completed"
+    : status === "success"
       ? stringify(state.output)
-      : errorText(state.error));
+      : status === "failed"
+        ? errorText(state.error, "ORBIT_TOOL_FAILED", "Tool failed")
+        : stringify(state.output));
   const callID = String(part.callID ?? part.id);
   return {
     kind: "tool",
@@ -363,7 +357,7 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
         ...item,
         status: "failed",
         reason: data.reason === "manual" ? "manual" : "auto",
-        error: errorText(data.error) || "Compaction failed"
+        error: errorText(data.error, "ORBIT_COMPACTION_FAILED", "Compaction failed")
       }));
       return updated === items
         ? [...items, {
@@ -372,7 +366,7 @@ export function reduceChatStream(items: TranscriptItem[], event: ChatStreamEvent
             status: "failed",
             reason: data.reason === "manual" ? "manual" : "auto",
             summary: "",
-            error: errorText(data.error) || "Compaction failed"
+            error: errorText(data.error, "ORBIT_COMPACTION_FAILED", "Compaction failed")
           }]
         : updated;
     }
