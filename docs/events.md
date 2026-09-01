@@ -74,7 +74,7 @@ regressing longer live text.
 | `session.status` | Mirrors OpenCode `busy` / `idle` / `retry` / `error`; an `error` status clears `busy` (and the chat store records a non-busy `error` status); retry details attach to the latest assistant. A retry carrying a `free_tier_limit` or `account_rate_limit` action appends an error `status` transcript item (`buildRateLimitNotice` in `src/renderer/src/chat-store.ts`) on the first attempt so the user sees the rate-limit reason and resolution link inline |
 | `session.step.started` | Creates or reopens the addressed assistant message in the authoritative chat store, marks the chat session busy, clears its retry/error state, and completes a different unfinished assistant |
 | `session.step.ended` | Completes the addressed assistant message; a terminal finish marks the chat session idle while `tool-calls` keeps the multi-step turn active |
-| `session.step.failed` | Completes the assistant and records the structured failure |
+| `session.step.failed` | Completes the assistant, records the structured failure, and marks the session errored so a failed step cannot remain busy |
 | `session.text.started` | Adds one ordered text part for the message/ordinal |
 | `session.text.delta` | Appends streamed text to that part (materializing the session if the message or part is unknown) |
 | `session.text.ended` | Replaces the part with the authoritative final text, preserves its OpenCode phase, marks it complete, and dedupes trailing deltas; `commentary` projects into the turn's stable Think row while `final_answer` remains assistant body text |
@@ -88,7 +88,7 @@ regressing longer live text.
 | `session.tool.progress` | Displays current tool progress metadata |
 | `session.tool.success` | Marks a running tool successful, reads V2 content blocks or legacy output, and records duration |
 | `session.tool.failed` | Marks a running tool failed, preserves content/error output, records duration, and auto-expands the card |
-| `session.retry.scheduled` | Attaches attempt, structured error, and next-attempt time to the assistant |
+| `session.retry.scheduled` | Marks the session retrying and attaches attempt, structured error, and next-attempt time to the assistant |
 | `session.synthetic` | Retains the synthetic/system message; internal `<system-reminder>` content is filtered from the visible timeline |
 | `session.skill.activated` | Adds the activated skill name, id, and supplied text to the timeline |
 | `session.shell.started` | Adds a running shell message with its command |

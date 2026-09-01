@@ -643,6 +643,7 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         time: { created: event.created, completed: event.created },
         error: { message: errorText(data.error) || "Step failed" }
       });
+      setChatSessionStatus(draft, sessionID, { type: "error" });
       return true;
     }
     case "session.text.started": {
@@ -884,6 +885,12 @@ export function applyChatEvent(draft: ChatDirectoryState, routedSessionID: strin
         message: errorText(data.error) || "Retrying",
         next: Number(data.at ?? data.next ?? 0) || undefined
       };
+      setChatSessionStatus(draft, sessionID, {
+        type: "retry",
+        attempt: retry.attempt,
+        message: retry.message,
+        next: retry.next ?? 0
+      });
       const messages = draft.message[sessionID] ?? [];
       const result = Binary.search(messages, messageID, (message) => message.id);
       if (result.found) {

@@ -239,7 +239,11 @@ function record(value: unknown): Record<string, unknown> | undefined {
 function replayToolCard(part: Record<string, unknown>): ToolCallView {
   const state = (part.state ?? {}) as Record<string, unknown>;
   const input = state.input;
-  const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
+  const status = ["completed", "success"].includes(String(state.status))
+    ? "success"
+    : ["error", "failed", "aborted", "timeout", "cancelled"].includes(String(state.status))
+      ? "failed"
+      : "running";
   const time = (part.time ?? state.time ?? {}) as Record<string, number | undefined>;
   const ran = time.ran ?? time.created ?? Date.now();
   const completed = time.completed;
@@ -405,7 +409,9 @@ export function replayTranscript(messages: unknown[]): TranscriptItem[] {
       const content = parts.length > 0
         ? parts
         : Array.isArray(info.content) ? (info.content as Record<string, unknown>[]) : [];
-      const completed = Boolean((info.time as Record<string, unknown> | undefined)?.completed ?? info.finish);
+      const completed = Boolean(
+        (info.time as Record<string, unknown> | undefined)?.completed ?? info.finish ?? info.error
+      );
       const assistantParts = content.flatMap((part, index): AssistantPartView[] => {
         const id = String(part.id ?? `${String(info.id)}:${String(part.type)}:${index}`);
         if (part.type === "text" || part.type === "reasoning") {

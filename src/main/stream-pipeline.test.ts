@@ -117,6 +117,25 @@ describe("createStreamPipeline", () => {
     expect(calls()).toBe(1);
   });
 
+  it("keeps every event in a batch alive for an async consumer", async () => {
+    const delivered: string[] = [];
+    const { subscribe } = createSubscribe([textDelta("a"), stepStarted(), textDelta("b")]);
+    const pipeline = createStreamPipeline({
+      subscribe,
+      onEvents: async (_directory, events) => {
+        await Promise.resolve();
+        delivered.push(...events.map((event) => event.type as string));
+      }
+    });
+
+    const run = pipeline.run(new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(40);
+    pipeline.cleanup();
+    await run;
+
+    expect(delivered).toEqual(["session.text.delta", "session.step.started"]);
+  });
+
   it("coalesces separated deltas into one event within a flush frame", async () => {
     const delivered: RawStreamEvent[][] = [];
     const { subscribe } = createSubscribe([textDelta("a"), stepStarted(), textDelta("b")]);

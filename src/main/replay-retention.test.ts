@@ -13,6 +13,30 @@ import { MAX_RETAINED_OUTPUT_CHARS } from "@shared/retention";
 import { replayTranscript } from "./opencode";
 
 describe("replay retention", () => {
+  it("reconstructs failed tools and assistant messages as settled", () => {
+    const transcript = replayTranscript([{
+      info: {
+        id: "assistant-1",
+        role: "assistant",
+        error: { message: "provider failed" }
+      },
+      parts: [{
+        id: "tool-1",
+        type: "tool",
+        callID: "call-1",
+        tool: "read",
+        state: { status: "failed", error: { message: "File not found" } }
+      }]
+    }]);
+
+    expect(transcript[0]).toMatchObject({
+      kind: "assistant",
+      completed: true,
+      error: "provider failed",
+      parts: [{ kind: "tool", tool: { status: "failed" } }]
+    });
+  });
+
   it("bounds completed projected tool output while retaining file content", () => {
     const output = "x".repeat(MAX_RETAINED_OUTPUT_CHARS * 2);
     const transcript = replayTranscript([{

@@ -266,6 +266,62 @@ describe("applyChatEvent", () => {
     });
   });
 
+  it("projects failed tool snapshots as settled failures", () => {
+    const draft = state();
+    draft.message.s = [{ id: "msg_1", sessionID: "s", role: "assistant", time: { created: 1 } }];
+    applyChatEvent(draft, "s", event("failed", "message.part.updated", {
+      sessionID: "s",
+      part: {
+        id: "part_1",
+        messageID: "msg_1",
+        sessionID: "s",
+        type: "tool",
+        name: "read",
+        callID: "call_1",
+        state: { status: "failed", error: { message: "File not found" } }
+      }
+    }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "tool", tool: { status: "failed" } }]
+    });
+  });
+
+  it("settles a failed step and records its session error state", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("failed", "session.step.failed", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      error: { message: "Provider failed" }
+    }));
+
+    expect(draft.session_status.s).toEqual({ type: "error" });
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({ completed: true, error: "Provider failed" });
+  });
+
+  it("returns to retrying when a failed step schedules another attempt", () => {
+    const draft = state();
+    applyChatEvent(draft, "s", event("failed", "session.step.failed", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      error: { message: "Provider failed" }
+    }));
+    applyChatEvent(draft, "s", event("retry", "session.retry.scheduled", {
+      sessionID: "s",
+      assistantMessageID: "msg_1",
+      attempt: 2,
+      error: { message: "Retrying" },
+      next: 200
+    }));
+
+    expect(draft.session_status.s).toEqual({
+      type: "retry",
+      attempt: 2,
+      message: "Retrying",
+      next: 200
+    });
+  });
+
   it("preserves a finished tool against a stale running snapshot", () => {
     const draft = state();
     applyChatEvent(draft, "s", event("start", "session.step.started", { sessionID: "s", assistantMessageID: "msg_1" }));

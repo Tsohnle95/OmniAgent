@@ -128,7 +128,11 @@ export function partFromProjection(part: Record<string, any>, created: number): 
   if (part.type !== "tool") return null;
   const state = (part.state ?? {}) as Record<string, any>;
   const input = state.input;
-  const status = state.status === "error" ? "failed" : state.status === "completed" ? "success" : "running";
+  const status = ["completed", "success"].includes(String(state.status))
+    ? "success"
+    : ["error", "failed", "aborted", "timeout", "cancelled"].includes(String(state.status))
+      ? "failed"
+      : "running";
   const startedAt = Number(part.time?.created ?? state.time?.start ?? created);
   const completedAt = Number(part.time?.completed ?? state.time?.end ?? 0);
   const output = retainOutput(Array.isArray(state.content)

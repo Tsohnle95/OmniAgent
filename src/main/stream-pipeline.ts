@@ -12,7 +12,6 @@ const RETRY_BACKOFF_MAX_EXPONENT = 8;
 
 type DirectoryQueue = {
   queue: RawStreamEvent[];
-  buffer: RawStreamEvent[];
   coalesced: Map<string, number>;
   timer: ReturnType<typeof setTimeout> | undefined;
   last: number;
@@ -159,7 +158,7 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
   const getOrCreateDir = (directory: string): DirectoryQueue => {
     let queue = directories.get(directory);
     if (queue) return queue;
-    queue = { queue: [], buffer: [], coalesced: new Map(), timer: undefined, last: 0 };
+    queue = { queue: [], coalesced: new Map(), timer: undefined, last: 0 };
     directories.set(directory, queue);
     return queue;
   };
@@ -174,15 +173,13 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
     if (queue.queue.length === 0) return;
 
     const events = queue.queue;
-    queue.queue = queue.buffer;
-    queue.buffer = events;
-    queue.queue.length = 0;
+    queue.queue = [];
     queue.coalesced.clear();
 
     queue.last = Date.now();
-    void onEvents(directory, events);
-
-    queue.buffer.length = 0;
+    void Promise.resolve(onEvents(directory, events)).finally(() => {
+      events.length = 0;
+    });
   };
 
   const flushAll = (): void => {
