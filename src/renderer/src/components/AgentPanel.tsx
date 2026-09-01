@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePanel, useStore } from "../store";
-import { OpenCodeLiveActivity, OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
+import { OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
 import { FormPrompt } from "./FormPrompt";
 import { QueuedMessageChips } from "./QueuedMessageChips";
 import { OpenCodeTodoDock } from "./OpenCodeTodoDock";
@@ -1490,15 +1490,9 @@ export function AgentPanel({
           busy={busy}
           lastAssistantId={lastAssistantId}
           session={activeSession}
+          statusText={assistantStatus?.statusText}
         />
       </div>
-
-      <OpenCodeLiveActivity
-        transcript={transcript}
-        busy={busy}
-        statusText={assistantStatus?.statusText}
-        turnStartedAt={turnStartedAt}
-      />
 
       <div data-component="session-prompt-dock">
         {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}

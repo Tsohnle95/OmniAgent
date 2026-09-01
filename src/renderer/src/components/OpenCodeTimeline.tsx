@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
@@ -148,7 +148,6 @@ function ReasoningPart({
   streaming: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
-  const summaryRef = useRef<HTMLSpanElement>(null);
   const active = streaming;
   const contentID = `reasoning-${part.id}`;
   const visible = part.text.trimEnd();
@@ -156,14 +155,6 @@ function ReasoningPart({
     ? visible.slice(visible.lastIndexOf("\n") + 1)
     : visible.split("\n", 1)[0];
   const summary = rawSummary.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1");
-  const scheduleSummaryScroll = useThrottledVisualUpdate(() => {
-    const element = summaryRef.current;
-    if (!element) return;
-    element.scrollLeft = active ? element.scrollWidth - element.clientWidth : 0;
-  });
-  useEffect(() => {
-    scheduleSummaryScroll();
-  }, [active, scheduleSummaryScroll, summary]);
   if (!part.text) return null;
   return (
     <div
@@ -180,7 +171,7 @@ function ReasoningPart({
       >
         <span data-slot="reasoning-part-title">{active ? <TextShimmer text="Thinking" tone="thinking" /> : "Thought"}</span>
         {summary && <span data-slot="reasoning-part-separator" aria-hidden="true" />}
-        {summary && <span ref={summaryRef} data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
+        {summary && <span data-slot="reasoning-part-summary" data-follow-end={active ? "true" : undefined}>{summary}</span>}
         <span data-slot="reasoning-part-arrow" className="codicon codicon-chevron-down" />
       </button>
       {open && (
@@ -190,31 +181,6 @@ function ReasoningPart({
       )}
     </div>
   );
-}
-
-function useThrottledVisualUpdate(update: () => void, intervalFrames = 3): () => void {
-  const updateRef = useRef(update);
-  const pendingFrameRef = useRef<number | null>(null);
-  updateRef.current = update;
-  useLayoutEffect(() => () => {
-    if (pendingFrameRef.current === null) return;
-    cancelAnimationFrame(pendingFrameRef.current);
-    pendingFrameRef.current = null;
-  }, []);
-  return useCallback(() => {
-    if (pendingFrameRef.current !== null) return;
-    let remainingFrames = intervalFrames;
-    const advance = (): void => {
-      remainingFrames -= 1;
-      if (remainingFrames > 0) {
-        pendingFrameRef.current = requestAnimationFrame(advance);
-        return;
-      }
-      pendingFrameRef.current = null;
-      updateRef.current();
-    };
-    pendingFrameRef.current = requestAnimationFrame(advance);
-  }, [intervalFrames]);
 }
 
 function parseInput(value: string | undefined): Record<string, unknown> {
@@ -533,48 +499,12 @@ function toolPresentation(tool: ToolCallView): { title: string; subtitle: string
   return { title, subtitle, path };
 }
 
-function latestVisibleLine(text: string): string {
-  const visible = text.trimEnd();
-  const line = visible.slice(visible.lastIndexOf("\n") + 1);
-  return line.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1");
-}
-
 function formatDuration(duration: number): string {
   const seconds = Math.max(0, Math.floor(duration / 1000));
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
-}
-
-function useElapsed(startedAt: number | undefined, active: boolean): string {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active || !startedAt) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [active, startedAt]);
-  return startedAt ? formatDuration(Math.max(0, now - startedAt)) : "";
-}
-
-function toolActivityTitle(tool: ToolCallView): string {
-  const name = effectiveToolKey(tool);
-  if (name === "read") return "Reading";
-  if (name === "list") return "Listing files";
-  if (name === "glob") return "Finding files";
-  if (name === "grep") return "Searching code";
-  if (name === "inspect") return "Inspecting path";
-  if (name === "webfetch") return "Fetching page";
-  if (name === "websearch" || name === "search") return "Searching";
-  if (name === "bash" || name === "shell") return "Running command";
-  if (name === "edit") return "Editing file";
-  if (name === "write") return "Writing file";
-  if (name === "patch" || name === "applypatch") return "Applying changes";
-  if (name === "task" || name === "subagent") return "Delegating task";
-  if (name === "question") return "Waiting for input";
-  const title = titleCase(tool.title);
-  return title === "Tool" ? "Running tool call" : `Using ${title}`;
 }
 
 function progressText(progress: string): string {
@@ -593,94 +523,6 @@ function progressText(progress: string): string {
   return direct;
 }
 
-function liveActivity(transcript: TranscriptItem[], statusText: string | null | undefined): {
-  kind: "reasoning" | "tool" | "text" | "shell" | "working";
-  title: string;
-  detail: string;
-  state: "running" | "complete" | "failed";
-  startedAt?: number;
-} {
-  for (let itemIndex = transcript.length - 1; itemIndex >= 0; itemIndex -= 1) {
-    const item = transcript[itemIndex];
-    if (item.kind === "user") break;
-    if (item.kind === "shell") {
-      return {
-        kind: "shell",
-        title: item.status === "running" ? "Running command" : item.status === "exited" && (!item.exit || item.exit === 0) ? "Command complete" : "Command failed",
-        detail: item.command ?? "",
-        state: item.status === "running" ? "running" : item.status === "exited" && (!item.exit || item.exit === 0) ? "complete" : "failed"
-      };
-    }
-    if (item.kind !== "assistant") continue;
-    for (let partIndex = item.parts.length - 1; partIndex >= 0; partIndex -= 1) {
-      const part = item.parts[partIndex];
-      if (part.kind === "reasoning") {
-        if (part.text.trim()) {
-          return { kind: "reasoning", title: "Thinking", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
-        }
-        if (!part.complete) return { kind: "reasoning", title: "Thinking", detail: "", state: "running" };
-      }
-      if (part.kind === "text") {
-        if (part.text.trim()) {
-          return { kind: "text", title: "Writing response", detail: latestVisibleLine(part.text), state: part.complete ? "complete" : "running" };
-        }
-        if (!part.complete) return { kind: "text", title: "Writing response", detail: "", state: "running" };
-      }
-      if (part.kind === "tool") {
-        const presentation = toolPresentation(part.tool);
-        const state = part.tool.status === "running" ? "running" : part.tool.status === "failed" ? "failed" : "complete";
-        if (presentation.title === "Tool call" && !presentation.subtitle) {
-          return {
-            kind: "tool",
-            title: state === "failed" ? "Tool call failed" : "Running tool call",
-            detail: part.tool.progress ? progressText(part.tool.progress) : "Waiting for tool details",
-            state: state === "failed" ? "failed" : "running",
-            startedAt: part.tool.startedAt
-          };
-        }
-        const title = state === "running" ? toolActivityTitle(part.tool) : state === "failed" ? `${presentation.title} failed` : `${presentation.title} complete`;
-        return {
-          kind: "tool",
-          title,
-          detail: part.tool.progress && state === "running" ? progressText(part.tool.progress) : presentation.subtitle,
-          state,
-          startedAt: part.tool.startedAt
-        };
-      }
-    }
-  }
-  const title = statusText ? statusText.charAt(0).toUpperCase() + statusText.slice(1) : "Working";
-  return { kind: "working", title, detail: "", state: "running" };
-}
-
-export const OpenCodeLiveActivity = memo(function OpenCodeLiveActivity({
-  transcript,
-  busy,
-  statusText,
-  turnStartedAt
-}: {
-  transcript: TranscriptItem[];
-  busy: boolean;
-  statusText?: string | null;
-  turnStartedAt?: number | null;
-}): ReactNode {
-  const activity = useMemo(() => liveActivity(transcript, statusText), [transcript, statusText]);
-  const elapsed = useElapsed(activity.startedAt ?? turnStartedAt ?? undefined, busy && activity.state === "running");
-  return (
-    <div data-component="live-activity-dock" data-visible={busy ? "true" : "false"} aria-hidden={!busy}>
-      <div data-component="live-activity" data-kind={activity.kind} data-state={activity.state} role="status" aria-live="polite">
-        <span data-slot="live-activity-indicator" aria-hidden="true">
-          <span data-slot="live-activity-pulse" />
-        </span>
-        <div data-slot="live-activity-copy">
-          <div data-slot="live-activity-title"><TextShimmer text={activity.title} tone="thinking" /></div>
-          {activity.detail && <div data-slot="live-activity-detail" title={activity.detail}>{activity.detail}</div>}
-        </div>
-        {elapsed && <span data-slot="live-activity-time">{elapsed}</span>}
-      </div>
-    </div>
-  );
-});
 
 interface EditFileEntry {
   file: string;
@@ -1177,6 +1019,16 @@ function TimelineRow({ tag, children, previous }: { tag: string; children: React
   );
 }
 
+function InlineWorking({ statusText }: { statusText?: string | null }): ReactNode {
+  const label = statusText ? statusText.charAt(0).toUpperCase() + statusText.slice(1) : "Working";
+  return (
+    <div data-component="inline-working" role="status" aria-live="polite">
+      <span data-slot="assistant-activity-pulse" aria-hidden="true" />
+      <TextShimmer text={label} tone="thinking" />
+    </div>
+  );
+}
+
 function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }> }): ReactNode {
   return (
     <TimelineRow tag="UserMessage">
@@ -1257,11 +1109,13 @@ function ContextToolGroup({ tools, session }: { tools: ToolCallView[]; session: 
 function AssistantNode({
   item,
   streaming,
-  session
+  session,
+  statusText
 }: {
   item: AssistantItem;
   streaming: boolean;
   session: SessionInfo | null;
+  statusText?: string | null;
 }): ReactNode {
   const { stageRevert } = useStore();
   const rows: ReactNode[] = [];
@@ -1285,6 +1139,14 @@ function AssistantNode({
   }
   const showRevert = item.completed && !streaming && !item.retry && Boolean(session);
   let previous = false;
+  if (streaming && visibleParts.length === 0) {
+    rows.push(
+      <TimelineRow tag="AssistantWorking" key={`${item.id}:working`}>
+        <div data-slot="session-turn-assistant-content"><InlineWorking statusText={statusText} /></div>
+      </TimelineRow>
+    );
+    previous = true;
+  }
   for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
     const group = groups[groupIndex];
     const isLastGroup = groupIndex === groups.length - 1;
@@ -1541,12 +1403,14 @@ export function OpenCodeTimeline({
   transcript,
   busy,
   lastAssistantId,
-  session
+  session,
+  statusText
 }: {
   transcript: TranscriptItem[];
   busy: boolean;
   lastAssistantId: string | null;
   session?: SessionInfo | null;
+  statusText?: string | null;
 }): ReactNode {
   const store = useStore();
   const activeSession = session === undefined ? store.session : session;
@@ -1592,6 +1456,9 @@ export function OpenCodeTimeline({
     return visible;
   }, [consolidatedTranscript, representedSubagents, store.sessions, activeSession?.id]);
   const turns = useMemo(() => buildTurns(timeline), [timeline]);
+  const activeTurnHasAssistant = Boolean(lastAssistantId && turns.at(-1)?.body.some(
+    (item) => item.kind === "assistant" && item.id === lastAssistantId && !item.completed
+  ));
 
   return (
     <div data-slot="session-turn-list" className="opencode-timeline">
@@ -1605,12 +1472,18 @@ export function OpenCodeTimeline({
                   item={item}
                   streaming={busy && item.id === lastAssistantId}
                   session={activeSession}
+                  statusText={statusText}
                   key={`assistant:${item.id}`}
                 />
               : <TimelineEvent item={item} session={activeSession} key={item.id} />)}
           </div>
         );
       })}
+      {busy && !activeTurnHasAssistant && (
+        <TimelineRow tag="AssistantWorking">
+          <div data-slot="session-turn-assistant-content"><InlineWorking statusText={statusText} /></div>
+        </TimelineRow>
+      )}
     </div>
   );
 }
