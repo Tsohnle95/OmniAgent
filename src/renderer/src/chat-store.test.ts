@@ -443,6 +443,26 @@ describe("applyChatEvent", () => {
       error: "[ORBIT_RUNTIME_FAILURE] Step failed"
     });
   });
+
+  it("does not project duplicate adjacent text parts or assistant messages", () => {
+    const draft = state();
+    draft.message.s = [
+      { id: "assistant-1", sessionID: "s", role: "assistant", time: { completed: 2 } },
+      { id: "assistant-2", sessionID: "s", role: "assistant", time: { completed: 3 } }
+    ];
+    draft.part["assistant-1"] = [
+      { id: "text-1", messageID: "assistant-1", type: "text", text: "Same response", time: { completed: 2 } },
+      { id: "text-2", messageID: "assistant-1", type: "text", text: "Same response", time: { completed: 2 } }
+    ];
+    draft.part["assistant-2"] = [
+      { id: "text-3", messageID: "assistant-2", type: "text", text: "Same response", time: { completed: 3 } }
+    ];
+
+    expect(projectAssistantItems(draft, "s")).toHaveLength(1);
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({
+      parts: [{ kind: "text", text: "Same response" }]
+    });
+  });
 });
 
 describe("tool part id aliasing", () => {

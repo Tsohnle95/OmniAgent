@@ -1,6 +1,6 @@
 import type { AssistantPartView, TranscriptItem } from "@shared/types";
 import { formatFailure, normalizeFailure } from "@shared/errors";
-import { partFromProjection, type ChatStreamEvent } from "./chat-stream";
+import { assistantResponsesMatch, partFromProjection, type ChatStreamEvent } from "./chat-stream";
 import { Binary } from "./binary";
 
 export const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"]);
@@ -955,6 +955,13 @@ export function projectAssistantItems(draft: ChatDirectoryState, sessionID: stri
     const parts: AssistantPartView[] = [];
     const toolIndexes = new Map<string, number>();
     for (const part of projected) {
+      const previous = parts.at(-1);
+      if (
+        previous &&
+        (part.kind === "text" || part.kind === "reasoning") &&
+        previous.kind === part.kind &&
+        previous.text === part.text
+      ) continue;
       if (part.kind !== "tool") {
         parts.push(part);
         continue;
@@ -983,7 +990,7 @@ export function projectAssistantItems(draft: ChatDirectoryState, sessionID: stri
       };
     }
     const retry = message.retry;
-    out.push({
+    const projectedItem: Extract<TranscriptItem, { kind: "assistant" }> = {
       kind: "assistant",
       id: message.id,
       messageID: message.id,
@@ -999,7 +1006,10 @@ export function projectAssistantItems(draft: ChatDirectoryState, sessionID: stri
           }
         : {}),
       ...(message.error ? { error: errorText(message.error) } : {})
-    });
+    };
+    const previous = out.at(-1);
+    if (previous?.kind === "assistant" && assistantResponsesMatch(previous, projectedItem)) continue;
+    out.push(projectedItem);
   }
   return out;
 }

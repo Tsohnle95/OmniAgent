@@ -11,7 +11,8 @@ const storeState = vi.hoisted(() => ({
   reopenSession: vi.fn(),
   openFile: vi.fn(),
   focusSession: vi.fn(),
-  replyPermission: vi.fn()
+  replyPermission: vi.fn(),
+  stageRevert: vi.fn()
 }));
 
 vi.mock("../store", () => ({
@@ -85,6 +86,7 @@ describe("OpenCodeTimeline chronology", () => {
     storeState.openFile.mockReset();
     storeState.focusSession.mockReset();
     storeState.replyPermission.mockReset();
+    storeState.stageRevert.mockReset();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -456,6 +458,7 @@ describe("completed assistant layout", () => {
     storeState.openFile.mockReset();
     storeState.focusSession.mockReset();
     storeState.replyPermission.mockReset();
+    storeState.stageRevert.mockReset();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -493,9 +496,46 @@ describe("completed assistant layout", () => {
     expect(rows).toEqual(["AssistantActivity", "AssistantMessage"]);
 
     const actions = container.querySelector("[data-component='turn-actions']");
-    expect(actions).not.toBeNull();
+    expect(actions).toBeNull();
+    const options = container.querySelector("[data-component='response-options']");
+    expect(options).not.toBeNull();
     const activityRow = container.querySelector("[data-timeline-row='AssistantActivity']");
-    expect(actions?.parentElement).toBe(activityRow?.querySelector("[data-slot='session-turn-assistant-content']"));
+    expect(options?.parentElement).toBe(activityRow?.querySelector("[data-component='assistant-options-footer']"));
+  });
+
+  it("reveals copy and revert actions from the response options button", () => {
+    const session: SessionInfo = {
+      id: "session-1",
+      directory: "/repo",
+      workspace: { id: "workspace-1", generation: 1 }
+    };
+    act(() => root.render(
+      <OpenCodeTimeline
+        transcript={[{
+          kind: "assistant",
+          id: "assistant-1",
+          messageID: "assistant-1",
+          completed: true,
+          parts: [{ kind: "text", id: "text-1", text: "Answer", complete: true }]
+        }]}
+        busy={false}
+        lastAssistantId={null}
+        session={session}
+      />
+    ));
+
+    expect(container.querySelector("[data-slot='text-part-copy-button']")).toBeNull();
+    const button = container.querySelector<HTMLButtonElement>("[data-slot='response-options-button']");
+    expect(button?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => button?.click());
+
+    expect(button?.getAttribute("aria-expanded")).toBe("true");
+    expect([...container.querySelectorAll("[data-slot='response-options-item']")].map((item) => item.textContent?.trim()))
+      .toEqual(["Copy response", "Revert from here"]);
+
+    act(() => container.querySelectorAll<HTMLButtonElement>("[data-slot='response-options-item']")[1]?.click());
+    expect(storeState.stageRevert).toHaveBeenCalledWith(session.workspace, "assistant-1");
   });
 });
 

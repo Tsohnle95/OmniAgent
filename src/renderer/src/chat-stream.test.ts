@@ -70,6 +70,18 @@ describe("chat stream auxiliary items", () => {
     expect(mergeChatHistory(history, live)).toEqual(history);
   });
 
+  it("drops adjacent duplicate completed assistant responses", () => {
+    const response = (id: string): TranscriptItem => ({
+      kind: "assistant",
+      id,
+      messageID: id,
+      completed: true,
+      parts: [{ kind: "text", id: `${id}:text`, text: "Same response", complete: true }]
+    });
+
+    expect(mergeChatHistory([], [response("assistant-1"), response("assistant-2")])).toEqual([response("assistant-1")]);
+  });
+
   it("reconciles a completed canonical prompt without losing live tool detail", () => {
     const optimistic: TranscriptItem = { kind: "user", id: "user-100", text: "inspect streaming" };
     const tool: TranscriptItem = {

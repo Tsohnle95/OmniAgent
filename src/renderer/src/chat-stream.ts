@@ -418,6 +418,29 @@ function mergeAssistant(
   };
 }
 
+function assistantResponseKey(item: Extract<TranscriptItem, { kind: "assistant" }>): string | null {
+  if (!item.completed || item.retry || item.error || item.parts.length === 0) return null;
+  return JSON.stringify(item.parts.map((part) => part.kind === "tool"
+    ? {
+        kind: part.kind,
+        title: part.tool.title,
+        detail: part.tool.detail,
+        status: part.tool.status,
+        input: part.tool.input,
+        output: part.tool.output
+      }
+    : { kind: part.kind, text: part.text }
+  ));
+}
+
+export function assistantResponsesMatch(
+  left: Extract<TranscriptItem, { kind: "assistant" }>,
+  right: Extract<TranscriptItem, { kind: "assistant" }>
+): boolean {
+  const leftKey = assistantResponseKey(left);
+  return leftKey !== null && leftKey === assistantResponseKey(right);
+}
+
 export function mergeChatHistory(history: TranscriptItem[], live: TranscriptItem[]): TranscriptItem[] {
   const matches = (left: TranscriptItem, right: TranscriptItem): boolean =>
     left.id === right.id || (
@@ -436,7 +459,13 @@ export function mergeChatHistory(history: TranscriptItem[], live: TranscriptItem
     if (next) result.splice(result.findIndex((current) => matches(current, next)), 0, item);
     else result.push(item);
   }
-  return result;
+  const deduped: TranscriptItem[] = [];
+  for (const item of result) {
+    const previous = deduped.at(-1);
+    if (previous?.kind === "assistant" && item.kind === "assistant" && assistantResponsesMatch(previous, item)) continue;
+    deduped.push(item);
+  }
+  return deduped;
 }
 
 export function reconcilePromptHistory(

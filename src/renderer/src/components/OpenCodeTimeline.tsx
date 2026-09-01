@@ -124,13 +124,105 @@ function CopyResponse({ text, target = "response" }: { text: string; target?: "r
   );
 }
 
-function TextPart({ part, streaming }: { part: Extract<AssistantPart, { kind: "text" }>; streaming: boolean }): ReactNode {
+function ResponseOptions({
+  text,
+  showRevert,
+  onRevert
+}: {
+  text: string;
+  showRevert: boolean;
+  onRevert?: () => void;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onMouseDown = (event: MouseEvent): void => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const copy = async (): Promise<void> => {
+    if (!text) return;
+    const ok = await navigator.clipboard.writeText(text).then(() => true, () => false);
+    if (!ok) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    setOpen(false);
+  };
+
+  return (
+    <div data-component="response-options" ref={menuRef}>
+      <button
+        data-slot="response-options-button"
+        className="icon-btn"
+        aria-label="Response options"
+        title="Response options"
+        aria-expanded={open}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="codicon codicon-kebab-vertical" />
+      </button>
+      {open && (
+        <div data-slot="response-options-menu" role="menu">
+          <button
+            data-slot="response-options-item"
+            className="response-option"
+            role="menuitem"
+            disabled={!text}
+            onClick={() => void copy()}
+          >
+            <span className={`codicon codicon-${copied ? "check" : "copy"}`} />
+            {copied ? "Copied" : "Copy response"}
+          </button>
+          {showRevert && onRevert && (
+            <button
+              data-slot="response-options-item"
+              className="response-option"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onRevert();
+              }}
+            >
+              <span className="codicon codicon-discard" />
+              Revert from here
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TextPart({
+  part,
+  streaming,
+  showRevert = false,
+  onRevert
+}: {
+  part: Extract<AssistantPart, { kind: "text" }>;
+  streaming: boolean;
+  showRevert?: boolean;
+  onRevert?: () => void;
+}): ReactNode {
   if (!part.text) return null;
   return (
     <div data-component="text-part" data-copyable={!streaming ? "true" : undefined} data-timeline-part-id={part.id}>
       {!streaming && (
         <div data-slot="text-part-copy-wrapper">
-          <CopyResponse text={part.text} />
+          <ResponseOptions text={part.text} showRevert={showRevert} onRevert={onRevert} />
         </div>
       )}
       <div data-slot="text-part-body">
@@ -1124,6 +1216,10 @@ function AssistantNode({
       ? toolKey(part.tool.title) !== "todowrite"
       : Boolean(part.text.trim())
   );
+  const responseText = item.parts
+    .filter((part): part is Extract<AssistantPart, { kind: "text" }> => part.kind === "text")
+    .map((part) => part.text)
+    .join("\n\n");
   const lastPart = visibleParts.at(-1);
   type ActivityGroup = { kind: "activity"; entries: Exclude<AssistantPart, { kind: "text" }>[] };
   type TextGroup = { kind: "text"; part: Extract<AssistantPart, { kind: "text" }> };
@@ -1154,18 +1250,12 @@ function AssistantNode({
       rows.push(
         <TimelineRow tag="AssistantMessage" previous={previous} key={group.part.id}>
           <div data-slot="session-turn-assistant-content">
-            <TextPart part={group.part} streaming={streaming} />
-            {showRevert && isLastGroup && session && (
-              <div data-component="turn-actions">
-                <button
-                  className="turn-action"
-                  title="Stage an undo of this response and everything after it"
-                  onClick={() => void stageRevert(session.workspace, item.messageID)}
-                >
-                  <span className="codicon codicon-discard" /> Revert from here
-                </button>
-              </div>
-            )}
+            <TextPart
+              part={group.part}
+              streaming={streaming}
+              showRevert={showRevert && isLastGroup && Boolean(session)}
+              onRevert={session ? () => void stageRevert(session.workspace, item.messageID) : undefined}
+            />
           </div>
         </TimelineRow>
       );
@@ -1211,14 +1301,12 @@ function AssistantNode({
             );
           })}
           {showRevert && isLastGroup && session && (
-            <div data-component="turn-actions">
-              <button
-                className="turn-action"
-                title="Stage an undo of this response and everything after it"
-                onClick={() => void stageRevert(session.workspace, item.messageID)}
-              >
-                <span className="codicon codicon-discard" /> Revert from here
-              </button>
+            <div data-component="assistant-options-footer">
+              <ResponseOptions
+                text={responseText}
+                showRevert
+                onRevert={() => void stageRevert(session.workspace, item.messageID)}
+              />
             </div>
           )}
         </div>
