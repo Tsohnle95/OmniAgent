@@ -1,7 +1,11 @@
 import type { RuntimeID } from "@shared/types";
-import type { TerminalCommand } from "./terminal";
 
-export function tuiCommandForRuntime(runtimeID: RuntimeID, sessionID: string): TerminalCommand {
+export interface TuiCommand {
+  command: string;
+  args: string[];
+}
+
+export function tuiCommandForRuntime(runtimeID: RuntimeID, sessionID: string): TuiCommand {
   if (runtimeID === "opencode") return { command: "opencode2", args: ["--session", sessionID] };
   if (runtimeID === "deepseek") return { command: "dsh", args: ["--profile", "tui", "--resume", sessionID] };
   throw new Error(`TUI is not supported by runtime ${runtimeID}`);

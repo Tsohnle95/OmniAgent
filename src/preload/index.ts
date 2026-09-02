@@ -138,14 +138,8 @@ const api = {
     ipcRenderer.invoke("shell:terminal-resize", workspace, id, cols, rows),
   terminalStop: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
     ipcRenderer.invoke("shell:terminal-stop", workspace, id),
-  agentTuiStart: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
-    ipcRenderer.invoke("shell:agent-tui-start", workspace, id),
-  agentTuiInput: (workspace: WorkspaceIdentity, id: string, data: string): Promise<void> =>
-    ipcRenderer.invoke("shell:terminal-input", workspace, id, data),
-  agentTuiResize: (workspace: WorkspaceIdentity, id: string, cols: number, rows: number): Promise<void> =>
-    ipcRenderer.invoke("shell:terminal-resize", workspace, id, cols, rows),
-  agentTuiStop: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
-    ipcRenderer.invoke("shell:terminal-stop", workspace, id),
+  agentTuiStart: (workspace: WorkspaceIdentity): Promise<void> =>
+    ipcRenderer.invoke("shell:agent-tui-start", workspace),
   permissionReply: (workspace: WorkspaceIdentity, requestID: string, reply: PermissionReply, sessionID: string): Promise<void> =>
     ipcRenderer.invoke("shell:permission-reply", workspace, requestID, reply, sessionID),
   listPermissions: (workspace: WorkspaceIdentity): Promise<PendingPermissionRequest[]> =>

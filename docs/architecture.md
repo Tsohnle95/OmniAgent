@@ -332,8 +332,8 @@ provides it.
 
 ## Terminal tray
 
-The bottom tray (`src/main/terminal.ts` + `TerminalTray.tsx`) and the optional
-agent TUI panel (`AgentTui.tsx`) run real PTYs via `node-pty`. Main resolves the workspace identity and supplies the
+The bottom tray (`src/main/terminal.ts` + `TerminalTray.tsx`) runs a real
+PTY via `node-pty`. Main resolves the workspace identity and supplies the
 addressed workspace's canonical directory as cwd rather than accepting one
 from the renderer. The tray belongs to the focused panel: switching focus
 boots a fresh terminal for that workspace and stops the previous panel's
@@ -353,10 +353,10 @@ Install restores execute permission on the packaged Unix `spawn-helper`; this
 is a file-mode correction rather than a native compilation step.
 
 An agent panel can switch from GUI to TUI from its header mode pill. The main
-process resolves the active session's runtime command and starts it with the
-session directory as cwd; OpenCode launches `opencode2 --session <session-id>`.
-The renderer keeps the TUI inside the panel with xterm.js and reuses the
-terminal data, resize, ownership, and cleanup paths. DeepSeek advertises no TUI
+process resolves the active session's runtime command and launches a separate
+Kitty window with the session directory as cwd; OpenCode launches
+`opencode2 --session <session-id>`. Kitty loads its normal user configuration,
+including font, transparency, blur, and theme. DeepSeek advertises no TUI
 capability until a supported profile is available.
 
 ## Permissions

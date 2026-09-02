@@ -6,11 +6,6 @@ export interface PtyHandle {
   pty: IPty;
 }
 
-export interface TerminalCommand {
-  command: string;
-  args: string[];
-}
-
 export function defaultShell(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
   if (platform === "darwin") return env.SHELL ?? "/bin/zsh";
   if (platform === "win32") return env.COMSPEC ?? "powershell.exe";
@@ -37,11 +32,9 @@ export class TerminalManager {
     for (const cb of this.listeners) cb(msg);
   }
 
-  async start(id: string, directory: string, workspace: WorkspaceIdentity, command?: TerminalCommand): Promise<void> {
+  async start(id: string, directory: string, workspace: WorkspaceIdentity): Promise<void> {
     if (this.terminals.has(id)) throw new Error("terminal already exists");
-    const executable = command?.command ?? defaultShell(process.platform, process.env);
-    const args = command?.args ?? [];
-    const pty = this.spawnPty(executable, args, {
+    const pty = this.spawnPty(defaultShell(process.platform, process.env), [], {
       name: "xterm-256color",
       cols: 100,
       rows: 24,

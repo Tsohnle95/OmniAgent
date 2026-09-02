@@ -1250,11 +1250,6 @@ export function AgentPanel({
     setPanelMode("gui");
   };
 
-  const handleTuiExit = (exitCode: number | null): void => {
-    setPanelMode("gui");
-    setTuiNotice(exitCode === 0 ? "Agent TUI exited." : `Agent TUI exited${exitCode === null ? "" : ` with code ${exitCode}`}.`);
-  };
-
   const handleTuiError = (message: string): void => {
     setPanelMode("gui");
     setTuiNotice(message);
@@ -1434,7 +1429,7 @@ export function AgentPanel({
                 onClick={() => choosePanelMode("tui")}
               >
                 <span>TUI</span>
-                <small>{tuiAvailable ? "Terminal interface" : "Unavailable"}</small>
+                <small>{tuiAvailable ? "Opens Kitty window" : "Unavailable"}</small>
               </button>
             </div>
           )}
@@ -1567,7 +1562,7 @@ export function AgentPanel({
       )}
 
       {panelMode === "tui" && activeSession ? (
-        <AgentTui workspace={activeSession.workspace} onExit={handleTuiExit} onError={handleTuiError} />
+        <AgentTui workspace={activeSession.workspace} onError={handleTuiError} />
       ) : (
         <>
           <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>

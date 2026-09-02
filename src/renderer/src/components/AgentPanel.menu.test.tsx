@@ -11,20 +11,6 @@ let currentModel: ModelOption | null;
 const loadAgentsMock = vi.fn();
 const loadModelsMock = vi.fn();
 
-vi.mock("@xterm/xterm", () => ({
-  Terminal: class {
-    cols = 80;
-    rows = 24;
-    loadAddon() {}
-    open() {}
-    onData() { return { dispose() {} }; }
-    write() {}
-    dispose() {}
-  }
-}));
-vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
-vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
-
 vi.mock("../store", () => ({
   useStore: () => ({
     session: currentSession,
