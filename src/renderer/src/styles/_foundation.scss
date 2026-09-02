@@ -203,6 +203,7 @@
 
 :root[data-theme="kitty"] .editor-pane {
   background-color: transparent;
+  background-image: none;
 }
 
 :root[data-theme="kitty"] .agent-panel {
@@ -211,6 +212,10 @@
   background-repeat: var(--panel-surface-repeat);
   backdrop-filter: blur(28px) saturate(145%);
   -webkit-backdrop-filter: blur(28px) saturate(145%);
+}
+
+:root[data-theme="kitty"] .agent-panel .agent-tui {
+  background: transparent;
 }
 
 * { box-sizing: border-box; }

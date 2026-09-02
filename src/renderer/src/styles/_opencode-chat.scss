@@ -1384,12 +1384,8 @@
 }
 
 :root[data-theme="kitty"] .agent-panel .composer-body {
-  background: var(--panel-float-color);
-  background-image: var(--panel-surface-image);
-  background-size: var(--panel-surface-size);
-  background-repeat: var(--panel-surface-repeat);
-  -webkit-backdrop-filter: blur(28px) saturate(145%);
-  backdrop-filter: blur(28px) saturate(145%);
+  background: transparent;
+  box-shadow: inset 0 1px rgba(231, 231, 238, 0.08), 0 0 0 1px rgba(0, 162, 206, 0.04);
 }
 
 .agent-panel .composer-body:focus-within {
