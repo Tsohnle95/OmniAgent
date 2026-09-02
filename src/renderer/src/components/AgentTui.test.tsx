@@ -75,6 +75,30 @@ describe("AgentTui", () => {
     vi.unstubAllGlobals();
   });
 
+  it("uses a denser terminal scale for narrow panels", async () => {
+    const { tuiMetricsForWidth } = await import("./AgentTui");
+    expect(tuiMetricsForWidth(426)).toEqual({ fontSize: 10, lineHeight: 1.15 });
+    expect(tuiMetricsForWidth(640)).toEqual({ fontSize: 11, lineHeight: 1.2 });
+    expect(tuiMetricsForWidth(900)).toEqual({ fontSize: 12, lineHeight: 1.25 });
+  });
+
+  it("removes explicit TUI background paints while preserving foreground styles", async () => {
+    const { stripKittyTuiBackgrounds } = await import("./AgentTui");
+    const state = { pending: "" };
+    expect(stripKittyTuiBackgrounds("\u001b[1;38;2;231;231;238;48;2;2;2;4mtext\u001b[49m", state))
+      .toBe("\u001b[1;38;2;231;231;238mtext\u001b[49m");
+    expect(stripKittyTuiBackgrounds("\u001b[48;5;0mblack", state)).toBe("black");
+    expect(stripKittyTuiBackgrounds("\u001b[44;97mclassic", state)).toBe("\u001b[97mclassic");
+    expect(stripKittyTuiBackgrounds("\u001b[101mbright", state)).toBe("bright");
+  });
+
+  it("handles background sequences split across terminal data events", async () => {
+    const { stripKittyTuiBackgrounds } = await import("./AgentTui");
+    const state = { pending: "" };
+    expect(stripKittyTuiBackgrounds("\u001b[48;2;2;", state)).toBe("");
+    expect(stripKittyTuiBackgrounds("2;4mglass", state)).toBe("glass");
+  });
+
   it("starts the runtime TUI, forwards input, and renders output", async () => {
     const { AgentTui } = await import("./AgentTui");
     await act(async () => root.render(<ThemeProvider><AgentTui workspace={workspace} onExit={onExit} onError={onError} /></ThemeProvider>));

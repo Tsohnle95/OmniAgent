@@ -5,7 +5,7 @@
   background-image: none;
   backdrop-filter: blur(18px);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -689,11 +689,20 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  padding: 8px;
+  padding: 6px 8px 0;
   background-color: var(--agent-bg-base);
   background-image: var(--panel-surface-image);
   background-size: var(--panel-surface-size);
   background-repeat: var(--panel-surface-repeat);
+}
+
+@container (max-width: 520px) {
+  .agent-tui { padding: 3px 4px 0; }
+}
+
+.agent-col.edge-left > .agent-panel {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .agent-tui-host {
@@ -707,6 +716,10 @@
   width: 100%;
   height: 100%;
   background: transparent;
+}
+
+.agent-tui-host .xterm-screen {
+  background: transparent !important;
 }
 
 .agent-tui-host .xterm-viewport {

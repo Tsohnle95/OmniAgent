@@ -125,6 +125,29 @@ function writeModelKeys(storageKey: string, keys: Set<string>): void {
 }
 
 type MenuKind = "model" | "agent" | "add" | null;
+type PanelMode = "gui" | "tui";
+
+function panelModeStorageKey(sessionID: string): string {
+  return `orbit.agent-panel-mode.${sessionID}`;
+}
+
+function readPanelMode(sessionID: string | undefined): PanelMode {
+  if (!sessionID) return "gui";
+  try {
+    return window.localStorage.getItem(panelModeStorageKey(sessionID)) === "tui" ? "tui" : "gui";
+  } catch {
+    return "gui";
+  }
+}
+
+function savePanelMode(sessionID: string | undefined, mode: PanelMode): void {
+  if (!sessionID) return;
+  try {
+    window.localStorage.setItem(panelModeStorageKey(sessionID), mode);
+  } catch {
+    return;
+  }
+}
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "ico", "tiff", "tif"]);
 
@@ -1167,7 +1190,7 @@ export function AgentPanel({
   const headerRef = useRef<HTMLDivElement>(null);
   const panelDragRef = useRef<number | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
-  const [panelMode, setPanelMode] = useState<"gui" | "tui">("gui");
+  const [panelMode, setPanelMode] = useState<PanelMode>(() => readPanelMode(activeSession?.id));
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [tuiNotice, setTuiNotice] = useState("");
   const runtime = runtimes?.find((item) => item.id === (activeSession?.runtimeID ?? "opencode"));
@@ -1194,10 +1217,11 @@ export function AgentPanel({
   const parent = activeSession?.parentID ? sessions.find((item) => item.id === activeSession.parentID) : undefined;
 
   useEffect(() => {
-    setPanelMode("gui");
+    const savedMode = readPanelMode(activeSession?.id);
+    setPanelMode(savedMode === "tui" && tuiAvailable ? "tui" : "gui");
     setModeMenuOpen(false);
     setTuiNotice("");
-  }, [activeSession?.id, activeSession?.workspace.id, activeSession?.workspace.generation]);
+  }, [activeSession?.id, activeSession?.workspace.id, activeSession?.workspace.generation, tuiAvailable]);
 
   useEffect(() => {
     if (usageOpen) void refreshProviderUsage();
@@ -1244,19 +1268,23 @@ export function AgentPanel({
       }
       setTuiNotice("");
       setPanelMode("tui");
+      savePanelMode(activeSession?.id, "tui");
       return;
     }
     setTuiNotice("");
     setPanelMode("gui");
+    savePanelMode(activeSession?.id, "gui");
   };
 
   const handleTuiExit = (exitCode: number | null): void => {
     setPanelMode("gui");
+    savePanelMode(activeSession?.id, "gui");
     setTuiNotice(exitCode === 0 ? "Agent TUI exited." : `Agent TUI exited${exitCode === null ? "" : ` with code ${exitCode}`}.`);
   };
 
   const handleTuiError = (message: string): void => {
     setPanelMode("gui");
+    savePanelMode(activeSession?.id, "gui");
     setTuiNotice(message);
   };
 

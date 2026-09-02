@@ -207,14 +207,21 @@
 }
 
 :root[data-theme="kitty"] .agent-panel {
-  background-image: var(--panel-surface-image);
-  background-size: var(--panel-surface-size);
-  background-repeat: var(--panel-surface-repeat);
-  backdrop-filter: blur(28px) saturate(145%);
-  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  background: transparent;
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  box-shadow: none;
+}
+
+:root[data-theme="kitty"] .sidebar {
+  background: transparent;
 }
 
 :root[data-theme="kitty"] .agent-panel .agent-tui {
+  background: transparent;
+}
+
+:root[data-theme="kitty"] .agent-panel [data-component="session-prompt-dock"] {
   background: transparent;
 }
 

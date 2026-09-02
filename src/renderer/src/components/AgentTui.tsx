@@ -54,6 +54,64 @@ const KITTY_THEME: ITheme = {
   brightWhite: "#ffffff"
 };
 
+type AnsiSanitizerState = { pending: string };
+
+export function tuiMetricsForWidth(width: number): { fontSize: number; lineHeight: number } {
+  if (width > 0 && width <= 520) return { fontSize: 10, lineHeight: 1.15 };
+  if (width > 0 && width <= 720) return { fontSize: 11, lineHeight: 1.2 };
+  return { fontSize: 12, lineHeight: 1.25 };
+}
+
+function stripSgrBackgrounds(sequence: string): string {
+  const match = /^\u001b\[([0-9:;]*)([ -\/]*?)m$/.exec(sequence);
+  if (!match) return sequence;
+  const parts = match[1].split(";");
+  const kept: string[] = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index];
+    if (part.includes(":")) {
+      const fields = part.split(":");
+      if (fields[0] === "48") continue;
+      kept.push(part);
+      continue;
+    }
+    if (part === "48") {
+      if (parts[index + 1] === "5") index += 2;
+      else if (parts[index + 1] === "2") index += 4;
+      continue;
+    }
+    const code = Number(part);
+    if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) continue;
+    kept.push(part);
+  }
+  return kept.length > 0 ? `\u001b[${kept.join(";")}m` : "";
+}
+
+export function stripKittyTuiBackgrounds(data: string, state: AnsiSanitizerState): string {
+  const value = state.pending + data;
+  state.pending = "";
+  let output = "";
+  let cursor = 0;
+  while (cursor < value.length) {
+    const start = value.indexOf("\u001b[", cursor);
+    if (start < 0) {
+      output += value.slice(cursor);
+      break;
+    }
+    output += value.slice(cursor, start);
+    let final = start + 2;
+    while (final < value.length && (value.charCodeAt(final) < 0x40 || value.charCodeAt(final) > 0x7e)) final += 1;
+    if (final >= value.length) {
+      state.pending = value.slice(start);
+      break;
+    }
+    const sequence = value.slice(start, final + 1);
+    output += sequence.endsWith("m") ? stripSgrBackgrounds(sequence) : sequence;
+    cursor = final + 1;
+  }
+  return output;
+}
+
 export function AgentTui({
   workspace,
   onExit,
@@ -68,17 +126,21 @@ export function AgentTui({
   const terminalRef = useRef<Terminal | null>(null);
   const onExitRef = useRef(onExit);
   const onErrorRef = useRef(onError);
+  const themeRef = useRef(theme);
+  const ansiStateRef = useRef<AnsiSanitizerState>({ pending: "" });
   onExitRef.current = onExit;
   onErrorRef.current = onError;
+  themeRef.current = theme;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const id = `term-${crypto.randomUUID()}`;
+    const metrics = tuiMetricsForWidth(host.clientWidth);
     const terminal = new Terminal({
       fontFamily: theme === "kitty" ? "'FiraCode Nerd Font', 'SF Mono', Menlo, Consolas, monospace" : "'SF Mono', Menlo, Consolas, monospace",
-      fontSize: 12,
-      lineHeight: 1.25,
+      fontSize: metrics.fontSize,
+      lineHeight: metrics.lineHeight,
       cursorBlink: true,
       scrollback: 5000,
       theme: theme === "kitty" ? KITTY_THEME : ORIGINAL_THEME
@@ -87,9 +149,13 @@ export function AgentTui({
     terminal.loadAddon(fit);
     terminal.open(host);
     terminalRef.current = terminal;
+    ansiStateRef.current.pending = "";
 
     const resize = (): void => {
       try {
+        const nextMetrics = tuiMetricsForWidth(host.clientWidth);
+        terminal.options.fontSize = nextMetrics.fontSize;
+        terminal.options.lineHeight = nextMetrics.lineHeight;
         fit.fit();
       } catch {
         return;
@@ -102,7 +168,12 @@ export function AgentTui({
       void window.openshell.agentTuiInput(workspace, id, data).catch(() => {});
     });
     const off = window.openshell.onMessage((message) => {
-      if (message.kind === "terminal-data" && message.terminal.id === id) terminal.write(message.terminal.data);
+      if (message.kind === "terminal-data" && message.terminal.id === id) {
+        const data = themeRef.current === "kitty"
+          ? stripKittyTuiBackgrounds(message.terminal.data, ansiStateRef.current)
+          : message.terminal.data;
+        terminal.write(data);
+      }
       if (message.kind === "terminal-exit" && message.terminal.id === id) onExitRef.current(message.terminal.exitCode);
     });
     resize();
@@ -122,6 +193,7 @@ export function AgentTui({
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
+    if (theme !== "kitty") ansiStateRef.current.pending = "";
     terminal.options.theme = theme === "kitty" ? KITTY_THEME : ORIGINAL_THEME;
     terminal.options.fontFamily = theme === "kitty" ? "'FiraCode Nerd Font', 'SF Mono', Menlo, Consolas, monospace" : "'SF Mono', Menlo, Consolas, monospace";
   }, [theme]);

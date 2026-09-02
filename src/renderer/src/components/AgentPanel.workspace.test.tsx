@@ -84,6 +84,7 @@ describe("composer workspace continuations", () => {
 
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    window.localStorage.clear();
     currentSession = session("one", 1);
     panelTranscript = [];
     resizeCallback = undefined;
@@ -104,6 +105,7 @@ describe("composer workspace continuations", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    window.localStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -158,6 +160,11 @@ describe("composer workspace continuations", () => {
 
     expect(container.querySelector(".agent-tui")).not.toBeNull();
     expect(agentTuiStart).toHaveBeenCalledWith(currentSession.workspace, expect.stringMatching(/^term-/));
+
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => root.render(<AgentPanel />));
+    expect(container.querySelector(".agent-tui")).not.toBeNull();
   });
 
   it("follows resized stream content only until the reader scrolls away", async () => {
