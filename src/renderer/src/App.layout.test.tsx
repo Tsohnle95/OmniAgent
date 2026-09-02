@@ -662,7 +662,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([969]);
   });
 
-  it("keeps the close control on non-anchor panels only", async () => {
+  it("keeps the close control on every agent panel", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await act(async () => {
@@ -672,7 +672,7 @@ describe("Layout panel sizing", () => {
 
     const cols = agentCols();
     expect(cols[0].querySelector(".agent-close")).not.toBeNull();
-    expect(cols[1].querySelector(".agent-close")).toBeNull();
+    expect(cols[1].querySelector(".agent-close")).not.toBeNull();
     expect(cols[0].querySelector(".agent-collapse")).toBeNull();
     expect(cols[1].querySelector(".agent-collapse")).toBeNull();
   });

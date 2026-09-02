@@ -1151,7 +1151,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
 
 export function AgentPanel({
   session,
-  isAnchor,
+  isAnchor: _isAnchor,
   onFocus,
   onClose,
   onResizeLeft,
@@ -1380,12 +1380,12 @@ export function AgentPanel({
             <IconArrowLeft />
           </button>
         )}
-        {!isAnchor && (
+        {onClose && (
           <button
             className={`agent-dot agent-close ${busy ? "busy" : ""}`}
             title="Close model panel"
             aria-label="Close model panel"
-            onClick={() => onClose?.()}
+            onClick={() => onClose()}
           >
             <IconClose />
           </button>
