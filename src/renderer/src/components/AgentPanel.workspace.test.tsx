@@ -9,6 +9,20 @@ let resizeCallback: ResizeObserverCallback | undefined;
 const selectPanelDirectoryMock = vi.fn(async () => {});
 const reopenSessionMock = vi.fn(async () => {});
 
+vi.mock("@xterm/xterm", () => ({
+  Terminal: class {
+    cols = 80;
+    rows = 24;
+    loadAddon() {}
+    open() {}
+    onData() { return { dispose() {} }; }
+    write() {}
+    dispose() {}
+  }
+}));
+vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
+vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
+
 vi.mock("../store", () => ({
   useStore: () => ({
     session: currentSession,
@@ -126,7 +140,13 @@ describe("composer workspace continuations", () => {
 
   it("switches the agent panel into the runtime TUI from its mode menu", async () => {
     const agentTuiStart = vi.fn(async () => {});
-    window.openshell = { agentTuiStart } as unknown as Window["openshell"];
+    window.openshell = {
+      onMessage: vi.fn(() => () => {}),
+      agentTuiStart,
+      agentTuiInput: vi.fn(async () => {}),
+      agentTuiResize: vi.fn(async () => {}),
+      agentTuiStop: vi.fn(async () => {})
+    } as unknown as Window["openshell"];
     await act(async () => root.render(<AgentPanel />));
 
     await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Choose GUI or TUI"]')!.click());
@@ -136,7 +156,7 @@ describe("composer workspace continuations", () => {
     await act(async () => tuiItem!.click());
 
     expect(container.querySelector(".agent-tui")).not.toBeNull();
-    expect(agentTuiStart).toHaveBeenCalledWith(currentSession.workspace);
+    expect(agentTuiStart).toHaveBeenCalledWith(currentSession.workspace, expect.stringMatching(/^term-/));
   });
 
   it("follows resized stream content only until the reader scrolls away", async () => {

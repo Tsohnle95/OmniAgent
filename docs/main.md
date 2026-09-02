@@ -64,7 +64,7 @@ Public methods (all used by IPC):
 | `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
 | `sessionUsage(sessionID)` | Loads `session.get` and returns the normalized `SessionUsage` (`cost` + `tokens`) or `null` when unavailable; called after compaction to refresh the context-window display |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
-| `launchTui(workspace)` | Resolves the active runtime's TUI command and launches it in a new Kitty window for the addressed session; currently enabled for OpenCode and rejects runtimes without a declared TUI capability |
+| `tuiCommand(workspace)` | Resolves the active runtime's TUI command for the addressed session; currently enabled for OpenCode and rejects runtimes without a declared TUI capability |
 | `prompt(workspace, text, files?, delivery?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt`; `delivery` forwards `queue`/`steer` for native inbox queuing; IPC failures are normalized to a stable code and message before returning to the renderer |
 | `listInbox(workspace)` | Lists the active session's queued user entries via `session.inbox.list` |
 | `cancelInbox(workspace, inboxID)` | Cancels a queued inbox entry via `session.inbox.cancel` |
@@ -263,7 +263,7 @@ Internals:
 | `shell:agents` | `(workspace) → AgentOption[]` |
 | `shell:switch-agent` | `(workspace, id) → void` |
 | `shell:terminal-start` | `(workspace, id) → void`; renderer allocates a validated UUID id before invoking, main supplies the addressed workspace's canonical cwd |
-| `shell:agent-tui-start` | `(workspace) → void`; starts the addressed runtime's TUI command in a new Kitty window with the workspace's canonical cwd |
+| `shell:agent-tui-start` | `(workspace, id) → void`; starts the addressed runtime's TUI command in the workspace's canonical cwd |
 | `shell:terminal-input` | `(workspace, id, data) → void` |
 | `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |
 | `shell:terminal-stop` | `(workspace, id) → void` |

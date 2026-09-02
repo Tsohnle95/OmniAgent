@@ -90,7 +90,7 @@ import {
 import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
 import { DeepSeekRuntimeAdapter } from "./runtimes/deepseek/deepseek-adapter";
 import { tuiCommandForRuntime } from "./tui-command";
-import { launchKittyTui } from "./kitty";
+import type { TerminalCommand } from "./terminal";
 import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
 import { normalizePendingForm } from "@shared/forms";
 import { formatFailure, normalizeFailure } from "@shared/errors";
@@ -1791,13 +1791,13 @@ export class OpenShellBackend {
     return this.contextFor(workspace).directory;
   }
 
-  async launchTui(workspace: WorkspaceIdentity): Promise<void> {
+  async tuiCommand(workspace: WorkspaceIdentity): Promise<TerminalCommand> {
     const context = this.contextFor(workspace);
     const runtimeID = context.sessionInfo.runtimeID ?? context.runtime?.manifest.id ?? "opencode";
     if (context.runtime && !context.runtime.manifest.capabilities.tui) {
       throw new Error(`${context.runtime.manifest.name} TUI is not available; install its TUI profile first`);
     }
-    await launchKittyTui(context.directory, tuiCommandForRuntime(runtimeID, context.sessionID), context.sessionID);
+    return tuiCommandForRuntime(runtimeID, context.sessionID);
   }
 
   async providerUsage(): Promise<ProviderUsageResult[]> {

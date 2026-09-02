@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { defaultShell, TerminalManager } from "./terminal";
+import { defaultShell, TerminalManager, type TerminalCommand } from "./terminal";
 import type { IPty } from "node-pty";
 
 const workspace = { id: "11111111-1111-4111-8111-111111111111", generation: 1 };
@@ -54,6 +54,16 @@ describe("TerminalManager capability ownership", () => {
     expect(() => terminals.stop("term-1", current)).toThrow("stale terminal");
   });
 
+  it("starts an explicit command when a TUI command is supplied", async () => {
+    const pty = { onData: () => ({ dispose() {} }), onExit: () => ({ dispose() {} }), write() {}, resize() {}, kill() {} } as unknown as IPty;
+    const spawnPty = vi.fn(() => pty);
+    const manager = new TerminalManager(spawnPty as never);
+    const command: TerminalCommand = { command: "opencode2", args: ["--session", "session-1"] };
+
+    await manager.start("term-11111111-1111-4111-8111-111111111111", "/tmp", workspace, command);
+
+    expect(spawnPty).toHaveBeenCalledWith("opencode2", ["--session", "session-1"], expect.objectContaining({ cwd: "/tmp" }));
+  });
 });
 
 describe("terminal platform configuration", () => {

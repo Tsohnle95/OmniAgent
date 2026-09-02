@@ -778,7 +778,18 @@ function registerIpc(): void {
     }
   });
 
-  handleTrusted("shell:agent-tui-start", async (_e, workspace: WorkspaceIdentity) => backend.launchTui(workspace));
+  handleTrusted("shell:agent-tui-start", async (_e, workspace: WorkspaceIdentity, requestedId: string) => {
+    const directory = await backend.workspaceDirectory(workspace);
+    const command = await backend.tuiCommand(workspace);
+    const id = terminalId(requestedId);
+    await terminals.start(id, directory, workspace, command);
+    try {
+      await backend.workspaceDirectory(workspace);
+    } catch (error) {
+      terminals.stop(id, workspace);
+      throw error;
+    }
+  });
 
   handleTrusted("shell:terminal-input", async (_e, workspace: WorkspaceIdentity, id: string, data: string) => {
     await backend.workspaceDirectory(workspace);
