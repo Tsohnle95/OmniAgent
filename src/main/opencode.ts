@@ -1805,7 +1805,7 @@ export class OpenShellBackend {
   }
 
   async runtimeManifests(): Promise<RuntimeManifest[]> {
-    const probe = (command: string, args: string[] = []) => new Promise<{ available: boolean; version: string | null }>((resolve) => {
+    const probe = (command: string, args: string[] = ["--version"]) => new Promise<{ available: boolean; version: string | null }>((resolve) => {
       execFile(command, args, { timeout: 5000 }, (error, stdout) =>
         resolve({ available: !error, version: error ? null : stdout.trim().split("\n")[0] || null }));
     });
