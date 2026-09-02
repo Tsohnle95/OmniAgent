@@ -34,7 +34,7 @@ function useDragResize(
   setLeft?: (value: number) => void,
   onSnap?: () => void
 ): (e: React.MouseEvent) => void {
-  const startRef = useRef<{ x: number; width: number; left: number; live: number } | null>(null);
+  const startRef = useRef<{ x: number; width: number; left: number; live: number; hasDragged: boolean } | null>(null);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     if (!open) return;
@@ -43,10 +43,15 @@ function useDragResize(
       x: e.clientX,
       width,
       left: left ?? 0,
-      live: width
+      live: width,
+      hasDragged: false
     };
     const move = (ev: MouseEvent): void => {
       if (!startRef.current) return;
+      if (!startRef.current.hasDragged) {
+        if (Math.abs(ev.clientX - startRef.current.x) < 4) return;
+        startRef.current.hasDragged = true;
+      }
       const dx = ev.clientX - startRef.current.x;
       const rawW = startRef.current.width + (flip ? -dx : dx);
       const nextW = Math.max(min, rawW);
@@ -57,7 +62,7 @@ function useDragResize(
     };
     const up = (): void => {
       const start = startRef.current;
-      if (start && start.live < min) {
+      if (start && start.hasDragged && start.live < min) {
         if (flip && setLeft) setLeft(start.left + start.width - min);
         setWidth(min);
         onSnap?.();

@@ -1198,9 +1198,15 @@ export function AgentPanel({
   const startPanelDrag = (event: React.MouseEvent<HTMLDivElement>): void => {
     if (!onPanelDrag || (event.target as HTMLElement).closest("button")) return;
     event.preventDefault();
-    panelDragRef.current = event.clientX;
+    const startX = event.clientX;
+    let hasDragged = false;
+    panelDragRef.current = startX;
     const move = (moveEvent: MouseEvent): void => {
       if (panelDragRef.current === null) return;
+      if (!hasDragged) {
+        if (Math.abs(moveEvent.clientX - startX) < 4) return;
+        hasDragged = true;
+      }
       const delta = moveEvent.clientX - panelDragRef.current;
       panelDragRef.current = moveEvent.clientX;
       onPanelDrag(delta);
@@ -1209,7 +1215,7 @@ export function AgentPanel({
       panelDragRef.current = null;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", stop);
-      onPanelDragEnd?.();
+      if (hasDragged) onPanelDragEnd?.();
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", stop);

@@ -1047,4 +1047,60 @@ describe("Layout panel sizing", () => {
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%", "50%"]);
     expect(agentWidths()).toEqual([450, 450, 450, 450]);
   });
+
+  it("keeps edge-left on back-to-back panels after focus", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      dispatch({ kind: "session", session: info("/two", 2) });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    // Initially back-to-back
+    expect(agentLefts()).toEqual([689, 969]);
+    expect(agentCols()[1].classList.contains("edge-left")).toBe(true);
+
+    // Tiny drag (<4px) should not move - simulates a click with slight hand jitter
+    await act(async () => {
+      const header = agentCols()[0].querySelector<HTMLElement>(".agent-header")!;
+      header.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 700, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 698, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(agentLefts()).toEqual([689, 969]);
+    expect(agentCols()[1].classList.contains("edge-left")).toBe(true);
+
+    // Intentional drag (10px) should move and create a gap
+    await act(async () => {
+      const header = agentCols()[0].querySelector<HTMLElement>(".agent-header")!;
+      header.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 700, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 690, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(agentLefts()).toEqual([679, 969]);
+    expect(agentCols()[1].classList.contains("edge-left")).toBe(false);
+
+    // Drag back to 689
+    await act(async () => {
+      const header = agentCols()[0].querySelector<HTMLElement>(".agent-header")!;
+      header.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 679, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 689, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(agentLefts()).toEqual([689, 969]);
+    expect(agentCols()[1].classList.contains("edge-left")).toBe(true);
+
+    // Click right panel header to focus
+    await act(async () => {
+      const header = agentCols()[1].querySelector<HTMLElement>(".agent-header")!;
+      header.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 1001, clientY: 10 }));
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(agentLefts()).toEqual([689, 969]);
+    expect(agentCols()[1].classList.contains("edge-left")).toBe(true);
+  });
 });
