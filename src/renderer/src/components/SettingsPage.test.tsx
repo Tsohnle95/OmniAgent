@@ -48,15 +48,16 @@ describe("SettingsPage", () => {
 
     const cards = [...container.querySelectorAll<HTMLButtonElement>(".theme-card")];
     expect(cards.map((card) => card.textContent)).toEqual([
+      expect.stringContaining("Kitty Glass"),
       expect.stringContaining("Paper Editorial"),
       expect.stringContaining("Original")
     ]);
     expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(window.localStorage.getItem("orbit.theme")).toBe("original");
 
-    act(() => cards[0].click());
+    act(() => cards[1].click());
     expect(document.documentElement.dataset.theme).toBe("paper");
-    expect(cards[0].getAttribute("aria-checked")).toBe("true");
+    expect(cards[1].getAttribute("aria-checked")).toBe("true");
 
     act(() => root.unmount());
     container.remove();
@@ -66,9 +67,13 @@ describe("SettingsPage", () => {
     expect(document.documentElement.dataset.theme).toBe("paper");
 
     const restored = [...container.querySelectorAll<HTMLButtonElement>(".theme-card")];
-    act(() => restored[1].click());
+    act(() => restored[2].click());
     expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(window.localStorage.getItem("orbit.theme")).toBe("original");
+
+    act(() => restored[0].click());
+    expect(document.documentElement.dataset.theme).toBe("kitty");
+    expect(window.localStorage.getItem("orbit.theme")).toBe("kitty");
   });
 
   it("provides dedicated settings navigation with About as the final tab", () => {

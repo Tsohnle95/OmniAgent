@@ -357,7 +357,10 @@ process resolves the active session's runtime command and starts it with the
 session directory as cwd; OpenCode launches `opencode2 --session <session-id>`.
 The renderer keeps the TUI inside the panel with xterm.js and reuses the
 terminal data, resize, ownership, and cleanup paths. DeepSeek advertises no TUI
-capability until a supported profile is available.
+capability until a supported profile is available. The Kitty Glass appearance
+profile uses the same embedded terminal with alpha surfaces, native macOS
+under-window vibrancy, and Kitty-inspired colors; it does not open an external
+terminal window.
 
 ## Permissions
 

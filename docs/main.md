@@ -139,7 +139,7 @@ Internals:
 - `runEventLoop()` — one global reconnecting SSE loop driven by the
   `createStreamPipeline` transport in `src/main/stream-pipeline.ts`: 33ms
   per-directory batched flushing with delta coalescing and snapshot barriers,
-  a 30s heartbeat that aborts silent streams, and exponential reconnect
+  a 30s heartbeat that aborts silent streams without raising a user-facing error, and exponential reconnect
   backoff (250ms base, ×2, 5s cap). Stream errors drop the client so the next
   attempt rediscovers the service, and reconnects emit a synthetic
   `server.connected` so the renderer re-materializes open sessions.

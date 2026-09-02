@@ -195,7 +195,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 
       {mode === "diff" ? (
         <DiffEditor
-          theme={theme === "paper" ? "orbit-paper" : "orbit-original"}
+          theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
           language={language}
           original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
@@ -212,7 +212,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         />
       ) : (
         <Editor
-          theme={theme === "paper" ? "orbit-paper" : "orbit-original"}
+          theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
           language={language}
           path={tab.path}
           value={tab.content}

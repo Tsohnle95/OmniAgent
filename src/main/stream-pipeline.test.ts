@@ -257,7 +257,7 @@ describe("createStreamPipeline", () => {
     const wrappedTransportAbort = (): Error =>
       Object.assign(new Error("Transport"), {
         name: "ClientError",
-        cause: new DOMException("This operation was aborted", "AbortError")
+        cause: new Error("Connection closed after heartbeat timeout")
       });
     const pipeline = createStreamPipeline({
       subscribe,
@@ -273,7 +273,7 @@ describe("createStreamPipeline", () => {
     errorLog.mockRestore();
 
     expect(calls).toBeGreaterThanOrEqual(3);
-    expect(onStreamError).toHaveBeenCalledWith("sse_heartbeat_timeout");
+    expect(onStreamError).not.toHaveBeenCalled();
     expect(errorLog.mock.calls.some((args) => String(args[0]).includes("stream failed"))).toBe(false);
   });
 

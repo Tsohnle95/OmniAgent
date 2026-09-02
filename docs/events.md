@@ -36,7 +36,8 @@ terminal tool events, `message.part.updated`) clears that part's delta key so
 a delta arriving after the snapshot never merges into a pre-snapshot delta the
 snapshot already covers. `session.idle` / `session.error` /
 `session.created` / `session.deleted` clear the `session.status` coalescing
-key. A 30s heartbeat aborts a silent stream and reconnects immediately;
+key. A 30s heartbeat aborts a silent stream and reconnects immediately without
+emitting a user-facing error;
 stream failures retry with exponential backoff (250ms base, ×2, 5s cap). The
 backend drops its client and rediscovers the service on stream errors, and
 after a reconnect it emits a synthetic `server.connected` so the renderer

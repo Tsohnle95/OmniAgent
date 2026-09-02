@@ -15,6 +15,7 @@ vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     cols = 80;
     rows = 24;
+    options = { theme: {}, fontFamily: "" };
     loadAddon() {}
     open() {}
     onData() { return { dispose() {} }; }

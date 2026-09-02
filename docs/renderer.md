@@ -379,7 +379,7 @@ Key mechanisms:
 | `Welcome` | `Welcome.tsx` | Full-window landing view styled verbatim after the T09 "Twin Desk II · Glass Edge" mock: left hero column (orbit mark SVG, serif wordmark, tagline, single **Open a folder** CTA via `selectFolder()`), right accent-washed glass panel with a collapsible **Recent** section (numbered session rows reopening via `reopenSession`) and a **Workspaces** section of collapsible per-root groups (`openSession(dir)` on rows, latest-activity timestamps); the surface is draggable on macOS while buttons and rows stay interactive, and dropped files open via `openFileWorkspace` |
 | `FileSidebar` | `FileSidebar.tsx` | Tabbed left panel with two top tabs — **Sessions** (`SessionsPane`) and **Files** (CHANGES panel for observed workspace file changes — known baselines open as diffs; unknown baselines are labeled observed — plus the EXPLORER tree, rename/delete actions, and drag-and-drop moves onto folders or the root; the EXPLORER section header shows a New Folder action on hover so a folder can be created at the workspace root without hovering a specific row; each newly focused session ensure-opens the explorer root via `ensureRootOpen`) |
 | `SettingsSidebar` | `SettingsSidebar.tsx` | Replaces Sessions/Files while Settings is open and provides dedicated navigation for Appearance, Plugins, Providers, Safety, Voice, Model, Mobile Setup, and About as the final tab; Settings opens and closes from the standard-size cog beside the terminal titlebar action |
-| `SettingsPage` | `SettingsPage.tsx` | Focused content for the section selected in `SettingsSidebar`: persisted Paper Editorial and Original themes, editor wrapping, workspace commands and skills, provider status, agent permissions and follow-up behavior, honest voice/mobile availability, current-workspace default model selection, and app version information |
+| `SettingsPage` | `SettingsPage.tsx` | Focused content for the section selected in `SettingsSidebar`: persisted Paper Editorial, Original, and Kitty Glass themes, editor wrapping, workspace commands and skills, provider status, agent permissions and follow-up behavior, honest voice/mobile availability, current-workspace default model selection, and app version information |
 | `ProviderSettings` | `ProviderSettings.tsx` | Provider-neutral connection surface backed by the active runtime adapter: 20 featured providers, full-catalog search, write-only API-key forms with runtime-declared fields, secret-free connection labels, credential removal, environment/OAuth availability, and immediate model-catalog refresh after changes |
 | `SessionsPane` | `SessionsPane.tsx` | Sessions tab content styled as a session browser: New Session opens the native folder picker and an adjacent file action opens the native file picker, replacing the redundant titlebar actions. A search field filters Pinned (session ids persisted in `localStorage` "openshell.pinnedSessions", star/unstar from any row), Sessions (project folders from `projects()`, expandable to their session history), and Recents (all known sessions newest-first). All three sections start collapsed and gain an independent six-row scroll viewport when expanded while the outer pane remains scrollable on short windows. Session rows show live/busy dots for open panels and either focus them or reopen closed sessions; rows expose pin and close actions |
 | `EditorPane` | `EditorPane.tsx` | Tab bar (dirty dot, ⇄ diff badge), Monaco `Editor`/`DiffEditor` with compact scrollbars and a narrow add/remove overview strip, Edit/Diff + Wrap toolbar, ⌘S save, 4 MiB/binary guards |
@@ -419,6 +419,8 @@ Agent TUI input uses the same terminal message stream and ownership checks, but
 starts the active runtime command through `agentTuiStart` in the panel's
 workspace directory. OpenCode uses `opencode2 --session <session-id>`; the
 DeepSeek profile remains unavailable until its TUI command is supported.
+The persisted Kitty Glass appearance profile applies its translucent xterm
+background, Kitty-inspired palette, and Fira Code fallback to the embedded TUI.
 The renderer generates and registers each validated terminal UUID before
 invoking `terminalStart`, so startup output or exit can be attributed even when
 it arrives before the invoke resolves. Only those pending IDs can buffer startup output. Buffers retain at most 64 chunks / 256 KiB for ten
@@ -434,7 +436,7 @@ released at that collapsed position.
 ## Monaco (`monaco.ts`)
 
 - Workers wired for editor/json/css/html/ts (`?worker` imports).
-- `orbit-original` and `orbit-paper` themes (diff insert/remove colors included), selected with the persisted renderer color profile. Monaco
+- `orbit-original`, `orbit-paper`, and `orbit-kitty` themes (diff insert/remove colors included), selected with the persisted renderer color profile. Monaco
   parses theme palette colors with `Color.fromHex`, which silently maps any
   non-hex value to pure red — every palette color must be hex
   (`#RRGGBB` or `#RRGGBBAA`), never `rgba()`.

@@ -127,6 +127,92 @@
   --shadow-lg: 0 2px 6px rgba(67, 48, 33, 0.06), 0 12px 28px rgba(67, 48, 33, 0.08);
 }
 
+:root[data-theme="kitty"] {
+  color-scheme: dark;
+  --bg: transparent;
+  --bg-panel: rgba(14, 18, 28, 0.24);
+  --bg-inset: rgba(2, 2, 4, 0.16);
+  --bg-elev: rgba(24, 31, 48, 0.42);
+  --bg-active-pill: rgba(52, 58, 85, 0.52);
+  --bg-hover: rgba(231, 231, 238, 0.07);
+  --bg-active: rgba(0, 162, 206, 0.16);
+  --panel-surface-color: rgba(2, 2, 4, 0.08);
+  --panel-float-color: rgba(14, 18, 28, 0.44);
+  --panel-surface-image: radial-gradient(900px 580px at 100% 0%, rgba(0, 162, 206, 0.10), transparent 66%), linear-gradient(135deg, rgba(67, 36, 43, 0.20), transparent 46%);
+  --panel-surface-size: cover;
+  --agent-bg-base: rgba(2, 2, 4, 0.38);
+  --agent-bg-deep: rgba(2, 2, 4, 0.18);
+  --agent-bg-layer: rgba(52, 58, 85, 0.38);
+  --agent-bg-hover: rgba(231, 231, 238, 0.07);
+  --agent-bg-active: rgba(0, 162, 206, 0.12);
+  --agent-border-muted: rgba(231, 231, 238, 0.06);
+  --agent-border-base: rgba(231, 231, 238, 0.11);
+  --agent-border-strong: rgba(231, 231, 238, 0.18);
+  --agent-chat-ink: #b3b5c2;
+  --agent-composer-background: linear-gradient(118deg, rgba(0, 162, 206, 0.10), transparent 36%), linear-gradient(300deg, rgba(67, 36, 43, 0.15), transparent 44%), rgba(14, 18, 28, 0.34);
+  --agent-composer-border: rgba(0, 162, 206, 0.32);
+  --agent-composer-shadow: 0 7px 24px rgba(0, 0, 0, 0.38), inset 0 1px rgba(231, 231, 238, 0.06);
+  --agent-composer-focus-border: rgba(0, 162, 206, 0.64);
+  --agent-composer-focus-shadow: 0 8px 26px rgba(0, 0, 0, 0.42), 0 0 0 3px rgba(0, 162, 206, 0.12);
+  --agent-send-background: linear-gradient(160deg, #00a2ce, #087eae);
+  --agent-send-hover: linear-gradient(160deg, #25b8dd, #1396c1);
+  --agent-send-color: #020204;
+  --agent-send-shadow: 0 5px 16px rgba(0, 162, 206, 0.30);
+  --agent-send-hover-shadow: 0 6px 20px rgba(0, 162, 206, 0.42);
+
+  --text: #e7e7ee;
+  --text-dim: #b3b5c2;
+  --text-faint: #7f8292;
+  --text-base: #e7e7ee;
+  --text-weak: #7f8292;
+
+  --accent: #00a2ce;
+  --accent-hover: #25b8dd;
+  --accent-dim: rgba(0, 162, 206, 0.18);
+  --accent-tint: rgba(0, 162, 206, 0.10);
+
+  --green: #5bd69a;
+  --red: #ff4b67;
+  --yellow: #e0a85a;
+  --sky: #6fc3df;
+
+  --border: rgba(231, 231, 238, 0.08);
+  --border-strong: rgba(231, 231, 238, 0.15);
+  --border-subtle: rgba(231, 231, 238, 0.05);
+  --fg: #e7e7ee;
+  --bg-raised: rgba(24, 31, 48, 0.52);
+  --interactive-hover: rgba(231, 231, 238, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(231, 231, 238, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.24), 0 14px 36px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.22), 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme="kitty"] body,
+:root[data-theme="kitty"] .app {
+  background: transparent;
+}
+
+:root[data-theme="kitty"] .titlebar,
+:root[data-theme="kitty"] .sidebar,
+:root[data-theme="kitty"] .editor-pane,
+:root[data-theme="kitty"] .agent-panel,
+:root[data-theme="kitty"] .settings-page {
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  backdrop-filter: blur(20px) saturate(135%);
+}
+
+:root[data-theme="kitty"] .editor-pane {
+  background-color: transparent;
+}
+
+:root[data-theme="kitty"] .agent-panel {
+  background-image: var(--panel-surface-image);
+  background-size: var(--panel-surface-size);
+  background-repeat: var(--panel-surface-repeat);
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+}
+
 * { box-sizing: border-box; }
 
 html, body, #root {

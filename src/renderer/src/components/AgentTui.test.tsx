@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackendMessage, WorkspaceIdentity } from "@shared/types";
+import { ThemeProvider } from "../theme";
 
 const terminalWrites = vi.hoisted(() => vi.fn());
 const terminalData = vi.hoisted(() => vi.fn());
@@ -10,6 +11,7 @@ vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     cols = 80;
     rows = 24;
+    options = { theme: {}, fontFamily: "" };
     loadAddon() {}
     open() {}
     onData(callback: (data: string) => void) {
@@ -75,7 +77,7 @@ describe("AgentTui", () => {
 
   it("starts the runtime TUI, forwards input, and renders output", async () => {
     const { AgentTui } = await import("./AgentTui");
-    await act(async () => root.render(<AgentTui workspace={workspace} onExit={onExit} onError={onError} />));
+    await act(async () => root.render(<ThemeProvider><AgentTui workspace={workspace} onExit={onExit} onError={onError} /></ThemeProvider>));
 
     expect(start).toHaveBeenCalledWith(workspace, "term-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(resize).toHaveBeenCalledWith(workspace, "term-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 80, 24);
@@ -88,7 +90,7 @@ describe("AgentTui", () => {
 
   it("reports natural exit and stops the PTY on unmount", async () => {
     const { AgentTui } = await import("./AgentTui");
-    await act(async () => root.render(<AgentTui workspace={workspace} onExit={onExit} onError={onError} />));
+    await act(async () => root.render(<ThemeProvider><AgentTui workspace={workspace} onExit={onExit} onError={onError} /></ThemeProvider>));
 
     await act(async () => listener({ kind: "terminal-exit", terminal: { id: "term-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", exitCode: 0 } }));
     expect(onExit).toHaveBeenCalledWith(0);
@@ -100,7 +102,7 @@ describe("AgentTui", () => {
   it("returns a failed TUI launch to the GUI with an error", async () => {
     start.mockRejectedValueOnce(new Error("opencode2 was not found"));
     const { AgentTui } = await import("./AgentTui");
-    await act(async () => root.render(<AgentTui workspace={workspace} onExit={onExit} onError={onError} />));
+    await act(async () => root.render(<ThemeProvider><AgentTui workspace={workspace} onExit={onExit} onError={onError} /></ThemeProvider>));
 
     expect(onError).toHaveBeenCalledWith("opencode2 was not found");
   });

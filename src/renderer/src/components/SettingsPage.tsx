@@ -8,6 +8,12 @@ import type { SettingsSection } from "./SettingsSidebar";
 
 const themes: Array<{ id: ThemeId; name: string; description: string; colors: string[] }> = [
   {
+    id: "kitty",
+    name: "Kitty Glass",
+    description: "A translucent dark glass profile inspired by your Kitty terminal setup.",
+    colors: ["#020204", "#00a2ce", "#e7e7ee", "#5bd69a", "#ff4b67"]
+  },
+  {
     id: "paper",
     name: "Paper Editorial",
     description: "Warm paper surfaces, deep ink and the settled clay accent.",

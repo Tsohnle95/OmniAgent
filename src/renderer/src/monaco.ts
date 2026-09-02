@@ -93,6 +93,38 @@ monaco.editor.defineTheme("orbit-paper", {
   }
 });
 
+monaco.editor.defineTheme("orbit-kitty", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "7F8292", fontStyle: "italic" },
+    { token: "keyword", foreground: "FF8B85" },
+    { token: "string", foreground: "5BD69A" },
+    { token: "number", foreground: "E0A85A" },
+    { token: "type", foreground: "6FC3DF" },
+    { token: "function", foreground: "E7E7EE" }
+  ],
+  colors: {
+    "editor.background": "#02020400",
+    "editor.foreground": "#e7e7ee",
+    "editor.lineHighlightBackground": "#343a5526",
+    "editorLineNumber.foreground": "#626b78",
+    "editorCursor.foreground": "#00a2ce",
+    "editor.selectionBackground": "#2e4d78",
+    "editorGutter.background": "#02020400",
+    "diffEditor.insertedTextBackground": "#5bd69a20",
+    "diffEditor.removedTextBackground": "#ff4b6720",
+    "diffEditor.insertedLineBackground": "#5bd69a14",
+    "diffEditor.removedLineBackground": "#ff4b6714",
+    "diffEditorOverview.insertedForeground": "#5bd69ab3",
+    "diffEditorOverview.removedForeground": "#ff4b67b3",
+    "diffEditor.diagonalFill": "#02020400",
+    "scrollbarSlider.background": "#e7e7ee17",
+    "scrollbarSlider.hoverBackground": "#e7e7ee2b",
+    "minimap.background": "#02020400"
+  }
+});
+
 export { monaco };
 
 const LANGUAGE_BY_EXT: Record<string, string> = {

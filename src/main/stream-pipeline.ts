@@ -346,7 +346,9 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
           await runAttempt(attempt.signal);
           if (!aborted() && onStreamEnd) onStreamEnd();
         } catch (error) {
-          if (!isAbortError(error)) {
+          if (attemptAbortReason === "sse_heartbeat_timeout" || attemptAbortReason === "pipeline_stopped") {
+            retryDelayMs = 0;
+          } else if (!isAbortError(error)) {
             consecutiveFailures += 1;
             if (!streamErrorLogged) {
               streamErrorLogged = true;
@@ -364,8 +366,7 @@ export function createStreamPipeline(options: StreamPipelineOptions): StreamPipe
         }
 
         if (aborted()) return;
-        if (attemptAbortReason && attemptAbortReason !== "pipeline_stopped") {
-          notifyDisconnected(attemptAbortReason);
+        if (attemptAbortReason === "sse_heartbeat_timeout") {
           retryDelayMs = 0;
           attemptAbortReason = null;
         }
