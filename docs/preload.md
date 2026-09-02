@@ -77,6 +77,10 @@ automatically.
 | `terminalInput(workspace, id, data)` | `Promise<void>` |
 | `terminalResize(workspace, id, cols, rows)` | `Promise<void>` |
 | `terminalStop(workspace, id)` | `Promise<void>` |
+| `agentTuiStart(workspace, id)` | `Promise<void>`; starts the active runtime's TUI in the addressed workspace |
+| `agentTuiInput(workspace, id, data)` | `Promise<void>`; forwards xterm input through the terminal ownership checks |
+| `agentTuiResize(workspace, id, cols, rows)` | `Promise<void>`; forwards xterm dimensions through the terminal validation |
+| `agentTuiStop(workspace, id)` | `Promise<void>`; stops the panel's TUI PTY |
 | `permissionReply(workspace, requestID, reply, sessionID)` | `Promise<void>` |
 | `listPermissions(workspace)` | `Promise<PendingPermissionRequest[]>` — pending permission requests across the service's sessions |
 | `state()` | `Promise<SessionInfo \| null>` — the most recently activated session |

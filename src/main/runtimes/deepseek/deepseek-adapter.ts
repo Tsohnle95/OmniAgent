@@ -66,7 +66,8 @@ export class DeepSeekRuntimeAdapter implements RuntimeAdapter {
       providerCredentials: false,
       sessionFork: false,
       sessionResume: true,
-      steering: false
+      steering: false,
+      tui: false
     }
   };
 

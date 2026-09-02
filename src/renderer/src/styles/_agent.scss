@@ -170,7 +170,72 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  position: relative;
 }
+
+.agent-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 7px 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 120ms var(--ease), border-color 120ms var(--ease), color 120ms var(--ease);
+}
+
+.agent-mode-pill:hover,
+.agent-mode-pill.tui {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.agent-mode-pill .codicon { font-size: 11px; }
+
+.agent-mode-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 38px;
+  z-index: 90;
+  width: 164px;
+  padding: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.agent-mode-menu button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.agent-mode-menu button:hover,
+.agent-mode-menu button.selected { background: var(--bg-hover); }
+
+.agent-mode-menu button.disabled { color: var(--text-faint); }
+
+.agent-mode-menu small { color: var(--text-faint); font-size: 10px; }
 
 .agent-turn-timer {
   display: inline-flex;
@@ -618,6 +683,35 @@
   flex-direction: column;
   gap: 10px;
   user-select: text;
+}
+
+.agent-tui {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 8px;
+  background: #121317;
+}
+
+.agent-tui-host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.agent-tui-host .xterm {
+  width: 100%;
+  height: 100%;
+}
+
+.agent-tui-notice {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--yellow) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  color: var(--yellow);
+  font-size: 11px;
 }
 
 .agent-scroll > * {

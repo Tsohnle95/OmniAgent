@@ -16,6 +16,8 @@ touched, and continue working without switching between several applications.
   Edit/Diff views make every file modification easy to inspect.
 - **Run agents side by side.** Agent Mode collapses the sidebar and turns the
   workspace into resizable, concurrent session panels.
+- **Use the native agent TUI.** Open an agent panel's GUI/TUI mode menu to run
+  the installed OpenCode terminal interface directly inside that panel.
 - **Keep a real development environment.** Browse files, edit with autosave,
   use Emmet, validate HTML and CSS, and open the integrated terminal.
 - **Stay in control.** Choose agents and models per workspace, attach files,

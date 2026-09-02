@@ -89,6 +89,8 @@ import {
 } from "./workspace-security";
 import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
 import { DeepSeekRuntimeAdapter } from "./runtimes/deepseek/deepseek-adapter";
+import { tuiCommandForRuntime } from "./tui-command";
+import type { TerminalCommand } from "./terminal";
 import { RuntimeSessionIndex } from "./runtimes/runtime-session-index";
 import { normalizePendingForm } from "@shared/forms";
 import { formatFailure, normalizeFailure } from "@shared/errors";
@@ -1789,16 +1791,28 @@ export class OpenShellBackend {
     return this.contextFor(workspace).directory;
   }
 
+  async tuiCommand(workspace: WorkspaceIdentity): Promise<TerminalCommand> {
+    const context = this.contextFor(workspace);
+    const runtimeID = context.sessionInfo.runtimeID ?? context.runtime?.manifest.id ?? "opencode";
+    if (context.runtime && !context.runtime.manifest.capabilities.tui) {
+      throw new Error(`${context.runtime.manifest.name} TUI is not available; install its TUI profile first`);
+    }
+    return tuiCommandForRuntime(runtimeID, context.sessionID);
+  }
+
   async providerUsage(): Promise<ProviderUsageResult[]> {
     return fetchProviderUsage();
   }
 
   async runtimeManifests(): Promise<RuntimeManifest[]> {
-    const probe = (command: string) => new Promise<{ available: boolean; version: string | null }>((resolve) => {
-      execFile(command, ["--version"], { timeout: 5000 }, (error, stdout) =>
+    const probe = (command: string, args: string[] = []) => new Promise<{ available: boolean; version: string | null }>((resolve) => {
+      execFile(command, args, { timeout: 5000 }, (error, stdout) =>
         resolve({ available: !error, version: error ? null : stdout.trim().split("\n")[0] || null }));
     });
-    const [opencode, deepseek] = await Promise.all([probe("opencode2"), probe("dsh")]);
+    const [opencode, deepseek] = await Promise.all([
+      probe("opencode2"),
+      probe("dsh")
+    ]);
     return [
       {
         protocolVersion: 1,
@@ -1815,7 +1829,8 @@ export class OpenShellBackend {
           providerCredentials: true,
           sessionFork: true,
           sessionResume: true,
-          steering: false
+          steering: false,
+          tui: opencode.available
         }
       },
       {
@@ -1833,7 +1848,8 @@ export class OpenShellBackend {
           providerCredentials: false,
           sessionFork: false,
           sessionResume: true,
-          steering: true
+          steering: true,
+          tui: false
         }
       }
     ];

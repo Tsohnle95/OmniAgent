@@ -10,6 +10,7 @@ export interface RuntimeCapabilities {
   sessionFork: boolean;
   sessionResume: boolean;
   steering: boolean;
+  tui: boolean;
 }
 
 export interface RuntimeManifest {

@@ -30,6 +30,7 @@ import {
   IconStop,
   IconTerminal
 } from "./icons";
+import { AgentTui } from "./AgentTui";
 
 function useModelGroups(models: ModelOption[]): [string, ModelOption[]][] {
   return useMemo(() => {
@@ -1153,7 +1154,8 @@ export function AgentPanel({
     refreshProviderUsage,
     selectPanelDirectory,
     commitStagedRevert,
-    clearStagedRevert
+    clearStagedRevert,
+    runtimes
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
@@ -1165,6 +1167,11 @@ export function AgentPanel({
   const headerRef = useRef<HTMLDivElement>(null);
   const panelDragRef = useRef<number | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"gui" | "tui">("gui");
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [tuiNotice, setTuiNotice] = useState("");
+  const runtime = runtimes?.find((item) => item.id === (activeSession?.runtimeID ?? "opencode"));
+  const tuiAvailable = Boolean(activeSession) && (runtime?.capabilities.tui ?? (activeSession?.runtimeID ?? "opencode") === "opencode");
   const startPanelDrag = (event: React.MouseEvent<HTMLDivElement>): void => {
     if (!onPanelDrag || (event.target as HTMLElement).closest("button")) return;
     event.preventDefault();
@@ -1187,6 +1194,12 @@ export function AgentPanel({
   const parent = activeSession?.parentID ? sessions.find((item) => item.id === activeSession.parentID) : undefined;
 
   useEffect(() => {
+    setPanelMode("gui");
+    setModeMenuOpen(false);
+    setTuiNotice("");
+  }, [activeSession?.id, activeSession?.workspace.id, activeSession?.workspace.generation]);
+
+  useEffect(() => {
     if (usageOpen) void refreshProviderUsage();
   }, [usageOpen, refreshProviderUsage]);
 
@@ -1205,6 +1218,47 @@ export function AgentPanel({
       document.removeEventListener("keydown", onKey);
     };
   }, [usageOpen]);
+
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    const onDown = (e: MouseEvent): void => {
+      if (!panelRef.current?.contains(e.target as Node)) setModeMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setModeMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [modeMenuOpen]);
+
+  const choosePanelMode = (next: "gui" | "tui"): void => {
+    setModeMenuOpen(false);
+    if (next === "tui") {
+      if (!tuiAvailable) {
+        setTuiNotice("TUI is unavailable for this runtime.");
+        return;
+      }
+      setTuiNotice("");
+      setPanelMode("tui");
+      return;
+    }
+    setTuiNotice("");
+    setPanelMode("gui");
+  };
+
+  const handleTuiExit = (exitCode: number | null): void => {
+    setPanelMode("gui");
+    setTuiNotice(exitCode === 0 ? "Agent TUI exited." : `Agent TUI exited${exitCode === null ? "" : ` with code ${exitCode}`}.`);
+  };
+
+  const handleTuiError = (message: string): void => {
+    setPanelMode("gui");
+    setTuiNotice(message);
+  };
 
   const usage = sessionUsage;
   const usageTotal = usage
@@ -1348,6 +1402,43 @@ export function AgentPanel({
         <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">
           <button
+            className={`agent-mode-pill ${panelMode === "tui" ? "tui" : "gui"}`}
+            title="Choose GUI or TUI"
+            aria-label="Choose GUI or TUI"
+            aria-expanded={modeMenuOpen}
+            onClick={() => setModeMenuOpen((open) => !open)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setModeMenuOpen(true);
+            }}
+          >
+            {panelMode === "tui" ? "TUI" : "GUI"}
+            <IconChevronDown />
+          </button>
+          {modeMenuOpen && (
+            <div className="agent-mode-menu" role="menu" aria-label="Agent interface">
+              <button
+                role="menuitemradio"
+                aria-checked={panelMode === "gui"}
+                className={panelMode === "gui" ? "selected" : ""}
+                onClick={() => choosePanelMode("gui")}
+              >
+                <span>GUI</span>
+                <small>Orbit agent panel</small>
+              </button>
+              <button
+                role="menuitemradio"
+                aria-checked={panelMode === "tui"}
+                className={`${panelMode === "tui" ? "selected" : ""} ${!tuiAvailable ? "disabled" : ""}`}
+                title={tuiAvailable ? "Open the runtime TUI in this panel" : "TUI is unavailable for this runtime"}
+                onClick={() => choosePanelMode("tui")}
+              >
+                <span>TUI</span>
+                <small>{tuiAvailable ? "Terminal interface" : "Unavailable"}</small>
+              </button>
+            </div>
+          )}
+          <button
             className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
             title="Session and provider usage"
             aria-label="Session and provider usage"
@@ -1475,43 +1566,50 @@ export function AgentPanel({
         </div>
       )}
 
-      <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
-        {transcript.length === 0 && (
-          <div className="agent-empty">
-            <p>Tell the agent what to work on.</p>
-            <p className="agent-empty-sub">
-              It will stream its progress here, and every file it touches will show up under{" "}
-              <b>Changes</b> with a red/green diff.
-            </p>
+      {panelMode === "tui" && activeSession ? (
+        <AgentTui workspace={activeSession.workspace} onExit={handleTuiExit} onError={handleTuiError} />
+      ) : (
+        <>
+          <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
+            {tuiNotice && <div className="agent-tui-notice">{tuiNotice}</div>}
+            {transcript.length === 0 && (
+              <div className="agent-empty">
+                <p>Tell the agent what to work on.</p>
+                <p className="agent-empty-sub">
+                  It will stream its progress here, and every file it touches will show up under{" "}
+                  <b>Changes</b> with a red/green diff.
+                </p>
+              </div>
+            )}
+            <OpenCodeTimeline
+              transcript={transcript}
+              busy={busy}
+              lastAssistantId={lastAssistantId}
+              session={activeSession}
+              statusText={assistantStatus?.statusText}
+            />
           </div>
-        )}
-        <OpenCodeTimeline
-          transcript={transcript}
-          busy={busy}
-          lastAssistantId={lastAssistantId}
-          session={activeSession}
-          statusText={assistantStatus?.statusText}
-        />
-      </div>
 
-      <div data-component="session-prompt-dock">
-        {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
-        {(view.pendingForms ?? []).map((form) => (
-          <FormPrompt key={form.id} form={form} workspace={activeSession!.workspace} />
-        ))}
-        {view.stagedRevert && activeSession && (
-          <div data-component="dock-prompt" data-kind="revert">
-            <div data-slot="permission-header">Undo staged</div>
-            <p className="provider-note">Messages and file changes after this point will be removed.</p>
-            <div data-slot="permission-actions">
-              <button className="btn btn-danger" onClick={() => void commitStagedRevert(activeSession.workspace)}>Commit undo</button>
-              <button className="btn" onClick={() => void clearStagedRevert(activeSession.workspace)}>Discard</button>
-            </div>
+          <div data-component="session-prompt-dock">
+            {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
+            {(view.pendingForms ?? []).map((form) => (
+              <FormPrompt key={form.id} form={form} workspace={activeSession!.workspace} />
+            ))}
+            {view.stagedRevert && activeSession && (
+              <div data-component="dock-prompt" data-kind="revert">
+                <div data-slot="permission-header">Undo staged</div>
+                <p className="provider-note">Messages and file changes after this point will be removed.</p>
+                <div data-slot="permission-actions">
+                  <button className="btn btn-danger" onClick={() => void commitStagedRevert(activeSession.workspace)}>Commit undo</button>
+                  <button className="btn" onClick={() => void clearStagedRevert(activeSession.workspace)}>Discard</button>
+                </div>
+              </div>
+            )}
+            <OpenCodeTodoDock todos={todos} />
+            <Composer session={activeSession} />
           </div>
-        )}
-        <OpenCodeTodoDock todos={todos} />
-        <Composer session={activeSession} />
-      </div>
+        </>
+      )}
     </div>
   );
 }

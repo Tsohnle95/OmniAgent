@@ -34,7 +34,8 @@ function adapter(directory: string): RuntimeAdapter {
         providerCredentials: false,
         sessionFork: false,
         sessionResume: true,
-        steering: false
+        steering: false,
+        tui: false
       }
     },
     connect: vi.fn(async () => true),
