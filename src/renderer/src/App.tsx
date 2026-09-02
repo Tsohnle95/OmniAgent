@@ -750,7 +750,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           className="workspace-area"
           style={
             {
-              "--editor-right": `${inAgentMode || (ordered.length > 0 && slotFor(ordered[0]).left === 0) ? 0 : Math.max(0, areaW - (ordered.length > 0 ? slotFor(ordered[0]).left : areaW))}px`
+              "--editor-right": `${ordered.length > 0 ? Math.max(0, areaW - slotFor(ordered[0]).left) : 0}px`
             } as CSSProperties
           }
         >

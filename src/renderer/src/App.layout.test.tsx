@@ -244,7 +244,7 @@ describe("Layout panel sizing", () => {
 
     expect(agentLefts()[0]).toBe(0);
     expect(agentWidths()[0]).toBeCloseTo(1569, 0);
-    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
+    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("1569px");
   });
 
   it("keeps a left-expanded panel against either explorer tray", async () => {
@@ -271,7 +271,7 @@ describe("Layout panel sizing", () => {
     expect(gridCols()[0]).toBe("230px");
     expect(agentLefts()[0]).toBe(0);
     expect(agentWidths()[0]).toBeCloseTo(1249, 0);
-    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
+    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("1249px");
   });
 
   it("reopens the sidebar from the titlebar toggle after closing it", async () => {
@@ -724,7 +724,7 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([0, 0, 740]);
     expect(agentCols().map((col) => col.style.top)).toEqual(["50%", "0%", "0%"]);
     expect(agentCols().map((col) => col.style.height)).toEqual(["50%", "50%", "50%"]);
-    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("0px");
+    expect(container.querySelector<HTMLElement>(".workspace-area")!.style.getPropertyValue("--editor-right")).toBe("1480px");
   });
 
   it("restores a single agent to its default right-anchored width after agent mode", async () => {

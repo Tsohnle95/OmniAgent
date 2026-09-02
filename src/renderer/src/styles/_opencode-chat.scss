@@ -1383,6 +1383,15 @@
   max-width: 100%;
 }
 
+:root[data-theme="kitty"] .agent-panel .composer-body {
+  background: var(--panel-float-color);
+  background-image: var(--panel-surface-image);
+  background-size: var(--panel-surface-size);
+  background-repeat: var(--panel-surface-repeat);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  backdrop-filter: blur(28px) saturate(145%);
+}
+
 .agent-panel .composer-body:focus-within {
   border-color: var(--agent-composer-focus-border);
   box-shadow: var(--agent-composer-focus-shadow);
