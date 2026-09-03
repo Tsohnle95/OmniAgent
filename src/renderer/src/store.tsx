@@ -1104,8 +1104,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   }, [panelFor, popQueuedMessage, updateSessionTranscript, toast, refreshInbox, commitQueue]);
 
   const attachPanel = useCallback((info: SessionInfo): void => {
-    panelsRef.current = panelsRef.current.some((panel) => panel.workspace.id === info.workspace.id)
-      ? panelsRef.current.map((panel) => (panel.workspace.id === info.workspace.id ? info : panel))
+    panelsRef.current = panelsRef.current.some((panel) => panel.id === info.id)
+      ? panelsRef.current.map((panel) => (panel.id === info.id ? info : panel))
       : [...panelsRef.current, info];
     setPanels(panelsRef.current);
   }, []);
@@ -1382,12 +1382,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }
   }, [toast]);
 
-  const swapPanelTo = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): void => {
+  const replacePanel = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): boolean => {
     const index = panelsRef.current.findIndex((panel) => sameWorkspace(panel.workspace, workspace));
-    if (index === -1) {
-      void window.openshell.closeSession(info.workspace).catch(() => {});
-      return;
-    }
+    if (index === -1) return false;
     const old = panelsRef.current[index];
     void window.openshell.closeSession(old.workspace).catch(() => {});
     const oldWorkspaceID = old.workspace.id;
@@ -1421,6 +1418,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     focusSeqRef.current += 1;
     sessionRef.current = info;
     setActiveSessionID(info.id);
+    return true;
+  }, [setPanels]);
+
+  const swapPanelTo = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): void => {
+    if (!replacePanel(workspace, info)) {
+      void window.openshell.closeSession(info.workspace).catch(() => {});
+      return;
+    }
     void hydrateTranscript(info.id);
     void refreshInbox(info.id);
     void refreshForms(info.id);
@@ -1428,7 +1433,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     void loadModels(info.workspace);
     void loadAgents(info.workspace);
     void loadSessions();
-  }, [setPanels, loadRecovery, loadModels, loadAgents, loadSessions, hydrateTranscript]);
+  }, [replacePanel, loadRecovery, loadModels, loadAgents, loadSessions, hydrateTranscript]);
 
   const openSession = useCallback(
     async (dir: string): Promise<SessionInfo | null> => {
@@ -1628,6 +1633,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       }
       const request = ++requestSeqRef.current;
       const activation = silent ? 0 : ++activationSeqRef.current;
+      const targetWorkspace = silent ? null : sessionRef.current?.workspace ?? null;
       if (!silent) {
         replacingSessionIDsRef.current.set(sessionID, (replacingSessionIDsRef.current.get(sessionID) ?? 0) + 1);
       }
@@ -1639,6 +1645,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
         if (silent) {
           attachPanel(reopened.session);
+        } else if (targetWorkspace) {
+          if (!replacePanel(targetWorkspace, reopened.session)) {
+            await window.openshell.closeSession(reopened.session.workspace).catch(() => {});
+            return null;
+          }
         } else {
           replacePanels(reopened.session);
           userActivatedRef.current = true;
@@ -1692,7 +1703,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
       }
     },
-    [attachPanel, replacePanels, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs, selectedRuntimeID]
+    [attachPanel, replacePanels, replacePanel, focusSession, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, toast, loadModels, loadAgents, loadSessions, loadRecovery, hydrateTranscript, protectedSessionIDs, selectedRuntimeID]
   );
 
   const sendPrompt = useCallback(

@@ -165,7 +165,7 @@ and imports dropped folders there without changing the active panels),
 (swap one panel to a folder picked in the native dialog) and
 `changePanelDirectory(workspace, dir)` (swap one panel to a directory without a
 dialog), `reopenSession(id, silent)`
-(focus a running panel, otherwise replace the current view unless silent), `focusSession(id)`,
+(focus a running panel, otherwise replace the selected panel or the current view when no panel is selected unless silent), `focusSession(id)`,
 `closePanel(id)`, `loadSessions`, `sendPrompt(text, files, workspace?)`, `stop(workspace?)`,
 `refreshProviderUsage`, `loadModels(workspace?)`, `switchModel(id, providerID, variant?, workspace?)`,
 `loadAgents(workspace?)`, `switchAgent(id, workspace?)`, `toggleApprovalMode`, `toggleWordWrap`,

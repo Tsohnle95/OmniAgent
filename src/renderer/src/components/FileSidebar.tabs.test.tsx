@@ -20,6 +20,7 @@ function summary(id: string, directory: string, title: string, updatedAt = Date.
 const store = {
   session: session as MockSession | null,
   selectFolder: vi.fn(),
+  selectPanelDirectory: vi.fn(),
   selectFile: vi.fn(),
   tree: {},
   toggleDir: vi.fn(),
@@ -77,12 +78,13 @@ describe("FileSidebar tabs and sessions pane", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     window.localStorage.clear();
     store.panels = [];
+    store.session = session as MockSession;
     store.panelViews = {};
     store.activeSessionID = null;
     store.sessions = [];
     for (const mock of [
       store.focusSession, store.closePanel, store.reopenSession, store.openSession, store.selectFolder, store.selectFile,
-      store.loadSessions, store.runCommand, store.toggleWordWrap
+      store.loadSessions, store.runCommand, store.toggleWordWrap, store.selectPanelDirectory
     ]) {
       mock.mockClear();
     }
@@ -145,6 +147,22 @@ describe("FileSidebar tabs and sessions pane", () => {
       "History"
     ]);
     expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["true", "true", "false"]);
+  });
+
+  it("switches only the selected panel when multiple panels are open", async () => {
+    const first = { ...session, id: "first", directory: "/luno", workspace: { id: "first-workspace", generation: 1 } };
+    const second = { ...session, id: "second", directory: "/omniagent", workspace: { id: "second-workspace", generation: 2 } };
+    store.panels = [first, second];
+    store.session = second;
+    store.activeSessionID = second.id;
+
+    await render();
+    await settle();
+
+    await act(async () => container.querySelector<HTMLButtonElement>('[title="Switch folder"]')!.click());
+
+    expect(store.selectPanelDirectory).toHaveBeenCalledWith(second.workspace);
+    expect(store.selectFolder).not.toHaveBeenCalled();
   });
 
   it("swaps to the files pane with its changes and explorer sections and back", async () => {

@@ -359,6 +359,47 @@ describe("store workspace continuations", () => {
     expect(store.session?.id).toBe(first.id);
   });
 
+  it("reopens a session in the selected panel without closing its neighbors", async () => {
+    const closeSession = vi.fn(async () => {});
+    const openSessionById = vi.fn(async (sessionID: string) => ({
+      session: { ...info("/neptune-ai", 9), id: sessionID },
+      transcript: [],
+      todos: [],
+      usage: null
+    }));
+    window.openshell = api({ closeSession, openSessionById });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/luno"));
+    await act(async () => store.addModelPanel("/omniagent"));
+    const firstWorkspace = store.panels[0].workspace;
+    const selectedWorkspace = store.panels[1].workspace;
+
+    await act(async () => store.reopenSession("session-neptune"));
+
+    expect(store.panels.map((panel) => panel.directory)).toEqual(["/luno", "/neptune-ai"]);
+    expect(store.session?.directory).toBe("/neptune-ai");
+    expect(closeSession).toHaveBeenCalledWith(selectedWorkspace);
+    expect(closeSession).not.toHaveBeenCalledWith(firstWorkspace);
+  });
+
+  it("updates a repeated session event in place without duplicating its panel", async () => {
+    window.openshell = api();
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/luno"));
+    await act(async () => store.addModelPanel("/omniagent"));
+    const first = store.panels[0];
+    const refreshed = {
+      ...first,
+      directory: "/luno-renamed",
+      workspace: { id: "refreshed-workspace", generation: 20 }
+    };
+
+    await act(async () => messageHandler!({ kind: "session", session: refreshed }));
+
+    expect(store.panels.map((panel) => panel.id)).toEqual([first.id, store.panels[1].id]);
+    expect(store.panels.map((panel) => panel.directory)).toEqual(["/luno-renamed", "/omniagent"]);
+  });
+
   it("closes a panel, tears down its backend context, and keeps the neighbor focused", async () => {
     const closeSession = vi.fn(async () => {});
     window.openshell = api({ closeSession });

@@ -352,6 +352,7 @@ export function FileSidebar({
     panels = [],
     focusSession,
     selectFolder,
+    selectPanelDirectory,
     tree,
     toggleDir,
     ensureRootOpen,
@@ -377,6 +378,10 @@ export function FileSidebar({
   const switchTab = (next: SidebarTab): void => {
     if (!tab) setFallbackTab(next);
     onTabChange?.(next);
+  };
+  const switchFolder = (): void => {
+    if (session && panels.length > 1) void selectPanelDirectory(session.workspace);
+    else void selectFolder();
   };
   const [changesH, changesDrag] = useChangesDrag(200);
   const [dragPath, setDragPath] = useState<string | null>(null);
@@ -522,7 +527,7 @@ export function FileSidebar({
             <span className="sidebar-title-name">{name}</span>
           </span>
           <span className="sidebar-header-actions">
-            <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
+            <button className="icon-btn" title="Switch folder" onClick={switchFolder}>
               <IconFolderOpen />
             </button>
           </span>
@@ -562,7 +567,7 @@ export function FileSidebar({
     <div className="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-header-actions">
-          <button className="icon-btn" title="Switch folder" onClick={() => void selectFolder()}>
+          <button className="icon-btn" title="Switch folder" onClick={switchFolder}>
             <IconFolderOpen />
           </button>
         </span>
