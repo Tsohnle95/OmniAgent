@@ -434,7 +434,6 @@ const EMPTY_EXPANDED: Set<string> = new Set();
 const STREAM_SETTLE_MS = 15_000;
 const STREAM_SETTLE_IDLE_MS = 2_000;
 const STREAM_SETTLE_POLL_MS = 1_000;
-const ABORT_RESTORE_SUPPRESS_MS = 10_000;
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
@@ -997,7 +996,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           : Promise.resolve(null)
       ]);
       if (!panelForSession(sessionID)) return;
-      hydrateChatState(chatStateFor(sessionID), sessionID, snapshot.transcript);
+      const aborted = sessionAbortFlagsRef.current[sessionID]?.acknowledged === false;
+      const draft = chatStateFor(sessionID);
+      hydrateChatState(draft, sessionID, snapshot.transcript);
+      if (aborted) completeLatestIncomplete(draft, sessionID);
       applyProjection(sessionID);
       reconcileStreaming(sessionID);
       setTodosFor(panel.workspace.id, snapshot.todos);
@@ -1014,7 +1016,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
       }
       const trailing = [...snapshot.transcript].reverse().find((item) => item.kind === "assistant");
-      if (!trailing || trailing.completed) setSessionBusy(sessionID, false);
+      if (aborted || !trailing || trailing.completed) setSessionBusy(sessionID, false);
     } catch (error) {
       if (panelForSession(sessionID)) {
         toast(formatFailure(error, "ORBIT_SESSION_MATERIALIZE_FAILED", "Session state could not be refreshed"), "error");
@@ -1115,8 +1117,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         const reopened = await window.openshell.openSessionById(sessionID, request);
         if (!panelForSession(sessionID)) return;
         const merged = mergeChatHistory(reopened.transcript, transcriptsBySessionRef.current[sessionID] ?? []);
+        const aborted = sessionAbortFlagsRef.current[sessionID]?.acknowledged === false;
         chatStatesRef.current.delete(sessionID);
-        hydrateChatState(chatStateFor(sessionID), sessionID, merged);
+        const draft = chatStateFor(sessionID);
+        hydrateChatState(draft, sessionID, merged);
+        if (aborted) completeLatestIncomplete(draft, sessionID);
         reconcileStreaming(sessionID);
         setTranscriptsBySession((current) => retainSessionRecord(
           current,
@@ -1129,8 +1134,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           ? current
           : {
               ...current,
-              [sessionID]: Boolean(running?.kind === "assistant" && !running.completed)
+              [sessionID]: !aborted && Boolean(running?.kind === "assistant" && !running.completed)
             });
+        if (aborted) applyProjection(sessionID);
         setTodosFor(reopened.session.workspace.id, reopened.todos);
         if (reopened.usage) {
           setUsageBySession((current) => retainSessionRecord(
@@ -1146,7 +1152,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
       }
     },
-    [toast, panelForSession, chatStateFor, reconcileStreaming, setTodosFor, protectedSessionIDs]
+    [toast, panelForSession, chatStateFor, reconcileStreaming, applyProjection, setTodosFor, protectedSessionIDs]
   );
 
   const clearStagedRevert = useCallback(async (workspace: WorkspaceIdentity): Promise<void> => {
@@ -1703,6 +1709,15 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         return;
       }
       const promptText = t || "Review the attached files.";
+      const abortFlag = sessionAbortFlagsRef.current[panel.id];
+      if (abortFlag && !abortFlag.acknowledged) {
+        const nextAbortFlags = {
+          ...sessionAbortFlagsRef.current,
+          [panel.id]: { ...abortFlag, acknowledged: true }
+        };
+        sessionAbortFlagsRef.current = nextAbortFlags;
+        setSessionAbortFlags(nextAbortFlags);
+      }
       const transcript = transcriptsBySessionRef.current[panel.id] ?? [];
       const trailingAssistant = [...transcript].reverse().find((item) => item.kind === "assistant");
       const trailingAssistantIncomplete = trailingAssistant?.kind === "assistant" && !trailingAssistant.completed;
@@ -1796,15 +1811,27 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     const target = workspace ?? sessionRef.current?.workspace;
     const panel = target ? panelFor(target) : null;
     if (!panel || !target) return;
-    setSessionAbortFlags((current) => ({
-      ...current,
-      [panel.id]: { timestamp: Date.now(), acknowledged: false }
-    }));
+    const abortFlag = { timestamp: Date.now(), acknowledged: false };
+    const nextAbortFlags = { ...sessionAbortFlagsRef.current, [panel.id]: abortFlag };
+    sessionAbortFlagsRef.current = nextAbortFlags;
+    setSessionAbortFlags(nextAbortFlags);
+    const draft = chatStateFor(panel.id);
+    const previous = snapshotChatState(draft);
+    const interrupted = applyChatEvent(draft, panel.id, {
+      id: `local-interrupt-${abortFlag.timestamp}`,
+      type: "session.execution.interrupted",
+      created: abortFlag.timestamp,
+      data: { sessionID: panel.id }
+    });
+    if (interrupted === true || (typeof interrupted !== "boolean" && interrupted.changed)) {
+      applyProjection(panel.id);
+    }
+    syncStreaming(panel.id, previous);
     setSessionBusy(panel.id, false);
     await window.openshell.interrupt(target).catch((error) => {
       toast(formatFailure(error, "ORBIT_INTERRUPT_FAILED", "The prompt could not be interrupted"), "error");
     });
-  }, [setSessionBusy, panelFor, toast]);
+  }, [setSessionBusy, panelFor, toast, chatStateFor, applyProjection, syncStreaming]);
 
   const refreshProviderUsage = useCallback(async () => {
     setProviderUsageLoading(true);
@@ -2756,6 +2783,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         case "message.part.delta":
         case "message.part.removed": {
           if (!targetSessionID) break;
+          if (sessionAbortFlagsRef.current[targetSessionID]?.acknowledged === false && streamEventShowsActiveWork(streamEvent)) {
+            break;
+          }
           const draft = chatStateFor(targetSessionID);
           const previous = snapshotChatState(draft);
           const result = applyChatEvent(draft, targetSessionID, streamEvent);
@@ -2763,7 +2793,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             lastStreamActivityRef.current[targetSessionID] = Date.now();
             applyProjection(targetSessionID);
             const abortFlag = sessionAbortFlagsRef.current[targetSessionID];
-            const abortPending = Boolean(abortFlag && !abortFlag.acknowledged && Date.now() - abortFlag.timestamp < ABORT_RESTORE_SUPPRESS_MS);
+            const abortPending = Boolean(abortFlag && !abortFlag.acknowledged);
             const sessionStatus = draft.session_status[targetSessionID];
             if (sessionStatus?.type === "idle" || sessionStatus?.type === "error") {
               setSessionBusy(targetSessionID, false);
@@ -2844,7 +2874,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           break;
         }
         case "session.execution.started": {
-          if (targetSessionID) {
+          if (targetSessionID && sessionAbortFlagsRef.current[targetSessionID]?.acknowledged !== false) {
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             applyChatEvent(draft, targetSessionID, streamEvent);
@@ -2910,6 +2940,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
             if (result === true || (typeof result !== "boolean" && result.changed)) applyProjection(targetSessionID);
             syncStreaming(targetSessionID, previous);
+            setSessionAbortFlags((current) => current[targetSessionID]
+              ? { ...current, [targetSessionID]: { ...current[targetSessionID], acknowledged: true } }
+              : current);
             const errorText = formatFailure(data.error, "ORBIT_SESSION_ERROR", "Session failed");
             updateSessionTranscript(targetSessionID, (prev) => prev.some((item) => item.id === `${streamEvent.id}-error`)
               ? prev
@@ -2964,18 +2997,20 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
         case "session.status": {
           const status = data.status as { type?: string; attempt?: number; message?: string; next?: number; action?: RateLimitAction } | undefined;
-          if (targetSessionID) {
+          const abortPending = Boolean(targetSessionID && sessionAbortFlagsRef.current[targetSessionID]?.acknowledged === false);
+          const activeStatus = status?.type === "busy" || status?.type === "retry";
+          if (targetSessionID && !(abortPending && activeStatus)) {
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             applyChatEvent(draft, targetSessionID, streamEvent);
             syncStreaming(targetSessionID, previous);
           }
-          if ((status?.type === "busy" || status?.type === "retry") && targetSessionID) {
+          if (activeStatus && targetSessionID && !abortPending) {
             lastStreamActivityRef.current[targetSessionID] = Date.now();
           }
-          if (status?.type === "busy" && targetSessionID) setSessionBusy(targetSessionID, true);
+          if (status?.type === "busy" && targetSessionID && !abortPending) setSessionBusy(targetSessionID, true);
           if ((status?.type === "idle" || status?.type === "error") && targetSessionID) setSessionBusy(targetSessionID, false);
-          if (status?.type === "retry" && targetSessionID) {
+          if (status?.type === "retry" && targetSessionID && !abortPending) {
             setSessionBusy(targetSessionID, true);
             if (attachRetryToLatestAssistant(chatStateFor(targetSessionID), targetSessionID, {
               attempt: Number(status.attempt ?? 1),
@@ -2994,7 +3029,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
               }
             }
           }
-          if (targetSessionID) {
+          if (targetSessionID && !(abortPending && activeStatus)) {
             const draft = chatStateFor(targetSessionID);
             const previous = snapshotChatState(draft);
             const result = applyChatEvent(draft, targetSessionID, streamEvent);
@@ -3159,14 +3194,12 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const queueTarget = createMessageQueueTarget(panel.id, panel.workspace.id);
       const localQueue = queueTarget ? getQueueForTarget(messageQueue, queueTarget) : [];
       const queuedMessages: QueuedMessage[] = [
-        ...(inboxBySession[panel.id] ?? [])
-          .filter((entry) => entry.delivery !== "steer")
-          .map((entry) => ({
-            id: entry.id,
-            content: entry.text,
-            createdAt: entry.createdAt,
-            attachmentCount: entry.attachmentCount
-          })),
+        ...(inboxBySession[panel.id] ?? []).map((entry) => ({
+          id: entry.id,
+          content: entry.text,
+          createdAt: entry.createdAt,
+          attachmentCount: entry.attachmentCount
+        })),
         ...localQueue
       ];
       const pendingForms = formsBySession[panel.id] ?? [];

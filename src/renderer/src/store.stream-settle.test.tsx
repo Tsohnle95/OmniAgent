@@ -218,6 +218,75 @@ describe("store stream settle", () => {
     expect(store.busy).toBe(false);
   });
 
+  it("stops a retrying turn locally and ignores late retry events", async () => {
+    const sessionID = store.activeSessionID!;
+    window.openshell.interrupt = vi.fn(async () => {});
+
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.status",
+        data: {
+          id: "retrying",
+          created: Date.now(),
+          data: {
+            sessionID,
+            status: { type: "retry", attempt: 2, message: "Rate limit exceeded", next: Date.now() + 3_600_000 }
+          }
+        }
+      });
+    });
+    expect(store.busy).toBe(true);
+    expect(store.transcript).toContainEqual(expect.objectContaining({
+      kind: "assistant",
+      retry: expect.objectContaining({ attempt: 2 })
+    }));
+
+    await act(async () => { await store.stop(); });
+
+    expect(window.openshell.interrupt).toHaveBeenCalledTimes(1);
+    expect(store.busy).toBe(false);
+    expect(store.transcript).toContainEqual(expect.objectContaining({ kind: "assistant", completed: true }));
+    expect(store.transcript).not.toContainEqual(expect.objectContaining({ kind: "assistant", retry: expect.anything() }));
+
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.status",
+        data: {
+          id: "late-retry",
+          created: Date.now(),
+          data: { sessionID, status: { type: "retry", attempt: 3, message: "Still rate limited", next: Date.now() + 3_600_000 } }
+        }
+      });
+    });
+
+    expect(store.busy).toBe(false);
+    expect(store.transcript).not.toContainEqual(expect.objectContaining({ kind: "assistant", retry: expect.anything() }));
+
+    await act(async () => {
+      messageHandler!({
+        kind: "event",
+        type: "session.inbox.enqueued",
+        data: {
+          id: "queued-steer",
+          created: Date.now(),
+          data: {
+            sessionID,
+            inboxID: "queued-steer",
+            delivery: "steer",
+            item: { type: "user", payload: { text: "continue" }, delivery: "steer" }
+          }
+        }
+      });
+    });
+
+    expect(store.panelViews[store.session!.workspace.id]?.queuedMessages).toContainEqual(expect.objectContaining({
+      id: "queued-steer",
+      content: "continue"
+    }));
+  });
+
   it("keeps pushed execution state authoritative after prompt submission without polling history", async () => {
     await act(async () => { vi.advanceTimersByTime(16_500); });
     expect(store.busy).toBe(false);

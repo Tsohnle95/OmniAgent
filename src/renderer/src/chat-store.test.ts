@@ -227,6 +227,22 @@ describe("applyChatEvent", () => {
     expect(draft.session_status.s).toEqual({ type: "idle" });
   });
 
+  it("clears a retry marker when an execution is interrupted", () => {
+    const draft = state();
+    draft.message.s = [{
+      id: "msg_1",
+      sessionID: "s",
+      role: "assistant",
+      time: { created: 1 },
+      retry: { attempt: 2, message: "Rate limit exceeded", next: 2_000 }
+    }];
+
+    applyChatEvent(draft, "s", event("interrupted", "session.execution.interrupted", { sessionID: "s" }));
+
+    expect(projectAssistantItems(draft, "s")[0]).toMatchObject({ completed: true });
+    expect(projectAssistantItems(draft, "s")[0]).not.toHaveProperty("retry");
+  });
+
   it("does not duplicate a delta already included in a message part snapshot", () => {
     const draft = state();
     draft.message.s = [{ id: "msg_1", sessionID: "s", role: "assistant", time: { created: 1 } }];

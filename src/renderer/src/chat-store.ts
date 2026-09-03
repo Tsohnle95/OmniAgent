@@ -221,9 +221,14 @@ function failLatestIncomplete(
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== "assistant") continue;
-    if (message.time?.completed || message.finish) continue;
+    const incomplete = !message.time?.completed && !message.finish;
+    if (!incomplete && !message.retry) continue;
     const next = [...messages];
-    next[index] = { ...message, time: { ...message.time, completed: Date.now() }, error: failure };
+    next[index] = {
+      ...message,
+      ...(incomplete ? { time: { ...message.time, completed: Date.now() }, error: failure } : {}),
+      retry: undefined
+    };
     draft.message[sessionID] = next;
     return true;
   }
@@ -417,12 +422,16 @@ export function completeLatestIncomplete(draft: ChatDirectoryState, sessionID: s
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== "assistant") continue;
-    if (!message.time?.completed && !message.finish) {
-      const next = [...messages];
-      next[index] = { ...message, time: { ...message.time, completed: Date.now() } };
-      draft.message[sessionID] = next;
-      return true;
-    }
+    const incomplete = !message.time?.completed && !message.finish;
+    if (!incomplete && !message.retry) continue;
+    const next = [...messages];
+    next[index] = {
+      ...message,
+      ...(incomplete ? { time: { ...message.time, completed: Date.now() } } : {}),
+      retry: undefined
+    };
+    draft.message[sessionID] = next;
+    return true;
   }
   return false;
 }
