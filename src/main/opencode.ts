@@ -494,6 +494,13 @@ export function replayTranscript(messages: unknown[]): TranscriptItem[] {
 
 type Client = ReturnType<typeof OpenCode.make>;
 
+function isAcceptedNoContentInterrupt(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { reason?: unknown; cause?: unknown };
+  if (value.reason !== "UnexpectedStatus" || !value.cause || typeof value.cause !== "object") return false;
+  return (value.cause as { status?: unknown }).status === 204;
+}
+
 interface WatchContext {
   root: string;
   sessionID: string;
@@ -2069,7 +2076,11 @@ export class OpenShellBackend {
       return;
     }
     if (!this.client) throw new Error("no active session");
-    await this.client.session.interrupt({ sessionID: target.sessionID });
+    try {
+      await this.client.session.interrupt({ sessionID: target.sessionID });
+    } catch (error) {
+      if (!isAcceptedNoContentInterrupt(error)) throw error;
+    }
     this.assertTarget(target);
   }
 
