@@ -310,12 +310,13 @@
 }
 
 .composer-selector.model {
-  flex: 0 0 112px;
-  width: 112px;
+  flex: 0 0 76px;
+  width: 76px;
   color: var(--accent-hover);
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   background: var(--accent-tint);
 }
+.composer-selector.agent { flex: 0 0 76px; width: 76px; }
 .composer-selector.strength { flex: 0 0 68px; width: 68px; color: var(--text-dim); }
 
 .composer-selector.model span:first-child {
@@ -631,7 +632,8 @@
   .composer-send { width: 22px; height: 22px; }
   .composer-send .codicon { font-size: 10px; }
   .composer-selector { height: 20px; padding: 0 6px; font-size: 10.5px; gap: 3px; }
-   .composer-selector.model { flex-basis: 96px; width: 96px; }
-   .composer-selector.strength { flex-basis: 62px; width: 62px; }
+   .composer-selector.model { flex-basis: 76px; width: 76px; }
+   .composer-selector.agent { flex-basis: 76px; width: 76px; }
+   .composer-selector.strength { flex-basis: 68px; width: 68px; }
   .composer-attachments { gap: 3px; }
 }

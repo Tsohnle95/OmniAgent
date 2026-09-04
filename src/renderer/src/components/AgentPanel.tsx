@@ -877,7 +877,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
         </div>
         <div className="composer-chips">
           <button
-            className={`composer-selector ${menu === "agent" ? "open" : ""}`}
+            className={`composer-selector agent ${menu === "agent" ? "open" : ""}`}
             title="Change agent"
             onClick={() => {
               if (menu === "agent") {
