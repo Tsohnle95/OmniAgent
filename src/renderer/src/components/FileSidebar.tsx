@@ -388,10 +388,23 @@ export function FileSidebar({
     importPaths,
     dropIntoExplorer,
     openWorkspacePanel,
+    dismissChange,
+    dismissChanges,
     hiddenPaths = EMPTY_HIDDEN_PATHS
   } = useStore();
   const { openCtxMenu } = useCtxMenu();
   const [changesOpen, setChangesOpen] = useState(false);
+  const [changesMenu, setChangesMenu] = useState<{ x: number; y: number; path: string | null } | null>(null);
+  const changesMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!changesMenu) return;
+    const onDown = (e: PointerEvent): void => {
+      if (changesMenuRef.current && !changesMenuRef.current.contains(e.target as Node)) setChangesMenu(null);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [changesMenu]);
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [fallbackTab, setFallbackTab] = useState<SidebarTab>(initialTab);
   const activeTab = tab ?? fallbackTab;
@@ -604,6 +617,10 @@ export function FileSidebar({
               className={`section-toggle ${changesOpen ? "open" : ""}`}
               aria-expanded={changesOpen}
               onClick={() => setChangesOpen((o) => !o)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setChangesMenu({ x: e.clientX, y: e.clientY, path: null });
+              }}
             >
               <span>CHANGES</span>
               <span className="sidebar-count changes-count push">{changes.length}</span>
@@ -628,6 +645,10 @@ export function FileSidebar({
                     key={path}
                     className={`tree-row file ${state.deleted ? "deleted" : ""}`}
                     onClick={() => void openFile(path, { mode: "diff" })}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setChangesMenu({ x: e.clientX, y: e.clientY, path });
+                    }}
                     title={state.baseline.kind === "unknown" ? `${path} · pre-change content unavailable` : path}
                   >
                     <FileIcon name={name} isDir={false} />
@@ -645,6 +666,40 @@ export function FileSidebar({
           </div>
           <div className="sidebar-vdivider" onMouseDown={changesDrag} title="Drag to resize changes panel" />
         </>
+      )}
+      {changesMenu && createPortal(
+        <div
+          className="ctx-menu"
+          ref={changesMenuRef}
+          style={{
+            left: Math.min(changesMenu.x, window.innerWidth - 190),
+            top: Math.min(changesMenu.y, window.innerHeight - 60)
+          }}
+          data-testid="changes-menu"
+        >
+          {changesMenu.path ? (
+            <button
+              className="ctx-item"
+              onClick={() => {
+                dismissChange(changesMenu.path!);
+                setChangesMenu(null);
+              }}
+            >
+              Clear
+            </button>
+          ) : (
+            <button
+              className="ctx-item"
+              onClick={() => {
+                dismissChanges();
+                setChangesMenu(null);
+              }}
+            >
+              Clear all changes
+            </button>
+          )}
+        </div>,
+        document.body
       )}
 
        <div className={`section-trigger with-actions ${explorerOpen ? "open" : ""}`}>

@@ -1402,7 +1402,7 @@ export class OpenShellBackend {
 
   private async readExternalText(abs: string): Promise<string | null> {
     const stat = await fsp.stat(abs).catch(() => null);
-    if (!stat) throw new Error("file does not exist");
+    if (!stat) return null;
     if (stat.size > MAX_WORKSPACE_FILE_BYTES) throw new Error("file is too large to open");
     return fsp.readFile(abs, "utf8").catch(() => null);
   }

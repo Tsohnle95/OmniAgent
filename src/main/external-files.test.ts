@@ -211,3 +211,16 @@ describe("statExternal", () => {
     expect((await backend.statExternal(path.join(root, "missing"))).kind).toBe("missing");
   });
 });
+
+describe("readFile", () => {
+  it("returns content for existing files and null for missing ones", async () => {
+    const { backend, root } = await fixture();
+    await writeFile(path.join(root, "f.txt"), "hello");
+    expect(await backend.readFile(workspace, "f.txt")).toBe("hello");
+  });
+
+  it("returns null instead of throwing for deleted files", async () => {
+    const { backend } = await fixture();
+    expect(await backend.readFile(workspace, "gone.txt")).toBeNull();
+  });
+});

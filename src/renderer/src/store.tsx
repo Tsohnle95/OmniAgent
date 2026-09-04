@@ -206,6 +206,8 @@ interface Store {
   importPaths: (destDir: string, sources: string[]) => Promise<void>;
   dropIntoExplorer: (paths: string[]) => Promise<void>;
   openPaths: (paths: string[]) => Promise<void>;
+  dismissChange: (path: string) => void;
+  dismissChanges: () => void;
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
   changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<SessionInfo | null>;
@@ -2317,6 +2319,22 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     },
     [importPaths]
   );
+  const dismissChange = useCallback((path: string): void => {
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    const current = agentFilesByWorkspaceRef.current[target.id];
+    if (!current?.has(path)) return;
+    const next = new Map(current);
+    next.delete(path);
+    setAgentFilesFor(target.id, next);
+  }, [setAgentFilesFor]);
+  const dismissChanges = useCallback((): void => {
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    const current = agentFilesByWorkspaceRef.current[target.id];
+    if (!current || current.size === 0) return;
+    setAgentFilesFor(target.id, new Map());
+  }, [setAgentFilesFor]);
   const attachFileWorkspace = useCallback(
     async (result: OpenFileWorkspaceResult, activation: number): Promise<SessionInfo | null> => {
       if (activation !== activationSeqRef.current) {
@@ -3472,6 +3490,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       importPaths,
       dropIntoExplorer,
       openPaths,
+      dismissChange,
+      dismissChanges,
       selectPanelDirectory,
       changePanelDirectory,
       reopenSession,
