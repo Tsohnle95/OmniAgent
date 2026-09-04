@@ -10,7 +10,7 @@ Exposed via `useStore()` (context). State:
 
 | Slice | Shape | Notes |
 |---|---|---|
-| `session` | `SessionInfo \| null` | the focused session (derived from `panels` + `activeSessionID`); null → Welcome screen |
+| `session` | `SessionInfo \| null` | the focused session (derived from `panels` + `activeSessionID`); null → Welcome screen on first launch, otherwise an empty IDE whose explorer offers an open-workspace CTA |
 | `panels` | `SessionInfo[]` | open sessions in panel order; each panel streams and renders its own session |
 | `activeSessions` | `SessionInfo[]` | backend-owned open contexts, reconciled every second independently of visible panels; drives the complete **Open now** inventory |
 | `savedWorkspaces` | `ProjectInfo[]` | Orbit-owned workspace bookmarks persisted in `localStorage` ("orbit.savedWorkspaces"); removing one changes only this list and never touches the filesystem |
@@ -356,7 +356,7 @@ Key mechanisms:
   again in main. The hovered destination gets a drop indicator; a valid
   drop calls `moveEntry`, which performs the `shell:fs-move` invoke and
   remaps `tabs`, `activePath`, and `agentFiles` on success.
-- **External drag-and-drop** — OS file/folder drops are accepted with
+ - **External drag-and-drop** — OS file/folder drops are accepted with
   a file item/type in `DataTransfer` and routed through the main
   process, never interpreted as explorer moves. Dropping onto a folder row
   **imports** the items into that folder (`importPaths` →
@@ -365,12 +365,11 @@ Key mechanisms:
   workspace without changing the active panels. The current workspace itself
   is rendered as a collapsible root row. Its entries can be hidden with
   **Remove from Workspace** without deleting their on-disk files; **Delete**
-  remains the destructive filesystem action. Dropping a file into the
-  **editor pane** opens it as an editable standalone tab via
-  `openExternalPath` → `shell:open-external`; outside files save back to their
-  absolute path via `shell:fs-write-standalone`. Dragging files onto the
-  Welcome screen (no session yet) opens them as single-file workspaces
-  (`openFileWorkspace`).
+   remains the destructive filesystem action. Dropping files and folders into
+   the **editor pane** opens them via `openPaths` (folders become panels, files
+   become tabs); outside files save back to their absolute path via
+   `shell:fs-write-standalone`. Dragging files onto the Welcome screen (no
+   session yet) opens them via `openPaths`.
 - **Recovery notice** — unacknowledged records are shown persistently with
   Open and Acknowledge actions. Acknowledge updates manifest metadata and hides
   the record without deleting bytes. Directories never offer Rename because

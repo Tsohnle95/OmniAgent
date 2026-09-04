@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCtxMenu, useStore } from "../store";
+import { OrbitMark } from "./OrbitMark";
 import { ChevronIcon, EllipsisIcon, FileIcon, FilePlusIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
@@ -353,6 +354,23 @@ function useChangesDrag(initial: number): [number, (e: React.MouseEvent) => void
   };
 
   return [height, onMouseDown];
+}
+
+function NoWorkspaceEmpty(): ReactNode {
+  const { selectFolder } = useStore();
+  return (
+    <div className="tree-empty-workspace">
+      <OrbitMark size={36} />
+      <p className="tree-empty-workspace-text">No workspace open</p>
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={() => void selectFolder()}
+      >
+        Open a workspace
+      </button>
+    </div>
+  );
 }
 
 export function FileSidebar({
@@ -738,7 +756,9 @@ export function FileSidebar({
               openCtxMenu(e.clientX, e.clientY, null);
             }}
           >
-            {orderedPanels.length === 0 && <div className="tree-empty">Loading…</div>}
+            {orderedPanels.length === 0 && (
+              session ? <div className="tree-empty">Loading…</div> : <NoWorkspaceEmpty />
+            )}
             {orderedPanels.map((panel) => panel.id !== session?.id ? (
               <div
                 key={panel.id}

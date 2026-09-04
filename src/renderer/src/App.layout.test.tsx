@@ -1148,4 +1148,50 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([689, 969]);
     expect(agentCols()[1].classList.contains("edge-left")).toBe(true);
   });
+
+  it("stays in the IDE with an open-workspace CTA after closing the last session", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(container.querySelector(".app")).not.toBeNull();
+    expect(container.querySelector(".welcome")).toBeNull();
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".sessions-row-close")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelector(".app")).not.toBeNull();
+    expect(container.querySelector(".welcome")).toBeNull();
+
+    await act(async () => {
+      const filesTab = [...container.querySelectorAll<HTMLButtonElement>(".side-tab")]
+        .find((tab) => tab.textContent === "Files")!;
+      filesTab.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const cta = container.querySelector<HTMLButtonElement>(".tree-empty-workspace .btn");
+    expect(cta?.textContent).toBe("Open a workspace");
+
+    const selectFolder = vi.spyOn(window.openshell, "selectFolder");
+    await act(async () => {
+      cta!.click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(selectFolder).toHaveBeenCalled();
+  });
+
+  it("shows the welcome screen on cold start with no sessions", async () => {
+    window.openshell = {
+      ...api(),
+      state: async () => null,
+      activeSessions: async () => []
+    };
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(container.querySelector(".welcome")).not.toBeNull();
+    expect(container.querySelector(".app")).toBeNull();
+  });
 });

@@ -256,7 +256,7 @@ function PanelColumn({
 }
 
 function Layout({ children }: { children?: ReactNode }): ReactNode {
-  const { panels: allPanels, workspaceOnlyPanelIDs, activeSessionID, focusSession, closePanel, selectAddPanel } = useStore();
+  const { session, panels: allPanels, workspaceOnlyPanelIDs, activeSessionID, focusSession, closePanel, selectAddPanel } = useStore();
   const panels = useMemo(() => {
     const agentPanels = allPanels.filter((panel) => !workspaceOnlyPanelIDs.has(panel.id));
     const active = allPanels.find((panel) => panel.id === activeSessionID);
@@ -728,9 +728,12 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           </button>
           <button
             className={`icon-btn ${trayOpen ? "on" : ""}`}
-            title={trayOpen
-              ? (traySnapped ? "Expand terminal (⌥O)" : "Hide terminal (⌥O)")
-              : "Show terminal (⌥O)"}
+            title={!session
+              ? "No workspace open"
+              : trayOpen
+                ? (traySnapped ? "Expand terminal (⌥O)" : "Hide terminal (⌥O)")
+                : "Show terminal (⌥O)"}
+            disabled={!session}
             onClick={toggleTray}
           >
             <IconTerminal />
@@ -828,7 +831,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         className={`tray-area ${trayOpen ? "open" : ""} ${trayDragging ? "dragging" : ""}`}
         style={{ "--tray-height": `${trayH}px` } as CSSProperties}
       >
-        {!settingsOpen && <div className="tray-inner">
+        {session && !settingsOpen && <div className="tray-inner">
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
           <TerminalTray height={trayH} snapped={traySnapped} request={terminalRequest} onClose={closeTray} onExpand={expandTray} />
         </div>}
@@ -873,7 +876,12 @@ export default function App(): ReactNode {
 function Root(): ReactNode {
   const { session, toggleWordWrap } = useStore();
   const wasOpen = useRef(false);
+  const [enteredIde, setEnteredIde] = useState(false);
   const pendingView = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (session && !enteredIde) setEnteredIde(true);
+  }, [session, enteredIde]);
 
   useEffect(() => {
     if (pendingView.current) clearTimeout(pendingView.current);
@@ -882,7 +890,6 @@ function Root(): ReactNode {
     pendingView.current = setTimeout(() => {
       pendingView.current = null;
       if (isOpen && !wasOpen.current) void window.openshell.windowView("session").catch(() => {});
-      if (!isOpen && wasOpen.current) void window.openshell.windowView("landing").catch(() => {});
       wasOpen.current = isOpen;
     }, 120);
     return () => {
@@ -901,6 +908,6 @@ function Root(): ReactNode {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleWordWrap]);
 
-  if (!session) return <Welcome />;
+  if (!session && !enteredIde) return <Welcome />;
   return <Layout />;
 }

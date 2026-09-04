@@ -271,7 +271,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 }
 
 export function EditorPane(): ReactNode {
-  const { tabs, activePath, openPaths } = useStore();
+  const { tabs, activePath, openPaths, session } = useStore();
   const activeTab = tabs.find((t) => t.path === activePath);
   const [externalDrag, setExternalDrag] = useState(false);
 
@@ -307,7 +307,14 @@ export function EditorPane(): ReactNode {
           <div className="editor-empty-icon">
             <OrbitMark size={40} />
           </div>
-          <p>Select a file from the explorer to view or edit it.</p>
+          {session ? (
+            <p>Select a file from the explorer to view or edit it.</p>
+          ) : (
+            <>
+              <p>No workspace open.</p>
+              <p className="editor-empty-sub">Open a workspace from the explorer to get started.</p>
+            </>
+          )}
         </div>
       ) : (
         <>
