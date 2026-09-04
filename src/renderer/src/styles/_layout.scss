@@ -70,6 +70,8 @@
   -webkit-app-region: drag;
 }
 
+:root[data-theme="kitty"] .titlebar { background: transparent; }
+
 .darwin .titlebar { padding-left: 78px; }
 
 .titlebar-title {
