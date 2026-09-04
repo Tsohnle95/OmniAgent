@@ -1466,11 +1466,23 @@ export function AgentPanel({
           <button
             className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
             title="Session and provider usage"
-            aria-label="Session and provider usage"
+            aria-label={contextLimit ? `Context usage ${Math.round(contextPercent)} percent` : "Session and provider usage"}
             aria-expanded={usageOpen}
             onClick={() => setUsageOpen((open) => !open)}
           >
-            <IconDashboard />
+            <span className="agent-usage-ring" aria-hidden="true">
+              <svg viewBox="0 0 20 20">
+                <circle className="agent-usage-ring-track" cx="10" cy="10" r="8" />
+                <circle
+                  className="agent-usage-ring-fill"
+                  cx="10"
+                  cy="10"
+                  r="8"
+                  style={{ strokeDashoffset: `${50.27 * (1 - (contextLimit ? contextPercent : 0) / 100)}` }}
+                />
+              </svg>
+              <IconDashboard />
+            </span>
           </button>
           <button
             className={`icon-btn agent-mode-menu-toggle ${modeMenuOpen ? "open" : ""}`}
