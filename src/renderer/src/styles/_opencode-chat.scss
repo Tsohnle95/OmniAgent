@@ -1527,3 +1527,33 @@
   .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 0 3px; gap: 3px; }
   .agent-panel .composer-chips { padding: 0 3px 4px 6px; gap: 3px; }
 }
+
+.agent-panel .composer-body {
+  display: block !important;
+  position: relative !important;
+}
+
+.agent-panel .composer-input {
+  display: block;
+  grid-column: auto;
+}
+
+.agent-panel .composer-actions {
+  position: absolute !important;
+  inset: 50% 8px auto auto !important;
+  display: flex;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  margin: 0;
+  transform: translateY(-50%) !important;
+}
+
+.agent-panel .composer-chips {
+  position: absolute;
+  right: 108px;
+  bottom: 6px;
+  left: 8px;
+  grid-column: auto;
+  grid-row: auto;
+  padding: 0;
+}
