@@ -362,7 +362,8 @@ Key mechanisms:
   **imports** the items into that folder (`importPaths` →
   `shell:fs-import`, then the tree refreshes the destination); dropping
   files and folders onto the empty explorer area imports them into the current
-  workspace without changing the active panels. The current workspace itself
+   workspace without changing the active panels, except that a dropped folder
+   at the root is opened as an additional workspace panel. The current workspace itself
   is rendered as a collapsible root row. Its entries can be hidden with
   **Remove from Workspace** without deleting their on-disk files; **Delete**
    remains the destructive filesystem action. Dropping files and folders into

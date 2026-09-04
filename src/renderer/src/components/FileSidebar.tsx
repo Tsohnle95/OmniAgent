@@ -539,11 +539,14 @@ export function FileSidebar({
     setDropDir(null);
     setExternalDrop(false);
     if (external.length > 0) {
-      if (!expanded.has("")) {
-        void Promise.all(external.map((path) => openWorkspacePanel(path)));
-        return;
-      }
-      void dropIntoExplorer(external);
+      void Promise.all(external.map(async (path) => {
+        const kind = await window.openshell.externalKind(path).catch(() => ({ kind: "missing" as const }));
+        if (kind.kind === "directory") {
+          await openWorkspacePanel(path);
+        } else if (kind.kind === "file") {
+          await dropIntoExplorer([path]);
+        }
+      }));
       return;
     }
     const source = dragPath;

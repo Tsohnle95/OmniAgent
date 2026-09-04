@@ -765,7 +765,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
           ref={inputRef}
           className="composer-input"
           rows={1}
-          placeholder="Ask anything, / for commands, @ for context..."
+          placeholder="Ask anything"
           value={input}
           onChange={(e) => {
             const value = e.target.value;

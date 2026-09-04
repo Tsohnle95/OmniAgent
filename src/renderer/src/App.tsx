@@ -288,6 +288,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("appearance");
   const [agentModeActive, setAgentModeActive] = useState(false);
   const [emptyAgentOpen, setEmptyAgentOpen] = useState(true);
+  const [emptyAgentWidth, setEmptyAgentWidth] = useState(280);
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = agentModeActive;
 
@@ -546,6 +547,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     false,
     sideOpen
   );
+  const emptyAgentDrag = useDragResize(
+    emptyAgentWidth,
+    setEmptyAgentWidth,
+    44,
+    areaW,
+    true,
+    emptyAgentOpen
+  );
 
   const cols = [
     sideOpen ? `${sideW}px` : "0px",
@@ -797,7 +806,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           className="workspace-area"
           style={
             {
-              "--editor-right": `${ordered.length > 0 ? Math.max(0, areaW - slotFor(ordered[0]).left) : emptyAgentOpen && !inAgentMode ? 280 : 0}px`
+              "--editor-right": `${ordered.length > 0 ? Math.max(0, areaW - slotFor(ordered[0]).left) : emptyAgentOpen && !inAgentMode ? emptyAgentWidth : 0}px`
             } as CSSProperties
           }
         >
@@ -835,8 +844,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
             );
           })}
           {panels.length === 0 && emptyAgentOpen && (
-            <div className={`agent-col empty-agent-col ${inAgentMode ? "agent-mode-empty" : ""}`}>
-              <AgentPanel />
+            <div
+              className={`agent-col empty-agent-col ${inAgentMode ? "agent-mode-empty" : ""}`}
+              style={inAgentMode ? undefined : { width: `${emptyAgentWidth}px`, right: "0px" }}
+            >
+              <AgentPanel
+                onClose={() => setEmptyAgentOpen(false)}
+                onResizeLeft={emptyAgentDrag}
+              />
             </div>
           )}
         </div>}
