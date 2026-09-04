@@ -316,7 +316,6 @@
 
 .section-trigger.with-actions .section-toggle { width: auto; flex: 1; }
 
-.section-trigger.with-actions.open,
 .section-trigger.with-actions:hover {
   background: var(--bg-hover);
   border-radius: var(--radius-full);
@@ -391,8 +390,13 @@
   transition: background 100ms var(--ease), color 100ms var(--ease);
 }
 
-.section-toggle:hover, .section-toggle.open {
+.section-toggle:hover {
   background: var(--bg-hover);
+  color: var(--text);
+}
+
+.section-toggle.open {
+  background: transparent;
   color: var(--text);
 }
 
