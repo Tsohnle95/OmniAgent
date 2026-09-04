@@ -101,8 +101,8 @@ export function SessionsPane(): ReactNode {
     loadSessions,
   } = useStore();
   const [pinnedIDs, setPinnedIDs] = useState<string[]>(readPinned);
-  const [openNowOpen, setOpenNowOpen] = useState(true);
-  const [workspacesOpen, setWorkspacesOpen] = useState(true);
+  const [openNowOpen, setOpenNowOpen] = useState(false);
+  const [workspacesOpen, setWorkspacesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceMenuState | null>(null);

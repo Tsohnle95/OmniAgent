@@ -833,6 +833,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             <span>{currentAgent?.name ?? "Agent"}</span>
             <IconChevronDown />
           </button>
+          <span className="composer-chip-break" aria-hidden="true" />
           <button
             className={`composer-selector model ${menu === "model" && modelView !== "strength" ? "open" : ""}`}
             title="Change model and response strength"

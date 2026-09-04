@@ -84,6 +84,8 @@
   row-gap: 4px;
 }
 
+.composer-chip-break { display: none; }
+
 .composer-input {
   flex: 1 1 auto;
   width: 100%;
@@ -685,5 +687,6 @@
 @container (max-width: 360px) {
   .composer-body { border-radius: 8px; }
   .composer-input { max-height: 96px; }
+  .composer-chip-break { display: block; flex: 0 0 100%; height: 0; }
   .composer-attachments { gap: 3px; }
 }

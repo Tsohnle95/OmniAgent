@@ -153,7 +153,7 @@ describe("FileSidebar tabs and sessions pane", () => {
       "Workspaces",
       "History"
     ]);
-    expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["true", "true", "false"]);
+    expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["false", "false", "false"]);
   });
 
   it("keeps the redundant file-sidebar folder control removed with multiple panels open", async () => {
@@ -184,6 +184,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
+    await act(async () => section("Workspaces").querySelector<HTMLButtonElement>(".section-toggle")!.click());
     const workspace = container.querySelector<HTMLElement>(".sessions-project-head")!;
     await act(async () => workspace.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 30, clientY: 40 })));
     await act(async () => container.querySelector<HTMLButtonElement>(".sessions-context-item")!.click());
@@ -226,6 +227,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
+    await act(async () => section("Workspaces").querySelector<HTMLButtonElement>(".section-toggle")!.click());
     const workspaces = section("Workspaces");
     const project = workspaces.querySelector<HTMLButtonElement>(".sessions-project-toggle")!;
     expect(project.textContent).toContain("Workspace");
@@ -241,6 +243,8 @@ describe("FileSidebar tabs and sessions pane", () => {
 
     const sections = [...container.querySelectorAll<HTMLElement>(".sessions-section")];
     expect(sections).toHaveLength(3);
+    await act(async () => sections[0].querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    await act(async () => sections[1].querySelector<HTMLButtonElement>(".section-toggle")!.click());
     await act(async () => sections[2].querySelector<HTMLButtonElement>(".section-toggle")!.click());
     expect(sections.map((section) => section.querySelectorAll(":scope > .sessions-section-list").length)).toEqual([1, 1, 1]);
     expect(sections[1].textContent).toContain("Workspaces");
@@ -256,6 +260,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
+    await act(async () => section("Open now").querySelector<HTMLButtonElement>(".section-toggle")!.click());
     const openNow = section("Open now");
     const runningRow = openNow.querySelector<HTMLElement>(".sessions-row")!;
     expect(runningRow.querySelector(".agent-dot")?.classList.contains("busy")).toBe(true);
@@ -278,6 +283,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
+    await act(async () => section("Open now").querySelector<HTMLButtonElement>(".section-toggle")!.click());
     const openNow = section("Open now");
     expect(openNow.textContent).toContain("Background agent");
     const row = openNow.querySelector<HTMLElement>(".sessions-row")!;
@@ -294,6 +300,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
+    await act(async () => section("Workspaces").querySelector<HTMLButtonElement>(".section-toggle")!.click());
     const workspaces = section("Workspaces");
     const projectToggles = workspaces.querySelectorAll<HTMLButtonElement>(".sessions-project-toggle");
     expect(projectToggles).toHaveLength(2);
