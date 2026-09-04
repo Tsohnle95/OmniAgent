@@ -101,6 +101,15 @@ describe("agent panel usage tracker", () => {
     vi.restoreAllMocks();
   });
 
+  it("places the usage toggle in the composer action area", async () => {
+    await act(async () => root.render(<AgentPanel />));
+
+    const usageToggle = toggle(container);
+    expect(usageToggle.closest(".composer-actions")).not.toBeNull();
+    expect(usageToggle.closest(".agent-header-actions")).toBeNull();
+    expect(container.querySelector('button[title="Add attachments"]')).toBeNull();
+  });
+
   it("colors the toggle glyph green when context fill is low", async () => {
     currentUsage = usage(10_000);
     await act(async () => root.render(<AgentPanel />));

@@ -249,40 +249,6 @@ describe("composer workspace continuations", () => {
     expect(container.querySelector(".composer-completions")).toBeNull();
   });
 
-  it("does not append picker files selected for an old workspace", async () => {
-    const files = deferred<string[]>();
-    window.openshell = {
-      selectFiles: vi.fn(() => files.promise)
-    } as unknown as Window["openshell"];
-    await act(async () => root.render(<Composer />));
-    const plus = container.querySelector<HTMLButtonElement>('button[title="Add attachments"]')!;
-    await act(async () => plus.click());
-    const attach = container.querySelector<HTMLButtonElement>('button[title="Attach files"]')!;
-    await act(async () => attach.click());
-
-    currentSession = session("two", 2);
-    await act(async () => root.render(<Composer />));
-    await act(async () => files.resolve(["/workspace-1/old.txt"]));
-
-    expect(container.querySelector(".composer-attachment")).toBeNull();
-  });
-
-  it("adds image picker selections from the plus menu", async () => {
-    window.openshell = {
-      selectImages: vi.fn(async () => ["/tmp/shot.png"]),
-      readImagePreview: vi.fn(async () => null)
-    } as unknown as Window["openshell"];
-    await act(async () => root.render(<Composer />));
-    const plus = container.querySelector<HTMLButtonElement>('button[title="Add attachments"]')!;
-    await act(async () => plus.click());
-    const upload = container.querySelector<HTMLButtonElement>('button[title="Upload images"]')!;
-    expect(upload).not.toBeNull();
-    await act(async () => upload.click());
-
-    expect(window.openshell.selectImages).toHaveBeenCalled();
-    expect(container.querySelector(".composer-attachment")).not.toBeNull();
-  });
-
   it("attaches dropped images and shows a thumbnail preview", async () => {
     window.openshell = {
       getPathForFile: vi.fn((file: File) => (file as File & { path?: string }).path ?? ""),
