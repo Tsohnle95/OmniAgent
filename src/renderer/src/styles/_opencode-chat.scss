@@ -1418,9 +1418,10 @@
   grid-column: 2;
   grid-row: 2;
   width: auto;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 8px 6px 4px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px 0 4px;
+  align-items: center;
   gap: 4px;
   min-width: 0;
   align-self: center;
@@ -1449,8 +1450,8 @@
     grid-column: 2;
     grid-row: 2;
     width: auto;
-    height: 32px;
-    min-height: 32px;
+    height: 28px;
+    min-height: 28px;
     padding-left: 4px;
   }
 
@@ -1516,6 +1517,6 @@
   [data-component="session-prompt-dock"] { padding: 0 2px 2px; }
   .agent-panel .composer-body { min-height: 64px; border-radius: 8px; gap: 0; }
   .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 8px 4px; font-size: 12px; line-height: 16px; }
-  .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 4px 3px; gap: 3px; }
+  .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 0 3px; gap: 3px; }
   .agent-panel .composer-chips { padding: 0 3px 4px 6px; gap: 3px; }
 }
