@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
-import { IconAdd, IconChevronDown, IconChevronUp } from "./icons";
+import { IconAdd, IconChevronDown, IconChevronUp, IconServer } from "./icons";
 import type { WorkspaceIdentity } from "@shared/types";
 import { PendingTerminalOutput, removeTerminal, type TerminalTabs } from "../terminal-state";
 
@@ -133,6 +133,8 @@ export function TerminalTray({
   const workspace = session!.workspace;
   const [{ terms, activeId }, setTabs] = useState<TerminalTabs>({ terms: [], activeId: null });
   const [notice, setNotice] = useState("");
+  const [viteStarting, setViteStarting] = useState(false);
+  const [viteUrl, setViteUrl] = useState<string | null>(null);
   const counterRef = useRef(0);
   const bootTokenRef = useRef(0);
   const handledRequestRef = useRef<number | null>(null);
@@ -165,6 +167,11 @@ export function TerminalTray({
     });
     return off;
   }, []);
+
+  useEffect(() => {
+    setViteStarting(false);
+    setViteUrl(null);
+  }, [workspace.id]);
 
   const createTerminal = useCallback(async (directory = ""): Promise<void> => {
     setNotice("");
@@ -217,6 +224,19 @@ export function TerminalTray({
     void createTerminal(request.directory);
   }, [createTerminal, request]);
 
+  const openVite = (): void => {
+    if (viteStarting) return;
+    setNotice("");
+    setViteStarting(true);
+    void window.openshell.viteStart(workspace)
+      .then((preview) => setViteUrl(preview.url))
+      .catch(() => {
+        setViteUrl(null);
+        setNotice("Could not start the Vite server");
+      })
+      .finally(() => setViteStarting(false));
+  };
+
   const closeTerminal = (id: string): void => {
     void window.openshell.terminalStop(workspace, id).catch(() => {});
     const next = removeTerminal({ terms, activeId }, id);
@@ -259,6 +279,15 @@ export function TerminalTray({
         ))}
         <button className="terminal-add" title="New terminal" onClick={() => void createTerminal()}>
           <IconAdd />
+        </button>
+        <button
+          className={`terminal-add${viteUrl ? " running" : ""}`}
+          title={viteStarting ? "Starting the Vite server…" : viteUrl ?? "Serve this workspace with Vite and open it in a browser"}
+          disabled={viteStarting}
+          data-testid="vite-btn"
+          onClick={() => openVite()}
+        >
+          <IconServer />
         </button>
         {notice && <span className="terminal-notice" title={notice}>{notice}</span>}
         <button className="terminal-close" title="Close the terminal panel (⌥O)" onClick={onClose}>

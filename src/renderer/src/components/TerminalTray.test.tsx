@@ -27,6 +27,8 @@ const session: SessionInfo = {
 };
 vi.mock("../store", () => ({ useStore: () => ({ session }) }));
 
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe("TerminalTray integration", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -50,7 +52,8 @@ describe("TerminalTray integration", () => {
       }),
       terminalStop: vi.fn(async () => {}),
       terminalResize: vi.fn(async () => {}),
-      terminalInput: vi.fn(async () => {})
+      terminalInput: vi.fn(async () => {}),
+      viteStart: vi.fn(async () => ({ url: "http://127.0.0.1:5199/", port: 5199 }))
     } as unknown as typeof window.openshell;
     container = document.createElement("div");
     document.body.append(container);
@@ -99,5 +102,47 @@ describe("TerminalTray integration", () => {
       "packages/web"
     );
     expect(container.textContent).toContain("web");
+  });
+
+  it("shows a server button in the terminal header", async () => {
+    await act(async () => root.render(<TerminalTray height={240} snapped={false} onClose={onClose} onExpand={() => {}} />));
+
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
+    expect(button.closest(".terminal-header")).not.toBeNull();
+    expect(button.title).toBe("Serve this workspace with Vite and open it in a browser");
+  });
+
+  it("serves the panel workspace when the server button is clicked", async () => {
+    await act(async () => root.render(<TerminalTray height={240} snapped={false} onClose={onClose} onExpand={() => {}} />));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!.click();
+      await flush();
+    });
+
+    expect(window.openshell.viteStart).toHaveBeenCalledWith(session.workspace);
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
+    expect(button.title).toBe("http://127.0.0.1:5199/");
+    expect(button.classList.contains("running")).toBe(true);
+  });
+
+  it("disables the server button while the server starts", async () => {
+    let resolveStart!: (preview: { url: string; port: number }) => void;
+    const pending = new Promise<{ url: string; port: number }>((resolve) => { resolveStart = resolve; });
+    window.openshell = {
+      ...window.openshell,
+      viteStart: vi.fn(() => pending)
+    } as unknown as typeof window.openshell;
+
+    await act(async () => root.render(<TerminalTray height={240} snapped={false} onClose={onClose} onExpand={() => {}} />));
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
+    act(() => { button.click(); });
+    expect(button.disabled).toBe(true);
+
+    await act(async () => {
+      resolveStart({ url: "http://127.0.0.1:5199/", port: 5199 });
+      await pending;
+      await flush();
+    });
+    expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.disabled).toBe(false);
   });
 });

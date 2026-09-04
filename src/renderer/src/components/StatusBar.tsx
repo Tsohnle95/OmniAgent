@@ -11,13 +11,11 @@ interface ValidateResult {
 }
 
 export function StatusBar(): ReactNode {
-  const { tabs, activePath, session } = useStore();
+  const { tabs, activePath } = useStore();
   const activeTab = tabs.find((tab) => tab.path === activePath);
   const w3cFile = activeTab !== undefined && W3C_FILE.test(activeTab.path);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ValidateResult | null>(null);
-  const [viteStarting, setViteStarting] = useState(false);
-  const [viteUrl, setViteUrl] = useState<string | null>(null);
   const runIdRef = useRef(0);
 
   useEffect(() => {
@@ -25,11 +23,6 @@ export function StatusBar(): ReactNode {
     setRunning(false);
     setResult(null);
   }, [activePath, activeTab?.content]);
-
-  useEffect(() => {
-    setViteStarting(false);
-    setViteUrl(null);
-  }, [session?.workspace.id]);
 
   const validate = (): void => {
     if (!activeTab || !w3cFile || running) return;
@@ -49,15 +42,6 @@ export function StatusBar(): ReactNode {
         setRunning(false);
         setResult({ errors: 0, warnings: 0, failed: true });
       });
-  };
-
-  const openVite = (): void => {
-    if (!session || viteStarting) return;
-    setViteStarting(true);
-    void window.openshell.viteStart(session.workspace)
-      .then((preview) => setViteUrl(preview.url))
-      .catch(() => setViteUrl(null))
-      .finally(() => setViteStarting(false));
   };
 
   const resultText = result
@@ -84,17 +68,6 @@ export function StatusBar(): ReactNode {
     <div className="statusbar">
       <div className="statusbar-left" />
       <div className="statusbar-right">
-        {session && (
-          <button
-            className="statusbar-btn"
-            data-testid="vite-btn"
-            disabled={viteStarting}
-            title={viteUrl ?? "Serve this workspace with Vite and open it in a browser"}
-            onClick={openVite}
-          >
-            {viteStarting ? "Starting Vite…" : "Open in Vite"}
-          </button>
-        )}
         {activeTab && (
           <span className="statusbar-item statusbar-path" title={activeTab.path}>
             {activeTab.path}

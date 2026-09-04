@@ -130,6 +130,8 @@
 
 .terminal-add:hover { background: var(--bg-hover); color: var(--text); }
 
+.terminal-add.running { color: var(--green); }
+
 .terminal-add .codicon { font-size: 13px; }
 
 .terminal-close {

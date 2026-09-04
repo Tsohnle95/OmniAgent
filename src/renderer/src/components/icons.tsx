@@ -286,6 +286,16 @@ export function IconSearch(props: IconProps): ReactNode {
   );
 }
 
+export function IconServer(props: IconProps): ReactNode {
+  return (
+    <Icon name="server" {...props}>
+      <rect x="2.6" y="2.6" width="10.8" height="4.4" rx="1.2" />
+      <rect x="2.6" y="9" width="10.8" height="4.4" rx="1.2" />
+      <path d="M5 4.8h.01M5 11.2h.01" />
+    </Icon>
+  );
+}
+
 export function IconShield(props: IconProps): ReactNode {
   return (
     <Icon name="shield" {...props}>
