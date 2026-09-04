@@ -321,6 +321,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const [notice, setNotice] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(() => readModelKeys("favoriteModels"));
   const [hiddenModels, setHiddenModels] = useState<Set<string>>(() => readModelKeys("hiddenModels"));
+  const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(() => readModelKeys("hiddenProviders"));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [modelView, setModelView] = useState<"list" | "settings" | "strength">("list");
   const [modelSearch, setModelSearch] = useState("");
@@ -335,15 +336,14 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   workspaceRef.current = workspace;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
-  const groups = useModelGroups(models);
   const visibleModels = useMemo(
     () =>
       models.filter(
         (model) =>
-          !hiddenModels.has(modelKey(model)) ||
+          (!hiddenProviders.has(model.providerID) && !hiddenModels.has(modelKey(model))) ||
           (currentModel?.id === model.id && currentModel?.providerID === model.providerID)
       ),
-    [models, hiddenModels, currentModel]
+    [models, hiddenModels, hiddenProviders, currentModel]
   );
   const filteredModels = useMemo(() => {
     const query = modelSearch.trim().toLowerCase();
@@ -353,6 +353,12 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     );
   }, [modelSearch, visibleModels]);
   const filteredGroups = useModelGroups(filteredModels);
+  const settingsGroups = useModelGroups(
+    models.filter((model) => {
+      const query = modelSearch.trim().toLowerCase();
+      return !query || `${model.name} ${model.id} ${model.providerID}`.toLowerCase().includes(query);
+    })
+  );
   const favoriteList = useMemo(
     () =>
       filteredModels
@@ -641,6 +647,16 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
       if (next.has(key)) next.delete(key);
       else next.add(key);
       writeModelKeys("hiddenModels", next);
+      return next;
+    });
+  };
+
+  const toggleProviderVisible = (provider: string): void => {
+    setHiddenProviders((prev) => {
+      const next = new Set(prev);
+      if (next.has(provider)) next.delete(provider);
+      else next.add(provider);
+      writeModelKeys("hiddenProviders", next);
       return next;
     });
   };
@@ -944,11 +960,38 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
               </div>
               {modelView === "settings" ? (
                 <div className="composer-menu-settings">
-                  {groups.map(([provider, list]) => (
+                  <input
+                    className="composer-model-search"
+                    type="search"
+                    value={modelSearch}
+                    onChange={(event) => setModelSearch(event.target.value)}
+                    placeholder="Search models"
+                    aria-label="Search models"
+                  />
+                  {settingsGroups.map(([provider, list]) => {
+                    const providerVisible = !hiddenProviders.has(provider);
+                    return (
                     <div key={provider} className="composer-menu-group">
-                      <div className="composer-menu-head">{provider}</div>
-                      {list.map((model) => {
-                        const visible = !hiddenModels.has(modelKey(model));
+                      <div className="composer-menu-head composer-menu-provider-head">
+                        <button
+                          className="composer-menu-head-toggle"
+                          title={collapsed.has(provider) ? `Expand ${provider}` : `Collapse ${provider}`}
+                          onClick={() => toggleCollapsed(provider)}
+                        >
+                          {collapsed.has(provider) ? <IconChevronRight /> : <IconChevronDown />}
+                          {provider}
+                        </button>
+                        <button
+                          className="composer-menu-provider-visibility"
+                          title={providerVisible ? `Hide ${provider}` : `Show ${provider}`}
+                          aria-label={providerVisible ? `Hide ${provider}` : `Show ${provider}`}
+                          onClick={() => toggleProviderVisible(provider)}
+                        >
+                          {providerVisible ? <IconEye /> : <IconEyeClosed />}
+                        </button>
+                      </div>
+                      {!collapsed.has(provider) && list.map((model) => {
+                        const visible = providerVisible && !hiddenModels.has(modelKey(model));
                         return (
                           <button
                             key={`${model.id}::${model.providerID}`}
@@ -963,7 +1006,9 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                         );
                       })}
                     </div>
-                  ))}
+                    );
+                  })}
+                  {settingsGroups.length === 0 && <div className="composer-menu-empty">No models found.</div>}
                 </div>
               ) : modelView === "strength" ? (
                 <div className="composer-menu-group variant-menu">
@@ -994,11 +1039,16 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                   />
                   {favoriteList.length > 0 && (
                     <div className="composer-menu-group composer-menu-favorites">
-                      <div className="composer-menu-head">
+                      <button
+                        className="composer-menu-head"
+                        title={collapsed.has("favorites") ? "Expand Favorites" : "Collapse Favorites"}
+                        onClick={() => toggleCollapsed("favorites")}
+                      >
+                        {collapsed.has("favorites") ? <IconChevronRight /> : <IconChevronDown />}
                         <IconStarFilled />
                         Favorites
-                      </div>
-                      {favoriteList.map((model) => (
+                      </button>
+                      {!collapsed.has("favorites") && favoriteList.map((model) => (
                         <button
                           key={`fav::${model.id}::${model.providerID}`}
                           className={`composer-menu-item ${currentModel?.id === model.id && currentModel?.providerID === model.providerID ? "selected" : ""}`}

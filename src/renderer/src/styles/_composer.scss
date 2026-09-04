@@ -447,7 +447,6 @@
 
 .composer-menu-favorites {
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
 }
 
 .composer-menu-group + .composer-menu-group,
@@ -596,6 +595,44 @@
 .composer-menu-head:hover { color: var(--text-dim); }
 
 .composer-menu-head .codicon { font-size: 10px; }
+
+.composer-menu-provider-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.composer-menu-head-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.composer-menu-provider-visibility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.composer-menu-provider-visibility:hover { color: var(--text); background: var(--bg-hover); }
 
 .composer-menu-item {
   display: flex;
