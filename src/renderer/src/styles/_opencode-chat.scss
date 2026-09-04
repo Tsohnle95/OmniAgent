@@ -1369,7 +1369,6 @@
 [data-component="session-todo-dock"] + .composer { margin-top: -18px; }
 
 .agent-panel .composer-body {
-  position: relative;
   min-height: 72px;
   padding: 0;
   display: grid;
@@ -1416,22 +1415,21 @@
 .agent-panel .composer-input::placeholder { color: var(--v2-text-text-faint); }
 
 .agent-panel .composer-actions {
-  position: absolute !important;
-  top: calc(50% - 14px) !important;
-  right: 8px !important;
-  left: auto !important;
+  position: absolute;
+  top: 50%;
+  right: 8px;
   z-index: 2;
-  grid-column: auto;
-  grid-row: auto;
-  width: max-content;
+  grid-column: 2;
+  grid-row: 2;
+  width: auto;
   height: 28px;
   min-height: 28px;
   padding: 0;
   align-items: center;
   gap: 4px;
   min-width: 0;
-  align-self: auto;
-  transform: none !important;
+  align-self: center;
+  transform: translateY(-50%);
 }
 
 .agent-panel .composer-chips {
@@ -1522,38 +1520,8 @@
 
 @container (max-width: 360px) {
   [data-component="session-prompt-dock"] { padding: 0 2px 2px; }
-  .agent-panel .composer-body { min-height: 96px; border-radius: 8px; gap: 0; }
-  .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 100px 36px 8px; font-size: 12px; line-height: 16px; }
+  .agent-panel .composer-body { min-height: 64px; border-radius: 8px; gap: 0; }
+  .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 100px 4px 8px; font-size: 12px; line-height: 16px; }
   .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 0 3px; gap: 3px; }
   .agent-panel .composer-chips { padding: 0 3px 4px 6px; gap: 3px; }
-}
-
-.agent-panel .composer-body {
-  display: block !important;
-  position: relative !important;
-}
-
-.agent-panel .composer-input {
-  display: block;
-  grid-column: auto;
-}
-
-.agent-panel .composer-actions {
-  position: absolute !important;
-  inset: 50% 8px auto auto !important;
-  display: flex;
-  grid-column: auto !important;
-  grid-row: auto !important;
-  margin: 0;
-  transform: translateY(-50%) !important;
-}
-
-.agent-panel .composer-chips {
-  position: absolute;
-  right: 108px;
-  bottom: 6px;
-  left: 8px;
-  grid-column: auto;
-  grid-row: auto;
-  padding: 0;
 }
