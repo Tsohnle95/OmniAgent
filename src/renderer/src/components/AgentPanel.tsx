@@ -681,7 +681,10 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
           ))}
         </div>
       )}
-      <div className={`composer-body ${dragOver ? "drag-over" : ""}`}>
+      <div
+        className={`composer-body ${dragOver ? "drag-over" : ""}`}
+        style={{ position: "relative" }}
+      >
         {dragOver && (
           <div className="composer-drop-hint">
             <IconImage />
@@ -766,7 +769,19 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
             }
           }}
         />
-        <div className="composer-actions">
+        <div
+          className="composer-actions"
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: "0.5rem",
+            bottom: "auto",
+            left: "auto",
+            width: "max-content",
+            margin: 0,
+            transform: "translateY(-50%)"
+          }}
+        >
           {usageButton}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
