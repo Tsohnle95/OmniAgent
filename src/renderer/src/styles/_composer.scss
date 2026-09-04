@@ -445,6 +445,11 @@
 
 .composer-menu-group { margin-bottom: 4px; }
 
+.composer-menu-favorites {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
 .composer-menu-group + .composer-menu-group,
 .composer-menu .variant-menu {
   border-top: 1px solid var(--border);
@@ -475,6 +480,24 @@
   color: var(--text-faint);
   padding: 0 4px;
 }
+
+.composer-model-search {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0 0 4px;
+  padding: 4px 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  outline: none;
+}
+
+.composer-model-search:focus { border-color: var(--accent); }
+.composer-model-search::placeholder { color: var(--text-faint); }
 
 .composer-menu-tool {
   width: 24px;

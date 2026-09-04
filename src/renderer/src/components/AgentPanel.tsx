@@ -323,6 +323,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const [hiddenModels, setHiddenModels] = useState<Set<string>>(() => readModelKeys("hiddenModels"));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [modelView, setModelView] = useState<"list" | "settings" | "strength">("list");
+  const [modelSearch, setModelSearch] = useState("");
   const [mentions, setMentions] = useState<{ rel: string; path: string }[]>([]);
   const [completion, setCompletion] = useState<CompletionState | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -344,13 +345,20 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
       ),
     [models, hiddenModels, currentModel]
   );
-  const visibleGroups = useModelGroups(visibleModels);
+  const filteredModels = useMemo(() => {
+    const query = modelSearch.trim().toLowerCase();
+    if (!query) return visibleModels;
+    return visibleModels.filter((model) =>
+      `${model.name} ${model.id} ${model.providerID}`.toLowerCase().includes(query)
+    );
+  }, [modelSearch, visibleModels]);
+  const filteredGroups = useModelGroups(filteredModels);
   const favoriteList = useMemo(
     () =>
-      models
+      filteredModels
         .filter((model) => favorites.has(modelKey(model)) && !hiddenModels.has(modelKey(model)))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [models, favorites, hiddenModels]
+    [favorites, filteredModels, hiddenModels]
   );
   const canSend = input.trim().length > 0 || files.length > 0;
   const variantLabel = currentModel?.variant
@@ -976,8 +984,16 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                 </div>
               ) : (
                 <>
+                  <input
+                    className="composer-model-search"
+                    type="search"
+                    value={modelSearch}
+                    onChange={(event) => setModelSearch(event.target.value)}
+                    placeholder="Search models"
+                    aria-label="Search models"
+                  />
                   {favoriteList.length > 0 && (
-                    <div className="composer-menu-group">
+                    <div className="composer-menu-group composer-menu-favorites">
                       <div className="composer-menu-head">
                         <IconStarFilled />
                         Favorites
@@ -1006,7 +1022,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                       ))}
                     </div>
                   )}
-                  {visibleGroups.map(([provider, list]) => (
+                  {filteredGroups.map(([provider, list]) => (
                     <div key={provider} className="composer-menu-group">
                       <button
                         className="composer-menu-head"
@@ -1044,6 +1060,9 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
                         })}
                     </div>
                   ))}
+                  {favoriteList.length === 0 && filteredGroups.length === 0 && (
+                    <div className="composer-menu-empty">No models found.</div>
+                  )}
                 </>
               )}
             </>
