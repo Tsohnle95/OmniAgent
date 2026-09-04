@@ -257,6 +257,16 @@ export function IconMic(props: IconProps): ReactNode {
   );
 }
 
+export function IconMoreVertical(props: IconProps): ReactNode {
+  return (
+    <Icon name="more-vertical" {...props}>
+      <circle cx="8" cy="3" r="0.75" fill="currentColor" />
+      <circle cx="8" cy="8" r="0.75" fill="currentColor" />
+      <circle cx="8" cy="13" r="0.75" fill="currentColor" />
+    </Icon>
+  );
+}
+
 export function IconRefresh(props: IconProps): ReactNode {
   return (
     <Icon name="refresh" {...props}>

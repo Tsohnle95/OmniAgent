@@ -176,41 +176,17 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   position: relative;
 }
 
-.agent-mode-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  height: 24px;
-  padding: 0 7px 0 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition: background 120ms var(--ease), border-color 120ms var(--ease), color 120ms var(--ease);
-}
-
-.agent-mode-pill:hover,
-.agent-mode-pill.tui {
-  background: var(--accent-tint);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.agent-mode-pill .codicon { font-size: 11px; }
+.agent-mode-menu-toggle { padding: 3px 5px; }
+.agent-mode-menu-toggle.open { color: var(--accent); }
 
 .agent-mode-menu {
   position: absolute;
   top: calc(100% + 7px);
-  right: 38px;
+  right: 33px;
   z-index: 90;
   width: 164px;
   padding: 4px;

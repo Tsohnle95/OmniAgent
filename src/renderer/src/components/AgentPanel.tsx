@@ -23,6 +23,7 @@ import {
   IconGear,
   IconGitBranch,
   IconImage,
+  IconMoreVertical,
   IconRefresh,
   IconStarFilled,
   IconStop,
@@ -1440,18 +1441,13 @@ export function AgentPanel({
         <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">
           <button
-            className={`agent-mode-pill ${panelMode === "tui" ? "tui" : "gui"}`}
+            className={`icon-btn agent-mode-menu-toggle ${modeMenuOpen ? "open" : ""}`}
             title="Choose GUI or TUI"
             aria-label="Choose GUI or TUI"
             aria-expanded={modeMenuOpen}
             onClick={() => setModeMenuOpen((open) => !open)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              setModeMenuOpen(true);
-            }}
           >
-            {panelMode === "tui" ? "TUI" : "GUI"}
-            <IconChevronDown />
+            <IconMoreVertical />
           </button>
           {modeMenuOpen && (
             <div className="agent-mode-menu" role="menu" aria-label="Agent interface">
