@@ -294,7 +294,7 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
   );
 }
 
-export function Composer({ session, usageButton }: { session?: SessionInfo | null; usageButton?: ReactNode }): ReactNode {
+export function Composer({ session }: { session?: SessionInfo | null }): ReactNode {
   const store = useStore();
   const {
     switchModel,
@@ -769,7 +769,6 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
           }}
         />
         <div className="composer-actions">
-          {usageButton}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
             title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
@@ -1397,6 +1396,7 @@ export function AgentPanel({
         </div>
         <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">
+          {usageButton}
           {modeMenuOpen && (
             <div className="agent-mode-menu" role="menu" aria-label="Agent interface">
               <button
@@ -1588,7 +1588,7 @@ export function AgentPanel({
               </div>
             )}
             <OpenCodeTodoDock todos={todos} />
-            <Composer session={activeSession} usageButton={usageButton} />
+            <Composer session={activeSession} />
           </div>
         </>
       )}
