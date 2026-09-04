@@ -625,15 +625,5 @@
 @container (max-width: 360px) {
   .composer-body { border-radius: 8px; }
   .composer-input { max-height: 96px; }
-  .composer-icon-button,
-  .composer-approval { width: 22px; height: 22px; }
-  .composer-icon-button .codicon,
-  .composer-approval .codicon { font-size: 12px; }
-  .composer-send { width: 22px; height: 22px; }
-  .composer-send .codicon { font-size: 10px; }
-  .composer-selector { height: 20px; padding: 0 6px; font-size: 10.5px; gap: 3px; }
-   .composer-selector.model { flex-basis: 76px; width: 76px; }
-   .composer-selector.agent { flex-basis: 76px; width: 76px; }
-   .composer-selector.strength { flex-basis: 68px; width: 68px; }
   .composer-attachments { gap: 3px; }
 }

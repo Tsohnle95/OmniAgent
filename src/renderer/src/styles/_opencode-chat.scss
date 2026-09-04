@@ -1516,14 +1516,4 @@
   .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 8px 4px; font-size: 12px; line-height: 16px; }
   .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 4px 3px; gap: 3px; }
   .agent-panel .composer-chips { padding: 0 3px 4px 6px; gap: 3px; }
-  .agent-panel .composer-icon-button,
-  .agent-panel .composer-approval { width: 22px; height: 22px; }
-  .agent-panel .composer-icon-button .codicon,
-  .agent-panel .composer-approval .codicon { font-size: 12px; }
-  .agent-panel .composer-selector { height: 20px; padding: 0 6px; font-size: 10.5px; gap: 3px; }
-   .agent-panel .composer-selector.model { flex-basis: 76px; width: 76px; max-width: 76px; }
-   .agent-panel .composer-selector.agent { flex-basis: 76px; width: 76px; max-width: 76px; }
-   .agent-panel .composer-selector.strength { flex-basis: 68px; width: 68px; max-width: 68px; }
-  .agent-panel .composer-send { width: 24px; height: 24px; }
-  .agent-panel .composer-send .codicon { font-size: 11px; }
 }

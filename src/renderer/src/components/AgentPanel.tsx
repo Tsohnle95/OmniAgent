@@ -23,9 +23,7 @@ import {
   IconGear,
   IconGitBranch,
   IconImage,
-  IconMic,
   IconRefresh,
-  IconShield,
   IconStarFilled,
   IconStop,
   IconTerminal
@@ -157,34 +155,6 @@ function isImagePath(path: string): boolean {
   if (dot < 0) return false;
   return IMAGE_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
 }
-
-interface VoiceResult {
-  isFinal: boolean;
-  0: { transcript: string };
-}
-
-interface VoiceResultEvent {
-  resultIndex: number;
-  results: ArrayLike<VoiceResult>;
-}
-
-interface VoiceRecognition {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: VoiceResultEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: { error?: string }) => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-type VoiceRecognitionConstructor = new () => VoiceRecognition;
-
-type VoiceWindow = Window & {
-  SpeechRecognition?: VoiceRecognitionConstructor;
-  webkitSpeechRecognition?: VoiceRecognitionConstructor;
-};
 
 function formatVariant(variant: string | undefined): string {
   if (!variant) return "Auto";
@@ -327,8 +297,6 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
 export function Composer({ session }: { session?: SessionInfo | null }): ReactNode {
   const store = useStore();
   const {
-    approvalMode,
-    toggleApprovalMode,
     switchModel,
     switchAgent,
     loadAgents,
@@ -342,7 +310,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const supportsAttachments = runtime?.capabilities.attachments ?? activeSession?.runtimeID !== "deepseek";
   const supportsCommands = runtime?.capabilities.commands ?? activeSession?.runtimeID !== "deepseek";
   const supportsAgents = runtime?.capabilities.agents ?? activeSession?.runtimeID !== "deepseek";
-  const supportsPermissions = runtime?.capabilities.permissions ?? activeSession?.runtimeID !== "deepseek";
   const workspace = activeSession?.workspace ?? null;
   const view = usePanel(workspace);
   const { agents, currentAgent, busy, assistantStatus } = view;
@@ -351,7 +318,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
   const [menu, setMenu] = useState<MenuKind>(null);
-  const [voiceActive, setVoiceActive] = useState(false);
   const [notice, setNotice] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(() => readModelKeys("favoriteModels"));
   const [hiddenModels, setHiddenModels] = useState<Set<string>>(() => readModelKeys("hiddenModels"));
@@ -368,7 +334,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   workspaceRef.current = workspace;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
-  const voiceRef = useRef<VoiceRecognition | null>(null);
   const groups = useModelGroups(models);
   const visibleModels = useMemo(
     () =>
@@ -410,7 +375,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     };
   }, [menu]);
 
-  useEffect(() => () => voiceRef.current?.stop(), []);
   useEffect(
     () => () => {
       if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
@@ -541,51 +505,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     e.preventDefault();
     setDragOver(false);
     addAttachmentPaths(droppedFilePaths(e));
-  };
-
-  const toggleVoice = (): void => {
-    if (voiceRef.current) {
-      voiceRef.current.stop();
-      voiceRef.current = null;
-      setVoiceActive(false);
-      return;
-    }
-    const voiceWindow = window as VoiceWindow;
-    const Constructor = voiceWindow.SpeechRecognition ?? voiceWindow.webkitSpeechRecognition;
-    if (!Constructor) {
-      setNotice("Voice input is unavailable in this build.");
-      return;
-    }
-    const recognition = new Constructor();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = navigator.language;
-    recognition.onresult = (event) => {
-      const words: string[] = [];
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        if (event.results[index]?.isFinal) words.push(event.results[index][0].transcript);
-      }
-      if (words.length > 0) {
-        setInput((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${words.join(" ")}`);
-      }
-    };
-    recognition.onerror = () => {
-      setNotice("Voice input stopped.");
-      setVoiceActive(false);
-      voiceRef.current = null;
-    };
-    recognition.onend = () => {
-      setVoiceActive(false);
-      voiceRef.current = null;
-    };
-    try {
-      recognition.start();
-      voiceRef.current = recognition;
-      setVoiceActive(true);
-      setNotice("");
-    } catch {
-      setNotice("Voice input could not start.");
-    }
   };
 
   const chooseModel = (model: ModelOption): void => {
@@ -850,22 +769,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             >
               <IconAdd />
             </button>}
-          {supportsPermissions && <button
-              className={`composer-approval ${approvalMode === "approve" ? "active" : ""}`}
-              aria-pressed={approvalMode === "approve"}
-              title={approvalMode === "approve" ? "Automatically allow permission requests once" : "Ask before allowing permission requests"}
-              onClick={toggleApprovalMode}
-            >
-              <IconShield />
-            </button>}
-          {supportsAgents && <button
-            className={`composer-icon-button microphone ${voiceActive ? "active" : ""}`}
-            title={voiceActive ? "Stop voice input" : "Use voice input"}
-            aria-pressed={voiceActive}
-            onClick={toggleVoice}
-          >
-            <IconMic />
-          </button>}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
             title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
