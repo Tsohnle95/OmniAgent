@@ -1406,7 +1406,7 @@
   min-width: 0;
   min-height: 36px;
   max-height: 120px;
-  padding: 8px 10px 4px;
+  padding: 8px 100px 4px 10px;
   color: var(--v2-text-text-base);
   font: var(--font-weight-regular) 12.5px/18px var(--font-family-sans);
   grid-column: 1 / -1;
@@ -1415,6 +1415,10 @@
 .agent-panel .composer-input::placeholder { color: var(--v2-text-text-faint); }
 
 .agent-panel .composer-actions {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  z-index: 2;
   grid-column: 2;
   grid-row: 2;
   width: auto;
@@ -1425,6 +1429,7 @@
   gap: 4px;
   min-width: 0;
   align-self: center;
+  transform: translateY(-50%);
 }
 
 .agent-panel .composer-chips {
@@ -1516,7 +1521,7 @@
 @container (max-width: 360px) {
   [data-component="session-prompt-dock"] { padding: 0 2px 2px; }
   .agent-panel .composer-body { min-height: 64px; border-radius: 8px; gap: 0; }
-  .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 8px 4px; font-size: 12px; line-height: 16px; }
+  .agent-panel .composer-input { min-height: 30px; max-height: 96px; padding: 6px 100px 4px 8px; font-size: 12px; line-height: 16px; }
   .agent-panel .composer-actions { height: 28px; min-height: 28px; padding: 0 6px 0 3px; gap: 3px; }
   .agent-panel .composer-chips { padding: 0 3px 4px 6px; gap: 3px; }
 }

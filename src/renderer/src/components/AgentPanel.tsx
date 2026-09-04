@@ -295,7 +295,7 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
   );
 }
 
-export function Composer({ session }: { session?: SessionInfo | null }): ReactNode {
+export function Composer({ session, usageButton }: { session?: SessionInfo | null; usageButton?: ReactNode }): ReactNode {
   const store = useStore();
   const {
     switchModel,
@@ -808,6 +808,7 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             >
               <IconAdd />
             </button>}
+          {usageButton}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
             title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
@@ -1363,6 +1364,29 @@ export function AgentPanel({
     observedTopRef.current = el.scrollTop;
   };
 
+  const usageButton = (
+    <button
+      className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
+      title="Session and provider usage"
+      aria-label={contextLimit ? `Context usage ${Math.round(contextPercent)} percent` : "Session and provider usage"}
+      aria-expanded={usageOpen}
+      onClick={() => setUsageOpen((open) => !open)}
+    >
+      <span className="agent-usage-ring" aria-hidden="true">
+        <svg viewBox="0 0 20 20">
+          <circle className="agent-usage-ring-track" cx="10" cy="10" r="8" />
+          <circle
+            className="agent-usage-ring-fill"
+            cx="10"
+            cy="10"
+            r="8"
+            style={{ strokeDashoffset: `${50.27 * (1 - (contextLimit ? contextPercent : 0) / 100)}` }}
+          />
+        </svg>
+      </span>
+    </button>
+  );
+
   return (
     <div
       className="agent-panel"
@@ -1463,26 +1487,6 @@ export function AgentPanel({
               </button>
             </div>
           )}
-          <button
-            className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
-            title="Session and provider usage"
-            aria-label={contextLimit ? `Context usage ${Math.round(contextPercent)} percent` : "Session and provider usage"}
-            aria-expanded={usageOpen}
-            onClick={() => setUsageOpen((open) => !open)}
-          >
-            <span className="agent-usage-ring" aria-hidden="true">
-              <svg viewBox="0 0 20 20">
-                <circle className="agent-usage-ring-track" cx="10" cy="10" r="8" />
-                <circle
-                  className="agent-usage-ring-fill"
-                  cx="10"
-                  cy="10"
-                  r="8"
-                  style={{ strokeDashoffset: `${50.27 * (1 - (contextLimit ? contextPercent : 0) / 100)}` }}
-                />
-              </svg>
-            </span>
-          </button>
           <button
             className={`icon-btn agent-mode-menu-toggle ${modeMenuOpen ? "open" : ""}`}
             title="Choose GUI or TUI"
@@ -1651,7 +1655,7 @@ export function AgentPanel({
               </div>
             )}
             <OpenCodeTodoDock todos={todos} />
-            <Composer session={activeSession} />
+            <Composer session={activeSession} usageButton={usageButton} />
           </div>
         </>
       )}
