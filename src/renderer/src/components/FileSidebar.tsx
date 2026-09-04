@@ -762,10 +762,10 @@ export function FileSidebar({
             {orderedPanels.length === 0 && (
               session ? <div className="tree-empty">Loading…</div> : <NoWorkspaceEmpty />
             )}
-            {orderedPanels.map((panel) => panel.id !== session?.id ? (
+            {orderedPanels.map((panel, index) => panel.id !== session?.id ? (
               <div
                 key={panel.id}
-                 className={`tree-row dir workspace-root ${panel.id !== panels[0]?.id ? "workspace-root-secondary" : ""}`}
+                 className={`tree-row dir workspace-root ${index > 0 ? "workspace-root-secondary" : ""}`}
                 onClick={() => focusSession(panel.id)}
                 title={panel.directory}
               >
@@ -776,7 +776,7 @@ export function FileSidebar({
               <Fragment key={panel.id}>
                 {(!session || (root.length === 0 && !expanded.has(""))) && <div className="tree-empty">Loading…</div>}
                 <div
-                   className={`tree-row dir workspace-root ${panel.id !== panels[0]?.id ? "workspace-root-secondary" : ""} ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
+                    className={`tree-row dir workspace-root ${index > 0 ? "workspace-root-secondary" : ""} ${expanded.has("") ? "open" : ""} ${dropDir === "" ? "drop-target" : ""}`}
                   onClick={() => void toggleDir("")}
                   onDragOver={(e) => drag.onDirDragOver(e, "")}
                    onDrop={onTreeDrop}
