@@ -38,7 +38,7 @@ Imported everywhere as `@shared/types` (alias in both tsconfigs and
 | `OpenFileWorkspaceResult` | `{ session, path }` | `selectFile` / `openFileWorkspace` result: the opened single-file workspace session plus the workspace-relative file to open |
 | `ImportResult` | `{ name, rel, imported, reason? }` | Per-source `importExternal` outcome; `imported: false` with a `reason` (not found, already in the workspace, already exists, size caps) |
 | `SessionUsage` | `{ cost, tokens: { input, output, reasoning, cache: { read, write } } }` | Cumulative session token usage/cost shown in the agent header usage popup; the popup derives context-window fill from `tokens.input` vs the active model's `limit.context` |
-| `ProviderUsageSnapshot` | `{ windows: UsageWindow[], credits, planType, updatedAt }` | Usage windows (`{ id, label, usedPercent, windowMinutes, resetsAt }`) plus credits (`{ hasCredits, unlimited, balance, ... }`) or an `error: { code, message, retryable }` |
+| `ProviderUsageSnapshot` | `{ windows: UsageWindow[], credits, planType, updatedAt }` | Usage windows (`{ id, label, usedPercent, windowMinutes, resetsAt }`, where `usedPercent` is consumed quota and the UI displays its complementary `% left`) plus credits (`{ hasCredits, unlimited, balance, ... }`) or an `error: { code, message, retryable }` |
 
 ## TranscriptItem (agent panel feed)
 

@@ -37,6 +37,7 @@ import type {
 import {
   absoluteFilePath,
   absoluteFilePaths,
+  confinedPath,
   fileContent,
   terminalDimensions,
   terminalId,
@@ -779,14 +780,18 @@ function registerIpc(): void {
   handleTrusted("shell:switch-agent", async (_e, workspace: WorkspaceIdentity, id: string) =>
     backend.switchAgent(workspace, selectionId(id, "agent id")));
 
-  handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity, requestedId: string) => {
-    const directory = await backend.workspaceDirectory(workspace);
+  handleTrusted("shell:terminal-start", async (_e, workspace: WorkspaceIdentity, requestedId: string, rel = "") => {
+    const target = workspacePath(workspace, rel, true);
+    const root = await backend.workspaceDirectory(target.workspace);
+    const directory = await confinedPath(root, target.rel, true);
+    const stat = await fsp.stat(directory);
+    if (!stat.isDirectory()) throw new Error("terminal path is not a directory");
     const id = terminalId(requestedId);
-    await terminals.start(id, directory, workspace);
+    await terminals.start(id, directory, target.workspace);
     try {
-      await backend.workspaceDirectory(workspace);
+      await backend.workspaceDirectory(target.workspace);
     } catch (error) {
-      terminals.stop(id, workspace);
+      terminals.stop(id, target.workspace);
       throw error;
     }
   });

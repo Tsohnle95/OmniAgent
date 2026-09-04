@@ -256,8 +256,8 @@ runtime instead of rendering a nonfunctional form.
 
 ## Terminal tray
 
-`TerminalTray` registers a renderer-generated terminal UUID, then mounts/restarts a PTY (`terminalStart(workspace, id)`): main resolves
-the workspace identity and supplies that context's canonical directory as cwd.
+`TerminalTray` registers a renderer-generated terminal UUID, then mounts/restarts a PTY (`terminalStart(workspace, id, directory?)`): main resolves
+the workspace identity and confines the optional Explorer-selected relative directory before supplying it as cwd. Explorer file and folder context menus use **Open in Integrated Terminal** to create and focus a normal bottom-tray terminal at the file's parent or selected folder.
 The tray belongs to the focused panel — swapping focus stops the previous
 panel's PTYs and boots a fresh terminal for the new workspace.
 `TerminalManager` selects the user's normal interactive shell from `SHELL` on

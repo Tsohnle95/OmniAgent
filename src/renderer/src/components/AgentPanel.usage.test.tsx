@@ -1,11 +1,12 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModelOption, SessionInfo, SessionUsage } from "@shared/types";
+import type { ModelOption, ProviderUsageResult, SessionInfo, SessionUsage } from "@shared/types";
 
 let currentSession: SessionInfo;
 let currentUsage: SessionUsage | null;
 let currentModel: ModelOption | null;
+let currentProviderUsage: ProviderUsageResult[];
 
 vi.mock("../store", () => ({
   useStore: () => ({
@@ -29,7 +30,7 @@ vi.mock("../store", () => ({
     stop: vi.fn(),
     approvalMode: "ask",
     toggleApprovalMode: vi.fn(),
-    providerUsage: [],
+    providerUsage: currentProviderUsage,
     providerUsageLoading: false,
     refreshProviderUsage: vi.fn()
   }),
@@ -87,6 +88,7 @@ describe("agent panel usage tracker", () => {
     currentSession = session("one", 1);
     currentUsage = usage(0);
     currentModel = model(100_000);
+    currentProviderUsage = [];
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -191,5 +193,29 @@ describe("agent panel usage tracker", () => {
     const cache = container.querySelector(".agent-usage-cache-total")!;
     expect(cache.querySelector(".agent-usage-row-value")!.textContent).toContain("0");
     expect(cache.querySelector(".agent-usage-row-value")!.textContent).not.toContain("%");
+  });
+
+  it("shows provider quotas as the remaining percentage reported by the live UI", async () => {
+    currentProviderUsage = [{
+      provider: "openai",
+      displayName: "OpenAI ChatGPT",
+      status: "ok",
+      snapshot: {
+        windows: [
+          { id: "5h", label: "5h", usedPercent: 55, windowMinutes: 300, resetsAt: null },
+          { id: "weekly", label: "Weekly", usedPercent: 45, windowMinutes: 10_080, resetsAt: null }
+        ],
+        credits: null,
+        planType: "plus",
+        updatedAt: Date.now()
+      }
+    }];
+    await act(async () => root.render(<AgentPanel />));
+    await act(async () => toggle(container).click());
+
+    expect([...container.querySelectorAll(".usage-window-value")].map((element) => element.textContent)).toEqual([
+      "45% left",
+      "55% left"
+    ]);
   });
 });

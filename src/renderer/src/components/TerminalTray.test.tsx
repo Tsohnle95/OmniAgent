@@ -38,7 +38,8 @@ describe("TerminalTray integration", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
-    vi.stubGlobal("crypto", { randomUUID: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    let uuid = 0;
+    vi.stubGlobal("crypto", { randomUUID: () => `aaaaaaaa-aaaa-4aaa-8aaa-${String(++uuid).padStart(12, "0")}` });
     writes.mockClear();
     onClose.mockClear();
     window.openshell = {
@@ -79,5 +80,24 @@ describe("TerminalTray integration", () => {
     expect(container.textContent).toContain("No terminal open");
     expect(onClose).toHaveBeenCalledOnce();
     expect(window.openshell.terminalStop).toHaveBeenCalledWith(session.workspace, terminalId);
+  });
+
+  it("opens a requested terminal in the selected workspace folder", async () => {
+    await act(async () => root.render(
+      <TerminalTray
+        height={240}
+        snapped={false}
+        request={{ id: 1, directory: "packages/web" }}
+        onClose={onClose}
+        onExpand={() => {}}
+      />
+    ));
+
+    expect(window.openshell.terminalStart).toHaveBeenCalledWith(
+      session.workspace,
+      "term-aaaaaaaa-aaaa-4aaa-8aaa-000000000002",
+      "packages/web"
+    );
+    expect(container.textContent).toContain("web");
   });
 });

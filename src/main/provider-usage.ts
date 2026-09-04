@@ -893,15 +893,23 @@ export async function readOrbitUsageSnapshot(
 
 export async function fetchProviderUsage(): Promise<ProviderUsageResult[]> {
   const snapshotted = await readOrbitUsageSnapshot();
-  if (snapshotted.length > 0) return snapshotted;
+  const snapshotByProvider = new Map(snapshotted.map((result) => [result.provider, result]));
   const auth = await readOAuthEntries();
   const results: ProviderUsageResult[] = [];
   for (const [provider, spec] of Object.entries(PROVIDERS)) {
     const entry = auth[provider] ?? (spec.envKey && process.env[spec.envKey]
       ? { type: "oauth", access: process.env[spec.envKey] }
       : null);
-    if (!entry) continue;
-    results.push(await spec.fetch(entry));
+    if (!entry) {
+      const fallback = snapshotByProvider.get(provider);
+      if (fallback) results.push(fallback);
+      snapshotByProvider.delete(provider);
+      continue;
+    }
+    const live = await spec.fetch(entry);
+    results.push(live.status === "ok" ? live : snapshotByProvider.get(provider) ?? live);
+    snapshotByProvider.delete(provider);
   }
+  results.push(...snapshotByProvider.values());
   return results;
 }

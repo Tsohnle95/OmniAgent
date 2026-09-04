@@ -74,7 +74,7 @@ automatically.
 | `switchModel(workspace, id, providerID, variant?)` | `Promise<void>` |
 | `agents(workspace)` | `Promise<AgentOption[]>` |
 | `switchAgent(workspace, id)` | `Promise<void>` |
-| `terminalStart(workspace, id)` | `Promise<void>`; `id` is a renderer-generated `term-<UUID>` registered before invoke; main supplies the workspace's cwd |
+| `terminalStart(workspace, id, directory?)` | `Promise<void>`; `id` is a renderer-generated `term-<UUID>` registered before invoke; `directory` is an optional workspace-relative cwd validated and confined by main |
 | `terminalInput(workspace, id, data)` | `Promise<void>` |
 | `terminalResize(workspace, id, cols, rows)` | `Promise<void>` |
 | `terminalStop(workspace, id)` | `Promise<void>` |

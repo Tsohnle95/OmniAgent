@@ -119,11 +119,13 @@ function TermInstance({ id, active, height, workspace, onRegister, onUnregister 
 export function TerminalTray({
   height,
   snapped,
+  request,
   onClose,
   onExpand
 }: {
   height: number;
   snapped: boolean;
+  request?: { id: number; directory: string } | null;
   onClose: () => void;
   onExpand: () => void;
 }): ReactNode {
@@ -133,6 +135,7 @@ export function TerminalTray({
   const [notice, setNotice] = useState("");
   const counterRef = useRef(0);
   const bootTokenRef = useRef(0);
+  const handledRequestRef = useRef<number | null>(null);
   const writersRef = useRef<Map<string, (data: string) => void>>(new Map());
   const pendingOutputRef = useRef(new PendingTerminalOutput());
 
@@ -163,14 +166,15 @@ export function TerminalTray({
     return off;
   }, []);
 
-  const createTerminal = useCallback(async (): Promise<void> => {
+  const createTerminal = useCallback(async (directory = ""): Promise<void> => {
     setNotice("");
     const id = `term-${crypto.randomUUID()}`;
     pendingOutputRef.current.awaitRegistration(id);
-    const name = `Terminal ${++counterRef.current}`;
+    const count = ++counterRef.current;
+    const name = directory.split("/").filter(Boolean).pop() ?? `Terminal ${count}`;
     setTabs((current) => ({ terms: [...current.terms, { id, name }], activeId: id }));
     try {
-      await window.openshell.terminalStart(workspace, id);
+      await window.openshell.terminalStart(workspace, id, directory);
     } catch (err) {
       pendingOutputRef.current.remove(id);
       setTabs((current) => removeTerminal(current, id));
@@ -189,7 +193,7 @@ export function TerminalTray({
       const name = `Terminal ${++counterRef.current}`;
       setTabs({ terms: [{ id, name }], activeId: id });
       try {
-        await window.openshell.terminalStart(workspace, id);
+        await window.openshell.terminalStart(workspace, id, "");
         if (token !== bootTokenRef.current) {
           void window.openshell.terminalStop(workspace, id).catch(() => {});
           return;
@@ -206,6 +210,12 @@ export function TerminalTray({
       bootTokenRef.current++;
     };
   }, [workspace]);
+
+  useEffect(() => {
+    if (!request || handledRequestRef.current === request.id) return;
+    handledRequestRef.current = request.id;
+    void createTerminal(request.directory);
+  }, [createTerminal, request]);
 
   const closeTerminal = (id: string): void => {
     void window.openshell.terminalStop(workspace, id).catch(() => {});

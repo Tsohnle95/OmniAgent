@@ -239,7 +239,7 @@ function TreeNameInput({
   );
 }
 
-function ExplorerMenu(): ReactNode {
+function ExplorerMenu({ onOpenTerminal }: { onOpenTerminal?: (directory: string) => void }): ReactNode {
   const { session, startCreate, startRename, deleteEntry, removeFromWorkspace, closePanel } = useStore();
   const { ctxMenu, closeCtxMenu } = useCtxMenu();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -275,6 +275,9 @@ function ExplorerMenu(): ReactNode {
 
   return (
     <div className="ctx-menu" ref={menuRef} style={{ left, top }}>
+      <button className="ctx-item" onClick={() => { closeCtxMenu(); onOpenTerminal?.(parent); }}>
+        Open in Integrated Terminal
+      </button>
       <button className="ctx-item" onClick={() => startCreate(parent, "dir")}>
         <FolderPlusIcon />
         New Folder…
@@ -336,7 +339,8 @@ export function FileSidebar({
   onDrag,
   initialTab = "files",
   tab,
-  onTabChange
+  onTabChange,
+  onOpenTerminal
 }: {
   collapsed: boolean;
   onCollapse: (open: boolean) => void;
@@ -344,6 +348,7 @@ export function FileSidebar({
   initialTab?: SidebarTab;
   tab?: SidebarTab;
   onTabChange?: (tab: SidebarTab) => void;
+  onOpenTerminal?: (directory: string) => void;
 }): ReactNode {
   void onCollapse;
   const {
@@ -546,7 +551,7 @@ export function FileSidebar({
             </div>
           </div>
         </div>
-        <ExplorerMenu />
+        <ExplorerMenu onOpenTerminal={onOpenTerminal} />
       </div>
     );
   }
@@ -719,7 +724,7 @@ export function FileSidebar({
       )}
         </>
       )}
-      <ExplorerMenu />
+      <ExplorerMenu onOpenTerminal={onOpenTerminal} />
     </div>
   );
 }

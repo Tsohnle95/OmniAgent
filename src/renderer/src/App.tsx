@@ -87,6 +87,7 @@ function useTrayHeight(): {
   snapped: boolean;
   dragging: boolean;
   toggle: () => void;
+  show: () => void;
   close: () => void;
   expand: () => void;
   onDrag: (e: React.MouseEvent) => void;
@@ -152,7 +153,13 @@ function useTrayHeight(): {
 
   const close = (): void => setOpen(false);
 
-  return { height, open, snapped, dragging, toggle, close, expand, onDrag };
+  const show = (): void => {
+    setHeight(lastFullRef.current);
+    setSnapped(false);
+    setOpen(true);
+  };
+
+  return { height, open, snapped, dragging, toggle, show, close, expand, onDrag };
 }
 
 interface PanelSlot {
@@ -260,7 +267,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, setSideW] = useState(SIDE_DEFAULT_W);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
   const [pendingModelPanels, setPendingModelPanels] = useState(0);
-  const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
+  const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, show: showTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
+  const [terminalRequest, setTerminalRequest] = useState<{ id: number; directory: string } | null>(null);
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sideTab, setSideTab] = useState<SidebarTab>("sessions");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -761,6 +769,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           collapsed={!sideOpen}
           onCollapse={setSidebarOpen}
           onDrag={sideDrag}
+          onOpenTerminal={(directory) => {
+            setTerminalRequest((current) => ({ id: (current?.id ?? 0) + 1, directory }));
+            showTray();
+          }}
           tab={sideTab}
           onTabChange={(tab) => {
             setSideTab(tab);
@@ -818,7 +830,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       >
         {!settingsOpen && <div className="tray-inner">
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
-          <TerminalTray height={trayH} snapped={traySnapped} onClose={closeTray} onExpand={expandTray} />
+          <TerminalTray height={trayH} snapped={traySnapped} request={terminalRequest} onClose={closeTray} onExpand={expandTray} />
         </div>}
       </div>
 

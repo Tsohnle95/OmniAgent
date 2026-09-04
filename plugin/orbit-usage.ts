@@ -21,6 +21,38 @@ type UsageResult = {
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? value as Record<string, unknown> : null
+}
+
+function accountID(token: string): string | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")) as Record<string, unknown>
+    const auth = record(payload["https://api.openai.com/auth"])
+    const value = auth?.chatgpt_account_id ?? auth?.account_id ?? payload.account_id
+    return typeof value === "string" && value ? value : null
+  } catch {
+    return null
+  }
+}
+
+function usageWindow(raw: unknown): UsageWindow | null {
+  const value = record(raw)
+  const seconds = Number(value?.limit_window_seconds)
+  const used = Number(value?.used_percent)
+  if (!Number.isFinite(seconds) || seconds <= 0 || !Number.isFinite(used)) return null
+  const minutes = Math.round(seconds / 60)
+  const weekly = Math.abs(minutes - 7 * 24 * 60) <= 7 * 24 * 60 * 0.1
+  const fiveHour = Math.abs(minutes - 5 * 60) <= 5 * 60 * 0.1
+  return {
+    id: fiveHour ? "5h" : weekly ? "weekly" : `w${minutes}`,
+    label: fiveHour ? "5h" : weekly ? "Weekly" : `${Math.max(1, Math.round(minutes / 60))}h`,
+    usedPercent: Math.min(100, Math.max(0, used)),
+    windowMinutes: minutes,
+    resetsAt: Number(value?.reset_at) > 0 ? Math.floor(Number(value?.reset_at)) : null
+  }
+}
+
 function snapshotPath(): string {
   if (process.env.ORBIT_USAGE_SNAPSHOT) return process.env.ORBIT_USAGE_SNAPSHOT
   const data = process.env.XDG_DATA_HOME ?? path.join(homedir(), ".local", "share")
@@ -39,46 +71,54 @@ async function resolvedToken(ctx, integrationID): Promise<string | null> {
 }
 
 async function chatgptUsage(token: string): Promise<UsageResult> {
-  const base: UsageResult = { provider: "openai", displayName: "ChatGPT", status: "ok", snapshot: null, error: null }
+  const base: UsageResult = { provider: "openai", displayName: "OpenAI ChatGPT", status: "ok", snapshot: null, error: null }
   try {
+    const account = accountID(token)
     const response = await fetch("https://chatgpt.com/backend-api/wham/usage", {
-      headers: { authorization: `Bearer ${token}`, "chatgpt-account-id": "" },
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(account ? { "chatgpt-account-id": account } : {}),
+        accept: "application/json"
+      },
       signal: AbortSignal.timeout(10_000)
     })
     if (!response.ok) return { ...base, status: "unavailable", error: { code: "http", message: `HTTP ${response.status}`, retryable: response.status >= 500 } }
     const raw = await response.json() as Record<string, unknown>
-    const limits = raw?.usage ?? raw
-    const windows: UsageWindow[] = []
-    const read = (key: string, id: string, label: string, minutes: number | null) => {
-      const record = limits?.[key] as Record<string, number> | undefined
-      const percent = Number(record?.percent)
-      if (!Number.isFinite(percent)) return
-      windows.push({ id, label, usedPercent: Math.min(100, Math.max(0, percent)), windowMinutes: minutes, resetsAt: null })
-    }
-    read("primary_window", "primary", "Primary window", 5 * 60)
-    read("secondary_window", "secondary", "Secondary window", 24 * 60)
-    read("tertiary_window", "tertiary", "Tertiary window", 24 * 60 * 7)
-    return { ...base, snapshot: { windows, credits: null, planType: null, updatedAt: Date.now() } }
+    const rateLimit = record(raw.rate_limit)
+    const windows = [usageWindow(rateLimit?.primary_window), usageWindow(rateLimit?.secondary_window)]
+      .filter((window): window is UsageWindow => window !== null)
+      .sort((a, b) => (a.windowMinutes ?? 0) - (b.windowMinutes ?? 0))
+    return { ...base, snapshot: { windows, credits: null, planType: typeof raw.plan_type === "string" ? raw.plan_type : null, updatedAt: Date.now() } }
   } catch (cause) {
     return { ...base, status: "unavailable", error: { code: "network", message: cause instanceof Error ? cause.message : String(cause), retryable: true } }
   }
 }
 
 async function claudeUsage(token: string): Promise<UsageResult> {
-  const base: UsageResult = { provider: "anthropic", displayName: "Claude", status: "ok", snapshot: null, error: null }
+  const base: UsageResult = { provider: "anthropic", displayName: "Anthropic Claude", status: "ok", snapshot: null, error: null }
   try {
-    const response = await fetch("https://api.anthropic.com/v1/organizations/usage_report/messages?starting_period_days=7&limit=1", {
-      headers: { authorization: `Bearer ${token}`, "anthropic-version": "2023-06-01" },
+    const response = await fetch("https://api.anthropic.com/api/oauth/usage", {
+      headers: { authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20", accept: "application/json" },
       signal: AbortSignal.timeout(10_000)
     })
     if (!response.ok) return { ...base, status: "unavailable", error: { code: "http", message: `HTTP ${response.status}`, retryable: response.status >= 500 } }
-    const raw = await response.json() as { data?: Array<Record<string, unknown>> }
-    const entry = raw.data?.[0]
-    const fiveHour = Number(entry?.five_hour?.utilization)
-    const sevenDay = Number(entry?.seven_day?.utilization)
+    const raw = await response.json() as Record<string, unknown>
     const windows: UsageWindow[] = []
-    if (Number.isFinite(fiveHour)) windows.push({ id: "primary", label: "Five hour window", usedPercent: Math.min(100, Math.max(0, fiveHour)), windowMinutes: 5 * 60, resetsAt: null })
-    if (Number.isFinite(sevenDay)) windows.push({ id: "secondary", label: "Seven day window", usedPercent: Math.min(100, Math.max(0, sevenDay)), windowMinutes: 24 * 60 * 7, resetsAt: null })
+    const read = (key: string, id: string, label: string, minutes: number) => {
+      const value = record(raw[key])
+      const used = Number(value?.utilization)
+      if (!Number.isFinite(used)) return
+      const resetMs = typeof value?.resets_at === "string" ? new Date(value.resets_at).getTime() : Number.NaN
+      windows.push({
+        id,
+        label,
+        usedPercent: Math.min(100, Math.max(0, used)),
+        windowMinutes: minutes,
+        resetsAt: Number.isFinite(resetMs) ? Math.floor(resetMs / 1000) : null
+      })
+    }
+    read("five_hour", "5h", "5h", 5 * 60)
+    read("seven_day", "weekly", "Weekly", 24 * 60 * 7)
     return { ...base, snapshot: { windows, credits: null, planType: null, updatedAt: Date.now() } }
   } catch (cause) {
     return { ...base, status: "unavailable", error: { code: "network", message: cause instanceof Error ? cause.message : String(cause), retryable: true } }

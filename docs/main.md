@@ -121,7 +121,7 @@ opencode persists — OAuth entries from `~/.local/share/opencode/auth.json`
 `account` / `credential` tables of `opencode.db` (V2 rows carry
 `active = NULL`; OAuth and API-key values use typed JSON credentials) — and
 calls each provider's usage endpoint directly — ChatGPT's
-`/backend-api/wham/usage` (weekly/monthly windows, spend control, plan
+`/backend-api/wham/usage` (5-hour/weekly windows, spend control, plan
 type), Anthropic's `/api/oauth/usage` (5h + weekly utilization), GitHub
 Copilot's `copilot_internal/user` (credits/quota), OpenCode Go's
 `https://opencode.ai/zen/go/v1/usage` (rolling, weekly, and monthly
@@ -132,7 +132,9 @@ monthly/purchased/free credit balances; org accounts resolve their
 `COMMAND_CODE_API_KEY` environment variable when no auth-store credential
 exists, so config-file providers (`apiKey: "{env:COMMAND_CODE_API_KEY}"`)
 work without an auth login. Tokens never leave the main process; the
-renderer only receives normalized provider snapshots.
+renderer only receives normalized provider snapshots. Each refresh prefers a
+new live response and falls back per provider to a plugin snapshot younger
+than 15 minutes only when live credentials or the provider endpoint are unavailable.
 
 Internals:
 
@@ -263,7 +265,7 @@ Internals:
 | `shell:switch-model` | `(workspace, id, providerID, variant?) → void` |
 | `shell:agents` | `(workspace) → AgentOption[]` |
 | `shell:switch-agent` | `(workspace, id) → void` |
-| `shell:terminal-start` | `(workspace, id) → void`; renderer allocates a validated UUID id before invoking, main supplies the addressed workspace's canonical cwd |
+| `shell:terminal-start` | `(workspace, id, directory?) → void`; renderer allocates a validated UUID id before invoking, main confines the optional relative directory to the addressed workspace and uses it as cwd |
 | `shell:agent-tui-start` | `(workspace, id) → void`; starts the addressed runtime's TUI command in the workspace's canonical cwd |
 | `shell:terminal-input` | `(workspace, id, data) → void` |
 | `shell:terminal-resize` | `(workspace, id, cols, rows) → void` |

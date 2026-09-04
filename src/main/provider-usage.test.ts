@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fetchProviderUsage, readOAuthEntries } from "./provider-usage";
 import { sqliteQuery } from "./sqlite";
 
 vi.mock("./sqlite", () => ({ sqliteQuery: vi.fn() }));
 
 const sqliteQueryMock = sqliteQuery as unknown as ReturnType<typeof vi.fn>;
+const tempRoots: string[] = [];
 
 function mockDbRows(accounts: unknown[], credentials: unknown[]): void {
   sqliteQueryMock.mockImplementation((_db: string, sql: string) => {
@@ -18,8 +22,10 @@ function mockGoUsage(): void {
 }
 
 describe("provider usage from opencode store", () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
   it("reads the opencode-go subscription from opencode.db", async () => {
@@ -97,6 +103,41 @@ describe("provider usage from opencode store", () => {
 
     const entries = await readOAuthEntries();
     expect(entries.openai).toEqual({ type: "oauth", access: "a", refresh: "r", expires: 0 });
+  });
+
+  it("prefers live OpenAI windows over a still-fresh disk snapshot", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "orbit-usage-test-"));
+    tempRoots.push(root);
+    const snapshot = path.join(root, "usage.json");
+    await writeFile(snapshot, JSON.stringify({
+      generatedAt: Date.now(),
+      results: [{
+        provider: "openai",
+        displayName: "OpenAI ChatGPT",
+        status: "ok",
+        snapshot: {
+          windows: [{ id: "5h", label: "5h", usedPercent: 99, windowMinutes: 300, resetsAt: null }],
+          credits: null,
+          planType: "plus",
+          updatedAt: Date.now()
+        }
+      }]
+    }));
+    vi.stubEnv("ORBIT_USAGE_SNAPSHOT", snapshot);
+    mockDbRows([{ url: "https://chatgpt.com", access_token: "token", token_expiry: 0 }], []);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      plan_type: "plus",
+      rate_limit: {
+        primary_window: { used_percent: 55, limit_window_seconds: 18_000, reset_at: 1_788_499_804 },
+        secondary_window: { used_percent: 45, limit_window_seconds: 604_800, reset_at: 1_788_816_718 }
+      }
+    }), { status: 200 })));
+
+    const openai = (await fetchProviderUsage()).find((result) => result.provider === "openai");
+    expect(openai?.snapshot?.windows.map((window) => [window.label, window.usedPercent])).toEqual([
+      ["5h", 55],
+      ["Weekly", 45]
+    ]);
   });
 
   it("returns no provider usage when opencode.db has no credentials", async () => {

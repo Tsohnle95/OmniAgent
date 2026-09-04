@@ -668,6 +668,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const sessionRef = useRef<SessionInfo | null>(session);
   sessionRef.current = session;
   const requestSeqRef = useRef(0);
+  const providerUsageSeqRef = useRef(0);
   const activationSeqRef = useRef(0);
   const userActivatedRef = useRef(false);
   const focusSeqRef = useRef(0);
@@ -1966,13 +1967,15 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   }, [setSessionBusy, panelFor, toast, chatStateFor, applyProjection, syncStreaming]);
 
   const refreshProviderUsage = useCallback(async () => {
+    const sequence = ++providerUsageSeqRef.current;
     setProviderUsageLoading(true);
     try {
-      setProviderUsage(await window.openshell.providerUsage());
+      const next = await window.openshell.providerUsage();
+      if (sequence === providerUsageSeqRef.current) setProviderUsage(next);
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err), "error");
+      if (sequence === providerUsageSeqRef.current) toast(err instanceof Error ? err.message : String(err), "error");
     } finally {
-      setProviderUsageLoading(false);
+      if (sequence === providerUsageSeqRef.current) setProviderUsageLoading(false);
     }
   }, [toast]);
 

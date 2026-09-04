@@ -2,7 +2,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenShellApi } from "../../preload";
-import type { BackendMessage, SessionInfo, SessionUsage } from "@shared/types";
+import type { BackendMessage, ProviderUsageResult, SessionInfo, SessionUsage } from "@shared/types";
 import { StoreProvider, useStore } from "./store";
 
 type Store = ReturnType<typeof useStore>;
@@ -115,5 +115,33 @@ describe("store panel usage hydration", () => {
     await act(async () => store.selectAddPanel());
     expect(store.activeSessionID).toBe("session-7");
     expect(store.sessionUsage).toEqual(usageFor("session-7"));
+  });
+
+  it("keeps the newest provider usage refresh when requests finish out of order", async () => {
+    let resolveFirst!: (value: ProviderUsageResult[]) => void;
+    let resolveSecond!: (value: ProviderUsageResult[]) => void;
+    const providerUsage = vi.fn()
+      .mockImplementationOnce(() => new Promise<ProviderUsageResult[]>((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise<ProviderUsageResult[]>((resolve) => { resolveSecond = resolve; }));
+    window.openshell = api({ providerUsage });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+
+    let first!: Promise<void>;
+    let second!: Promise<void>;
+    await act(async () => {
+      first = store.refreshProviderUsage();
+      second = store.refreshProviderUsage();
+    });
+    const current = [{ provider: "openai", displayName: "OpenAI", status: "ok", snapshot: null }] satisfies ProviderUsageResult[];
+    const stale = [{ provider: "anthropic", displayName: "Claude", status: "ok", snapshot: null }] satisfies ProviderUsageResult[];
+    await act(async () => {
+      resolveSecond(current);
+      await second;
+      resolveFirst(stale);
+      await first;
+    });
+
+    expect(store.providerUsage).toEqual(current);
+    expect(store.providerUsageLoading).toBe(false);
   });
 });

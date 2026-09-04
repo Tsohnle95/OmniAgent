@@ -300,7 +300,7 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
         <div className="usage-window" key={window.id}>
           <div className="usage-window-row">
             <span className="usage-window-label">{window.label}</span>
-            <span className="usage-window-value">{Math.round(window.usedPercent)}%</span>
+            <span className="usage-window-value">{Math.round(100 - Math.min(100, Math.max(0, window.usedPercent)))}% left</span>
           </div>
           <div className="usage-window-bar">
             <div

@@ -75,4 +75,17 @@ describe("FileSidebar context menu open/close", () => {
     });
     expect(ctxMenuApi.closeCtxMenu).toHaveBeenCalledTimes(1);
   });
+
+  it("opens the integrated terminal at a folder or a file's parent folder", () => {
+    const onOpenTerminal = vi.fn();
+    ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir", type: "directory" } };
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} onOpenTerminal={onOpenTerminal} />));
+    act(() => container.querySelector<HTMLButtonElement>(".ctx-item")!.click());
+    expect(onOpenTerminal).toHaveBeenCalledWith("dir");
+
+    ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir/a.txt", type: "file" } };
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} onOpenTerminal={onOpenTerminal} />));
+    act(() => container.querySelector<HTMLButtonElement>(".ctx-item")!.click());
+    expect(onOpenTerminal).toHaveBeenLastCalledWith("dir");
+  });
 });

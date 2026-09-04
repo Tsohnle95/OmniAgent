@@ -131,8 +131,8 @@ const api = {
     ipcRenderer.invoke("shell:switch-model", workspace, id, providerID, variant),
   agents: (workspace: WorkspaceIdentity): Promise<AgentOption[]> => ipcRenderer.invoke("shell:agents", workspace),
   switchAgent: (workspace: WorkspaceIdentity, id: string): Promise<void> => ipcRenderer.invoke("shell:switch-agent", workspace, id),
-  terminalStart: (workspace: WorkspaceIdentity, id: string): Promise<void> =>
-    ipcRenderer.invoke("shell:terminal-start", workspace, id),
+  terminalStart: (workspace: WorkspaceIdentity, id: string, directory = ""): Promise<void> =>
+    ipcRenderer.invoke("shell:terminal-start", workspace, id, directory),
   terminalInput: (workspace: WorkspaceIdentity, id: string, data: string): Promise<void> =>
     ipcRenderer.invoke("shell:terminal-input", workspace, id, data),
   terminalResize: (workspace: WorkspaceIdentity, id: string, cols: number, rows: number): Promise<void> =>

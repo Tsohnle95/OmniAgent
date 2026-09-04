@@ -110,8 +110,10 @@ reading OpenCode's credential storage directly, fetches ChatGPT and Claude
 usage, and writes `{generatedAt, results}` — `results` matching
 `ProviderUsageResult[]` — to `${XDG_DATA_HOME ?? ~/.local/share}/opencode/orbit-usage.json`
 (override with `ORBIT_USAGE_SNAPSHOT`). `fetchProviderUsage()` in
-`src/main/provider-usage.ts` prefers a snapshot younger than 15 minutes and
-falls back to direct storage scraping when the plugin is absent.
+`src/main/provider-usage.ts` always requests live data for credentials it can
+resolve and uses a snapshot younger than 15 minutes only as a per-provider
+fallback. This keeps explicit refreshes live without losing plugin-supplied
+providers when direct credential resolution is unavailable.
 
 Install it by copying (or symlinking) the file into OpenCode's global plugins
 directory or listing its path under `plugins` in `opencode.json(c)`, then
