@@ -2244,8 +2244,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   );
   const openExternalPath = useCallback(
     async (absolutePath: string, workspace?: WorkspaceIdentity): Promise<string | null> => {
-      const target = workspace ?? sessionRef.current?.workspace;
+      const target = workspace ?? sessionRef.current?.workspace ?? panelsRef.current[panelsRef.current.length - 1]?.workspace;
       if (!target) return null;
+      const panel = panelFor(target);
+      if (!panel) return null;
+      if (!sessionRef.current || sessionRef.current.id !== panel.id) focusSession(panel.id);
       try {
         const result = await window.openshell.openExternal(target, absolutePath);
         if (result.kind === "relative") {
@@ -2293,7 +2296,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         return null;
       }
     },
-    [openFile, toast, panelFor, setTabsFor, setActivePathFor]
+    [openFile, toast, panelFor, focusSession, setTabsFor, setActivePathFor]
   );
   const importPaths = useCallback(
     async (destDir: string, sources: string[]): Promise<void> => {

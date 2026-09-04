@@ -121,6 +121,26 @@ describe("store open paths", () => {
     expect(store.tabs.map((tab) => tab.path)).toEqual(["index.html"]);
   });
 
+  it("opens a file on an attached session before that session has been focused", async () => {
+    const externalKind = vi.fn(async () => ({ kind: "file" as const }));
+    const openExternal = vi.fn(async (): Promise<ExternalOpenResult> => ({
+      kind: "relative", rel: "index.html", content: "<p>hi"
+    }));
+    window.openshell = api({ externalKind, openExternal });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => messageHandler!({ kind: "session", session: info("/one", 1) }));
+    await act(async () => messageHandler!({
+      kind: "ui-command",
+      command: "open-paths",
+      data: ["/one/index.html"]
+    }));
+
+    expect(store.session?.directory).toBe("/one");
+    expect(store.tabs.map((tab) => tab.path)).toEqual(["index.html"]);
+    expect(store.activePath).toBe("index.html");
+    expect(openExternal).toHaveBeenCalledWith(store.session!.workspace, "/one/index.html");
+  });
+
   it("toasts when a dropped path no longer exists", async () => {
     window.openshell = api({ externalKind: async () => ({ kind: "missing" as const }) });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
