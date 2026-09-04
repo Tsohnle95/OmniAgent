@@ -121,7 +121,7 @@ describe("TerminalTray integration", () => {
 
     expect(window.openshell.viteStart).toHaveBeenCalledWith(session.workspace);
     const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
-    expect(button.title).toBe("http://127.0.0.1:5199/");
+    expect(button.title).toBe("http://127.0.0.1:5199/ — right-click to stop the server");
     expect(button.classList.contains("running")).toBe(true);
   });
 
@@ -144,5 +144,31 @@ describe("TerminalTray integration", () => {
       await flush();
     });
     expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.disabled).toBe(false);
+  });
+
+  it("stops the workspace server on right-click", async () => {
+    const viteStop = vi.fn(async () => {});
+    window.openshell = {
+      ...window.openshell,
+      viteStop
+    } as unknown as typeof window.openshell;
+
+    await act(async () => root.render(<TerminalTray height={240} snapped={false} onClose={onClose} onExpand={() => {}} />));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!.click();
+      await flush();
+    });
+    expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.classList.contains("running")).toBe(true);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!
+        .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await flush();
+    });
+
+    expect(viteStop).toHaveBeenCalledWith(session.workspace);
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
+    expect(button.classList.contains("running")).toBe(false);
+    expect(button.title).toBe("Serve this workspace with Vite and open it in a browser");
   });
 });

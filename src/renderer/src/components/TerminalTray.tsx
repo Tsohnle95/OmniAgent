@@ -237,6 +237,13 @@ export function TerminalTray({
       .finally(() => setViteStarting(false));
   };
 
+  const stopVite = (): void => {
+    if (!viteUrl) return;
+    void window.openshell.viteStop(workspace)
+      .then(() => setViteUrl(null))
+      .catch(() => {});
+  };
+
   const closeTerminal = (id: string): void => {
     void window.openshell.terminalStop(workspace, id).catch(() => {});
     const next = removeTerminal({ terms, activeId }, id);
@@ -282,10 +289,14 @@ export function TerminalTray({
         </button>
         <button
           className={`terminal-add${viteUrl ? " running" : ""}`}
-          title={viteStarting ? "Starting the Vite server…" : viteUrl ?? "Serve this workspace with Vite and open it in a browser"}
+          title={viteStarting ? "Starting the Vite server…" : viteUrl ? `${viteUrl} — right-click to stop the server` : "Serve this workspace with Vite and open it in a browser"}
           disabled={viteStarting}
           data-testid="vite-btn"
           onClick={() => openVite()}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            stopVite();
+          }}
         >
           <IconServer />
         </button>
