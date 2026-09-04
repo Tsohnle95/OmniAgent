@@ -177,6 +177,8 @@ interface Store {
   toasts: Toast[];
   recoveryRecords: RecoveryRecord[];
   models: ModelOption[];
+  availableModels: ModelOption[];
+  lastModel: ModelOption | null;
   currentModel: ModelOption | null;
   agents: AgentOption[];
   currentAgent: AgentOption | null;
@@ -514,6 +516,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const [recoveryByWorkspace, setRecoveryByWorkspace] = useState<Record<string, RecoveryRecord[]>>({});
   const [modelsByWorkspace, setModelsByWorkspace] = useState<Record<string, ModelOption[]>>({});
   const [currentModelByWorkspace, setCurrentModelByWorkspace] = useState<Record<string, ModelOption | null>>({});
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [lastModel, setLastModel] = useState<ModelOption | null>(null);
   const [agentsByWorkspace, setAgentsByWorkspace] = useState<Record<string, AgentOption[]>>({});
   const [currentAgentByWorkspace, setCurrentAgentByWorkspace] = useState<Record<string, AgentOption | null>>({});
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>(
@@ -1387,12 +1391,14 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         }
         return { ...prev, [target.id]: list };
       });
+      setAvailableModels(list);
       setCurrentModelByWorkspace((prev) => {
         const current = prev[target.id] ?? null;
         const pick = selection?.model ?? current ?? def;
         if (!pick) return prev;
         const match = list.find((m) => m.id === pick.id && m.providerID === pick.providerID);
         const next = match ? { ...match, ...(pick.variant ? { variant: pick.variant } : {}) } : pick;
+        setLastModel(next);
         return prev[target.id] === next ? prev : { ...prev, [target.id]: next };
       });
     } catch (err) {
@@ -3461,6 +3467,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       toasts,
       recoveryRecords,
       models,
+      availableModels,
+      lastModel,
       currentModel,
       agents,
       currentAgent,
@@ -3541,7 +3549,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }),
     [
       session, connected, runtimes, selectedRuntimeID, setSelectedRuntimeID, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, hiddenPaths, toasts, recoveryRecords,
-      models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, savedWorkspaces, saveWorkspace, removeWorkspace, activeSessions, panels, workspaceOnlyPanelIDs, panelViews, activeSessionID,
+      models, availableModels, lastModel, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, savedWorkspaces, saveWorkspace, removeWorkspace, activeSessions, panels, workspaceOnlyPanelIDs, panelViews, activeSessionID,
       focusSession, closePanel, openSession, addModelPanel, openWorkspacePanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,

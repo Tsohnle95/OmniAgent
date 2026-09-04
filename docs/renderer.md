@@ -32,6 +32,7 @@ Exposed via `useStore()` (context). State:
 | `toasts` | `Toast[]` | transient notifications |
 | `recoveryRecords` | `RecoveryRecord[]` | durable workspace artifacts for the focused workspace; unacknowledged records remain actionable across restart |
 | `models` | `ModelOption[]` | for the composer model/strength picker |
+| `availableModels` / `lastModel` | `ModelOption[]` / `ModelOption \| null` | last loaded model catalog and selection retained for the empty agent panel after its workspace closes; controls remain inert until a workspace is active |
 | `currentModel` | `ModelOption \| null` | per workspace; seeded from the session selection (falling back to `modelDefault()`) when a panel activates so a new session never displays another session's model; live-updated by `session.model.selected` for the addressed session; includes selected `variant`; carries `limit.context` from the model catalog, which the usage popup uses to compute context-window fill |
 | `agents` | `AgentOption[]` | for the composer agent picker |
 | `currentAgent` | `AgentOption \| null` | per workspace; seeded from the session selection, falling back to the session's creation agent and then `build`; live-updated by `session.agent.selected` for the addressed session and optimistic `switchAgent` |

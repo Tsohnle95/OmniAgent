@@ -345,7 +345,9 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
   const supportsPermissions = runtime?.capabilities.permissions ?? activeSession?.runtimeID !== "deepseek";
   const workspace = activeSession?.workspace ?? null;
   const view = usePanel(workspace);
-  const { models, currentModel, agents, currentAgent, busy, assistantStatus } = view;
+  const { agents, currentAgent, busy, assistantStatus } = view;
+  const models = activeSession ? view.models : store.availableModels ?? [];
+  const currentModel = activeSession ? view.currentModel : store.lastModel ?? null;
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
   const [menu, setMenu] = useState<MenuKind>(null);
