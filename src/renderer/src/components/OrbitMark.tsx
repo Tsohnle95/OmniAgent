@@ -1,9 +1,5 @@
 import type { ReactNode } from "react";
 
-const SAGE = "#617a68";
-const SAGE_LIGHT = "#9eb4a1";
-const SAGE_DEEP = "#46584b";
-
 export function OrbitMark({ size = 46 }: { size?: number }): ReactNode {
   return (
     <svg
@@ -15,10 +11,10 @@ export function OrbitMark({ size = 46 }: { size?: number }): ReactNode {
       aria-hidden="true"
     >
       <g fill="none" strokeLinecap="round">
-        <ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(24 48 48)" stroke={SAGE_LIGHT} strokeWidth={4.5} />
-        <ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(-24 48 48)" stroke={SAGE} strokeWidth={5} />
-        <circle cx="48" cy="48" r={9} fill={SAGE_DEEP} />
-        <circle cx="62.1" cy="28.3" r={6} fill={SAGE_LIGHT} />
+        <ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(24 48 48)" stroke="color-mix(in srgb, var(--accent) 55%, var(--bg-panel))" strokeWidth={4.5} />
+        <ellipse cx="48" cy="48" rx="36" ry="15" transform="rotate(-24 48 48)" stroke="var(--accent)" strokeWidth={5} />
+        <circle cx="48" cy="48" r={9} fill="color-mix(in srgb, var(--accent) 72%, var(--text))" />
+        <circle cx="62.1" cy="28.3" r={6} fill="var(--accent)" opacity="0.75" />
       </g>
     </svg>
   );
