@@ -502,24 +502,41 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     addAttachmentPaths(paths);
   };
 
-  const onComposerDragOver = (e: React.DragEvent): void => {
+  const onPanelDragOver = (e: React.DragEvent): void => {
     if (!supportsAttachments || !isExternalFileDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     setDragOver(true);
   };
 
-  const onComposerDragLeave = (e: React.DragEvent): void => {
-    if (composerRef.current?.contains(e.relatedTarget as Node)) return;
+  const onPanelDragLeave = (e: React.DragEvent): void => {
+    const dropTarget = composerRef.current?.closest(".agent-panel") ?? composerRef.current;
+    if (dropTarget?.contains(e.relatedTarget as Node)) return;
     setDragOver(false);
   };
 
-  const onComposerDrop = (e: React.DragEvent): void => {
+  const onPanelDrop = (e: React.DragEvent): void => {
     if (!supportsAttachments || !isExternalFileDrag(e)) return;
     e.preventDefault();
     setDragOver(false);
     addAttachmentPaths(droppedFilePaths(e));
   };
+
+  useEffect(() => {
+    const panel = composerRef.current?.closest(".agent-panel") ?? composerRef.current;
+    if (!panel) return;
+    const dragOver = (event: Event): void => onPanelDragOver(event as unknown as React.DragEvent);
+    const dragLeave = (event: Event): void => onPanelDragLeave(event as unknown as React.DragEvent);
+    const drop = (event: Event): void => onPanelDrop(event as unknown as React.DragEvent);
+    panel.addEventListener("dragover", dragOver);
+    panel.addEventListener("dragleave", dragLeave);
+    panel.addEventListener("drop", drop);
+    return () => {
+      panel.removeEventListener("dragover", dragOver);
+      panel.removeEventListener("dragleave", dragLeave);
+      panel.removeEventListener("drop", drop);
+    };
+  }, [supportsAttachments]);
 
   const chooseModel = (model: ModelOption): void => {
     void switchModel(model.id, model.providerID, currentModel?.id === model.id ? currentModel.variant : undefined, workspace ?? undefined);
@@ -674,9 +691,6 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     <div
       className="composer"
       ref={composerRef}
-      onDragOver={onComposerDragOver}
-      onDragLeave={onComposerDragLeave}
-      onDrop={onComposerDrop}
     >
       {files.length > 0 && (
         <div className="composer-attachments">
@@ -1348,7 +1362,11 @@ export function AgentPanel({
   };
 
   return (
-    <div className="agent-panel" ref={panelRef} onMouseDownCapture={onFocus}>
+    <div
+      className="agent-panel"
+      ref={panelRef}
+      onMouseDownCapture={onFocus}
+    >
       {onResizeLeft && <div className="panel-resize-handle panel-resize-left" onMouseDown={onResizeLeft} />}
       {onResizeRight && <div className="panel-resize-handle panel-resize-right" onMouseDown={onResizeRight} />}
       <div className="agent-header" ref={headerRef} onMouseDown={startPanelDrag}>
