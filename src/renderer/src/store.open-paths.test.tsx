@@ -135,7 +135,7 @@ describe("store open paths", () => {
     window.openshell = api({ externalKind });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => {
-      messageHandler!({ kind: "ui-command", command: "open-paths", data: ["/dropped", 42, ""] });
+      messageHandler!({ kind: "ui-command", command: "open-paths", data: ["/dropped", 42, "."] });
     });
 
     expect(store.panels.map((panel) => panel.directory)).toEqual(["/dropped"]);

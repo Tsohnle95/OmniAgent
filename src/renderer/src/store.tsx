@@ -2419,7 +2419,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   );
 
   const openPaths = useCallback(async (paths: string[]): Promise<void> => {
-    const clean = paths.map((path) => path.trim()).filter((path) => path.length > 0);
+    const clean = paths
+      .map((path) => path.trim())
+      .filter((path) => path.length > 0 && path.startsWith("/"));
     if (clean.length === 0) return;
     for (const absolutePath of clean) {
       let kind: "file" | "directory" | "missing";
