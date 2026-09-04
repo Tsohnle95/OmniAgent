@@ -1417,8 +1417,8 @@
 .agent-panel .composer-actions {
   position: absolute !important;
   top: 50% !important;
-  left: 50% !important;
-  right: auto !important;
+  right: 8px !important;
+  left: auto !important;
   z-index: 2;
   width: max-content;
   height: 28px;
@@ -1427,7 +1427,7 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  transform: translate(-50%, -50%) !important;
+  transform: translateY(-50%) !important;
 }
 
 .agent-panel .composer-chips {
