@@ -25,10 +25,11 @@ export class PendingOpenPaths {
   }
 }
 
-export function collectLaunchPaths(argv: string[], exists: (path: string) => boolean): string[] {
+export function collectLaunchPaths(argv: string[], exists: (path: string) => boolean, executablePath?: string): string[] {
   return argv.filter((arg) => {
     if (!arg || arg.startsWith("-") || arg.startsWith("+")) return false;
     if (!isAbsolute(arg)) return false;
+    if (arg === executablePath) return false;
     try {
       return exists(arg);
     } catch {

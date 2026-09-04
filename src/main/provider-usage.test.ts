@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -22,6 +22,10 @@ function mockGoUsage(): void {
 }
 
 describe("provider usage from opencode store", () => {
+  beforeEach(() => {
+    vi.stubEnv("COMMAND_CODE_API_KEY", "");
+  });
+
   afterEach(async () => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();

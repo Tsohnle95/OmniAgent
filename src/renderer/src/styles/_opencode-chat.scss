@@ -1369,6 +1369,7 @@
 [data-component="session-todo-dock"] + .composer { margin-top: -18px; }
 
 .agent-panel .composer-body {
+  position: relative;
   min-height: 72px;
   padding: 0;
   display: grid;

@@ -108,7 +108,7 @@ describe("agent panel usage tracker", () => {
     expect(toggle(container).classList.contains("ok")).toBe(true);
     expect(toggle(container).classList.contains("warn")).toBe(false);
     expect(toggle(container).classList.contains("danger")).toBe(false);
-    expect(toggle(container).querySelector(".codicon-dashboard")).not.toBeNull();
+    expect(toggle(container).querySelector(".agent-usage-ring")).not.toBeNull();
   });
 
   it("colors the toggle glyph amber at 60% and red at 85% fill", async () => {

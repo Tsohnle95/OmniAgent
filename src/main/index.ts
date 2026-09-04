@@ -967,7 +967,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("second-instance", (_event, argv) => {
-    pendingOpenPaths.push(collectLaunchPaths(argv, existsSync));
+    pendingOpenPaths.push(collectLaunchPaths(argv, existsSync, process.execPath));
     if (!win || win.isDestroyed()) {
       createWindow();
     } else {
@@ -1036,7 +1036,7 @@ if (!app.requestSingleInstanceLock()) {
       return;
     }
     createWindow();
-    if (app.isPackaged) pendingOpenPaths.push(collectLaunchPaths(process.argv.slice(1), existsSync));
+    if (app.isPackaged) pendingOpenPaths.push(collectLaunchPaths(process.argv.slice(1), existsSync, process.execPath));
     void backend.connect().catch(() => {});
 
     app.on("activate", () => {

@@ -88,6 +88,9 @@ describe("FileSidebar single-file mode and external drops", () => {
 
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    window.openshell = {
+      externalKind: vi.fn(async (path: string) => ({ kind: /\.[^/]+$/.test(path) ? "file" as const : "directory" as const }))
+    } as unknown as typeof window.openshell;
     store.singleFile = null;
     store.openExternalPath = vi.fn();
     store.importPaths = vi.fn();
@@ -117,11 +120,12 @@ describe("FileSidebar single-file mode and external drops", () => {
     expect(container.textContent).not.toContain("alpha");
   });
 
-  it("opens an external file dropped onto the empty explorer area", () => {
+  it("opens an external file dropped onto the empty explorer area", async () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
     const tree = container.querySelector<HTMLElement>(".tree")!;
-    act(() => {
+    await act(async () => {
       tree.dispatchEvent(dropEvent(["/outside/notes.txt"]));
+      await Promise.resolve();
     });
 
     expect(store.dropIntoExplorer).toHaveBeenCalledWith(["/outside/notes.txt"]);
@@ -139,24 +143,26 @@ describe("FileSidebar single-file mode and external drops", () => {
     expect(store.openExternalPath).not.toHaveBeenCalled();
   });
 
-  it("opens an external folder as another workspace when the root is collapsed", () => {
+  it("opens an external folder as another workspace when the root is collapsed", async () => {
     store.expanded = new Set(["alpha"]);
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
     const tree = container.querySelector<HTMLElement>(".tree")!;
-    act(() => {
+    await act(async () => {
       tree.dispatchEvent(dropEvent(["/outside/advanced-web-concepts"]));
+      await Promise.resolve();
     });
 
     expect(store.openWorkspacePanel).toHaveBeenCalledWith("/outside/advanced-web-concepts");
     expect(store.dropIntoExplorer).not.toHaveBeenCalled();
   });
 
-  it("opens an external folder dropped directly on the collapsed root", () => {
+  it("opens an external folder dropped directly on the collapsed root", async () => {
     store.expanded = new Set(["alpha"]);
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
     const workspace = row(container, "workspace")!;
-    act(() => {
+    await act(async () => {
       workspace.dispatchEvent(dropEvent(["/outside/advanced-web-concepts"]));
+      await Promise.resolve();
     });
 
     expect(store.openWorkspacePanel).toHaveBeenCalledWith("/outside/advanced-web-concepts");

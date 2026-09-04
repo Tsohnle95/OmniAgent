@@ -40,4 +40,10 @@ describe("collectLaunchPaths", () => {
     const exists = vi.fn(() => true);
     expect(collectLaunchPaths([".", "/repo/a"], exists)).toEqual(["/repo/a"]);
   });
+
+  it("ignores the app executable in secondary-instance arguments", () => {
+    const exists = vi.fn(() => true);
+    expect(collectLaunchPaths(["/Applications/Orbit.app/Contents/MacOS/Orbit", "/repo/a"], exists, "/Applications/Orbit.app/Contents/MacOS/Orbit"))
+      .toEqual(["/repo/a"]);
+  });
 });
