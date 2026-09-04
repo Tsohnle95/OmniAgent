@@ -1354,6 +1354,8 @@
 
 [data-component="session-prompt-dock"] .composer {
   z-index: 70;
+  align-self: center;
+  width: 100%;
   margin: 0;
   padding: 0;
   gap: 4px;
@@ -1361,7 +1363,7 @@
   background: transparent;
   box-shadow: none;
   min-width: 0;
-  max-width: 100%;
+  max-width: 470px;
 }
 
 [data-component="session-todo-dock"] + .composer { margin-top: -18px; }
