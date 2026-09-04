@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackendMessage, SessionInfo, TranscriptItem } from "@shared/types";
@@ -221,6 +221,41 @@ describe("Layout panel sizing", () => {
 
     expect(Number.parseFloat(gridCols()[0] ?? "0")).toBeCloseTo(230, 0);
     expect(agentWidths()[0]).toBeCloseTo(668, 0);
+  });
+
+  it("previews panel resizing without committing React renders on mousemove", async () => {
+    let commits = 0;
+    await act(async () => root.render(
+      <Profiler id="layout" onRender={() => { commits += 1; }}>
+        <App />
+      </Profiler>
+    ));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    const handle = container.querySelector<HTMLElement>(".agent-col .panel-resize-left")!;
+    await act(async () => {
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 1000 }));
+      await Promise.resolve();
+    });
+    const baseline = commits;
+
+    await act(async () => {
+      for (let clientX = 990; clientX >= 700; clientX -= 10) {
+        window.dispatchEvent(new MouseEvent("mousemove", { clientX }));
+      }
+      await Promise.resolve();
+    });
+
+    expect(agentWidths()[0]).toBeCloseTo(580, 0);
+    expect(commits).toBe(baseline);
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await Promise.resolve();
+    });
+
+    expect(agentWidths()[0]).toBeCloseTo(580, 0);
+    expect(commits).toBeGreaterThan(baseline);
   });
 
   it("keeps a left-expanded agent panel covering the editor when the window widens", async () => {

@@ -354,12 +354,14 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     );
   }, [modelSearch, visibleModels]);
   const filteredGroups = useModelGroups(filteredModels);
-  const settingsGroups = useModelGroups(
-    models.filter((model) => {
+  const settingsModels = useMemo(
+    () => models.filter((model) => {
       const query = modelSearch.trim().toLowerCase();
       return !query || `${model.name} ${model.id} ${model.providerID}`.toLowerCase().includes(query);
-    })
+    }),
+    [modelSearch, models]
   );
+  const settingsGroups = useModelGroups(settingsModels);
   const favoriteList = useMemo(
     () =>
       filteredModels

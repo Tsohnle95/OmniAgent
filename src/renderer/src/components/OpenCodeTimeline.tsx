@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../store";
@@ -1487,7 +1487,7 @@ export function PermissionPrompt({ item, session }: { item: Extract<TranscriptIt
   );
 }
 
-export function OpenCodeTimeline({
+export const OpenCodeTimeline = memo(function OpenCodeTimeline({
   transcript,
   busy,
   lastAssistantId,
@@ -1574,4 +1574,4 @@ export function OpenCodeTimeline({
       )}
     </div>
   );
-}
+});

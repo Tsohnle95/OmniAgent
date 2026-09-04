@@ -45,7 +45,8 @@ function useDragResize(
   open: boolean,
   left?: number,
   setLeft?: (value: number) => void,
-  onSnap?: () => void
+  onSnap?: () => void,
+  onPreview?: (width: number, left: number | null) => void
 ): (e: React.MouseEvent) => void {
   const startRef = useRef<{ x: number; width: number; left: number; live: number; hasDragged: boolean } | null>(null);
 
@@ -70,11 +71,19 @@ function useDragResize(
       const nextW = Math.max(min, rawW);
       const capped = Math.min(max, nextW);
       startRef.current.live = capped;
-      setWidth(capped);
-      if (flip && setLeft) setLeft(startRef.current.left + startRef.current.width - capped);
+      const nextLeft = flip && setLeft ? startRef.current.left + startRef.current.width - capped : null;
+      if (onPreview) onPreview(capped, nextLeft);
+      else {
+        setWidth(capped);
+        if (nextLeft !== null && setLeft) setLeft(nextLeft);
+      }
     };
     const up = (): void => {
       const start = startRef.current;
+      if (start?.hasDragged && onPreview) {
+        setWidth(start.live);
+        if (flip && setLeft) setLeft(start.left + start.width - start.live);
+      }
       if (start && start.hasDragged && start.live < min) {
         if (flip && setLeft) setLeft(start.left + start.width - min);
         setWidth(min);
@@ -94,7 +103,7 @@ function useDragResize(
 const TRAY_HEADER_H = 30;
 const TRAY_SNAP_H = 32;
 
-function useTrayHeight(): {
+function useTrayHeight(onPreview?: (height: number) => void): {
   height: number;
   open: boolean;
   snapped: boolean;
@@ -121,6 +130,7 @@ function useTrayHeight(): {
       if (startRef.current) {
         const h = startRef.current.live;
         startRef.current = null;
+        if (onPreview) setHeight(h);
         if (h <= TRAY_SNAP_H) {
           setHeight(TRAY_HEADER_H);
           setSnapped(true);
@@ -147,7 +157,8 @@ function useTrayHeight(): {
       const h = Math.min(520, Math.max(TRAY_HEADER_H, startRef.current.height + dy));
       startRef.current.live = h;
       if (h > TRAY_SNAP_H) lastFullRef.current = h;
-      setHeight(h);
+      if (onPreview) onPreview(h);
+      else setHeight(h);
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -212,6 +223,8 @@ function PanelColumn({
   onManualAdjust?: () => void;
 }): ReactNode {
   const [settling, setSettling] = useState(false);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const slideLeftRef = useRef<number | null>(null);
   const settleTimerRef = useRef<number | null>(null);
   useEffect(() => () => {
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
@@ -234,7 +247,10 @@ function PanelColumn({
     slot.open,
     slot.left,
     undefined,
-    settle
+    settle,
+    (width) => {
+      if (columnRef.current) columnRef.current.style.width = `${width}px`;
+    }
   );
   const resizeLeft = useDragResize(
     slot.width,
@@ -245,10 +261,24 @@ function PanelColumn({
     slot.open,
     slot.left,
     (left) => onSlot((current) => ({ ...current, left, leftAnchored: true })),
-    settle
+    settle,
+    (width, left) => {
+      if (!columnRef.current) return;
+      columnRef.current.style.width = `${width}px`;
+      if (left !== null) columnRef.current.style.left = `${left}px`;
+      if (isAnchor) columnRef.current.parentElement?.style.setProperty("--editor-right", `${width}px`);
+    }
   );
   const slideBy = (delta: number): void => {
-    onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
+    const next = Math.min(leftMax, Math.max(leftMin, (slideLeftRef.current ?? slot.left) + delta));
+    slideLeftRef.current = next;
+    if (columnRef.current) columnRef.current.style.left = `${next}px`;
+  };
+  const finishSlide = (): void => {
+    const left = slideLeftRef.current;
+    slideLeftRef.current = null;
+    if (left !== null) onSlot((current) => ({ ...current, left }));
+    onManualAdjust?.();
   };
   const exitModeOnRelease = (event: React.MouseEvent): void => {
     event.preventDefault();
@@ -262,8 +292,8 @@ function PanelColumn({
     return null;
   }
   return (
-    <div className={`agent-col ${settling ? "settling" : ""} ${slot.left <= leftMin + 0.5 ? "edge-left" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
-      <AgentPanel session={session} isAnchor={isAnchor} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? exitModeOnRelease : resizeLeft} onResizeRight={freeMove ? exitModeOnRelease : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragEnd={freeMove ? onManualAdjust : undefined} />
+    <div ref={columnRef} className={`agent-col ${settling ? "settling" : ""} ${slot.left <= leftMin + 0.5 ? "edge-left" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
+      <AgentPanel session={session} isAnchor={isAnchor} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? exitModeOnRelease : resizeLeft} onResizeRight={freeMove ? exitModeOnRelease : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragEnd={freeMove || !isAnchor ? finishSlide : undefined} />
     </div>
   );
 }
@@ -280,7 +310,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [sideW, setSideW] = useState(SIDE_DEFAULT_W);
   const [slots, setSlots] = useState<Record<string, PanelSlot>>({});
   const [pendingModelPanels, setPendingModelPanels] = useState(0);
-  const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, show: showTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight();
+  const trayAreaRef = useRef<HTMLDivElement>(null);
+  const { height: trayH, open: trayOpen, snapped: traySnapped, dragging: trayDragging, toggle: toggleTray, show: showTray, close: closeTray, expand: expandTray, onDrag: trayDrag } = useTrayHeight(
+    (height) => trayAreaRef.current?.style.setProperty("--tray-height", `${height}px`)
+  );
   const [terminalRequest, setTerminalRequest] = useState<{ id: number; directory: string } | null>(null);
   const [winW, setWinW] = useState(() => window.innerWidth);
   const [sideTab, setSideTab] = useState<SidebarTab>("sessions");
@@ -289,6 +322,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [agentModeActive, setAgentModeActive] = useState(false);
   const [emptyAgentOpen, setEmptyAgentOpen] = useState(true);
   const [emptyAgentWidth, setEmptyAgentWidth] = useState(280);
+  const mainRowRef = useRef<HTMLDivElement>(null);
+  const emptyAgentRef = useRef<HTMLDivElement>(null);
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = agentModeActive;
 
@@ -545,7 +580,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     SIDE_MIN_W,
     sideMax,
     false,
-    sideOpen
+    sideOpen,
+    undefined,
+    undefined,
+    undefined,
+    (width) => mainRowRef.current?.style.setProperty("--pane-columns", `${width}px 1px minmax(0,1fr)`)
   );
   const emptyAgentDrag = useDragResize(
     emptyAgentWidth,
@@ -553,7 +592,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     AGENT_MIN_W,
     areaW,
     true,
-    emptyAgentOpen
+    emptyAgentOpen,
+    undefined,
+    undefined,
+    undefined,
+    (width) => {
+      if (emptyAgentRef.current) emptyAgentRef.current.style.width = `${width}px`;
+      emptyAgentRef.current?.parentElement?.style.setProperty("--editor-right", `${width}px`);
+    }
   );
 
   const cols = [
@@ -783,7 +829,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </span>
       </div>
 
-      <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
+      <div ref={mainRowRef} className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
         {settingsOpen ? <SettingsSidebar
           section={settingsSection}
           onSectionChange={setSettingsSection}
@@ -845,6 +891,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           })}
           {panels.length === 0 && emptyAgentOpen && (
             <div
+              ref={emptyAgentRef}
               className={`agent-col empty-agent-col ${inAgentMode ? "agent-mode-empty" : ""}`}
               style={inAgentMode ? undefined : { width: `${emptyAgentWidth}px`, right: "0px" }}
             >
@@ -858,6 +905,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
       </div>
 
       <div
+        ref={trayAreaRef}
         className={`tray-area ${trayOpen ? "open" : ""} ${trayDragging ? "dragging" : ""}`}
         style={{ "--tray-height": `${trayH}px` } as CSSProperties}
       >
