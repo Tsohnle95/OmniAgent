@@ -80,12 +80,20 @@ describe("FileSidebar context menu open/close", () => {
     const onOpenTerminal = vi.fn();
     ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir", type: "directory" } };
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} onOpenTerminal={onOpenTerminal} />));
-    act(() => container.querySelector<HTMLButtonElement>(".ctx-item")!.click());
+    act(() => document.body.querySelector<HTMLButtonElement>(".ctx-item")!.click());
     expect(onOpenTerminal).toHaveBeenCalledWith("dir");
 
     ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir/a.txt", type: "file" } };
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} onOpenTerminal={onOpenTerminal} />));
-    act(() => container.querySelector<HTMLButtonElement>(".ctx-item")!.click());
+    act(() => document.body.querySelector<HTMLButtonElement>(".ctx-item")!.click());
     expect(onOpenTerminal).toHaveBeenLastCalledWith("dir");
+  });
+
+  it("renders the menu outside the sidebar so ancestors cannot clip it", () => {
+    ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir", type: "directory" } };
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const menu = document.body.querySelector(".ctx-menu")!;
+    expect(menu).toBeTruthy();
+    expect(container.contains(menu)).toBe(false);
   });
 });

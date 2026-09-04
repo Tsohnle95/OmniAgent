@@ -52,6 +52,6 @@ describe("FileSidebar rename actions", () => {
   it("does not offer rename for directories", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
 
-    expect([...container.querySelectorAll(".ctx-item")].some((button) => button.textContent?.includes("Rename"))).toBe(false);
+    expect([...document.body.querySelectorAll(".ctx-item")].some((button) => button.textContent?.includes("Rename"))).toBe(false);
   });
 });

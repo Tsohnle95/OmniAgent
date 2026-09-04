@@ -76,7 +76,7 @@ describe("FileSidebar file creation", () => {
   it("starts a file from the context menu", () => {
     ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir", type: "directory" as const } };
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    const item = [...container.querySelectorAll<HTMLButtonElement>(".ctx-item")].find(
+    const item = [...document.body.querySelectorAll<HTMLButtonElement>(".ctx-item")].find(
       (b) => b.textContent === "New File…"
     )!;
     expect(item).toBeTruthy();

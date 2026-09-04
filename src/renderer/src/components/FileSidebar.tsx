@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FilePlusIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
@@ -285,7 +286,7 @@ function ExplorerMenu({ onOpenTerminal }: { onOpenTerminal?: (directory: string)
   const left = Math.min(ctxMenu.x, window.innerWidth - 190);
   const top = Math.min(ctxMenu.y, window.innerHeight - 150);
 
-  return (
+  return createPortal(
     <div className="ctx-menu" ref={menuRef} style={{ left, top }}>
       <button className="ctx-item" onClick={() => { closeCtxMenu(); onOpenTerminal?.(parent); }}>
         Open in Integrated Terminal
@@ -321,7 +322,8 @@ function ExplorerMenu({ onOpenTerminal }: { onOpenTerminal?: (directory: string)
           </button>
         </>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
