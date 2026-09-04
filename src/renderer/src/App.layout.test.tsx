@@ -638,6 +638,50 @@ describe("Layout panel sizing", () => {
     }
   });
 
+  it("hides the only agent tray from its header without closing the session", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".agent-close")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
+    expect(container.querySelector(".workspace-area")).not.toBeNull();
+    const toggle = container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-agent-panel"]')!;
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+    await act(async () => {
+      toggle.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(1);
+  });
+
+  it("leaves agent mode when hiding its only agent tray", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-panel-action="toggle-model-mode"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(container.querySelector(".app.agent-mode")).not.toBeNull();
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".agent-close")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.querySelector(".app.agent-mode")).toBeNull();
+    expect(container.querySelector(".sidebar")).not.toBeNull();
+    expect(container.querySelectorAll(".agent-panel")).toHaveLength(0);
+    expect(container.querySelector('[data-panel-action="toggle-agent-panel"]')?.getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("closes a model panel without leaving a collapsed strip behind", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));

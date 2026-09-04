@@ -640,6 +640,23 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     setAgentModeActive(false);
   };
 
+  const closeAgentPanel = (panel: SessionInfo): void => {
+    if (panels.length > 1) {
+      closePanel(panel.id);
+      return;
+    }
+    if (inAgentMode) {
+      const previous = prevSidebarRef.current;
+      prevSidebarRef.current = null;
+      setAgentModeActive(false);
+      if (previous) {
+        setSideOpen(previous.open);
+        setSideW(previous.width);
+      }
+    }
+    setSlotOpen(panel.workspace.id, false);
+  };
+
   const setSlotWidth = (id: string, width: number): void => {
     setSlots((current) => {
       const slot = current[id] ?? { open: true, width: AGENT_DEFAULT_W, left: 0, top: 0, height: 100 };
@@ -787,7 +804,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
                   })
                 }
                 onFocus={() => focusSession(panel.id)}
-                onClose={() => closePanel(panel.id)}
+                onClose={() => closeAgentPanel(panel)}
                 onManualAdjust={leaveAgentModeForManualAdjustment}
               />
             );
