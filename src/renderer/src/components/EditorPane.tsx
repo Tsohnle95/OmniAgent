@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { languageForPath } from "../monaco";
@@ -116,6 +116,51 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   );
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const tabContent = tab.content;
+  const tabPath = tab.path;
+  const tabContentRef = useRef(tabContent);
+  tabContentRef.current = tabContent;
+
+  const handleChange = useCallback((value: string | undefined): void => {
+    if (value !== undefined) editContent(tabPath, value);
+  }, [editContent, tabPath]);
+
+  const handleMount = useCallback((ed: editor.IStandaloneCodeEditor): void => {
+    editorRef.current = ed;
+    registerEditor(tabPath, ed);
+    wireEmmetKeys(ed);
+    const model = ed.getModel();
+    const latest = tabContentRef.current;
+    if (model && model.getValue() !== latest) {
+      model.pushEditOperations([], [{
+        range: model.getFullModelRange(),
+        text: latest
+      }], () => null);
+    }
+  }, [tabPath]);
+
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed || mode !== "edit") return;
+    const model = ed.getModel();
+    if (!model || model.getValue() === tabContent) return;
+    const selections = ed.getSelections();
+    const scrollTop = ed.getScrollTop();
+    const scrollLeft = ed.getScrollLeft();
+    model.pushEditOperations(selections ?? [], [{
+      range: model.getFullModelRange(),
+      text: tabContent
+    }], () => null);
+    if (selections) {
+      try {
+        ed.setSelections(selections);
+      } catch {
+        // selection may be out of bounds after an external edit
+      }
+    }
+    ed.setScrollTop(scrollTop);
+    ed.setScrollLeft(scrollLeft);
+  }, [tabContent, mode]);
 
   useEffect(() => {
     if (!w3cFile) return;
@@ -215,16 +260,10 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
           theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
           language={language}
           path={tab.path}
-          value={tab.content}
-          onMount={(ed) => {
-            editorRef.current = ed;
-            registerEditor(tab.path, ed);
-            wireEmmetKeys(ed);
-          }}
+          defaultValue={tab.content}
+          onMount={handleMount}
           options={options}
-          onChange={(value) => {
-            if (value !== undefined) editContent(tab.path, value);
-          }}
+          onChange={handleChange}
         />
       )}
     </div>
@@ -232,7 +271,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 }
 
 export function EditorPane(): ReactNode {
-  const { tabs, activePath, openExternalPath } = useStore();
+  const { tabs, activePath, openPaths } = useStore();
   const activeTab = tabs.find((t) => t.path === activePath);
   const [externalDrag, setExternalDrag] = useState(false);
 
@@ -248,7 +287,8 @@ export function EditorPane(): ReactNode {
     e.preventDefault();
     e.stopPropagation();
     setExternalDrag(false);
-    for (const file of droppedFilePaths(e)) void openExternalPath(file);
+    const files = droppedFilePaths(e);
+    if (files.length > 0) void openPaths(files);
   };
   const onDragLeave = (e: React.DragEvent): void => {
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setExternalDrag(false);

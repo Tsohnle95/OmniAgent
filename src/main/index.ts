@@ -78,6 +78,7 @@ const pendingOpenPaths = new PendingOpenPaths();
 function flushOpenPaths(): void {
   if (pendingOpenPaths.size === 0) return;
   if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+  if (win.webContents.isLoading()) return;
   const paths = pendingOpenPaths.take();
   if (paths.length === 0) return;
   win.webContents.send("shell:message", { kind: "ui-command", command: "open-paths", data: paths });
@@ -452,6 +453,9 @@ function createWindow(show = true): BrowserWindow {
     setTimeout(reveal, 5000);
   }
   newWin.on("resize", () => scheduleBoundsSave(newWin));
+  newWin.webContents.on("did-finish-load", () => {
+    setTimeout(flushOpenPaths, 500);
+  });
   void newWin.loadURL(rendererUrl);
   return newWin;
 }
@@ -964,18 +968,24 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("second-instance", (_event, argv) => {
     pendingOpenPaths.push(collectLaunchPaths(argv, existsSync));
-    flushOpenPaths();
-    if (!win) {
+    if (!win || win.isDestroyed()) {
       createWindow();
-      return;
+    } else {
+      if (win.isMinimized()) win.restore();
+      win.focus();
     }
-    if (win.isMinimized()) win.restore();
-    win.focus();
+    flushOpenPaths();
   });
 
   app.on("open-file", (event, path) => {
     event.preventDefault();
     pendingOpenPaths.push([path]);
+    if (!win || win.isDestroyed()) {
+      createWindow();
+    } else {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
     flushOpenPaths();
   });
 
@@ -1038,7 +1048,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.on("window-all-closed", () => {
-  app.quit();
+  if (process.platform !== "darwin") app.quit();
 });
 
 let quitting = false;

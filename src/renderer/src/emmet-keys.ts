@@ -18,7 +18,7 @@ function insideScriptTag(model: editor.ITextModel, position: monaco.Position): b
 export function wireEmmetKeys(target: editor.IStandaloneCodeEditor): void {
   target.onKeyDown((e) => {
     if (e.keyCode === monaco.KeyCode.KEY_IN_COMPOSITION) return;
-    if (e.keyCode !== monaco.KeyCode.Enter && e.keyCode !== monaco.KeyCode.Tab) return;
+    if (e.keyCode !== monaco.KeyCode.Tab) return;
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     if ((target.getSelections() ?? []).length !== 1) return;
     if (suggestWidgetVisible(target)) return;

@@ -45,7 +45,11 @@ function expandedSnippet(abbr: string, language: string): string | null {
   try {
     expanded = expandAbbreviation(abbr, {
       type: stylesheet ? "stylesheet" : "markup",
-      syntax: stylesheet ? "css" : "html"
+      syntax: stylesheet ? "css" : "html",
+      options: {
+        "output.field": (index: number, placeholder: string) =>
+          `\${${index}${placeholder ? `:${placeholder}` : ""}}`
+      }
     });
   } catch {
     return null;
@@ -55,10 +59,11 @@ function expandedSnippet(abbr: string, language: string): string | null {
 }
 
 function isNoise(abbr: string, expanded: string, stylesheet: boolean): boolean {
+  const withoutTabStops = expanded.replace(/\$\{\d+(?::[^}]*)?\}/g, "");
   if (stylesheet) {
     const compact = (value: string): string => value.replace(/\s/g, "");
     const unresolved = compact(`${abbr};`);
-    return compact(expanded) === unresolved || compact(expanded) === compact(`${abbr}: ;`);
+    return compact(withoutTabStops) === unresolved || compact(withoutTabStops) === compact(`${abbr}: ;`);
   }
   const lower = abbr.toLowerCase();
   if (abbr === ".") return false;
@@ -66,7 +71,7 @@ function isNoise(abbr: string, expanded: string, stylesheet: boolean): boolean {
   if (COMMON_TAGS.has(lower)) return false;
   if (/[-,:]/.test(abbr) && !/--|::/.test(abbr) && !abbr.endsWith(":")) return false;
   if (/^\w+\.$/.test(abbr) && !COMMON_TAGS.has(abbr.slice(0, -1).toLowerCase())) return true;
-  return expanded.toLowerCase() === `<${lower}></${lower}>`;
+  return withoutTabStops.toLowerCase() === `<${lower}></${lower}>`;
 }
 
 function restoreTabStops(expanded: string): string {
@@ -76,8 +81,14 @@ function restoreTabStops(expanded: string): string {
   const body = /<body>((?:\r?\n)[\t ]*)(\r?\n)<\/body>/.exec(snippet);
   if (body) {
     snippet = snippet.replace(body[0], `<body>${body[1]}\${0}${body[2]}</body>`);
-  } else if (!snippet.includes("\${")) {
-    snippet = `${snippet}\${0}`;
+  } else if (!snippet.includes("${")) {
+    const emptyPair = />(<\/[a-zA-Z][^>]*>)/.exec(snippet);
+    if (emptyPair && emptyPair.index !== undefined) {
+      const insertAt = emptyPair.index + 1;
+      snippet = `${snippet.slice(0, insertAt)}\${0}${snippet.slice(insertAt)}`;
+    } else {
+      snippet = `${snippet}\${0}`;
+    }
   }
   return snippet.replace(/(?<!\\)\$(?!\{)/g, `\\$1`);
 }

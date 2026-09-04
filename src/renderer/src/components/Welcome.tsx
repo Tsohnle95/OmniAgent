@@ -77,7 +77,7 @@ function workspaceGroups(sessions: SessionSummary[], projects: ProjectInfo[]): W
 }
 
 export function Welcome(): ReactNode {
-  const { selectFolder, openFileWorkspace, openSession, reopenSession, selectedRuntimeID, savedWorkspaces } = useStore();
+  const { selectFolder, openPaths, openSession, reopenSession, selectedRuntimeID, savedWorkspaces } = useStore();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -116,7 +116,7 @@ export function Welcome(): ReactNode {
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       const files = droppedFilePaths(e);
-      if (files.length > 0) void openFileWorkspace(files[0]);
+      if (files.length > 0) void openPaths(files);
     }
   };
 

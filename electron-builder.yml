@@ -32,3 +32,8 @@ mac:
         LSHandlerRank: Alternate
         LSItemContentTypes:
           - public.source-code
+      - CFBundleTypeName: All files
+        CFBundleTypeRole: Editor
+        LSHandlerRank: Alternate
+        LSItemContentTypes:
+          - public.data

@@ -8,7 +8,7 @@ describe("emmetSnippetAt", () => {
     expect(found!.abbr).toBe("!");
     expect(found!.startColumn).toBe(1);
     expect(found!.snippet).toContain("<!DOCTYPE html>");
-    expect(found!.snippet).toContain('<title>${1:Document}</title>');
+    expect(found!.snippet).toContain("<title>${5:Document}</title>");
     expect(found!.snippet).toContain("<body>\n\t${0}\n</body>");
   });
 
@@ -16,7 +16,7 @@ describe("emmetSnippetAt", () => {
     const found = emmetSnippetAt("    ul>li*3", "html");
     expect(found!.abbr).toBe("ul>li*3");
     expect(found!.startColumn).toBe(5);
-    expect(found!.snippet).toBe("<ul>\n\t<li></li>\n\t<li></li>\n\t<li></li>\n</ul>${0}");
+    expect(found!.snippet).toBe("<ul>\n\t<li>${1}</li>\n\t<li>${2}</li>\n\t<li>${0}</li>\n</ul>");
   });
 
   it("restores the title tab stop when expanding a title with text", () => {
@@ -24,10 +24,11 @@ describe("emmetSnippetAt", () => {
     expect(found!.snippet).toContain("<title>${1:Hello}</title>");
   });
 
-  it("expands known tags", () => {
-    expect(emmetSnippetAt("div", "html")!.snippet).toBe("<div></div>${0}");
-    expect(emmetSnippetAt("a", "html")!.snippet).toBe('<a href=""></a>${0}');
-    expect(emmetSnippetAt("p.red", "html")!.snippet).toBe('<p class="red"></p>${0}');
+  it("expands known tags with the cursor inside the element", () => {
+    expect(emmetSnippetAt("div", "html")!.snippet).toBe("<div>${0}</div>");
+    expect(emmetSnippetAt("a", "html")!.snippet).toBe('<a href="${1}">${0}</a>');
+    expect(emmetSnippetAt("p", "html")!.snippet).toBe("<p>${0}</p>");
+    expect(emmetSnippetAt("p.red", "html")!.snippet).toBe('<p class="red">${0}</p>');
   });
 
   it("ignores noise like unknown words and unknown tagged dots", () => {
@@ -44,8 +45,8 @@ describe("emmetSnippetAt", () => {
   });
 
   it("still expands multi-level abbreviations that end in a child selector", () => {
-    expect(emmetSnippetAt("div>p", "html")!.snippet).toBe("<div>\n\t<p></p>\n</div>${0}");
-    expect(emmetSnippetAt("ul>li", "html")!.snippet).toBe("<ul>\n\t<li></li>\n</ul>${0}");
+    expect(emmetSnippetAt("div>p", "html")!.snippet).toBe("<div>\n\t<p>${0}</p>\n</div>");
+    expect(emmetSnippetAt("ul>li", "html")!.snippet).toBe("<ul>\n\t<li>${0}</li>\n</ul>");
   });
 
   it("expands css abbreviations but not css noise", () => {
