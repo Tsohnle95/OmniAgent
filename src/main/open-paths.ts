@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 const MAX_PENDING_PATHS = 10;
 
 export class PendingOpenPaths {
@@ -26,6 +28,7 @@ export class PendingOpenPaths {
 export function collectLaunchPaths(argv: string[], exists: (path: string) => boolean): string[] {
   return argv.filter((arg) => {
     if (!arg || arg.startsWith("-") || arg.startsWith("+")) return false;
+    if (!isAbsolute(arg)) return false;
     try {
       return exists(arg);
     } catch {

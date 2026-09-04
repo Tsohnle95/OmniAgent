@@ -35,4 +35,9 @@ describe("collectLaunchPaths", () => {
     });
     expect(collectLaunchPaths(["/repo/a"], exists)).toEqual([]);
   });
+
+  it("ignores relative launch arguments", () => {
+    const exists = vi.fn(() => true);
+    expect(collectLaunchPaths([".", "/repo/a"], exists)).toEqual(["/repo/a"]);
+  });
 });
