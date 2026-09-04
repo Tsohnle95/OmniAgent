@@ -8,6 +8,16 @@ export interface TerminalTabs {
   activeId: string | null;
 }
 
+export function terminalDirectoryCommand(platform: string, workspaceDirectory: string, relativeDirectory: string): string | null {
+  if (!relativeDirectory) return null;
+  if (platform === "win32") {
+    const absolute = `${workspaceDirectory.replace(/[\\/]+$/, "")}\\${relativeDirectory.replaceAll("/", "\\")}`;
+    return `Set-Location -LiteralPath '${absolute.replaceAll("'", "''")}'\r`;
+  }
+  const absolute = `${workspaceDirectory.replace(/\/+$/, "")}/${relativeDirectory}`;
+  return `cd -- '${absolute.replaceAll("'", "'\\''")}'\r`;
+}
+
 export function removeTerminal(tabs: TerminalTabs, id: string): TerminalTabs {
   const index = tabs.terms.findIndex((term) => term.id === id);
   if (index === -1) return tabs;

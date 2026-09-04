@@ -74,7 +74,7 @@ automatically.
 | `switchModel(workspace, id, providerID, variant?)` | `Promise<void>` |
 | `agents(workspace)` | `Promise<AgentOption[]>` |
 | `switchAgent(workspace, id)` | `Promise<void>` |
-| `terminalStart(workspace, id, directory?)` | `Promise<void>`; `id` is a renderer-generated `term-<UUID>` registered before invoke; `directory` is an optional workspace-relative cwd validated and confined by main |
+| `terminalStart(workspace, id, directory?)` | `Promise<string \| void>`; `id` is a renderer-generated `term-<UUID>` registered before invoke; new main processes return the validated cwd, while `void` remains accepted so a hot-reloaded renderer can move a terminal opened by an older main process into the requested directory |
 | `terminalInput(workspace, id, data)` | `Promise<void>` |
 | `terminalResize(workspace, id, cols, rows)` | `Promise<void>` |
 | `terminalStop(workspace, id)` | `Promise<void>` |

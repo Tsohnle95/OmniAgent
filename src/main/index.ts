@@ -812,6 +812,7 @@ function registerIpc(): void {
       terminals.stop(id, target.workspace);
       throw error;
     }
+    return directory;
   });
 
   handleTrusted("shell:agent-tui-start", async (_e, workspace: WorkspaceIdentity, requestedId: string) => {

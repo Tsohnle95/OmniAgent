@@ -5,7 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
 import { IconAdd, IconChevronDown, IconChevronUp, IconServer } from "./icons";
 import type { WorkspaceIdentity } from "@shared/types";
-import { PendingTerminalOutput, removeTerminal, type TerminalTabs } from "../terminal-state";
+import { PendingTerminalOutput, removeTerminal, terminalDirectoryCommand, type TerminalTabs } from "../terminal-state";
 
 const THEME = {
   background: "#121317",
@@ -131,6 +131,7 @@ export function TerminalTray({
 }): ReactNode {
   const { session } = useStore();
   const workspace = session!.workspace;
+  const sessionDirectory = session!.directory;
   const [{ terms, activeId }, setTabs] = useState<TerminalTabs>({ terms: [], activeId: null });
   const [notice, setNotice] = useState("");
   const [viteStarting, setViteStarting] = useState(false);
@@ -183,13 +184,17 @@ export function TerminalTray({
     const name = directory.split("/").filter(Boolean).pop() ?? `Terminal ${count}`;
     setTabs((current) => ({ terms: [...current.terms, { id, name }], activeId: id }));
     try {
-      await window.openshell.terminalStart(workspace, id, directory);
+      const startedDirectory = await window.openshell.terminalStart(workspace, id, directory);
+      if (directory && !startedDirectory) {
+        const command = terminalDirectoryCommand(window.openshell.platform, sessionDirectory, directory);
+        if (command) await window.openshell.terminalInput(workspace, id, command);
+      }
     } catch (err) {
       pendingOutputRef.current.remove(id);
       setTabs((current) => removeTerminal(current, id));
       setNotice(err instanceof Error ? err.message : "Could not start a terminal");
     }
-  }, [workspace]);
+  }, [sessionDirectory, workspace]);
 
   useEffect(() => {
     const token = ++bootTokenRef.current;

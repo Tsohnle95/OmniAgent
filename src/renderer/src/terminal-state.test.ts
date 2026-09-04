@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PendingTerminalOutput, removeTerminal, type TerminalTabs } from "./terminal-state";
+import { PendingTerminalOutput, removeTerminal, terminalDirectoryCommand, type TerminalTabs } from "./terminal-state";
 
 const tabs: TerminalTabs = {
   terms: [
@@ -27,6 +27,24 @@ describe("terminal tab lifecycle", () => {
 
   it("keeps the active terminal when a background terminal exits", () => {
     expect(removeTerminal(tabs, "one").activeId).toBe("two");
+  });
+});
+
+describe("terminal directory fallback", () => {
+  it("changes an older Unix terminal process into the requested folder", () => {
+    expect(terminalDirectoryCommand("darwin", "/workspace/it's here", "packages/web")).toBe(
+      "cd -- '/workspace/it'\\''s here/packages/web'\r"
+    );
+  });
+
+  it("uses a literal PowerShell path on Windows", () => {
+    expect(terminalDirectoryCommand("win32", "C:\\workspace", "packages/web's")).toBe(
+      "Set-Location -LiteralPath 'C:\\workspace\\packages\\web''s'\r"
+    );
+  });
+
+  it("does nothing for the workspace root", () => {
+    expect(terminalDirectoryCommand("linux", "/workspace", "")).toBeNull();
   });
 });
 

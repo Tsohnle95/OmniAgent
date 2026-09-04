@@ -101,6 +101,11 @@ describe("TerminalTray integration", () => {
       "term-aaaaaaaa-aaaa-4aaa-8aaa-000000000002",
       "packages/web"
     );
+    expect(window.openshell.terminalInput).toHaveBeenCalledWith(
+      session.workspace,
+      "term-aaaaaaaa-aaaa-4aaa-8aaa-000000000002",
+      "cd -- '/workspace/packages/web'\r"
+    );
     expect(container.textContent).toContain("web");
   });
 

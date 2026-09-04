@@ -434,6 +434,7 @@ Closing the final tab commits an empty tab state before hiding the tray;
 reopening shows that empty state and requires the explicit `+` action to start
 a new process. A natural final exit leaves the empty tray visible.
 Explorer context-menu requests add and focus a terminal whose cwd is the selected folder or a selected file's parent, and expand the normal bottom tray.
+When renderer HMR is newer than the still-running main/preload process, a missing resolved-cwd response triggers one safely quoted `cd`/`Set-Location` command through the existing terminal input channel, so folder terminals work without restarting Orbit.
 The tray is toggled from the titlebar (⌥O) and drag-resized via the
 `tray-divider`. Dragging the divider down to the bottom of the window
 shrinks the tray to a 26px minimum and closes it only when the mouse is
