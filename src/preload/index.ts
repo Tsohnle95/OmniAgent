@@ -190,7 +190,9 @@ const api = {
   viteStart: (workspace: WorkspaceIdentity): Promise<VitePreview> =>
     ipcRenderer.invoke("shell:vite-start", workspace),
   viteStop: (workspace: WorkspaceIdentity): Promise<void> =>
-    ipcRenderer.invoke("shell:vite-stop", workspace)
+    ipcRenderer.invoke("shell:vite-stop", workspace),
+  takePendingPaths: (): Promise<string[]> =>
+    ipcRenderer.invoke("shell:take-pending-paths")
 };
 
 export type OpenShellApi = typeof api;

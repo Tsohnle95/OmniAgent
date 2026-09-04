@@ -49,6 +49,7 @@ function api(): typeof window.openshell {
       return () => { messageHandlers = messageHandlers.filter((h) => h !== handler); };
     },
     health: async () => true,
+    takePendingPaths: async () => [],
     state: async () => info("/repo", 1),
     activeSessions: async () => [info("/repo", 1)],
     projects: async () => [],

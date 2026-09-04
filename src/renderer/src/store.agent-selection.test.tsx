@@ -40,6 +40,7 @@ function api(overrides: Record<string, unknown> = {}): typeof window.openshell {
     platform: "darwin",
     onMessage: () => () => {},
     health: async () => true,
+    takePendingPaths: async () => [],
     state: async () => null,
     activeSessions: async () => [],
     models: async () => MODELS,

@@ -205,6 +205,7 @@ interface Store {
   openExternalPath: (absolutePath: string, workspace?: WorkspaceIdentity) => Promise<string | null>;
   importPaths: (destDir: string, sources: string[]) => Promise<void>;
   dropIntoExplorer: (paths: string[]) => Promise<void>;
+  openPaths: (paths: string[]) => Promise<void>;
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
   changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<SessionInfo | null>;
@@ -2393,6 +2394,33 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     [openSession, openFile, openExternalPath]
   );
 
+  const openPaths = useCallback(async (paths: string[]): Promise<void> => {
+    const clean = paths.map((path) => path.trim()).filter((path) => path.length > 0);
+    if (clean.length === 0) return;
+    for (const absolutePath of clean) {
+      let kind: "file" | "directory" | "missing";
+      try {
+        kind = (await window.openshell.externalKind(absolutePath)).kind;
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+        continue;
+      }
+      try {
+        if (kind === "directory") {
+          if (panelsRef.current.length === 0) await openSession(absolutePath);
+          else await openWorkspacePanel(absolutePath);
+        } else if (kind === "file") {
+          if (panelsRef.current.length === 0) await openFileWorkspace(absolutePath);
+          else await openExternalPath(absolutePath);
+        } else {
+          toast(`${absolutePath} is not available`, "error");
+        }
+      } catch (err) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    }
+  }, [openSession, openWorkspacePanel, openFileWorkspace, openExternalPath, toast]);
+
   const commitName = useCallback(
     async (name: string) => {
       const create = pendingCreateRef.current;
@@ -2723,6 +2751,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           toggleWordWrap();
         } else if (msg.command === "open-source" && typeof msg.path === "string" && typeof msg.line === "number") {
           void openSourceTarget(msg.path, msg.line);
+        } else if (msg.command === "open-paths" && Array.isArray(msg.data)) {
+          void openPaths(msg.data.filter((entry): entry is string => typeof entry === "string"));
         }
         return;
       }
@@ -3237,6 +3267,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     };
     void tryConnect();
     const permissionTimer = setInterval(() => void reconcilePermissions(), 3000);
+    void window.openshell.takePendingPaths().then((paths) => {
+      if (paths.length > 0) void openPaths(paths);
+    }).catch(() => {});
     void refreshActiveSessions().then((list) => {
       void Promise.all(list.map((session) => reopenSession(session.id, true))).then((restored) => {
         if (!userActivatedRef.current && list.length > 0) {
@@ -3279,7 +3312,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     refreshSessionUsage,
     reconcilePermissions,
     persistence,
-    refreshActiveSessions
+    refreshActiveSessions,
+    openPaths
   ]);
 
   useEffect(() => {
@@ -3437,6 +3471,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       openExternalPath,
       importPaths,
       dropIntoExplorer,
+      openPaths,
       selectPanelDirectory,
       changePanelDirectory,
       reopenSession,

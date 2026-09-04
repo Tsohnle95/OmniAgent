@@ -96,6 +96,7 @@ automatically.
 | `validateW3c(path, content)` | `Promise<W3cDiagnostic[]>` — validates HTML/CSS source through the W3C services |
 | `viteStart(workspace)` | `Promise<VitePreview>` — serves the workspace root with Vite and opens the loopback URL in the default browser |
 | `viteStop(workspace)` | `Promise<void>` — stops the workspace's Vite dev server when one is running |
+| `takePendingPaths()` | `Promise<string[]>` — drains OS-dropped or launch paths queued before the renderer was ready |
 
 All are `ipcRenderer.invoke` wrappers over the `shell:*` channels
 documented in `docs/main.md`. `onMessage` subscribes to

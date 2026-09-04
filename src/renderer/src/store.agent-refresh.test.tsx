@@ -34,6 +34,7 @@ function api(): typeof window.openshell {
       };
     },
     health: async () => true,
+    takePendingPaths: async () => [],
     state: async () => null,
     activeSessions: async () => [],
     models: async () => modelList,

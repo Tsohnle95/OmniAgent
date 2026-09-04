@@ -36,6 +36,7 @@ function api(overrides: Partial<OpenShellApi> = {}): OpenShellApi {
       return () => { messageHandler = null; };
     },
     health: async () => true,
+    takePendingPaths: async () => [],
     state: async () => null,
     activeSessions: async () => [],
     models: async () => [],

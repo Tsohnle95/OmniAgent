@@ -20,7 +20,7 @@ if (!existsSync(src)) {
   process.exit(1);
 }
 
-if (existsSync(dst) && statSync(plist).mtimeMs > statSync(path.join(src, "Contents", "Info.plist")).mtimeMs && existsSync(icns) && statSync(plist).mtimeMs > statSync(icns).mtimeMs) {
+if (existsSync(dst) && statSync(plist).mtimeMs > statSync(path.join(src, "Contents", "Info.plist")).mtimeMs && existsSync(icns) && statSync(plist).mtimeMs > statSync(icns).mtimeMs && statSync(plist).mtimeMs > statSync(fileURLToPath(import.meta.url)).mtimeMs) {
   console.log("Orbit.app is up to date");
   process.exit(0);
 }
@@ -39,6 +39,15 @@ for (const [key, value] of [
 ]) {
   execFileSync("plutil", ["-replace", key, "-string", value, plist]);
 }
+
+const docType = (name, ...contentTypes) =>
+  `<dict><key>CFBundleTypeName</key><string>${name}</string>` +
+  `<key>CFBundleTypeRole</key><string>Editor</string>` +
+  `<key>LSHandlerRank</key><string>Alternate</string>` +
+  `<key>LSItemContentTypes</key><array>${contentTypes.map((type) => `<string>${type}</string>`).join("")}</array></dict>`;
+execFileSync("plutil", ["-replace", "CFBundleDocumentTypes", "-xml",
+  `<array>${docType("Folder", "public.folder")}${docType("Plain text", "public.text")}${docType("Source code", "public.source-code")}</array>`,
+  plist]);
 
 execFileSync("cp", [icns, path.join(dst, "Contents", "Resources", "icon.icns")]);
 execFileSync("codesign", ["--force", "--deep", "--sign", "-", dst]);

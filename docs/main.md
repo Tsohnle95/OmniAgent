@@ -287,6 +287,7 @@ Internals:
 | `shell:validate-w3c` | `(path, content) → W3cDiagnostic[]`; calls the Nu Html Checker or W3C CSS Validator for HTML and plain CSS paths; preprocessor stylesheets (SCSS, LESS, Sass) return no diagnostics |
 | `shell:vite-start` | `(workspace) → VitePreview` — starts a workspace-rooted Vite dev server on loopback (reuses the running one) and opens its URL in the default browser |
 | `shell:vite-stop` | `(workspace) → void` — stops the workspace's Vite dev server when one is running |
+| `shell:take-pending-paths` | `() → string[]` — drains OS-dropped or launch paths queued before the renderer was ready |
 
 Outbound: `webContents.send("shell:message", msg)` for every backend
 message. Every `shell:*` invoke is accepted only from the active window's

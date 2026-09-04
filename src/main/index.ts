@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
 import { defaultViteDeps, VitePreviewManager } from "./vite-server";
+import { collectLaunchPaths, PendingOpenPaths } from "./open-paths";
 import {
   applicationUrl,
   isAllowedMainFrameNavigation,
@@ -72,6 +73,15 @@ const viteCommand = (() => {
 const viteServers = new VitePreviewManager(defaultViteDeps(viteCommand.command, viteCommand.prefix));
 let win: BrowserWindow | null = null;
 let trustedLocation: TrustedApplicationLocation | null = null;
+const pendingOpenPaths = new PendingOpenPaths();
+
+function flushOpenPaths(): void {
+  if (pendingOpenPaths.size === 0) return;
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+  const paths = pendingOpenPaths.take();
+  if (paths.length === 0) return;
+  win.webContents.send("shell:message", { kind: "ui-command", command: "open-paths", data: paths });
+}
 
 const appIconPath = (() => {
   const fromApp = path.join(app.getAppPath(), "resources", "icon.png");
@@ -936,6 +946,8 @@ function registerIpc(): void {
     await backend.workspaceDirectory(workspace);
     viteServers.stop(workspace.id);
   });
+
+  handleTrusted("shell:take-pending-paths", () => pendingOpenPaths.take());
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -949,13 +961,21 @@ if (!app.requestSingleInstanceLock()) {
     console.error("unhandledRejection:", reason);
   });
 
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, argv) => {
+    pendingOpenPaths.push(collectLaunchPaths(argv, existsSync));
+    flushOpenPaths();
     if (!win) {
       createWindow();
       return;
     }
     if (win.isMinimized()) win.restore();
     win.focus();
+  });
+
+  app.on("open-file", (event, path) => {
+    event.preventDefault();
+    pendingOpenPaths.push([path]);
+    flushOpenPaths();
   });
 
   app.whenReady().then(() => {
@@ -1005,6 +1025,7 @@ if (!app.requestSingleInstanceLock()) {
       return;
     }
     createWindow();
+    if (app.isPackaged) pendingOpenPaths.push(collectLaunchPaths(process.argv.slice(1), existsSync));
     void backend.connect().catch(() => {});
 
     app.on("activate", () => {
