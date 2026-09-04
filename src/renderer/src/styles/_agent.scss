@@ -20,7 +20,7 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  padding: 12px 16px 10px;
+  padding: 12px 8px 10px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -180,7 +180,15 @@
   position: relative;
 }
 
-.agent-mode-menu-toggle { padding: 3px 5px; }
+.agent-mode-menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+}
 .agent-mode-menu-toggle.open { color: var(--accent); }
 
 .agent-mode-menu {
@@ -242,7 +250,7 @@
 
 @container (max-width: 340px) {
   .agent-status-text { display: none; }
-  .agent-header { padding-inline: 12px; }
+  .agent-header { padding: 12px 8px 10px 12px; }
   .agent-header-actions { gap: 2px; }
 }
 
