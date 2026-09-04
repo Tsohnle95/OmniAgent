@@ -52,6 +52,16 @@ function useDragResize(
   const onMouseDown = (e: React.MouseEvent): void => {
     if (!open) return;
     e.preventDefault();
+    let frame: number | null = null;
+    let pending: { width: number; left: number | null } | null = null;
+    const flush = (): void => {
+      frame = null;
+      const next = pending;
+      pending = null;
+      if (!next) return;
+      setWidth(next.width);
+      if (next.left !== null && setLeft) setLeft(next.left);
+    };
     startRef.current = {
       x: e.clientX,
       width,
@@ -70,10 +80,15 @@ function useDragResize(
       const nextW = Math.max(min, rawW);
       const capped = Math.min(max, nextW);
       startRef.current.live = capped;
-      setWidth(capped);
-      if (flip && setLeft) setLeft(startRef.current.left + startRef.current.width - capped);
+      pending = {
+        width: capped,
+        left: flip && setLeft ? startRef.current.left + startRef.current.width - capped : null
+      };
+      if (frame === null) frame = window.requestAnimationFrame(flush);
     };
     const up = (): void => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      flush();
       const start = startRef.current;
       if (start && start.hasDragged && start.live < min) {
         if (flip && setLeft) setLeft(start.left + start.width - min);
