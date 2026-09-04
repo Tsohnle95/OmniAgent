@@ -101,6 +101,9 @@
   -webkit-app-region: no-drag;
 }
 
+.titlebar-leading-actions .icon-btn,
+.titlebar-actions .icon-btn { padding-inline: 3px; }
+
 .titlebar-leading-actions .icon-btn.on,
 .titlebar-actions .icon-btn.on {
   background: transparent;
