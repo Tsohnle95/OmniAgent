@@ -20,7 +20,7 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  padding: 12px 4px 10px 16px;
+  padding: 12px 0 10px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -250,7 +250,7 @@
 
 @container (max-width: 340px) {
   .agent-status-text { display: none; }
-  .agent-header { padding: 12px 4px 10px 12px; }
+  .agent-header { padding: 12px 0 10px 12px; }
   .agent-header-actions { gap: 0; }
 }
 

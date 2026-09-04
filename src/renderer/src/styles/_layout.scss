@@ -63,7 +63,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 14px;
+  padding: 0 8px;
   background: var(--bg-panel);
   border-bottom: none;
   z-index: 50;
@@ -96,7 +96,7 @@
 .titlebar-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   margin-left: auto;
   -webkit-app-region: no-drag;
 }
