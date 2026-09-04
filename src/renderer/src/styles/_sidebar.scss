@@ -450,6 +450,11 @@
   color: var(--text-faint);
 }
 
+.tree-empty-workspace .btn {
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
 .tree-row {
   display: flex;
   align-items: center;

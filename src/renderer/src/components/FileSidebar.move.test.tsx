@@ -118,7 +118,7 @@ describe("FileSidebar drag-and-drop moves", () => {
       store.expanded = new Set();
       root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />);
     });
-    expect(container.textContent).toContain("Loading…");
+    expect(container.textContent).toContain("No workspace open");
 
     act(() => {
       store.session = {

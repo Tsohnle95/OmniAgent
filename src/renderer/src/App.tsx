@@ -824,6 +824,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               />
             );
           })}
+          {panels.length === 0 && (
+            <div className="agent-col empty-agent-col">
+              <AgentPanel />
+            </div>
+          )}
         </div>}
       </div>
 

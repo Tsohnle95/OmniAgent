@@ -1178,7 +1178,8 @@ export function AgentPanel({
     selectPanelDirectory,
     commitStagedRevert,
     clearStagedRevert,
-    runtimes
+    runtimes,
+    selectFolder
   } = useStore();
   const activeSession = session === undefined ? storeSession : session;
   const view = usePanel(activeSession?.workspace);
@@ -1423,7 +1424,15 @@ export function AgentPanel({
                 <span>{activeSession.directory.split("/").filter(Boolean).pop()}</span>
               </button>
             ) : (
-              <span className="agent-title">Agent</span>
+              <button
+                className="agent-workspace"
+                title="Open a workspace"
+                aria-label="Open a workspace"
+                onClick={() => void selectFolder()}
+              >
+                <IconFolderOpen />
+                <span>Add workspace</span>
+              </button>
             )}
           </div>
           {(busy || assistantStatus?.isWorking) && assistantStatus?.statusText && (
