@@ -132,6 +132,14 @@
 
 .terminal-add.running { color: var(--green); }
 
+.vite-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.ctx-menu.above { transform: translateY(calc(-100% - 6px)); }
+
 .terminal-add .codicon { font-size: 13px; }
 
 .terminal-close {

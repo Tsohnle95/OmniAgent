@@ -62,13 +62,13 @@ export function pollHttpReady(url: string, timeoutMs = VITE_READY_TIMEOUT_MS): P
   });
 }
 
-export function defaultViteDeps(command: string, prefixArgs: string[]): ViteManagerDeps {
+export function defaultViteDeps(command: string, prefixArgs: string[], spawnImpl: typeof nodeSpawn = nodeSpawn): ViteManagerDeps {
   return {
     launch: (directory, port) =>
-      nodeSpawn(
+      spawnImpl(
         command,
         [...prefixArgs, "serve", directory, "--port", String(port), "--strictPort", "--host", "127.0.0.1"],
-        { cwd: directory, stdio: "ignore" }
+        { cwd: directory, stdio: "ignore", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } }
       ) as unknown as ViteChild,
     findPort: (firstPort) => probeFreePort(firstPort),
     waitReady: (url) => pollHttpReady(url)

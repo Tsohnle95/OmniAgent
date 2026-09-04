@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { VitePreviewManager, type ViteChild, type ViteManagerDeps } from "./vite-server";
+import { defaultViteDeps, VitePreviewManager, type ViteChild, type ViteManagerDeps } from "./vite-server";
 
 interface FakeChild extends ViteChild {
   killed: boolean;
@@ -108,5 +108,30 @@ describe("VitePreviewManager", () => {
     expect(children.map((child) => child.killed)).toEqual([true, true]);
     expect(manager.running("ws-1")).toBeNull();
     expect(manager.running("ws-2")).toBeNull();
+  });
+});
+
+describe("defaultViteDeps", () => {
+  it("launches Vite as plain node without a second app instance", () => {
+    const seen: Array<{ args: string[]; options: { cwd?: unknown; env?: NodeJS.ProcessEnv } }> = [];
+    const spawnImpl = ((...call: [string, string[], { cwd?: unknown; env?: NodeJS.ProcessEnv }]) => {
+      seen.push({ args: call[1], options: call[2] });
+      return fakeChild();
+    }) as unknown as Parameters<typeof defaultViteDeps>[2];
+    const deps = defaultViteDeps("/repo/electron", ["/repo/node_modules/vite/bin/vite.js"], spawnImpl);
+    deps.launch("/repo/a", 5199);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].args).toEqual([
+      "/repo/node_modules/vite/bin/vite.js",
+      "serve",
+      "/repo/a",
+      "--port",
+      "5199",
+      "--strictPort",
+      "--host",
+      "127.0.0.1"
+    ]);
+    expect(seen[0].options.cwd).toBe("/repo/a");
+    expect(seen[0].options.env?.ELECTRON_RUN_AS_NODE).toBe("1");
   });
 });

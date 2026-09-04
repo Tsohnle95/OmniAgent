@@ -135,6 +135,7 @@ export function TerminalTray({
   const [notice, setNotice] = useState("");
   const [viteStarting, setViteStarting] = useState(false);
   const [viteUrl, setViteUrl] = useState<string | null>(null);
+  const [viteMenu, setViteMenu] = useState<{ x: number; y: number } | null>(null);
   const counterRef = useRef(0);
   const bootTokenRef = useRef(0);
   const handledRequestRef = useRef<number | null>(null);
@@ -171,6 +172,7 @@ export function TerminalTray({
   useEffect(() => {
     setViteStarting(false);
     setViteUrl(null);
+    setViteMenu(null);
   }, [workspace.id]);
 
   const createTerminal = useCallback(async (directory = ""): Promise<void> => {
@@ -294,8 +296,9 @@ export function TerminalTray({
           data-testid="vite-btn"
           onClick={() => openVite()}
           onContextMenu={(e) => {
+            if (!viteUrl) return;
             e.preventDefault();
-            stopVite();
+            setViteMenu({ x: e.clientX, y: e.clientY });
           }}
         >
           <IconServer />
@@ -319,6 +322,29 @@ export function TerminalTray({
         ))}
         {terms.length === 0 && <div className="terminal-empty">No terminal open. Press + to start one.</div>}
       </div>
+      {viteMenu && (
+        <>
+          <div
+            className="vite-menu-layer"
+            onClick={() => setViteMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setViteMenu(null);
+            }}
+          />
+          <div className="ctx-menu above" style={{ left: viteMenu.x, top: viteMenu.y }} data-testid="vite-menu">
+            <button
+              className="ctx-item"
+              onClick={() => {
+                setViteMenu(null);
+                stopVite();
+              }}
+            >
+              Stop Vite server
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

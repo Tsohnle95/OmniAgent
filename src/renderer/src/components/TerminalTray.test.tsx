@@ -146,7 +146,7 @@ describe("TerminalTray integration", () => {
     expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.disabled).toBe(false);
   });
 
-  it("stops the workspace server on right-click", async () => {
+  it("opens a stop menu on right-click without stopping yet", async () => {
     const viteStop = vi.fn(async () => {});
     window.openshell = {
       ...window.openshell,
@@ -158,7 +158,6 @@ describe("TerminalTray integration", () => {
       container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!.click();
       await flush();
     });
-    expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.classList.contains("running")).toBe(true);
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!
@@ -166,9 +165,48 @@ describe("TerminalTray integration", () => {
       await flush();
     });
 
+    expect(viteStop).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="vite-menu"]')?.textContent).toBe("Stop Vite server");
+  });
+
+  it("stops the workspace server from the menu item", async () => {
+    const viteStop = vi.fn(async () => {});
+    window.openshell = {
+      ...window.openshell,
+      viteStop
+    } as unknown as typeof window.openshell;
+
+    await act(async () => root.render(<TerminalTray height={240} snapped={false} onClose={onClose} onExpand={() => {}} />));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!.click();
+      await flush();
+    });
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!
+        .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await flush();
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-menu"] button')!.click();
+      await flush();
+    });
+
     expect(viteStop).toHaveBeenCalledWith(session.workspace);
+    expect(container.querySelector('[data-testid="vite-menu"]')).toBeNull();
     const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
     expect(button.classList.contains("running")).toBe(false);
     expect(button.title).toBe("Serve this workspace with Vite and open it in a browser");
+  });
+
+  it("shows no menu on right-click when no server is running", async () => {
+    await act(async () => root.render(<TerminalTray height={240} snapped={false} onClose={onClose} onExpand={() => {}} />));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!
+        .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await flush();
+    });
+
+    expect(container.querySelector('[data-testid="vite-menu"]')).toBeNull();
   });
 });
