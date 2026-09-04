@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { StoreProvider, useStore } from "./store";
-import { IconAdd, IconGear, IconRobot, IconSidebarLeft, IconSidebarRight, IconTerminal } from "./components/icons";
+import { IconAdd, IconChevronDown, IconGear, IconRobot, IconSidebarLeft, IconSidebarRight, IconTerminal } from "./components/icons";
 import type { SessionInfo } from "@shared/types";
 import { Welcome } from "./components/Welcome";
 import { FileSidebar, type SidebarTab } from "./components/FileSidebar";
@@ -22,6 +22,19 @@ function clampSideWidth(width: number): number {
 }
 const AGENT_DEFAULT_W = 280;
 const AGENT_MIN_W = 280;
+
+function EmptyTerminalTray({ onClose }: { onClose: () => void }): ReactNode {
+  return (
+    <div className="terminal-tray">
+      <div className="terminal-header">
+        <span className="terminal-notice">Open a workspace to use the terminal.</span>
+        <button className="terminal-close" title="Close the terminal panel (⌥O)" onClick={onClose}>
+          <IconChevronDown />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function useDragResize(
   width: number,
@@ -274,6 +287,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("appearance");
   const [agentModeActive, setAgentModeActive] = useState(false);
+  const [emptyAgentOpen, setEmptyAgentOpen] = useState(true);
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = agentModeActive;
 
@@ -544,7 +558,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
 
   const anchorId = panels[0]?.workspace.id ?? null;
-  const anchorOpen = anchorId ? slots[anchorId]?.open ?? true : false;
+  const anchorOpen = anchorId ? slots[anchorId]?.open ?? true : emptyAgentOpen;
   const setSlotOpen = (id: string | null, open: boolean): void => {
     if (!id) return;
     setSlots((current) => {
@@ -623,8 +637,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   };
 
   const toggleAgentMode = (): void => {
-    const anchor = panels[0];
-    if (!anchor) return;
     if (!inAgentMode) {
       prevSidebarRef.current = { open: sideOpen, width: sideW };
       setAgentModeActive(true);
@@ -733,7 +745,6 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               : trayOpen
                 ? (traySnapped ? "Expand terminal (⌥O)" : "Hide terminal (⌥O)")
                 : "Show terminal (⌥O)"}
-            disabled={!session}
             onClick={toggleTray}
           >
             <IconTerminal />
@@ -753,11 +764,10 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           <button
             className={`icon-btn ${anchorOpen ? "on" : ""}`}
             data-panel-action="toggle-agent-panel"
-            title={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
-            aria-label={panels.length === 0 ? "No agent session open" : anchorOpen ? "Hide agent panel" : "Show agent panel"}
+            title={anchorOpen ? "Hide agent panel" : "Show agent panel"}
+            aria-label={anchorOpen ? "Hide agent panel" : "Show agent panel"}
             aria-pressed={anchorOpen}
-            disabled={panels.length === 0}
-            onClick={() => setSlotOpen(anchorId, !anchorOpen)}
+            onClick={() => anchorId ? setSlotOpen(anchorId, !anchorOpen) : setEmptyAgentOpen(!anchorOpen)}
           >
             <IconSidebarRight />
           </button>
@@ -787,7 +797,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           className="workspace-area"
           style={
             {
-              "--editor-right": `${ordered.length > 0 ? Math.max(0, areaW - slotFor(ordered[0]).left) : 0}px`
+              "--editor-right": `${ordered.length > 0 ? Math.max(0, areaW - slotFor(ordered[0]).left) : emptyAgentOpen && !inAgentMode ? 280 : 0}px`
             } as CSSProperties
           }
         >
@@ -824,8 +834,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
               />
             );
           })}
-          {panels.length === 0 && (
-            <div className="agent-col empty-agent-col">
+          {panels.length === 0 && emptyAgentOpen && (
+            <div className={`agent-col empty-agent-col ${inAgentMode ? "agent-mode-empty" : ""}`}>
               <AgentPanel />
             </div>
           )}
@@ -836,9 +846,13 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         className={`tray-area ${trayOpen ? "open" : ""} ${trayDragging ? "dragging" : ""}`}
         style={{ "--tray-height": `${trayH}px` } as CSSProperties}
       >
-        {session && !settingsOpen && <div className="tray-inner">
+        {!settingsOpen && <div className="tray-inner">
           <div className="tray-divider" onMouseDown={trayDrag} title="Drag to resize" />
-          <TerminalTray height={trayH} snapped={traySnapped} request={terminalRequest} onClose={closeTray} onExpand={expandTray} />
+          {session ? (
+            <TerminalTray height={trayH} snapped={traySnapped} request={terminalRequest} onClose={closeTray} onExpand={expandTray} />
+          ) : (
+            <EmptyTerminalTray onClose={closeTray} />
+          )}
         </div>}
       </div>
 
