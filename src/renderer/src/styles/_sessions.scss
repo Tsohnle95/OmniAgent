@@ -63,7 +63,6 @@
 .sessions-plugins:hover,
 .sessions-plugins.open {
   color: var(--text);
-  background: var(--bg-hover);
 }
 
 .sessions-plugins-menu {
@@ -241,7 +240,12 @@
 }
 
 .sessions-project-head:hover {
-  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.sessions-project-head:hover .sessions-project-toggle,
+.sessions-row:hover .sessions-row-title {
+  color: var(--text);
 }
 
 .sessions-project-toggle {
@@ -350,7 +354,7 @@
 }
 
 .sessions-row:hover {
-  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .sessions-row.focused {
