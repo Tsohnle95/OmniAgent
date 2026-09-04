@@ -46,4 +46,10 @@ describe("collectLaunchPaths", () => {
     expect(collectLaunchPaths(["/Applications/Orbit.app/Contents/MacOS/Orbit", "/repo/a"], exists, "/Applications/Orbit.app/Contents/MacOS/Orbit"))
       .toEqual(["/repo/a"]);
   });
+
+  it("keeps launch paths after the executable argument is removed", () => {
+    const exists = vi.fn(() => true);
+    const argv = ["/different/Orbit.app/Contents/MacOS/Electron", "/repo/a"];
+    expect(collectLaunchPaths(argv.slice(1), exists, "/Applications/Orbit.app/Contents/MacOS/Orbit")).toEqual(["/repo/a"]);
+  });
 });

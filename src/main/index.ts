@@ -967,7 +967,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("second-instance", (_event, argv) => {
-    pendingOpenPaths.push(collectLaunchPaths(argv, existsSync, process.execPath));
+    pendingOpenPaths.push(collectLaunchPaths(argv.slice(1), existsSync, process.execPath));
     if (!win || win.isDestroyed()) {
       createWindow();
     } else {
