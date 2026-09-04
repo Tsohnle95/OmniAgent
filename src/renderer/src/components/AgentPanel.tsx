@@ -773,13 +773,15 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
           className="composer-actions"
           style={{
             position: "absolute",
-            top: "50%",
+            top: 0,
             right: "0.5rem",
-            bottom: "auto",
+            bottom: 0,
             left: "auto",
             width: "max-content",
+            height: "auto",
             margin: 0,
-            transform: "translateY(-50%)"
+            alignItems: "center",
+            transform: "none"
           }}
         >
           {usageButton}
