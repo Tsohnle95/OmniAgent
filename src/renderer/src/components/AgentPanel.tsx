@@ -1440,15 +1440,6 @@ export function AgentPanel({
         </div>
         <TurnTimer startedAt={turnStartedAt} />
         <div className="agent-header-actions">
-          <button
-            className={`icon-btn agent-mode-menu-toggle ${modeMenuOpen ? "open" : ""}`}
-            title="Choose GUI or TUI"
-            aria-label="Choose GUI or TUI"
-            aria-expanded={modeMenuOpen}
-            onClick={() => setModeMenuOpen((open) => !open)}
-          >
-            <IconMoreVertical />
-          </button>
           {modeMenuOpen && (
             <div className="agent-mode-menu" role="menu" aria-label="Agent interface">
               <button
@@ -1480,6 +1471,15 @@ export function AgentPanel({
             onClick={() => setUsageOpen((open) => !open)}
           >
             <IconDashboard />
+          </button>
+          <button
+            className={`icon-btn agent-mode-menu-toggle ${modeMenuOpen ? "open" : ""}`}
+            title="Choose GUI or TUI"
+            aria-label="Choose GUI or TUI"
+            aria-expanded={modeMenuOpen}
+            onClick={() => setModeMenuOpen((open) => !open)}
+          >
+            <IconMoreVertical />
           </button>
         </div>
       </div>
