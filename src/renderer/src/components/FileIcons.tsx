@@ -182,6 +182,16 @@ export function FolderPlusIcon(): ReactNode {
   );
 }
 
+export function FilePlusIcon(): ReactNode {
+  return (
+    <svg className="si-mini" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+      <path d={SHEET} {...STROKE} />
+      <path d={FOLD} {...FINE} />
+      <path d="M8 9.2v3.4M6.3 10.9h3.4" {...FINE} />
+    </svg>
+  );
+}
+
 export function EllipsisIcon(): ReactNode {
   return (
     <svg className="si-mini" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">

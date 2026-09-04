@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCtxMenu, useStore } from "../store";
-import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
+import { ChevronIcon, EllipsisIcon, FileIcon, FilePlusIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 import { SessionsPane } from "./SessionsPane";
@@ -41,6 +41,18 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
   };
   return (
     <span className="tree-row-actions">
+      <button
+        type="button"
+        className="tree-row-action"
+        title="New File"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          startCreate(parent, "file");
+        }}
+      >
+        <FilePlusIcon />
+      </button>
       <button
         type="button"
         className="tree-row-action"
@@ -277,6 +289,10 @@ function ExplorerMenu({ onOpenTerminal }: { onOpenTerminal?: (directory: string)
     <div className="ctx-menu" ref={menuRef} style={{ left, top }}>
       <button className="ctx-item" onClick={() => { closeCtxMenu(); onOpenTerminal?.(parent); }}>
         Open in Integrated Terminal
+      </button>
+      <button className="ctx-item" onClick={() => startCreate(parent, "file")}>
+        <FilePlusIcon />
+        New File…
       </button>
       <button className="ctx-item" onClick={() => startCreate(parent, "dir")}>
         <FolderPlusIcon />
@@ -638,6 +654,13 @@ export function FileSidebar({
            <span>EXPLORER</span>
          </button>
          <span className="section-actions">
+          <button
+            className="tree-row-action"
+            title="New File"
+            onClick={() => startCreate("", "file")}
+           >
+             <FilePlusIcon />
+           </button>
           <button
             className="tree-row-action"
             title="New Folder"
