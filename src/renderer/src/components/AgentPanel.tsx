@@ -8,6 +8,7 @@ import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult
 import { sameWorkspace } from "@shared/generation";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import {
+  IconAdd,
   IconArrowLeft,
   IconArrowUp,
   IconCheck,
@@ -122,7 +123,7 @@ function writeModelKeys(storageKey: string, keys: Set<string>): void {
   window.localStorage.setItem(storageKey, JSON.stringify([...keys]));
 }
 
-type MenuKind = "model" | "agent" | null;
+type MenuKind = "model" | "agent" | "add" | null;
 type PanelMode = "gui" | "tui";
 
 function panelModeStorageKey(sessionID: string): string {
@@ -294,7 +295,7 @@ function ProviderUsageCard({ result }: { result: ProviderUsageResult }): ReactNo
   );
 }
 
-export function Composer({ session, usageButton }: { session?: SessionInfo | null; usageButton?: ReactNode }): ReactNode {
+export function Composer({ session }: { session?: SessionInfo | null }): ReactNode {
   const store = useStore();
   const {
     switchModel,
@@ -468,6 +469,38 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
     });
     for (const filePath of paths) void loadPreview(filePath);
     inputRef.current?.focus();
+  };
+
+  const attachFiles = async (): Promise<void> => {
+    setNotice("");
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    let paths: string[];
+    try {
+      paths = await window.openshell.selectFiles();
+    } catch (err) {
+      if (!sameWorkspace(workspace, workspaceRef.current)) return;
+      setNotice(err instanceof Error ? err.message : "Files could not be attached.");
+      return;
+    }
+    if (!sameWorkspace(workspace, workspaceRef.current)) return;
+    addAttachmentPaths(paths);
+  };
+
+  const attachImages = async (): Promise<void> => {
+    setNotice("");
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    let paths: string[];
+    try {
+      paths = await window.openshell.selectImages();
+    } catch (err) {
+      if (!sameWorkspace(workspace, workspaceRef.current)) return;
+      setNotice(err instanceof Error ? err.message : "Images could not be attached.");
+      return;
+    }
+    if (!sameWorkspace(workspace, workspaceRef.current)) return;
+    addAttachmentPaths(paths);
   };
 
   const onPanelDragOver = (e: React.DragEvent): void => {
@@ -767,7 +800,14 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
           }}
         />
         <div className="composer-actions">
-          {usageButton}
+          {supportsAttachments && <button
+              className={`composer-icon-button ${menu === "add" ? "active" : ""}`}
+              title="Add attachments"
+              aria-expanded={menu === "add"}
+              onClick={() => setMenu(menu === "add" ? null : "add")}
+            >
+              <IconAdd />
+            </button>}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
             title={busy ? (assistantStatus?.statusText ?? "Stop the agent") : canSend ? "Send (Enter)" : "Type a prompt first"}
@@ -863,7 +903,34 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
         </div>
       )}
 
-      {menu && (
+      {supportsAttachments && menu === "add" && (
+        <div className="composer-menu add">
+          <button
+            className="composer-menu-item"
+            title="Attach files"
+            onClick={() => {
+              setMenu(null);
+              void attachFiles();
+            }}
+          >
+            <IconFile />
+            Attach files…
+          </button>
+          <button
+            className="composer-menu-item"
+            title="Upload images"
+            onClick={() => {
+              setMenu(null);
+              void attachImages();
+            }}
+          >
+            <IconImage />
+            Upload images…
+          </button>
+        </div>
+      )}
+
+      {menu && menu !== "add" && (
         <div className="composer-menu">
           {menu === "agent" ? (
             agents.length > 0 ? (
@@ -1296,29 +1363,6 @@ export function AgentPanel({
     observedTopRef.current = el.scrollTop;
   };
 
-  const usageButton = (
-    <button
-      className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
-      title="Session and provider usage"
-      aria-label={contextLimit ? `Context usage ${Math.round(contextPercent)} percent` : "Session and provider usage"}
-      aria-expanded={usageOpen}
-      onClick={() => setUsageOpen((open) => !open)}
-    >
-      <span className="agent-usage-ring" aria-hidden="true">
-        <svg viewBox="0 0 20 20">
-          <circle className="agent-usage-ring-track" cx="10" cy="10" r="8" />
-          <circle
-            className="agent-usage-ring-fill"
-            cx="10"
-            cy="10"
-            r="8"
-            style={{ strokeDashoffset: `${50.27 * (1 - (contextLimit ? contextPercent : 0) / 100)}` }}
-          />
-        </svg>
-      </span>
-    </button>
-  );
-
   return (
     <div
       className="agent-panel"
@@ -1419,6 +1463,26 @@ export function AgentPanel({
               </button>
             </div>
           )}
+          <button
+            className={`icon-btn agent-usage-toggle ${usageOpen ? "open" : ""} ${glyphTone ?? "neutral"}`}
+            title="Session and provider usage"
+            aria-label={contextLimit ? `Context usage ${Math.round(contextPercent)} percent` : "Session and provider usage"}
+            aria-expanded={usageOpen}
+            onClick={() => setUsageOpen((open) => !open)}
+          >
+            <span className="agent-usage-ring" aria-hidden="true">
+              <svg viewBox="0 0 20 20">
+                <circle className="agent-usage-ring-track" cx="10" cy="10" r="8" />
+                <circle
+                  className="agent-usage-ring-fill"
+                  cx="10"
+                  cy="10"
+                  r="8"
+                  style={{ strokeDashoffset: `${50.27 * (1 - (contextLimit ? contextPercent : 0) / 100)}` }}
+                />
+              </svg>
+            </span>
+          </button>
           <button
             className={`icon-btn agent-mode-menu-toggle ${modeMenuOpen ? "open" : ""}`}
             title="Choose GUI or TUI"
@@ -1587,7 +1651,7 @@ export function AgentPanel({
               </div>
             )}
             <OpenCodeTodoDock todos={todos} />
-            <Composer session={activeSession} usageButton={usageButton} />
+            <Composer session={activeSession} />
           </div>
         </>
       )}

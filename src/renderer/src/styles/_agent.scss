@@ -175,8 +175,8 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 0;
   position: relative;
+  gap: .25rem;
 }
 
 .agent-mode-menu-toggle {
@@ -251,7 +251,7 @@
 @container (max-width: 340px) {
   .agent-status-text { display: none; }
   .agent-header { padding: 12px 0 10px 12px; }
-  .agent-header-actions { gap: 0; }
+  .agent-header-actions { gap: .25rem; }
 }
 
 
@@ -284,8 +284,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .agent-usage-ring svg {
