@@ -43,12 +43,16 @@ const store = {
   dropIntoExplorer: vi.fn(),
   openWorkspacePanel: vi.fn(),
   panels: [] as MockSession[],
+  activeSessions: [] as MockSession[],
   panelViews: {} as Record<string, { busy: boolean }>,
   activeSessionID: null as string | null,
   focusSession: vi.fn(),
   reopenSession: vi.fn(),
   openSession: vi.fn(),
   sessions: [] as SessionSummary[],
+  savedWorkspaces: [{ directory: "/workspace", name: "Workspace" }],
+  saveWorkspace: vi.fn(async () => {}),
+  removeWorkspace: vi.fn(),
   loadSessions: vi.fn(async () => {}),
   runCommand: vi.fn(async () => {}),
   approvalMode: "ask" as const,
@@ -78,13 +82,16 @@ describe("FileSidebar tabs and sessions pane", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     window.localStorage.clear();
     store.panels = [];
+    store.activeSessions = [];
     store.session = session as MockSession;
     store.panelViews = {};
     store.activeSessionID = null;
     store.sessions = [];
+    store.savedWorkspaces = [{ directory: "/workspace", name: "Workspace" }];
     for (const mock of [
       store.focusSession, store.closePanel, store.reopenSession, store.openSession, store.selectFolder, store.selectFile,
-      store.loadSessions, store.runCommand, store.toggleWordWrap, store.selectPanelDirectory
+      store.loadSessions, store.runCommand, store.toggleWordWrap, store.selectPanelDirectory, store.saveWorkspace,
+      store.removeWorkspace
     ]) {
       mock.mockClear();
     }
@@ -126,7 +133,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     )!;
   }
 
-  it("opens native folder and file pickers from the sessions pane", async () => {
+  it("opens the new-session folder picker without a neighboring file action", async () => {
     await render();
     await settle();
 
@@ -137,8 +144,8 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(store.selectFolder).toHaveBeenCalledOnce();
     expect(store.openSession).not.toHaveBeenCalled();
 
-    await act(async () => container.querySelector<HTMLButtonElement>(".sessions-file")!.click());
-    expect(store.selectFile).toHaveBeenCalledOnce();
+    expect(container.querySelector(".sessions-file")).toBeNull();
+    expect(container.querySelector('[title="Switch folder"]')).toBeNull();
 
     expect(store.loadSessions).toHaveBeenCalled();
     expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.textContent)).toEqual([
@@ -149,7 +156,7 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect([...container.querySelectorAll(".sessions-section .section-toggle")].map((toggle) => toggle.getAttribute("aria-expanded"))).toEqual(["true", "true", "false"]);
   });
 
-  it("switches only the selected panel when multiple panels are open", async () => {
+  it("keeps the redundant file-sidebar folder control removed with multiple panels open", async () => {
     const first = { ...session, id: "first", directory: "/luno", workspace: { id: "first-workspace", generation: 1 } };
     const second = { ...session, id: "second", directory: "/omniagent", workspace: { id: "second-workspace", generation: 2 } };
     store.panels = [first, second];
@@ -159,10 +166,29 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
-    await act(async () => container.querySelector<HTMLButtonElement>('[title="Switch folder"]')!.click());
-
-    expect(store.selectPanelDirectory).toHaveBeenCalledWith(second.workspace);
+    expect(container.querySelector('[title="Switch folder"]')).toBeNull();
+    expect(store.selectPanelDirectory).not.toHaveBeenCalled();
     expect(store.selectFolder).not.toHaveBeenCalled();
+  });
+
+  it("saves a workspace from the Workspaces heading action", async () => {
+    await render();
+    await settle();
+
+    await act(async () => container.querySelector<HTMLButtonElement>(".sessions-workspace-add")!.click());
+
+    expect(store.saveWorkspace).toHaveBeenCalledOnce();
+  });
+
+  it("removes a workspace bookmark from its context menu", async () => {
+    await render();
+    await settle();
+
+    const workspace = container.querySelector<HTMLElement>(".sessions-project-head")!;
+    await act(async () => workspace.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 30, clientY: 40 })));
+    await act(async () => container.querySelector<HTMLButtonElement>(".sessions-context-item")!.click());
+
+    expect(store.removeWorkspace).toHaveBeenCalledWith("/workspace");
   });
 
   it("swaps to the files pane with its changes and explorer sections and back", async () => {
@@ -245,11 +271,26 @@ describe("FileSidebar tabs and sessions pane", () => {
     expect(store.reopenSession).toHaveBeenCalledWith("closed");
   });
 
+  it("lists backend-active sessions even when they do not have a rendered panel", async () => {
+    const background = { ...session, id: "background", directory: "/background", title: "Background agent" };
+    store.activeSessions = [background];
+    store.sessions = [summary("background", "/background", "Background agent")];
+    await render();
+    await settle();
+
+    const openNow = section("Open now");
+    expect(openNow.textContent).toContain("Background agent");
+    const row = openNow.querySelector<HTMLElement>(".sessions-row")!;
+    await act(async () => row.click());
+    expect(store.reopenSession).toHaveBeenCalledWith("background");
+
+    await act(async () => row.querySelector<HTMLButtonElement>(".sessions-row-close")!.click());
+    expect(store.closePanel).toHaveBeenCalledWith("background");
+  });
+
   it("nests each workspace's sessions under its own dropdown", async () => {
     store.sessions = [summary("s1", "/workspace", "Alpha kernel work"), summary("s2", "/beta", "Beta setup")];
-    window.openshell = {
-      projects: vi.fn(async () => [{ directory: "/workspace", name: "Workspace" }, { directory: "/beta", name: "Beta" }])
-    } as unknown as typeof window.openshell;
+    store.savedWorkspaces = [{ directory: "/workspace", name: "Workspace" }, { directory: "/beta", name: "Beta" }];
     await render();
     await settle();
 

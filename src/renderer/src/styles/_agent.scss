@@ -48,9 +48,16 @@
   100% { box-shadow: 0 0 0 0 rgba(158, 180, 161, 0); }
 }
 
-.agent-close .codicon { display: none; }
+.agent-status-dot.agent-close {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
 
-.agent-close:hover {
+.agent-status-dot.agent-close .codicon { display: none; }
+
+.agent-status-dot.agent-close:hover {
   width: 12px;
   height: 12px;
   flex-basis: 12px;
@@ -60,7 +67,7 @@
   animation: none;
 }
 
-.agent-close:hover .codicon {
+.agent-status-dot.agent-close:hover .codicon {
   display: block;
   font-size: 8px;
   line-height: 12px;

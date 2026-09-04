@@ -61,11 +61,6 @@ function workspaceGroups(sessions: SessionSummary[], projects: ProjectInfo[]): W
   for (const session of sessions) {
     const entry = byDirectory.get(session.directory);
     if (entry) entry.sessions.push(session);
-    else
-      byDirectory.set(session.directory, {
-        name: session.directory.split("/").filter(Boolean).pop() || session.directory,
-        sessions: [session]
-      });
   }
   return [...byDirectory.entries()]
     .map(([directory, { name, sessions: list }]) => ({
@@ -82,9 +77,8 @@ function workspaceGroups(sessions: SessionSummary[], projects: ProjectInfo[]): W
 }
 
 export function Welcome(): ReactNode {
-  const { selectFolder, openFileWorkspace, openSession, reopenSession, selectedRuntimeID } = useStore();
+  const { selectFolder, openFileWorkspace, openSession, reopenSession, selectedRuntimeID, savedWorkspaces } = useStore();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [closedSecs, setClosedSecs] = useState<Record<string, boolean>>({ recent: true, workspaces: true });
@@ -95,10 +89,6 @@ export function Welcome(): ReactNode {
         .sessions()
         .then((s) => setSessions(s))
         .catch(() => setSessions([])),
-      window.openshell
-        .projects()
-        .then((p) => setProjects(p))
-        .catch(() => setProjects([]))
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -106,7 +96,7 @@ export function Welcome(): ReactNode {
     .filter((session) => (session.runtimeID ?? "opencode") === selectedRuntimeID)
     .sort((left, right) => right.updatedAt - left.updatedAt);
   const recentSessions = runtimeSessions.slice(0, 3);
-  const groups = workspaceGroups(runtimeSessions, projects);
+  const groups = workspaceGroups(runtimeSessions, savedWorkspaces);
 
   const toggleGroup = (key: string): void =>
     setOpenGroups((current) => ({ ...current, [key]: !(current[key] ?? true) }));

@@ -209,6 +209,7 @@ Internals:
 | Channel | Args → Returns |
 |---|---|
 | `shell:select-folder` | `(generation, runtimeID?) → SessionInfo \| null` (generation accepted before native dialog); the returned session is mounted by the caller — replacing the displayed panels, added as a new panel, or swapped into an existing panel — depending on the store action that opened the dialog |
+| `shell:select-directory` | `() → string \| null` — returns the canonical folder chosen in a native dialog without opening a runtime context; workspace bookmarks are renderer-owned and this channel never mutates the selected folder |
 | `shell:open-session` | `(dir, generation, runtimeID?) → SessionInfo` — creates a session for `dir` with OpenCode by default or the selected runtime; used for the app-wide replacement view, model-mode additions, and per-panel workspace swaps |
 | `shell:select-file` | `(generation, runtimeID?) → OpenFileWorkspaceResult \| null` (generation accepted before native `openFile` dialog); opens the folder containing the chosen file as a single-file workspace through the selected runtime |
 | `shell:open-file` | `(file, generation, runtimeID?) → OpenFileWorkspaceResult` — programmatic single-file workspace open for an absolute path (parent-folder runtime session + the file to open) |

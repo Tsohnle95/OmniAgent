@@ -1339,7 +1339,8 @@ export function AgentPanel({
 
   const transcriptTip = transcript.at(-1);
   const transcriptTipParts = transcriptTip?.kind === "assistant" ? transcriptTip.parts.length : 0;
-  const followSignature = `${transcript.length}:${transcriptTip?.id ?? ""}:${transcriptTipParts}:${busy ? 1 : 0}`;
+  const queueSignature = (view.queuedMessages ?? []).map((message) => `${message.id}:${message.content.length}`).join(",");
+  const followSignature = `${transcript.length}:${transcriptTip?.id ?? ""}:${transcriptTipParts}:${busy ? 1 : 0}:${queueSignature}`;
 
   useLayoutEffect(() => {
     if (atBottomRef.current) scrollToBottom();
@@ -1386,23 +1387,24 @@ export function AgentPanel({
             <IconArrowLeft />
           </button>
         )}
-        {onClose && (
-          <button
-            className={`agent-dot agent-close ${busy ? "busy" : ""}`}
-            title="Close model panel"
-            aria-label="Close model panel"
-            onClick={() => onClose()}
-          >
-            <IconClose />
-          </button>
-        )}
         <div className="agent-identity">
           <div className="agent-identity-line">
-            <span
-              className={`agent-status-dot ${busy || assistantStatus?.isWorking ? "working" : "idle"}`}
-              title={assistantStatus?.statusText ?? (busy ? "Working" : "Idle")}
-              aria-label={assistantStatus?.statusText ?? (busy ? "Working" : "Idle")}
-            />
+            {onClose ? (
+              <button
+                className={`agent-status-dot agent-close ${busy || assistantStatus?.isWorking ? "working" : "idle"}`}
+                title="Close model panel"
+                aria-label="Close model panel"
+                onClick={() => onClose()}
+              >
+                <IconClose />
+              </button>
+            ) : (
+              <span
+                className={`agent-status-dot ${busy || assistantStatus?.isWorking ? "working" : "idle"}`}
+                title={assistantStatus?.statusText ?? (busy ? "Working" : "Idle")}
+                aria-label={assistantStatus?.statusText ?? (busy ? "Working" : "Idle")}
+              />
+            )}
             {activeSession?.parentID ? (
               <span className="agent-title">
                 {activeSession.title ?? sessions.find((item) => item.id === activeSession.id)?.title ?? activeSession.agent ?? activeSession.directory?.split("/").filter(Boolean).pop() ?? (parent ? `${parent.title} subagent` : "Subagent session")}

@@ -529,6 +529,16 @@ function registerIpc(): void {
     return backend.openSession(result.filePaths[0], generation, optionalRuntimeId(requestedRuntimeID));
   });
 
+  handleTrusted("shell:select-directory", async (e) => {
+    const parent = BrowserWindow.fromWebContents(e.sender);
+    const result = await dialog.showOpenDialog(parent ?? win!, {
+      title: "Save a workspace in Orbit",
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return fsp.realpath(directoryPath(result.filePaths[0]));
+  });
+
   handleTrusted("shell:select-file", async (e, requestGeneration: number, requestedRuntimeID?: unknown) => {
     const generation = backend.beginActivation(activationGeneration(requestGeneration));
     const parent = BrowserWindow.fromWebContents(e.sender);

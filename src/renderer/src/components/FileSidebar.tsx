@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCtxMenu, useStore } from "../store";
 import { ChevronIcon, EllipsisIcon, FileIcon, FolderPlusIcon, PencilIcon, PlusIcon, TrashIcon } from "./FileIcons";
-import { IconFolderOpen } from "./icons";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { TreeEntry } from "@shared/types";
 import { SessionsPane } from "./SessionsPane";
@@ -351,8 +350,6 @@ export function FileSidebar({
     session,
     panels = [],
     focusSession,
-    selectFolder,
-    selectPanelDirectory,
     tree,
     toggleDir,
     ensureRootOpen,
@@ -378,10 +375,6 @@ export function FileSidebar({
   const switchTab = (next: SidebarTab): void => {
     if (!tab) setFallbackTab(next);
     onTabChange?.(next);
-  };
-  const switchFolder = (): void => {
-    if (session && panels.length > 1) void selectPanelDirectory(session.workspace);
-    else void selectFolder();
   };
   const [changesH, changesDrag] = useChangesDrag(200);
   const [dragPath, setDragPath] = useState<string | null>(null);
@@ -526,11 +519,6 @@ export function FileSidebar({
             <span className="sidebar-title-dot" aria-hidden />
             <span className="sidebar-title-name">{name}</span>
           </span>
-          <span className="sidebar-header-actions">
-            <button className="icon-btn" title="Switch folder" onClick={switchFolder}>
-              <IconFolderOpen />
-            </button>
-          </span>
         </div>
         <div className="section-trigger">
           <span className="section-toggle open">FILE</span>
@@ -565,14 +553,6 @@ export function FileSidebar({
 
   return (
     <div className="sidebar">
-      <div className="sidebar-header">
-        <span className="sidebar-header-actions">
-          <button className="icon-btn" title="Switch folder" onClick={switchFolder}>
-            <IconFolderOpen />
-          </button>
-        </span>
-      </div>
-
       <div className="side-tabs" role="tablist" aria-label="Sidebar panels">
         <button
           className={`side-tab ${activeTab === "sessions" ? "active" : ""}`}

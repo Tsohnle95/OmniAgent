@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../store";
-import type { ProjectInfo, SessionSummary } from "@shared/types";
+import type { SessionSummary } from "@shared/types";
 import { ChevronIcon, PlusIcon } from "./FileIcons";
-import { IconClose, IconFile, IconFolder, IconHistory, IconStarFilled } from "./icons";
+import { IconClose, IconFolder, IconHistory, IconStarFilled } from "./icons";
 
 const PINNED_KEY = "openshell.pinnedSessions";
+
+interface WorkspaceMenuState {
+  directory: string;
+  x: number;
+  y: number;
+}
 
 function readPinned(): string[] {
   try {
@@ -32,7 +38,7 @@ function SessionRow({
   pinned: boolean;
   busy: boolean;
   onOpen: () => void;
-  onClose: () => void;
+  onClose?: () => void;
   onTogglePin: () => void;
 }): ReactNode {
   return (
@@ -60,10 +66,10 @@ function SessionRow({
       >
         <IconStarFilled />
       </button>
-      {running && (
+      {onClose && (
         <button
           className="sessions-row-close"
-          title={`Close the ${summary.title} panel`}
+          title={`Close the ${summary.title} session`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -79,7 +85,6 @@ function SessionRow({
 
 export function SessionsPane(): ReactNode {
   const {
-    session,
     panels,
     panelViews,
     activeSessionID,
@@ -88,46 +93,77 @@ export function SessionsPane(): ReactNode {
     reopenSession,
     openSession,
     selectFolder,
-    selectFile,
     sessions,
+    savedWorkspaces,
+    saveWorkspace,
+    removeWorkspace,
+    activeSessions,
     loadSessions,
-    runCommand
   } = useStore();
-  const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [pinnedIDs, setPinnedIDs] = useState<string[]>(readPinned);
   const [openNowOpen, setOpenNowOpen] = useState(true);
   const [workspacesOpen, setWorkspacesOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
+  const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceMenuState | null>(null);
+  const workspaceMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void loadSessions();
-    void window.openshell
-      .projects()
-      .then(setProjects)
-      .catch(() => setProjects([]));
   }, [loadSessions]);
 
+  useEffect(() => {
+    if (!workspaceMenu) return;
+    const onPointerDown = (event: PointerEvent): void => {
+      if (!workspaceMenuRef.current?.contains(event.target as Node)) setWorkspaceMenu(null);
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setWorkspaceMenu(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [workspaceMenu]);
+
   const runningPanels = useMemo(() => new Map(panels.map((panel) => [panel.id, panel])), [panels]);
+  const openSessionInfos = useMemo(() => {
+    const seen = new Set<string>();
+    const result = [] as typeof activeSessions;
+    for (const info of activeSessions) {
+      if (seen.has(info.id)) continue;
+      seen.add(info.id);
+      result.push(info);
+    }
+    for (const info of panels) {
+      if (seen.has(info.id)) continue;
+      seen.add(info.id);
+      result.push(info);
+    }
+    return result;
+  }, [activeSessions, panels]);
   const byID = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions]);
-  const panelSummaries = useMemo(
+  const openSummaries = useMemo(
     () =>
-      panels.map((panel) => ({
-        id: panel.id,
-        title: panel.title ?? panel.directory.split(/[\\/]/).filter(Boolean).pop() ?? panel.directory,
-        directory: panel.directory,
-        updatedAt: byID.get(panel.id)?.updatedAt ?? 0
+      openSessionInfos.map((info) => ({
+        id: info.id,
+        title: info.title ?? byID.get(info.id)?.title ?? info.directory.split(/[\\/]/).filter(Boolean).pop() ?? info.directory,
+        directory: info.directory,
+        updatedAt: byID.get(info.id)?.updatedAt ?? 0
       })),
-    [panels, byID]
+    [openSessionInfos, byID]
   );
   const known = useMemo(() => {
     const seen = new Set(sessions.map((s) => s.id));
-    return [...byID.values(), ...panelSummaries.filter((p) => !seen.has(p.id))];
-  }, [sessions, panelSummaries, byID]);
+    return [...byID.values(), ...openSummaries.filter((p) => !seen.has(p.id))];
+  }, [sessions, openSummaries, byID]);
   const recents = useMemo(() => [...known].sort((a, b) => b.updatedAt - a.updatedAt), [known]);
+  const openNowIDs = useMemo(() => new Set(openSummaries.map((summary) => summary.id)), [openSummaries]);
   const history = useMemo(
-    () => recents.filter((summary) => !runningPanels.has(summary.id)),
-    [recents, runningPanels]
+    () => recents.filter((summary) => !openNowIDs.has(summary.id)),
+    [recents, openNowIDs]
   );
 
   const togglePin = (id: string): void => {
@@ -163,9 +199,6 @@ export function SessionsPane(): ReactNode {
           <PlusIcon />
           New Session
         </button>
-        <button className="sessions-file" onClick={() => void selectFile()} title="Open a file" aria-label="Open a file">
-          <IconFile />
-        </button>
       </div>
 
       <section className="sessions-section">
@@ -183,10 +216,10 @@ export function SessionsPane(): ReactNode {
         </div>
         {openNowOpen && (
           <div className="sessions-section-list">
-          {panelSummaries.length === 0 ? (
+          {openSummaries.length === 0 ? (
             <div className="sessions-empty">No open sessions.</div>
           ) : (
-            panelSummaries.map((summary) => {
+            openSummaries.map((summary) => {
               const panel = runningPanels.get(summary.id);
               return (
                 <SessionRow
@@ -208,67 +241,89 @@ export function SessionsPane(): ReactNode {
       </section>
 
       <section className="sessions-section">
-        <div className="section-trigger">
+        <div className="section-trigger sessions-workspaces-trigger">
           <button
             className={`section-toggle ${workspacesOpen ? "open" : ""}`}
             aria-expanded={workspacesOpen}
             onClick={() => setWorkspacesOpen((open) => !open)}
           >
             <span>Workspaces</span>
-            <span className="section-chevron">
-              <ChevronIcon open={workspacesOpen} />
-            </span>
           </button>
+          <button
+            className="sessions-workspace-add"
+            type="button"
+            title="Save a workspace in Orbit"
+            aria-label="Save a workspace in Orbit"
+            onClick={() => void saveWorkspace()}
+          >
+            <PlusIcon />
+          </button>
+          <span className="section-chevron sessions-workspaces-chevron">
+            <ChevronIcon open={workspacesOpen} />
+          </span>
         </div>
         {workspacesOpen && (
           <div className="sessions-section-list sessions-project-list">
-          {projects.length === 0 ? (
+          {savedWorkspaces.length === 0 ? (
             <div className="sessions-empty">No saved workspaces found.</div>
           ) : (
-            projects.map((project) => {
-              const projectSessions = recents.filter((summary) => summary.directory === project.directory);
-              const expanded = expandedProjects.has(project.directory);
-              const projectName = project.name.trim()
-                || project.directory.split(/[\\/]/).filter(Boolean).pop()
+            savedWorkspaces.map((workspace) => {
+              const workspaceSessions = recents.filter((summary) => summary.directory === workspace.directory);
+              const expanded = expandedProjects.has(workspace.directory);
+              const workspaceDisplayName = workspace.name.trim()
+                || workspace.directory.split(/[\\/]/).filter(Boolean).pop()
                 || "workspace";
               return (
-                <div key={project.directory} className="sessions-project">
-                  <div className={`sessions-project-head ${expanded ? "open" : ""}`}>
+                <div
+                  key={workspace.directory}
+                  className="sessions-project"
+                >
+                  <div
+                    className={`sessions-project-head ${expanded ? "open" : ""}`}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      setWorkspaceMenu({
+                        directory: workspace.directory,
+                        x: event.clientX,
+                        y: event.clientY
+                      });
+                    }}
+                  >
                     <button
                       className="sessions-project-toggle"
                       aria-expanded={expanded}
-                      onClick={() => toggleProject(project.directory)}
-                      title={project.directory}
+                      onClick={() => toggleProject(workspace.directory)}
+                      title={workspace.directory}
                     >
                       <span className="section-chevron"><ChevronIcon open={expanded} /></span>
                       <IconFolder className="sessions-row-icon" />
-                      <span className="sessions-row-title">{projectName}</span>
-                      <span className="sessions-project-count">{projectSessions.length}</span>
+                      <span className="sessions-row-title">{workspaceDisplayName}</span>
+                      <span className="sessions-project-count">{workspaceSessions.length}</span>
                     </button>
                     <button
                       className="tree-row-action sessions-project-new"
-                      title={`New session in ${projectName}`}
-                      onClick={() => void openSession(project.directory)}
+                      title={`New session in ${workspaceDisplayName}`}
+                      onClick={() => void openSession(workspace.directory)}
                     >
                       <PlusIcon />
                     </button>
                   </div>
                   {expanded && (
                     <div className="sessions-project-sessions">
-                      {projectSessions.length === 0 ? (
+                      {workspaceSessions.length === 0 ? (
                         <div className="sessions-empty">No sessions yet.</div>
-                      ) : projectSessions.map((s) => {
+                      ) : workspaceSessions.map((s) => {
                         const panel = runningPanels.get(s.id);
                         return (
                           <SessionRow
                             key={s.id}
                             summary={s}
-                            running={Boolean(panel)}
+                            running={openNowIDs.has(s.id)}
                             focused={s.id === activeSessionID}
                             pinned={pinnedIDs.includes(s.id)}
                             busy={Boolean(panel && panelViews[panel.workspace.id]?.busy)}
                             onOpen={() => openRow(s.id)}
-                            onClose={() => closePanel(s.id)}
+                            onClose={openNowIDs.has(s.id) ? () => closePanel(s.id) : undefined}
                             onTogglePin={() => togglePin(s.id)}
                           />
                         );
@@ -311,7 +366,6 @@ export function SessionsPane(): ReactNode {
                   pinned={pinnedIDs.includes(summary.id)}
                   busy={false}
                   onOpen={() => openRow(summary.id)}
-                  onClose={() => closePanel(summary.id)}
                   onTogglePin={() => togglePin(summary.id)}
                 />
               );
@@ -320,6 +374,25 @@ export function SessionsPane(): ReactNode {
           </div>
         )}
       </section>
+      {workspaceMenu && (
+        <div
+          ref={workspaceMenuRef}
+          className="sessions-context-menu"
+          style={{ left: Math.max(4, Math.min(workspaceMenu.x, window.innerWidth - 190)), top: Math.max(4, Math.min(workspaceMenu.y, window.innerHeight - 70)) }}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <button
+            type="button"
+            className="sessions-context-item"
+            onClick={() => {
+              removeWorkspace(workspaceMenu.directory);
+              setWorkspaceMenu(null);
+            }}
+          >
+            Remove from Orbit
+          </button>
+        </div>
+      )}
     </div>
   );
 }

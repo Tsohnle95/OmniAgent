@@ -26,6 +26,7 @@ import type {
   PendingFormRequest,
   PromptFile,
   ProviderUsageResult,
+  ProjectInfo,
   RecoveryRecord,
   RuntimeID,
   RuntimeManifest,
@@ -184,12 +185,16 @@ interface Store {
   followUpBehavior: FollowUpBehavior;
   setFollowUpBehavior: (behavior: FollowUpBehavior) => void;
   sessions: SessionSummary[];
+  savedWorkspaces: ProjectInfo[];
+  saveWorkspace: () => Promise<void>;
+  removeWorkspace: (directory: string) => void;
+  activeSessions: SessionInfo[];
   panels: SessionInfo[];
   workspaceOnlyPanelIDs: Set<string>;
   panelViews: Record<string, PanelView>;
   activeSessionID: string | null;
   focusSession: (sessionID: string) => void;
-  closePanel: (sessionID: string) => void;
+  closePanel: (sessionID: string, preserveBusy?: boolean) => void;
   openSession: (dir: string) => Promise<SessionInfo | null>;
   addModelPanel: (dir: string) => Promise<void>;
   openWorkspacePanel: (dir: string) => Promise<void>;
@@ -431,9 +436,36 @@ const EMPTY_TABS: Tab[] = [];
 const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
 const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
+const SAVED_WORKSPACES_KEY = "orbit.savedWorkspaces";
 const STREAM_SETTLE_MS = 15_000;
 const STREAM_SETTLE_IDLE_MS = 2_000;
 const STREAM_SETTLE_POLL_MS = 1_000;
+
+function workspaceName(directory: string): string {
+  return directory.split(/[\\/]/).filter(Boolean).pop() ?? directory;
+}
+
+function readSavedWorkspaces(): ProjectInfo[] {
+  try {
+    const raw = window.localStorage.getItem(SAVED_WORKSPACES_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    return parsed.flatMap((item): ProjectInfo[] => {
+      if (!item || typeof item !== "object") return [];
+      const value = item as { directory?: unknown; name?: unknown };
+      if (typeof value.directory !== "string" || !value.directory || seen.has(value.directory)) return [];
+      seen.add(value.directory);
+      return [{
+        directory: value.directory,
+        name: typeof value.name === "string" && value.name.trim() ? value.name : workspaceName(value.directory)
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }): ReactNode {
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const openCtxMenu = useCallback((x: number, y: number, target: TreeEntry | null) => {
@@ -454,6 +486,7 @@ export function StoreProvider({ children }: { children: ReactNode }): ReactNode 
 
 const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children: ReactNode; closeCtxMenu: () => void }): ReactNode {
   const [panels, setPanels] = useState<SessionInfo[]>([]);
+  const [activeSessions, setActiveSessions] = useState<SessionInfo[]>([]);
   const [workspaceOnlyPanelIDs, setWorkspaceOnlyPanelIDs] = useState<Set<string>>(() => new Set());
   const [activeSessionID, setActiveSessionID] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -487,6 +520,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     () => window.localStorage.getItem("wordWrap") === "on"
   );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [savedWorkspaces, setSavedWorkspaces] = useState<ProjectInfo[]>(() => readSavedWorkspaces());
   const [usageBySession, setUsageBySession] = useState<Record<string, SessionUsage>>({});
   const [compactionBaselineBySession, setCompactionBaselineBySession] = useState<Record<string, number>>(() => {
     try {
@@ -520,6 +554,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       window.localStorage.setItem("compactionBaseline", JSON.stringify(compactionBaselineBySession));
     } catch {}
   }, [compactionBaselineBySession]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SAVED_WORKSPACES_KEY, JSON.stringify(savedWorkspaces));
+    } catch {}
+  }, [savedWorkspaces]);
   const busy = session ? Boolean(busyBySession[session.id]) : false;
   const todos = session ? (todosByWorkspace[session.workspace.id] ?? []) : [];
   const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
@@ -579,6 +618,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
 
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
+  const activeSessionsRef = useRef(activeSessions);
+  activeSessionsRef.current = activeSessions;
+  const activeRefreshSequenceRef = useRef(0);
   const transcriptsBySessionRef = useRef(transcriptsBySession);
   transcriptsBySessionRef.current = transcriptsBySession;
   const usageBySessionRef = useRef(usageBySession);
@@ -630,6 +672,48 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const userActivatedRef = useRef(false);
   const focusSeqRef = useRef(0);
   const treeRefreshTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const refreshActiveSessions = useCallback(async (): Promise<SessionInfo[]> => {
+    const sequence = ++activeRefreshSequenceRef.current;
+    try {
+      const list = await window.openshell.activeSessions();
+      if (sequence === activeRefreshSequenceRef.current) {
+        activeSessionsRef.current = list;
+        setActiveSessions(list);
+      }
+      return list;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addActiveSession = useCallback((info: SessionInfo): void => {
+    setActiveSessions((current) => {
+      const index = current.findIndex((session) => session.id === info.id);
+      if (index === -1) {
+        const next = [...current, info];
+        activeSessionsRef.current = next;
+        return next;
+      }
+      if (current[index] === info) return current;
+      const next = current.map((session, sessionIndex) => sessionIndex === index ? info : session);
+      activeSessionsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const removeActiveSession = useCallback((sessionID: string): void => {
+    setActiveSessions((current) => {
+      const next = current.filter((session) => session.id !== sessionID);
+      activeSessionsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => void refreshActiveSessions(), 1000);
+    return () => clearInterval(timer);
+  }, [refreshActiveSessions]);
 
   const panelFor = useCallback(
     (workspace: WorkspaceIdentity): SessionInfo | null =>
@@ -1108,7 +1192,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       ? panelsRef.current.map((panel) => (panel.id === info.id ? info : panel))
       : [...panelsRef.current, info];
     setPanels(panelsRef.current);
-  }, []);
+    addActiveSession(info);
+  }, [addActiveSession]);
 
   const hydrateTranscript = useCallback(
     async (sessionID: string): Promise<void> => {
@@ -1204,8 +1289,16 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     if (!transcriptsBySessionRef.current[sessionID]) void hydrateTranscript(sessionID);
   }, [hydrateTranscript, closeCtxMenu]);
 
-  const closePanel = useCallback((sessionID: string): void => {
+  const closePanel = useCallback((sessionID: string, preserveBusy = false): void => {
     const closing = panelsRef.current.find((panel) => panel.id === sessionID);
+    const active = activeSessionsRef.current.find((session) => session.id === sessionID);
+    if (!closing && active) {
+      removeActiveSession(sessionID);
+      setBusyBySession((current) => dropKey(current, sessionID));
+      setSessionAbortFlags((current) => dropKey(current, sessionID));
+      void window.openshell.closeSession(active.workspace).catch(() => {});
+      return;
+    }
     panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
     setPanels(panelsRef.current);
     if (closing) {
@@ -1233,15 +1326,19 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       next.delete(sessionID);
       return next;
     });
-    chatStatesRef.current.delete(sessionID);
-    materializingRef.current.delete(sessionID);
-    setCompactionBaselineBySession((current) => {
-      if (!(sessionID in current)) return current;
-      const { [sessionID]: _dropped, ...rest } = current;
-      void _dropped;
-      return rest;
-    });
-    if (closing) {
+    const keepActive = preserveBusy && Boolean(busyBySessionRef.current[sessionID]);
+    if (!keepActive) {
+      removeActiveSession(sessionID);
+      chatStatesRef.current.delete(sessionID);
+      materializingRef.current.delete(sessionID);
+      setCompactionBaselineBySession((current) => {
+        if (!(sessionID in current)) return current;
+        const { [sessionID]: _dropped, ...rest } = current;
+        void _dropped;
+        return rest;
+      });
+    }
+    if (closing && !keepActive) {
       void window.openshell.closeSession(closing.workspace).catch(() => {});
     }
     if (sessionRef.current?.id === sessionID) {
@@ -1249,11 +1346,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       sessionRef.current = neighbor;
       setActiveSessionID(neighbor?.id ?? null);
     }
-  }, []);
+  }, [removeActiveSession]);
 
   const replacePanels = useCallback((next: SessionInfo): void => {
-    for (const panel of panelsRef.current) {
-      if (panel.id !== next.id) closePanel(panel.id);
+    for (const panel of [...panelsRef.current]) {
+      if (panel.id !== next.id) closePanel(panel.id, true);
     }
     attachPanel(next);
   }, [attachPanel, closePanel]);
@@ -1382,32 +1479,55 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }
   }, [toast]);
 
+  const saveWorkspace = useCallback(async (): Promise<void> => {
+    try {
+      const directory = await window.openshell.selectDirectory();
+      if (!directory) return;
+      const saved = { directory, name: workspaceName(directory) };
+      setSavedWorkspaces((current) => {
+        if (current.some((workspace) => workspace.directory === directory)) return current;
+        return [...current, saved];
+      });
+      toast(`Saved workspace ${saved.name}`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [toast]);
+
+  const removeWorkspace = useCallback((directory: string): void => {
+    setSavedWorkspaces((current) => current.filter((workspace) => workspace.directory !== directory));
+  }, []);
+
   const replacePanel = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): boolean => {
     const index = panelsRef.current.findIndex((panel) => sameWorkspace(panel.workspace, workspace));
     if (index === -1) return false;
     const old = panelsRef.current[index];
-    void window.openshell.closeSession(old.workspace).catch(() => {});
-    const oldWorkspaceID = old.workspace.id;
-    chatStatesRef.current.delete(old.id);
-    materializingRef.current.delete(old.id);
-    delete todoKeysRef.current[oldWorkspaceID];
-    setBusyBySession((current) => dropKey(current, old.id));
-    setUsageBySession((current) => dropKey(current, old.id));
-    setCompactionBaselineBySession((current) => dropKey(current, old.id));
-    setTranscriptsBySession((current) => dropKey(current, old.id));
-    setSessionAbortFlags((current) => dropKey(current, old.id));
-    setTodosByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setTabsByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setActivePathByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setSingleFileByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setAgentFilesByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setTreeByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setExpandedByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setRecoveryByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setModelsByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setCurrentModelByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setAgentsByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    setCurrentAgentByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    const keepActive = Boolean(busyBySessionRef.current[old.id]);
+    if (!keepActive) {
+      void window.openshell.closeSession(old.workspace).catch(() => {});
+      removeActiveSession(old.id);
+      const oldWorkspaceID = old.workspace.id;
+      chatStatesRef.current.delete(old.id);
+      materializingRef.current.delete(old.id);
+      delete todoKeysRef.current[oldWorkspaceID];
+      setBusyBySession((current) => dropKey(current, old.id));
+      setUsageBySession((current) => dropKey(current, old.id));
+      setCompactionBaselineBySession((current) => dropKey(current, old.id));
+      setTranscriptsBySession((current) => dropKey(current, old.id));
+      setSessionAbortFlags((current) => dropKey(current, old.id));
+      setTodosByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setTabsByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setActivePathByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setSingleFileByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setAgentFilesByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setTreeByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setExpandedByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setRecoveryByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setModelsByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setCurrentModelByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setAgentsByWorkspace((current) => dropKey(current, oldWorkspaceID));
+      setCurrentAgentByWorkspace((current) => dropKey(current, oldWorkspaceID));
+    }
     panelsRef.current = [
       ...panelsRef.current.slice(0, index),
       info,
@@ -1418,8 +1538,9 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     focusSeqRef.current += 1;
     sessionRef.current = info;
     setActiveSessionID(info.id);
+    addActiveSession(info);
     return true;
-  }, [setPanels]);
+  }, [addActiveSession, removeActiveSession, setPanels]);
 
   const swapPanelTo = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): void => {
     if (!replacePanel(workspace, info)) {
@@ -2586,8 +2707,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   useEffect(() => {
     const processMessage = (msg: BackendMessage): void => {
       if (msg.kind === "session") {
-        if (msg.session && !swapPendingRef.current && !replacingSessionIDsRef.current.has(msg.session.id)) {
-          attachPanel(msg.session);
+        if (msg.session) {
+          addActiveSession(msg.session);
+          if (!swapPendingRef.current && !replacingSessionIDsRef.current.has(msg.session.id)) {
+            attachPanel(msg.session);
+          }
         }
         return;
       }
@@ -3110,7 +3234,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     };
     void tryConnect();
     const permissionTimer = setInterval(() => void reconcilePermissions(), 3000);
-    void window.openshell.activeSessions().then((list) => {
+    void refreshActiveSessions().then((list) => {
       void Promise.all(list.map((session) => reopenSession(session.id, true))).then((restored) => {
         if (!userActivatedRef.current && list.length > 0) {
           const primary = restored[restored.length - 1] ?? restored[restored.length - 2] ?? null;
@@ -3127,6 +3251,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     };
   }, [
     attachPanel,
+    addActiveSession,
     focusSession,
     openSourceTarget,
     loadModels,
@@ -3150,7 +3275,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     materializeSession,
     refreshSessionUsage,
     reconcilePermissions,
-    persistence
+    persistence,
+    refreshActiveSessions
   ]);
 
   useEffect(() => {
@@ -3288,6 +3414,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       followUpBehavior: messageQueue.followUpBehavior,
       setFollowUpBehavior,
       sessions,
+      savedWorkspaces,
+      saveWorkspace,
+      removeWorkspace,
+      activeSessions,
       panels,
       workspaceOnlyPanelIDs,
       panelViews,
@@ -3353,7 +3483,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }),
     [
       session, connected, runtimes, selectedRuntimeID, setSelectedRuntimeID, busy, todos, transcript, sessionUsage, providerUsage, providerUsageLoading, tabs, activePath, singleFile, agentFiles, tree, expanded, hiddenPaths, toasts, recoveryRecords,
-      models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, panels, workspaceOnlyPanelIDs, panelViews, activeSessionID,
+      models, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, savedWorkspaces, saveWorkspace, removeWorkspace, activeSessions, panels, workspaceOnlyPanelIDs, panelViews, activeSessionID,
       focusSession, closePanel, openSession, addModelPanel, openWorkspacePanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
       openFile, closeTab, setActive, setTabMode,

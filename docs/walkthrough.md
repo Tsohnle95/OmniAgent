@@ -78,7 +78,9 @@ Meanwhile the renderer boots: the mount effect in `StoreProvider`
 probes `health()` and calls `activeSessions()` — the open backend sessions
 are reopened silently as panels (transcript/todos/usage replayed, editor
 state re-keyed by the reused workspace identity), and the most recently
-activated one is focused unless the user already acted.
+activated one is focused unless the user already acted. The same inventory is
+reconciled every second after startup for the Sessions pane, so a running
+session detached by a workspace switch remains listed under **Open now**.
 
 ## Opening a repository
 

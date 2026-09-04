@@ -49,6 +49,7 @@ const api = {
     return () => ipcRenderer.removeListener("shell:message", listener);
   },
   selectFolder: (generation: number, runtimeID?: RuntimeID): Promise<SessionInfo | null> => ipcRenderer.invoke("shell:select-folder", generation, runtimeID),
+  selectDirectory: (): Promise<string | null> => ipcRenderer.invoke("shell:select-directory"),
   selectFile: (generation: number, runtimeID?: RuntimeID): Promise<OpenFileWorkspaceResult | null> => ipcRenderer.invoke("shell:select-file", generation, runtimeID),
   openFileWorkspace: (file: string, generation: number, runtimeID?: RuntimeID): Promise<OpenFileWorkspaceResult> =>
     ipcRenderer.invoke("shell:open-file", file, generation, runtimeID),

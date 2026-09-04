@@ -78,6 +78,23 @@ describe("per-panel workspace selection", () => {
     vi.restoreAllMocks();
   });
 
+  it("persists and removes Orbit workspace bookmarks without touching the folder", async () => {
+    const selectDirectory = vi.fn(async () => "/saved/workspace");
+    const deletePath = vi.fn(async () => {});
+    const detachPath = vi.fn(async () => {});
+    window.openshell = api({ selectDirectory, deletePath, detachPath });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+
+    await act(async () => store.saveWorkspace());
+    expect(store.savedWorkspaces).toEqual([{ directory: "/saved/workspace", name: "workspace" }]);
+    expect(JSON.parse(window.localStorage.getItem("orbit.savedWorkspaces") ?? "[]")).toEqual(store.savedWorkspaces);
+
+    await act(async () => store.removeWorkspace("/saved/workspace"));
+    expect(store.savedWorkspaces).toEqual([]);
+    expect(deletePath).not.toHaveBeenCalled();
+    expect(detachPath).not.toHaveBeenCalled();
+  });
+
   it("adds a panel from the folder picker without closing existing panels", async () => {
     const closeSession = vi.fn(async () => {});
     const picked = info("/picked", 7);
@@ -140,6 +157,35 @@ describe("per-panel workspace selection", () => {
     expect(store.panels).toHaveLength(1);
     expect(store.panels[0].directory).toBe("/picked");
     expect(store.tabs.map((tab) => tab.path)).toEqual([]);
+  });
+
+  it("keeps a running session active when its panel changes workspace", async () => {
+    const closeSession = vi.fn(async () => {});
+    const picked = info("/picked", 4);
+    window.openshell = api({
+      closeSession,
+      selectFolder: vi.fn(async () => picked)
+    });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    const running = store.panels[0];
+    await act(async () => {
+      messageHandler?.({
+        kind: "event",
+        type: "session.status",
+        data: {
+          id: "running-status",
+          created: Date.now(),
+          data: { sessionID: running.id, status: { type: "busy" } }
+        }
+      });
+    });
+
+    await act(async () => store.selectPanelDirectory(running.workspace));
+
+    expect(closeSession).not.toHaveBeenCalledWith(running.workspace);
+    expect(store.panels.map((panel) => panel.id)).toEqual([picked.id]);
+    expect(store.activeSessions.map((active) => active.id)).toEqual([running.id, picked.id]);
   });
 
   it("changes a panel to a directory without a picker", async () => {

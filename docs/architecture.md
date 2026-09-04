@@ -169,7 +169,11 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
 6. Closing a panel invokes `shell:close-session`: main stops that context's
    fs watcher and removes it from the context map (the opencode session
    itself stays alive so recents can reopen it), and reopening the session
-   later activates a fresh context with a fresh workspace identity.
+   later activates a fresh context with a fresh workspace identity. A workspace
+   replacement detaches a panel without closing its context while that session
+   is busy; the renderer reconciles `activeSessions()` every second so the
+   background run remains in **Open now** and can be reopened or explicitly
+   closed.
 7. Closing the window on macOS keeps the backend alive (it is only torn
    down in `before-quit`); re-activating re-creates the window while the
    single-flight event loop remains active. Shutdown aborts the active SDK SSE

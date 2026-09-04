@@ -16,6 +16,7 @@ automatically.
 | `isPackaged()` | `boolean` — true when main added the `--openshell-packaged` flag; the renderer hides install affordances in packaged builds |
 | `onMessage(cb)` | `(msg: BackendMessage) => void`, returns unsubscribe |
 | `selectFolder(generation, runtimeID?)` | `Promise<SessionInfo \| null>` — native dialog; the caller decides mounting (replace panels, add a model panel, or swap an existing panel's directory) |
+| `selectDirectory()` | `Promise<string \| null>` — native directory dialog that returns a canonical folder path without creating a runtime session; used only to save an Orbit workspace bookmark |
 | `selectFile(generation, runtimeID?)` | `Promise<OpenFileWorkspaceResult \| null>` — native single-file dialog; opens the file's parent folder through the selected runtime and reports which file to open |
 | `openFileWorkspace(file, generation, runtimeID?)` | `Promise<OpenFileWorkspaceResult>` — opens an absolute path as a single-file workspace through the selected runtime (parent folder session + the file to open), no dialog |
 | `openSession(dir, generation, runtimeID?)` | `Promise<SessionInfo>` — creates a session through OpenCode by default or the selected runtime; model mode uses the renderer's explicit additive action |

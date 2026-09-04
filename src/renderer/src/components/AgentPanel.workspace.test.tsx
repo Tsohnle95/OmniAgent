@@ -5,6 +5,7 @@ import type { SessionInfo, TranscriptItem } from "@shared/types";
 
 let currentSession: SessionInfo;
 let panelTranscript: TranscriptItem[];
+let panelQueuedMessages: { id: string; content: string; createdAt: number }[];
 let resizeCallback: ResizeObserverCallback | undefined;
 const selectPanelDirectoryMock = vi.fn(async () => {});
 const reopenSessionMock = vi.fn(async () => {});
@@ -52,6 +53,7 @@ vi.mock("../store", () => ({
     session: currentSession,
     busy: currentSession.id === "working",
     transcript: panelTranscript,
+    queuedMessages: panelQueuedMessages,
     todos: [],
     sessionUsage: null,
     models: [],
@@ -87,6 +89,7 @@ describe("composer workspace continuations", () => {
     window.localStorage.clear();
     currentSession = session("one", 1);
     panelTranscript = [];
+    panelQueuedMessages = [];
     resizeCallback = undefined;
     vi.stubGlobal("ResizeObserver", class {
       constructor(callback: ResizeObserverCallback) {
@@ -141,6 +144,17 @@ describe("composer workspace continuations", () => {
     expect(container.querySelector(".agent-status-text")?.textContent).toBe("running command");
   });
 
+  it("uses the status indicator itself as the panel close control", async () => {
+    const close = vi.fn();
+    await act(async () => root.render(<AgentPanel onClose={close} />));
+
+    const indicator = container.querySelector<HTMLButtonElement>(".agent-status-dot")!;
+    expect(container.querySelectorAll(".agent-status-dot")).toHaveLength(1);
+    expect(indicator.classList.contains("agent-close")).toBe(true);
+    await act(async () => indicator.click());
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it("switches the agent panel into the runtime TUI from its mode menu", async () => {
     const agentTuiStart = vi.fn(async () => {});
     window.openshell = {
@@ -189,6 +203,23 @@ describe("composer workspace continuations", () => {
     Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 900, writable: true });
     await act(async () => resizeCallback?.([], {} as ResizeObserver));
     expect(scroll.scrollTop).toBe(300);
+  });
+
+  it("keeps the transcript pinned to the bottom when a queued message grows the prompt dock", async () => {
+    panelTranscript = [{ kind: "user", id: "user-1", text: "Inspect" }];
+    await act(async () => root.render(<AgentPanel />));
+    const scroll = container.querySelector<HTMLDivElement>(".agent-scroll")!;
+    Object.defineProperties(scroll, {
+      clientHeight: { configurable: true, value: 100, writable: true },
+      scrollHeight: { configurable: true, value: 500, writable: true },
+      scrollTop: { configurable: true, value: 500, writable: true }
+    });
+
+    scroll.scrollTop = 350;
+    panelQueuedMessages = [{ id: "queued-1", content: "Continue with the audit", createdAt: Date.now() }];
+    await act(async () => root.render(<AgentPanel />));
+
+    expect(scroll.scrollTop).toBe(500);
   });
 
   it("returns from a child agent session to its parent", async () => {
