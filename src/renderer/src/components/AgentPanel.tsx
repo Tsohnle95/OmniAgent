@@ -8,7 +8,6 @@ import type { ModelOption, PromptFile, ProviderUsageCredits, ProviderUsageResult
 import { sameWorkspace } from "@shared/generation";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import {
-  IconAdd,
   IconArrowLeft,
   IconArrowUp,
   IconCheck,
@@ -123,7 +122,7 @@ function writeModelKeys(storageKey: string, keys: Set<string>): void {
   window.localStorage.setItem(storageKey, JSON.stringify([...keys]));
 }
 
-type MenuKind = "model" | "agent" | "add" | null;
+type MenuKind = "model" | "agent" | null;
 type PanelMode = "gui" | "tui";
 
 function panelModeStorageKey(sessionID: string): string {
@@ -471,38 +470,6 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
     inputRef.current?.focus();
   };
 
-  const attachFiles = async (): Promise<void> => {
-    setNotice("");
-    const workspace = workspaceRef.current;
-    if (!workspace) return;
-    let paths: string[];
-    try {
-      paths = await window.openshell.selectFiles();
-    } catch (err) {
-      if (!sameWorkspace(workspace, workspaceRef.current)) return;
-      setNotice(err instanceof Error ? err.message : "Files could not be attached.");
-      return;
-    }
-    if (!sameWorkspace(workspace, workspaceRef.current)) return;
-    addAttachmentPaths(paths);
-  };
-
-  const attachImages = async (): Promise<void> => {
-    setNotice("");
-    const workspace = workspaceRef.current;
-    if (!workspace) return;
-    let paths: string[];
-    try {
-      paths = await window.openshell.selectImages();
-    } catch (err) {
-      if (!sameWorkspace(workspace, workspaceRef.current)) return;
-      setNotice(err instanceof Error ? err.message : "Images could not be attached.");
-      return;
-    }
-    if (!sameWorkspace(workspace, workspaceRef.current)) return;
-    addAttachmentPaths(paths);
-  };
-
   const onPanelDragOver = (e: React.DragEvent): void => {
     if (!supportsAttachments || !isExternalFileDrag(e)) return;
     e.preventDefault();
@@ -800,14 +767,6 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
           }}
         />
         <div className="composer-actions">
-          {supportsAttachments && <button
-              className={`composer-icon-button ${menu === "add" ? "active" : ""}`}
-              title="Add attachments"
-              aria-expanded={menu === "add"}
-              onClick={() => setMenu(menu === "add" ? null : "add")}
-            >
-              <IconAdd />
-            </button>}
           {usageButton}
           <button
             className={`composer-send ${busy ? "stop" : ""}`}
@@ -904,34 +863,7 @@ export function Composer({ session, usageButton }: { session?: SessionInfo | nul
         </div>
       )}
 
-      {supportsAttachments && menu === "add" && (
-        <div className="composer-menu add">
-          <button
-            className="composer-menu-item"
-            title="Attach files"
-            onClick={() => {
-              setMenu(null);
-              void attachFiles();
-            }}
-          >
-            <IconFile />
-            Attach files…
-          </button>
-          <button
-            className="composer-menu-item"
-            title="Upload images"
-            onClick={() => {
-              setMenu(null);
-              void attachImages();
-            }}
-          >
-            <IconImage />
-            Upload images…
-          </button>
-        </div>
-      )}
-
-      {menu && menu !== "add" && (
+      {menu && (
         <div className="composer-menu">
           {menu === "agent" ? (
             agents.length > 0 ? (
