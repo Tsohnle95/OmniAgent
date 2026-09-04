@@ -53,24 +53,48 @@ describe("FileSidebar file creation", () => {
     vi.unstubAllGlobals();
   });
 
-  it("starts a root file from the explorer header button", () => {
+  it("offers file and folder creation on the workspace root row", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    const button = container.querySelector<HTMLButtonElement>('.section-actions [title="New File"]')!;
-    expect(button).toBeTruthy();
+    const actions = container.querySelector<HTMLElement>(".tree-row.workspace-root .tree-row-actions")!;
+    expect(actions).toBeTruthy();
+    const byTitle = (title: string): HTMLButtonElement =>
+      [...actions.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.title === title)!;
     act(() => {
-      button.click();
+      byTitle("New File").click();
     });
     expect(store.startCreate).toHaveBeenCalledWith("", "file");
+    act(() => {
+      byTitle("New Folder").click();
+    });
+    expect(store.startCreate).toHaveBeenCalledWith("", "dir");
   });
 
-  it("starts a nested file from the row hover action", () => {
+  it("offers no creation actions in the explorer header", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    const buttons = [...container.querySelectorAll<HTMLButtonElement>('.tree-row-actions [title="New File"]')];
-    expect(buttons.length).toBeGreaterThan(0);
+    expect(container.querySelector(".section-actions")).toBeNull();
+  });
+
+  it("offers only file creation on subfolder rows", () => {
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const actions = container.querySelector<HTMLElement>(".tree-row.dir:not(.workspace-root) .tree-row-actions")!;
+    const buttons = [...actions.querySelectorAll<HTMLButtonElement>("button")];
+    const titles = buttons.map((button) => button.title);
+    expect(titles).toContain("New File");
+    expect(titles).not.toContain("New Folder");
     act(() => {
-      buttons[0].click();
+      buttons.find((button) => button.title === "New File")!.click();
     });
     expect(store.startCreate).toHaveBeenCalledWith("dir", "file");
+  });
+
+  it("offers no creation actions on file rows", () => {
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const row = [...container.querySelectorAll<HTMLElement>(".tree-row.file")].find(
+      (candidate) => candidate.textContent?.includes("a.txt")
+    )!;
+    const titles = [...row.querySelectorAll<HTMLButtonElement>("button")].map((button) => button.title);
+    expect(titles).not.toContain("New File");
+    expect(titles).not.toContain("New Folder");
   });
 
   it("starts a file from the context menu", () => {

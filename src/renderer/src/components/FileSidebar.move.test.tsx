@@ -134,13 +134,11 @@ describe("FileSidebar drag-and-drop moves", () => {
     expect(row(container, "alpha")).toBeTruthy();
   });
 
-  it("creates a root file or folder from the explorer header actions", () => {
+  it("creates a root file or folder from the workspace root hover actions", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    const actions = container.querySelector<HTMLElement>(".section-actions")!;
-    const buttons = actions.querySelectorAll<HTMLButtonElement>("button");
-    expect(buttons).toHaveLength(2);
+    const actions = container.querySelector<HTMLElement>(".tree-row.workspace-root .tree-row-actions")!;
     const byTitle = (title: string): HTMLButtonElement =>
-      [...buttons].find((button) => button.title === title)!;
+      [...actions.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.title === title)!;
     act(() => byTitle("New File").click());
     expect(store.startCreate).toHaveBeenCalledWith("", "file");
     act(() => byTitle("New Folder").click());

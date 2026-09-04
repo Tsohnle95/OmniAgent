@@ -55,7 +55,8 @@ describe("FileSidebar context menu open/close", () => {
 
   it("opens the menu when More actions is pressed", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
-    const button = [...container.querySelectorAll<HTMLButtonElement>(".tree-row-action")].find(
+    const row = container.querySelector<HTMLElement>(".tree-row.dir:not(.workspace-root)")!;
+    const button = [...row.querySelectorAll<HTMLButtonElement>(".tree-row-action")].find(
       (b) => b.title === "More actions…"
     )!;
     expect(button).toBeTruthy();

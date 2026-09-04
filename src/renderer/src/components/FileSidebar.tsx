@@ -27,7 +27,7 @@ interface DragHandlers {
   onDirDrop: (e: React.DragEvent, dir: string) => void;
 }
 
-function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
+function RowActions({ entry, allowFile = false, allowDir = false }: { entry: TreeEntry; allowFile?: boolean; allowDir?: boolean }): ReactNode {
   const { startCreate } = useStore();
   const { openCtxMenu } = useCtxMenu();
   const parent =
@@ -42,30 +42,34 @@ function RowActions({ entry }: { entry: TreeEntry }): ReactNode {
   };
   return (
     <span className="tree-row-actions">
-      <button
-        type="button"
-        className="tree-row-action"
-        title="New File"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          startCreate(parent, "file");
-        }}
-      >
-        <FilePlusIcon />
-      </button>
-      <button
-        type="button"
-        className="tree-row-action"
-        title="New Folder"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          startCreate(parent, "dir");
-        }}
-      >
-        <FolderPlusIcon />
-      </button>
+      {allowFile && (
+        <button
+          type="button"
+          className="tree-row-action"
+          title="New File"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            startCreate(parent, "file");
+          }}
+        >
+          <FilePlusIcon />
+        </button>
+      )}
+      {allowDir && (
+        <button
+          type="button"
+          className="tree-row-action"
+          title="New Folder"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            startCreate(parent, "dir");
+          }}
+        >
+          <FolderPlusIcon />
+        </button>
+      )}
       <button
         type="button"
         className="tree-row-action"
@@ -141,7 +145,7 @@ function DirNode({
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
         <span className="tree-name">{entry.path.split("/").pop()}</span>
         {hasChanges && <span className="tree-badge" />}
-        <RowActions entry={entry} />
+        <RowActions entry={entry} allowFile />
       </div>
       {isOpen && (
         <div className="tree-children">
@@ -710,22 +714,6 @@ export function FileSidebar({
          >
            <span>EXPLORER</span>
          </button>
-         <span className="section-actions">
-          <button
-            className="tree-row-action"
-            title="New File"
-            onClick={() => startCreate("", "file")}
-           >
-             <FilePlusIcon />
-           </button>
-          <button
-            className="tree-row-action"
-            title="New Folder"
-            onClick={() => startCreate("", "dir")}
-           >
-             <FolderPlusIcon />
-           </button>
-         </span>
          <button
            className="section-chevron-button"
            aria-label="Toggle Explorer"
@@ -781,6 +769,7 @@ export function FileSidebar({
                 >
                   <FileIcon name={panel.directory} isDir open={expanded.has("")} />
                   <span className="tree-name">{panel.directory.split("/").filter(Boolean).pop() ?? "workspace"}</span>
+                  <RowActions entry={{ path: "", type: "directory" }} allowFile allowDir />
                 </div>
                 {expanded.has("") && root.filter((child) => !hiddenPaths.has(child.path)).map((child) =>
                   child.type === "directory" ? (
