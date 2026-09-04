@@ -20,7 +20,7 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  padding: 12px 8px 10px 16px;
+  padding: 12px 4px 10px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -176,7 +176,7 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   position: relative;
 }
 
@@ -250,8 +250,8 @@
 
 @container (max-width: 340px) {
   .agent-status-text { display: none; }
-  .agent-header { padding: 12px 8px 10px 12px; }
-  .agent-header-actions { gap: 2px; }
+  .agent-header { padding: 12px 4px 10px 12px; }
+  .agent-header-actions { gap: 0; }
 }
 
 
