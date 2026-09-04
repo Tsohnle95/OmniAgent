@@ -1191,15 +1191,6 @@ export function AgentPanel({
     event.preventDefault();
     const startX = event.clientX;
     let hasDragged = false;
-    let frame: number | null = null;
-    let pendingDelta = 0;
-    const flush = (): void => {
-      frame = null;
-      if (pendingDelta === 0) return;
-      const delta = pendingDelta;
-      pendingDelta = 0;
-      onPanelDrag(delta);
-    };
     panelDragRef.current = startX;
     const move = (moveEvent: MouseEvent): void => {
       if (panelDragRef.current === null) return;
@@ -1209,12 +1200,9 @@ export function AgentPanel({
       }
       const delta = moveEvent.clientX - panelDragRef.current;
       panelDragRef.current = moveEvent.clientX;
-      pendingDelta += delta;
-      if (frame === null) frame = window.requestAnimationFrame(flush);
+      onPanelDrag(delta);
     };
     const stop = (): void => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      flush();
       panelDragRef.current = null;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", stop);

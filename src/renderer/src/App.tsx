@@ -45,23 +45,14 @@ function useDragResize(
   open: boolean,
   left?: number,
   setLeft?: (value: number) => void,
-  onSnap?: () => void
+  onSnap?: () => void,
+  onPreview?: (width: number, left: number | null) => void
 ): (e: React.MouseEvent) => void {
   const startRef = useRef<{ x: number; width: number; left: number; live: number; hasDragged: boolean } | null>(null);
 
   const onMouseDown = (e: React.MouseEvent): void => {
     if (!open) return;
     e.preventDefault();
-    let frame: number | null = null;
-    let pending: { width: number; left: number | null } | null = null;
-    const flush = (): void => {
-      frame = null;
-      const next = pending;
-      pending = null;
-      if (!next) return;
-      setWidth(next.width);
-      if (next.left !== null && setLeft) setLeft(next.left);
-    };
     startRef.current = {
       x: e.clientX,
       width,
@@ -80,16 +71,19 @@ function useDragResize(
       const nextW = Math.max(min, rawW);
       const capped = Math.min(max, nextW);
       startRef.current.live = capped;
-      pending = {
-        width: capped,
-        left: flip && setLeft ? startRef.current.left + startRef.current.width - capped : null
-      };
-      if (frame === null) frame = window.requestAnimationFrame(flush);
+      const nextLeft = flip && setLeft ? startRef.current.left + startRef.current.width - capped : null;
+      if (onPreview) onPreview(capped, nextLeft);
+      else {
+        setWidth(capped);
+        if (nextLeft !== null && setLeft) setLeft(nextLeft);
+      }
     };
     const up = (): void => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      flush();
       const start = startRef.current;
+      if (start?.hasDragged && onPreview) {
+        setWidth(start.live);
+        if (flip && setLeft) setLeft(start.left + start.width - start.live);
+      }
       if (start && start.hasDragged && start.live < min) {
         if (flip && setLeft) setLeft(start.left + start.width - min);
         setWidth(min);
@@ -227,6 +221,7 @@ function PanelColumn({
   onManualAdjust?: () => void;
 }): ReactNode {
   const [settling, setSettling] = useState(false);
+  const columnRef = useRef<HTMLDivElement>(null);
   const settleTimerRef = useRef<number | null>(null);
   useEffect(() => () => {
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
@@ -249,7 +244,10 @@ function PanelColumn({
     slot.open,
     slot.left,
     undefined,
-    settle
+    settle,
+    (width) => {
+      if (columnRef.current) columnRef.current.style.width = `${width}px`;
+    }
   );
   const resizeLeft = useDragResize(
     slot.width,
@@ -260,7 +258,13 @@ function PanelColumn({
     slot.open,
     slot.left,
     (left) => onSlot((current) => ({ ...current, left, leftAnchored: true })),
-    settle
+    settle,
+    (width, left) => {
+      if (!columnRef.current) return;
+      columnRef.current.style.width = `${width}px`;
+      if (left !== null) columnRef.current.style.left = `${left}px`;
+      if (isAnchor) columnRef.current.parentElement?.style.setProperty("--editor-right", `${width}px`);
+    }
   );
   const slideBy = (delta: number): void => {
     onSlot((current) => ({ ...current, left: Math.min(leftMax, Math.max(leftMin, current.left + delta)) }));
@@ -277,7 +281,7 @@ function PanelColumn({
     return null;
   }
   return (
-    <div className={`agent-col ${settling ? "settling" : ""} ${slot.left <= leftMin + 0.5 ? "edge-left" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
+    <div ref={columnRef} className={`agent-col ${settling ? "settling" : ""} ${slot.left <= leftMin + 0.5 ? "edge-left" : ""}`} style={{ left: `${slot.left}px`, top: `${slot.top}%`, bottom: "auto", width: `${slot.width}px`, height: `${slot.height}%` }}>
       <AgentPanel session={session} isAnchor={isAnchor} onFocus={onFocus} onClose={onClose} onResizeLeft={freeMove ? exitModeOnRelease : resizeLeft} onResizeRight={freeMove ? exitModeOnRelease : isAnchor ? undefined : resizeRight} onPanelDrag={freeMove || !isAnchor ? slideBy : undefined} onPanelDragEnd={freeMove ? onManualAdjust : undefined} />
     </div>
   );
@@ -303,6 +307,8 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("appearance");
   const [agentModeActive, setAgentModeActive] = useState(false);
   const [emptyAgentOpen, setEmptyAgentOpen] = useState(true);
+  const mainRowRef = useRef<HTMLDivElement>(null);
+  const emptyAgentRef = useRef<HTMLDivElement>(null);
   const [emptyAgentWidth, setEmptyAgentWidth] = useState(280);
   const prevSidebarRef = useRef<{ open: boolean; width: number } | null>(null);
   const inAgentMode = agentModeActive;
@@ -560,7 +566,11 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     SIDE_MIN_W,
     sideMax,
     false,
-    sideOpen
+    sideOpen,
+    undefined,
+    undefined,
+    undefined,
+    (width) => mainRowRef.current?.style.setProperty("--pane-columns", `${width}px 1px minmax(0,1fr)`)
   );
   const emptyAgentDrag = useDragResize(
     emptyAgentWidth,
@@ -568,7 +578,14 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
     AGENT_MIN_W,
     areaW,
     true,
-    emptyAgentOpen
+    emptyAgentOpen,
+    undefined,
+    undefined,
+    undefined,
+    (width) => {
+      if (emptyAgentRef.current) emptyAgentRef.current.style.width = `${width}px`;
+      emptyAgentRef.current?.parentElement?.style.setProperty("--editor-right", `${width}px`);
+    }
   );
 
   const cols = [
@@ -798,7 +815,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
         </span>
       </div>
 
-      <div className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
+      <div ref={mainRowRef} className="main-row" style={{ "--pane-columns": cols } as CSSProperties}>
         {settingsOpen ? <SettingsSidebar
           section={settingsSection}
           onSectionChange={setSettingsSection}
@@ -860,6 +877,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
           })}
           {panels.length === 0 && emptyAgentOpen && (
             <div
+              ref={emptyAgentRef}
               className={`agent-col empty-agent-col ${inAgentMode ? "agent-mode-empty" : ""}`}
               style={inAgentMode ? undefined : { width: `${emptyAgentWidth}px`, right: "0px" }}
             >
