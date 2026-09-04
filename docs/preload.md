@@ -94,6 +94,8 @@ automatically.
 | `windowView(view)` | `Promise<void>` — asks the main process to switch between the `"landing"` and `"session"` window profiles |
 | `installApp()` | `Promise<{ok: boolean, message: string}>` — macOS-only: builds the packaged app and installs it to `/Applications`; `ok` false with a message on failure |
 | `validateW3c(path, content)` | `Promise<W3cDiagnostic[]>` — validates HTML/CSS source through the W3C services |
+| `viteStart(workspace)` | `Promise<VitePreview>` — serves the workspace root with Vite and opens the loopback URL in the default browser |
+| `viteStop(workspace)` | `Promise<void>` — stops the workspace's Vite dev server when one is running |
 
 All are `ipcRenderer.invoke` wrappers over the `shell:*` channels
 documented in `docs/main.md`. `onMessage` subscribes to

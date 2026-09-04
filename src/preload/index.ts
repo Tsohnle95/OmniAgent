@@ -36,6 +36,7 @@ import type {
   SessionSelection,
   SessionSummary,
   SessionTranscript,
+  VitePreview,
   W3cDiagnostic,
   WorkspaceIdentity
 } from "@shared/types";
@@ -185,7 +186,11 @@ const api = {
   installApp: (): Promise<{ ok: boolean; message: string }> => ipcRenderer.invoke("shell:install-app"),
   windowView: (view: "landing" | "session"): Promise<void> => ipcRenderer.invoke("shell:window-view", view),
   validateW3c: (path: string, content: string): Promise<W3cDiagnostic[]> =>
-    ipcRenderer.invoke("shell:validate-w3c", path, content)
+    ipcRenderer.invoke("shell:validate-w3c", path, content),
+  viteStart: (workspace: WorkspaceIdentity): Promise<VitePreview> =>
+    ipcRenderer.invoke("shell:vite-start", workspace),
+  viteStop: (workspace: WorkspaceIdentity): Promise<void> =>
+    ipcRenderer.invoke("shell:vite-stop", workspace)
 };
 
 export type OpenShellApi = typeof api;

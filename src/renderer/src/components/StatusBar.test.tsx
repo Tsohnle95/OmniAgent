@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Tab } from "@shared/types";
+import type { SessionInfo, Tab } from "@shared/types";
 import { StatusBar } from "./StatusBar";
 import { applyW3cMarkers } from "../w3c-validation";
 
@@ -22,10 +22,19 @@ const htmlTab: Tab = {
 const cssTab: Tab = { ...htmlTab, path: "styles.css", name: "styles.css", content: "body { color: red; }" };
 const tsTab: Tab = { ...htmlTab, path: "app.ts", name: "app.ts", content: "const x = 1;" };
 
-const store: { tabs: Tab[]; activePath: string | null } = {
+const store: { tabs: Tab[]; activePath: string | null; session: SessionInfo | null } = {
   tabs: [htmlTab],
-  activePath: htmlTab.path
+  activePath: htmlTab.path,
+  session: null
 };
+
+const sessionFixture: SessionInfo = {
+  id: "session-1",
+  directory: "/repo/a",
+  workspace: { id: "ws-1", generation: 1 }
+};
+
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 vi.mock("../store", () => ({ useStore: () => store }));
 vi.mock("../w3c-validation", () => ({
@@ -41,6 +50,7 @@ describe("StatusBar validation", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     store.tabs = [htmlTab];
     store.activePath = htmlTab.path;
+    store.session = null;
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -113,5 +123,49 @@ describe("StatusBar validation", () => {
     });
 
     expect(container.querySelector('[data-testid="validate-result"]')?.textContent).toBe("Validation failed");
+  });
+
+  it("hides the Vite button when no session is open", () => {
+    store.session = null;
+    act(() => root.render(<StatusBar />));
+    expect(container.querySelector('[data-testid="vite-btn"]')).toBeNull();
+  });
+
+  it("starts the workspace server when the Vite button is clicked", async () => {
+    store.session = sessionFixture;
+    const viteStart = vi.fn(async () => ({ url: "http://127.0.0.1:5199/", port: 5199 }));
+    window.openshell = { validateW3c: vi.fn(async () => []), viteStart } as unknown as typeof window.openshell;
+
+    act(() => root.render(<StatusBar />));
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
+    expect(button.closest(".statusbar-right")).not.toBeNull();
+
+    await act(async () => {
+      button.click();
+      await flush();
+    });
+
+    expect(viteStart).toHaveBeenCalledWith(sessionFixture.workspace);
+    expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.title).toBe("http://127.0.0.1:5199/");
+  });
+
+  it("shows a busy label while the Vite server starts", async () => {
+    store.session = sessionFixture;
+    let resolveStart!: (preview: { url: string; port: number }) => void;
+    const pending = new Promise<{ url: string; port: number }>((resolve) => { resolveStart = resolve; });
+    window.openshell = { validateW3c: vi.fn(async () => []), viteStart: vi.fn(() => pending) } as unknown as typeof window.openshell;
+
+    act(() => root.render(<StatusBar />));
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')!;
+    act(() => { button.click(); });
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toBe("Starting Vite…");
+
+    await act(async () => {
+      resolveStart({ url: "http://127.0.0.1:5199/", port: 5199 });
+      await pending;
+      await flush();
+    });
+    expect(container.querySelector<HTMLButtonElement>('[data-testid="vite-btn"]')?.textContent).toBe("Open in Vite");
   });
 });

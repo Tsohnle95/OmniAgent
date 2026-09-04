@@ -37,6 +37,11 @@ export interface WorkspaceIdentity {
   generation: number;
 }
 
+export interface VitePreview {
+  url: string;
+  port: number;
+}
+
 export interface SessionSummary {
   id: string;
   runtimeID?: RuntimeID;

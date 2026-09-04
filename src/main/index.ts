@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
+import { defaultViteDeps, VitePreviewManager } from "./vite-server";
 import {
   applicationUrl,
   isAllowedMainFrameNavigation,
@@ -63,6 +64,12 @@ import {
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
+const viteCommand = (() => {
+  const bin = path.join(app.getAppPath(), "node_modules", "vite", "bin", "vite.js");
+  if (existsSync(bin)) return { command: process.execPath, prefix: [bin] };
+  return { command: process.platform === "win32" ? "npx.cmd" : "npx", prefix: ["vite"] };
+})();
+const viteServers = new VitePreviewManager(defaultViteDeps(viteCommand.command, viteCommand.prefix));
 let win: BrowserWindow | null = null;
 let trustedLocation: TrustedApplicationLocation | null = null;
 
@@ -592,6 +599,7 @@ function registerIpc(): void {
 
   handleTrusted("shell:close-session", async (_e, workspace: WorkspaceIdentity) => {
     workspaceId(workspace);
+    viteServers.stop(workspace.id);
     return backend.closeSession(workspace);
   });
 
@@ -914,6 +922,20 @@ function registerIpc(): void {
     const source = fileContent(content);
     return validateWithW3c(path, source);
   });
+
+  handleTrusted("shell:vite-start", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    const directory = await backend.workspaceDirectory(workspace);
+    const preview = await viteServers.start(workspace.id, directory);
+    void shell.openExternal(preview.url);
+    return preview;
+  });
+
+  handleTrusted("shell:vite-stop", async (_e, workspace: WorkspaceIdentity) => {
+    workspaceId(workspace);
+    await backend.workspaceDirectory(workspace);
+    viteServers.stop(workspace.id);
+  });
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -1006,6 +1028,7 @@ app.on("before-quit", (event) => {
   void (async () => {
     await backend.stop();
     await terminals.stopAll();
+    await viteServers.stopAll();
     app.quit();
   })();
 });
