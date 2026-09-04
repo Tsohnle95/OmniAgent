@@ -99,10 +99,11 @@
   -webkit-app-region: no-drag;
 }
 
+.titlebar-leading-actions .icon-btn.on,
 .titlebar-actions .icon-btn.on {
-  background: var(--accent-dim);
+  background: transparent;
   color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: none;
 }
 
 .divider {

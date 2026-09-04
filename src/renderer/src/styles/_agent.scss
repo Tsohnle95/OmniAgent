@@ -304,11 +304,9 @@
   line-height: 1;
 }
 
-.agent-usage-toggle.ok { color: var(--green); }
-
-.agent-usage-toggle.warn { color: var(--yellow); }
-
-.agent-usage-toggle.danger { color: var(--red); }
+.agent-usage-toggle.ok,
+.agent-usage-toggle.warn,
+.agent-usage-toggle.danger { color: var(--accent); }
 
 .agent-usage-toggle:hover {
   background: var(--bg-hover);
