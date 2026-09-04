@@ -1481,7 +1481,6 @@ export function AgentPanel({
                   style={{ strokeDashoffset: `${50.27 * (1 - (contextLimit ? contextPercent : 0) / 100)}` }}
                 />
               </svg>
-              <IconDashboard />
             </span>
           </button>
           <button

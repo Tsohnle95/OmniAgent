@@ -280,21 +280,12 @@
   transition: background 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease), box-shadow 120ms var(--ease);
 }
 
-.agent-usage-toggle .codicon {
-  position: relative;
-  width: 13px;
-  height: 13px;
-  display: block;
-  font-size: 13px;
-  line-height: 1;
-}
-
 .agent-usage-ring {
   position: relative;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .agent-usage-ring svg {
@@ -307,10 +298,10 @@
 
 .agent-usage-ring circle {
   fill: none;
-  stroke-width: 1.7;
+  stroke-width: 2.5;
 }
 
-.agent-usage-ring-track { stroke: color-mix(in srgb, currentColor 22%, transparent); }
+.agent-usage-ring-track { stroke: color-mix(in srgb, var(--text-faint) 42%, transparent); }
 .agent-usage-ring-fill {
   stroke: currentColor;
   stroke-linecap: round;
