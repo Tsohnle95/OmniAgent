@@ -550,7 +550,7 @@ function Layout({ children }: { children?: ReactNode }): ReactNode {
   const emptyAgentDrag = useDragResize(
     emptyAgentWidth,
     setEmptyAgentWidth,
-    44,
+    AGENT_MIN_W,
     areaW,
     true,
     emptyAgentOpen

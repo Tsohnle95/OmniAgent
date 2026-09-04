@@ -382,8 +382,9 @@ When the last workspace is closed, the IDE layout remains mounted. The agent
 panel stays visible with an **Add workspace** header action, while the
 workspace-dependent composer and runtime controls remain inert until a folder
 is selected. Its right-side reservation keeps the editor centered in the
-available area; the empty panel can still be hidden or expanded with Agent
-Mode. The terminal shows a no-workspace notice, and the empty explorer uses
+available area; the empty panel keeps the normal 280px minimum while it is
+resized and can still be hidden or expanded with Agent Mode. The terminal
+shows a no-workspace notice, and the empty explorer uses
 the smaller **Open a workspace** action.
 
 | Component | File | Role |
