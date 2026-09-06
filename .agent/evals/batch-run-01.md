@@ -36,6 +36,7 @@ No shared root cause existed across all four items. The provider item had the on
 - Changed only Kitty styling/terminal values: stronger Kitty agent text, a still-translucent tinted/backdrop-blurred TUI surface, brighter Kitty TUI foreground/dim palette, and medium Kitty TUI font weight. The whole-agent-panel dark wash was subsequently reverted after visual feedback so the GUI panel remains transparent like the rest of the Kitty app. Original and paper theme values were not changed.
 - Existing TUI sanitization and rendering tests were inspected and passed; no unrelated TUI protocol behavior changed.
 - Checkpoint: `311fa1c` (`Improve Kitty Glass agent contrast`).
+- Follow-up checkpoint: `b363b81` (`Restore Kitty agent panel surface`) removed the whole-panel Kitty dark wash after user visual feedback while retaining the localized TUI contrast changes.
 
 ### 3. Provider-usage refresh
 
