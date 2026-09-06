@@ -33,7 +33,7 @@ No shared root cause existed across all four items. The provider item had the on
 ### 2. Kitty Glass contrast
 
 - Inspected `src/renderer/src/components/AgentTui.tsx`, `src/renderer/src/components/AgentTui.test.tsx`, `src/renderer/src/styles/_foundation.scss`, and `src/renderer/src/styles/_agent.scss`.
-- Changed only Kitty styling/terminal values: stronger Kitty agent text, a still-translucent tinted/backdrop-blurred agent panel and TUI surface, brighter Kitty TUI foreground/dim palette, and medium Kitty TUI font weight. Original and paper theme values were not changed.
+- Changed only Kitty styling/terminal values: stronger Kitty agent text, a still-translucent tinted/backdrop-blurred TUI surface, brighter Kitty TUI foreground/dim palette, and medium Kitty TUI font weight. The whole-agent-panel dark wash was subsequently reverted after visual feedback so the GUI panel remains transparent like the rest of the Kitty app. Original and paper theme values were not changed.
 - Existing TUI sanitization and rendering tests were inspected and passed; no unrelated TUI protocol behavior changed.
 - Checkpoint: `311fa1c` (`Improve Kitty Glass agent contrast`).
 
@@ -70,11 +70,12 @@ No shared root cause existed across all four items. The provider item had the on
 - No escalation, architectural replanning, merging, or logical-unit splitting was required. The border test setup was adjusted once from a minimum-width stacked-panel fixture to the existing model-panel expansion flow so it could exercise a real narrowing drag; the temporary debug output was removed before committing.
 - The provider unit expanded from a component-only change to include `icons.tsx` after the focused test showed the supplied class replaced the base `codicon` classes. This was the related root cause, not unrelated scope expansion.
 - No unnecessary repository-wide context read or unrelated implementation scope was identified. The initial Node-26 validation was superseded solely because of the documented engine mismatch.
+- After the initial evaluation checkpoint, the user reported that the whole Kitty agent panel appeared darker than the rest of the app. The Kitty `.agent-panel` background was restored to `transparent`, while the local TUI contrast surface and brighter text were retained. Supported targeted validation passed again with 2 test files / 17 tests, followed by a supported-runtime `npm run check` pass.
 - Guidance was sufficient for routing and validation. It did not explicitly call out that nested directory rows should expose a folder action, so the existing component/test behavior and the documented `startCreate`/`commitName` flow were used as the observable contract.
 
 ## Final status
 
 1. Agent-panel border reappears during active resizing away from direct adjacency: complete.
-2. Kitty Glass embedded GUI/TUI contrast improved without flattening transparency or changing other themes: complete.
+2. Kitty Glass embedded GUI/TUI contrast improved without flattening transparency, and the whole agent-panel color remains consistent with the rest of the Kitty app: complete.
 3. Provider-usage refresh requests current data, gives a tied one-shot 360-degree interaction animation, and suppresses duplicate in-flight control requests: complete.
 4. Explorer supports creating folders inside existing folders while retaining existing path/security/refresh/error behavior: complete.
