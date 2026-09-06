@@ -6,14 +6,14 @@ import { describe, expect, it } from "vitest";
 import { configureNodePty } from "./configure-node-pty.mjs";
 
 describe("node-pty installation", () => {
-  it("makes the Unix spawn helper executable", () => {
+  it("makes the macOS spawn helper executable", () => {
     const root = mkdtempSync(path.join(tmpdir(), "openshell-node-pty-"));
-    const directory = path.join(root, "node_modules", "node-pty", "prebuilds", "linux-x64");
+    const directory = path.join(root, "node_modules", "node-pty", "prebuilds", "darwin-x64");
     const helper = path.join(directory, "spawn-helper");
     mkdirSync(directory, { recursive: true });
     writeFileSync(helper, "fixture");
     chmodSync(helper, 0o644);
-    expect(configureNodePty("linux", "x64", root)).toBe(helper);
+    expect(configureNodePty("darwin", "x64", root)).toBe(helper);
     expect(statSync(helper).mode & 0o111).toBe(0o111);
   });
 
@@ -24,8 +24,12 @@ describe("node-pty installation", () => {
     mkdirSync(directory, { recursive: true });
     writeFileSync(helper, "fixture");
     chmodSync(helper, 0o644);
-    expect(configureNodePty("linux", "arm64", root)).toBe(helper);
+    expect(configureNodePty("darwin", "arm64", root)).toBe(helper);
     expect(statSync(helper).mode & 0o111).toBe(0o111);
+  });
+
+  it("does not configure a helper on Linux", () => {
+    expect(configureNodePty("linux", "x64", "unused")).toBeNull();
   });
 
   it("does not configure a helper on Windows", () => {

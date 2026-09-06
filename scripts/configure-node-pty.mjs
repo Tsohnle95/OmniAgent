@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function configureNodePty(platform = process.platform, arch = process.arch, root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")) {
-  if (platform === "win32") return null;
+  if (platform !== "darwin") return null;
   const packageRoot = path.join(root, "node_modules", "node-pty");
   const candidates = [
     path.join(packageRoot, "prebuilds", `${platform}-${arch}`, "spawn-helper"),

@@ -72,8 +72,9 @@ This matches integrated-terminal expectations and avoids re-running login
 session initialization for every tab. `node-pty` 1.1.0 uses Node-API, and the
 Electron-hosted smoke verifies the locked binary directly, so no
 `@electron/rebuild` lifecycle is required. The portable `postinstall` only
-restores execute permission on node-pty's packaged Unix `spawn-helper`, which
-the npm tarball does not preserve; it does not compile or rebuild the addon.
+restores execute permission on node-pty's packaged macOS `spawn-helper`, which
+the npm tarball does not preserve; Linux uses node-pty's direct `forkpty`
+implementation and does not need that helper.
 
 ## Updating the OpenCode client
 
