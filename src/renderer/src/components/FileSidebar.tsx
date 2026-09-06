@@ -146,7 +146,7 @@ function DirNode({
         <FileIcon name={entry.path.split("/").pop() ?? ""} isDir open={isOpen} />
         <span className="tree-name">{entry.path.split("/").pop()}</span>
         {hasChanges && <span className="tree-badge" />}
-        <RowActions entry={entry} allowFile />
+        <RowActions entry={entry} allowFile allowDir />
       </div>
       {isOpen && (
         <div className="tree-children">

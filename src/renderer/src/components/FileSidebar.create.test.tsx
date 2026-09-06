@@ -74,17 +74,19 @@ describe("FileSidebar file creation", () => {
     expect(container.querySelector(".section-actions")).toBeNull();
   });
 
-  it("offers only file creation on subfolder rows", () => {
+  it("offers file and folder creation on subfolder rows", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
     const actions = container.querySelector<HTMLElement>(".tree-row.dir:not(.workspace-root) .tree-row-actions")!;
     const buttons = [...actions.querySelectorAll<HTMLButtonElement>("button")];
     const titles = buttons.map((button) => button.title);
     expect(titles).toContain("New File");
-    expect(titles).not.toContain("New Folder");
+    expect(titles).toContain("New Folder");
     act(() => {
       buttons.find((button) => button.title === "New File")!.click();
+      buttons.find((button) => button.title === "New Folder")!.click();
     });
     expect(store.startCreate).toHaveBeenCalledWith("dir", "file");
+    expect(store.startCreate).toHaveBeenCalledWith("dir", "dir");
   });
 
   it("offers no creation actions on file rows", () => {
