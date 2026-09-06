@@ -355,10 +355,7 @@ Terminal ids, ownership, input size, and bounded positive dimensions are
 validated before operations reach `node-pty`.
 The selected shell is the user's normal interactive shell, not a login shell.
 The locked Node-API-based `node-pty` is exercised under Electron on macOS,
-Linux, and Windows CI, so no native rebuild step is used.
-Install restores execute permission on the packaged macOS `spawn-helper`; this
-is a file-mode correction rather than a native compilation step. Linux uses
-node-pty's direct `forkpty` implementation and does not need that helper.
+Linux, and Windows CI.
 
 An agent panel can switch from GUI to TUI from its header mode pill. The main
 process resolves the active session's runtime command and starts it with the
