@@ -62,6 +62,12 @@ untrusted-document IPC rejection without external network access. `npm run typec
 runs `tsc --noEmit` for both node and web configs. `npm run check` is the
 canonical local and CI verification gate.
 
+The platform smoke scripts fail boundedly: the direct PTY and Electron-hosted
+PTY checks have 10-second child watchdogs, the Electron parent kills the full
+child process tree on timeout, and the macOS trust check has a 30-second
+watchdog. The GitHub Actions platform-smoke job also has a 10-minute job
+timeout so a native-process failure cannot leave CI running indefinitely.
+
 Orbit is macOS-first with supported development/runtime launch on macOS,
 Linux, and Windows. CI runs launcher configuration tests and a real
 Electron-hosted `node-pty` input/output/exit smoke on all three. This verifies

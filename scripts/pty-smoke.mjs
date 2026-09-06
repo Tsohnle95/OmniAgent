@@ -13,7 +13,7 @@ let output = "";
 const timeout = setTimeout(() => {
   console.error(`PTY smoke timed out: ${output}`);
   pty.kill();
-  process.exitCode = 1;
+  process.exit(1);
 }, 10_000);
 pty.onData((data) => {
   output += data;
@@ -22,7 +22,9 @@ pty.onExit(({ exitCode }) => {
   clearTimeout(timeout);
   if (exitCode !== 0 || !output.includes(marker)) {
     console.error(`PTY smoke failed (${exitCode}): ${output}`);
-    process.exitCode = 1;
+    process.exit(1);
+    return;
   }
+  process.exit(0);
 });
 pty.write(process.platform === "win32" ? `echo ${marker}\r\nexit\r\n` : `printf '${marker}\\n'\nexit\n`);
