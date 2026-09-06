@@ -81,7 +81,11 @@ check(documentation.get("README.md").includes("Node 22.23.2"), "README.md must s
 check(documentation.get("docs/operations.md").includes("Node 22.23.2"), "docs/operations.md must state the supported Node floor");
 
 const agents = documentation.get("AGENTS.md");
-const modulePaths = [...agents.matchAll(/^\| [^|`]+ \| `([^`|]+)` \|/gm)].map((match) => match[1]);
+const modulePaths = tableColumn(
+  agents,
+  "## Module map",
+  /^\| [^|`]+ \| `([^`|]+)` \|/gm
+);
 checkInventory("AGENTS.md", "module map", modulePaths);
 for (const file of modulePaths) check(await exists(file), `AGENTS.md module map lists missing path ${file}`);
 
