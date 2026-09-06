@@ -32,7 +32,7 @@ const ORIGINAL_THEME: ITheme = {
 
 const KITTY_THEME: ITheme = {
   background: "rgba(2, 2, 4, 0)",
-  foreground: "#e7e7ee",
+  foreground: "#f4f4fa",
   cursor: "#00a2ce",
   cursorAccent: "#020204",
   selectionBackground: "#2e4d78",
@@ -43,8 +43,8 @@ const KITTY_THEME: ITheme = {
   blue: "#00a2ce",
   magenta: "#c99ff2",
   cyan: "#6fc3df",
-  white: "#e7e7ee",
-  brightBlack: "#626b78",
+  white: "#f4f4fa",
+  brightBlack: "#a6a9b8",
   brightRed: "#ff8b85",
   brightGreen: "#82e8b4",
   brightYellow: "#f0c780",
@@ -143,6 +143,7 @@ export function AgentTui({
       lineHeight: metrics.lineHeight,
       cursorBlink: true,
       scrollback: 5000,
+      fontWeight: theme === "kitty" ? 500 : 400,
       theme: theme === "kitty" ? KITTY_THEME : ORIGINAL_THEME
     });
     const fit = new FitAddon();
@@ -195,6 +196,7 @@ export function AgentTui({
     if (!terminal) return;
     if (theme !== "kitty") ansiStateRef.current.pending = "";
     terminal.options.theme = theme === "kitty" ? KITTY_THEME : ORIGINAL_THEME;
+    terminal.options.fontWeight = theme === "kitty" ? 500 : 400;
     terminal.options.fontFamily = theme === "kitty" ? "'FiraCode Nerd Font', 'SF Mono', Menlo, Consolas, monospace" : "'SF Mono', Menlo, Consolas, monospace";
   }, [theme]);
 

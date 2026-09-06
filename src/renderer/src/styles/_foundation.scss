@@ -148,7 +148,7 @@
   --agent-border-muted: rgba(231, 231, 238, 0.06);
   --agent-border-base: rgba(231, 231, 238, 0.11);
   --agent-border-strong: rgba(231, 231, 238, 0.18);
-  --agent-chat-ink: #b3b5c2;
+  --agent-chat-ink: #d3d5e0;
   --agent-composer-background: linear-gradient(118deg, rgba(0, 162, 206, 0.10), transparent 36%), linear-gradient(300deg, rgba(67, 36, 43, 0.15), transparent 44%), rgba(14, 18, 28, 0.34);
   --agent-composer-border: rgba(0, 162, 206, 0.32);
   --agent-composer-shadow: 0 7px 24px rgba(0, 0, 0, 0.38), inset 0 1px rgba(231, 231, 238, 0.06);
@@ -161,10 +161,10 @@
   --agent-send-hover-shadow: 0 6px 20px rgba(0, 162, 206, 0.42);
 
   --text: #e7e7ee;
-  --text-dim: #b3b5c2;
-  --text-faint: #7f8292;
+  --text-dim: #c0c3d0;
+  --text-faint: #a0a4b4;
   --text-base: #e7e7ee;
-  --text-weak: #7f8292;
+  --text-weak: #a0a4b4;
 
   --accent: #00a2ce;
   --accent-hover: #25b8dd;
@@ -207,7 +207,7 @@
 }
 
 :root[data-theme="kitty"] .agent-panel {
-  background: transparent;
+  background-color: rgba(14, 18, 28, 0.32);
   backdrop-filter: blur(20px) saturate(135%);
   -webkit-backdrop-filter: blur(20px) saturate(135%);
   box-shadow: none;
@@ -218,7 +218,12 @@
 }
 
 :root[data-theme="kitty"] .agent-panel .agent-tui {
-  background: transparent;
+  background-color: rgba(2, 2, 4, 0.52);
+  background-image: linear-gradient(135deg, rgba(0, 162, 206, 0.06), transparent 42%), var(--panel-surface-image);
+  background-size: cover, var(--panel-surface-size);
+  background-repeat: no-repeat, var(--panel-surface-repeat);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
 }
 
 :root[data-theme="kitty"] .agent-panel [data-component="session-prompt-dock"] {
