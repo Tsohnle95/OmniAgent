@@ -178,11 +178,19 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    closed.
 7. `window-all-closed` quits on every platform. `before-quit` aborts the active
    SDK SSE subscription, stops every context watcher, and tears down terminals.
-   A renderer reload does not close the backend process; `activeSessions()`
-   restores every open panel silently and focuses the most recently activated
-   one unless the user already acted. Dock `activate` can re-create a window
-   only while the process is still alive (for example after programmatic window
-   destruction), not after the last-window quit path.
+   A renderer reload does not close the backend process; the renderer merges
+   its versioned `orbit.sessionLayout` restart hints with `activeSessions()`,
+   reopens panels silently through the existing session-by-id path, and focuses
+   the saved panel when it remains valid and the user has not acted. A full
+   process restart has no live backend contexts, so the renderer uses the same
+   hints to reopen persisted session IDs in order, carrying an optional runtime
+   ID while main re-resolves the session directory and mints fresh workspace
+   identity. Malformed, stale, moved, or runtime-unavailable entries are
+   independently discardable and never block launch; transient editor,
+   terminal, permission, queue, prompt, and capability state is not recreated.
+   Dock `activate` can re-create a window only while the process is still alive
+   (for example after programmatic window destruction), not after the
+   last-window quit path.
 
 ## Diffs and baselines (how the diff view works)
 

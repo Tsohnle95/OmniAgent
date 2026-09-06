@@ -2,7 +2,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenShellApi } from "../../preload";
-import type { BackendMessage, RecoveryRecord, SessionInfo } from "@shared/types";
+import type { BackendMessage, RecoveryRecord, RuntimeID, SessionInfo } from "@shared/types";
 import { StoreProvider, useStore } from "./store";
 
 type Store = ReturnType<typeof useStore>;
@@ -21,9 +21,10 @@ function deferred<T = void>(): { promise: Promise<T>; resolve: (value?: T) => vo
   return { promise, resolve };
 }
 
-function info(directory: string, generation: number): SessionInfo {
+function info(directory: string, generation: number, runtimeID?: RuntimeID): SessionInfo {
   return {
     id: `session-${generation}`,
+    ...(runtimeID ? { runtimeID } : {}),
     directory,
     workspace: { id: `${generation}1111111-1111-4111-8111-111111111111`, generation }
   };
@@ -331,6 +332,104 @@ describe("store workspace continuations", () => {
     expect(openSessionById).toHaveBeenCalledWith("session-2", expect.any(Number), "opencode");
     expect(store.panels.map((panel) => panel.directory).sort()).toEqual(["/chosen", "/restored"]);
     expect(store.session?.directory).toBe("/chosen");
+  });
+
+  it("persists panel order and runtime identity and restores the active panel after a process restart", async () => {
+    const openSession = vi.fn(async (directory: string, generation: number) => ({
+      ...info(directory, generation, directory === "/one" ? "deepseek" : "opencode"),
+      id: directory === "/one" ? "session-one" : "session-two"
+    }));
+    window.openshell = api({ openSession });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.addModelPanel("/two"));
+    await act(async () => store.focusSession("session-one"));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(JSON.parse(window.localStorage.getItem("orbit.sessionLayout") ?? "null")).toEqual({
+      version: 1,
+      panels: [
+        { sessionID: "session-one", runtimeID: "deepseek" },
+        { sessionID: "session-two", runtimeID: "opencode" }
+      ],
+      activeSessionID: "session-one"
+    });
+
+    await act(async () => root.unmount());
+    container.remove();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => ({
+      session: { ...info(sessionID === "session-one" ? "/one" : "/two", generation, runtimeID), id: sessionID },
+      transcript: [],
+      todos: [],
+      usage: null
+    }));
+    window.openshell = api({ activeSessions: async () => [], openSessionById });
+
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(openSessionById.mock.calls.map((call) => call[0])).toEqual(["session-one", "session-two"]);
+    expect(openSessionById.mock.calls.map((call) => call[2])).toEqual(["deepseek", "opencode"]);
+    expect(store.panels.map((panel) => panel.id)).toEqual(["session-one", "session-two"]);
+    expect(store.session?.id).toBe("session-one");
+  });
+
+  it("migrates legacy layout entries and skips stale or unavailable sessions independently", async () => {
+    window.localStorage.setItem("orbit.sessionLayout", JSON.stringify({
+      version: 0,
+      sessions: [
+        { id: "valid", runtimeID: "opencode" },
+        null,
+        { id: "stale", runtimeID: "opencode" },
+        { sessionID: "unavailable", runtimeID: "deepseek" },
+        { id: 42 }
+      ],
+      activeSessionID: "valid"
+    }));
+    const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => {
+      if (sessionID !== "valid") throw new Error(`${sessionID} cannot be restored`);
+      return {
+        session: { ...info("/valid", generation, runtimeID), id: sessionID },
+        transcript: [],
+        todos: [],
+        usage: null
+      };
+    });
+    window.openshell = api({ activeSessions: async () => [], openSessionById });
+
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(openSessionById.mock.calls.map((call) => [call[0], call[2]])).toEqual([
+      ["valid", "opencode"],
+      ["stale", "opencode"],
+      ["unavailable", "deepseek"]
+    ]);
+    expect(store.panels.map((panel) => panel.id)).toEqual(["valid"]);
+    expect(store.session?.id).toBe("valid");
+    expect(JSON.parse(window.localStorage.getItem("orbit.sessionLayout") ?? "null")).toEqual({
+      version: 1,
+      panels: [{ sessionID: "valid", runtimeID: "opencode" }],
+      activeSessionID: "valid"
+    });
+  });
+
+  it("ignores corrupt persisted layout without blocking normal startup", async () => {
+    window.localStorage.setItem("orbit.sessionLayout", "{\"version\":1,\"panels\":[");
+    window.openshell = api();
+
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(store.panels).toEqual([]);
+    expect(JSON.parse(window.localStorage.getItem("orbit.sessionLayout") ?? "null")).toEqual({
+      version: 1,
+      panels: [],
+      activeSessionID: null
+    });
   });
 
   it("opens parallel sessions and restores each session's own tabs when focus swaps", async () => {

@@ -73,6 +73,7 @@ describe("picker catalogs refresh on server update events", () => {
 
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    window.localStorage.clear();
     agentList = [];
     modelList = [];
     messageHandler = null;
