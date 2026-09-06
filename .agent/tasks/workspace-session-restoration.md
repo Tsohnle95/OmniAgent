@@ -52,8 +52,8 @@ Implementation / tests:
 
 | Phase | Scope | Status | Validation | Commit |
 |---|---|---|---|---|
-| 1 | Plan review and renderer-owned persistence/restore implementation with focused tests | active | targeted Vitest tests, typecheck | — |
-| 2 | Canonical docs, full validation, cumulative review, evaluation record, cleanup | pending | `npm run check` under pinned Node | — |
+| 1 | Plan review and renderer-owned persistence/restore implementation with focused tests | complete | targeted Vitest tests; `npm run check` under Node 22.23.2 | `a4e0ec8`, `4d8a6f4` |
+| 2 | Cumulative review, evaluation record, cleanup | active | final `npm run check` under pinned Node | — |
 
 ## Validation plan
 
@@ -67,6 +67,7 @@ Implementation / tests:
 - 2026-09-05 — Persist session IDs plus optional runtime IDs, not directories or workspace identities. Reason: main's existing session reopen path owns canonicalization/relocation and mints fresh capabilities; directories are redundant and identities are transient.
 - 2026-09-05 — Restore entries sequentially in persisted order, using the stored runtime only as an explicit routing hint and omitting it when absent. Reason: preserves panel order and avoids silently remapping a session to the globally selected runtime.
 - 2026-09-05 — Treat malformed/future records and individual reopen failures as non-fatal, and compact only after startup reconciliation completes. Reason: launch availability and valid-panel recovery take precedence over preserving unusable hints.
+- 2026-09-05 — Await the existing health/connect attempt before reading live sessions or reopening cold IDs, but continue when health fails. Reason: main creates the renderer before its backend connection and unavailable runtimes must remain non-fatal.
 
 ## Plan review
 
