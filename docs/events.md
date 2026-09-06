@@ -1,5 +1,7 @@
 # opencode2 Event Protocol
 
+> **Document role:** canonical owner for the normalized runtime event protocol, renderer handling inventory, and event-specific semantics.
+
 The main process subscribes to the opencode2 SSE stream
 (`client.event.subscribe()`) through a transport pipeline
 (`src/main/stream-pipeline.ts`) and forwards **every** event to the renderer

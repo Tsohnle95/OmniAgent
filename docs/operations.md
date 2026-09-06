@@ -1,5 +1,7 @@
 # Operations: running, verifying, and debugging
 
+> **Document role:** canonical owner for running, verification, smoke testing, operational debugging, and recovery procedures.
+
 Practical know-how for running the app, smoke-testing it, and debugging
 renderer/main behavior without guessing. Everything here has been used
 and verified in real sessions.

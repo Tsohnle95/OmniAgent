@@ -1,5 +1,7 @@
 # Module: preload bridge
 
+> **Document role:** canonical owner for the renderer-to-main preload bridge contract (`window.openshell`).
+
 `src/preload/index.ts` — a thin `contextBridge` layer that exposes the
 renderer's only gateway to the main process: `window.openshell`.
 

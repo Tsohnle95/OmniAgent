@@ -1,5 +1,7 @@
 # Module: main process
 
+> **Document role:** canonical owner for main-process implementation ownership, backend behavior, and the `shell:*` IPC inventory.
+
 `src/main/index.ts` (window + IPC wiring) and
 `src/main/opencode.ts` (the `OpenShellBackend` — all opencode2 traffic).
 

@@ -1,5 +1,7 @@
 # Module: shared types
 
+> **Document role:** canonical owner for shared TypeScript contracts that cross main/preload/renderer boundaries.
+
 `src/shared/types.ts` — the contract between main, preload, and renderer.
 Imported everywhere as `@shared/types` (alias in both tsconfigs and
 `electron.vite.config.ts`).

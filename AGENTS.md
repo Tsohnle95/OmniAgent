@@ -1,135 +1,205 @@
 # Orbit — Agent Guide
 
-Orbit is a VS Code-style desktop GUI for coding agents: an Electron + React
-+ Monaco app that opens a repository, routes prompts through capability-aware
-runtime adapters, streams the agent's progress, and shows live per-file diffs
-of workspace file changes observed during the active session. Built-in runtime
-support currently covers OpenCode and DeepSeek Harness.
+Orbit is a VS Code-style desktop GUI for coding agents: an Electron + React +
+Monaco app that opens a repository, routes prompts through capability-aware
+runtime adapters, streams agent progress, and shows live per-file diffs of
+workspace changes observed during the active session. Built-in runtime support
+currently covers OpenCode and DeepSeek Harness.
 
-Read this file first. For depth, read the module docs — each one is
-self-contained so you never need to crawl the whole repo.
+Read this file first. Then use progressive disclosure: route to only the
+module documentation and source needed for the task. The docs are designed to
+be locally sufficient, not duplicated copies of the whole architecture.
 
 ## Quick start
 
 ```sh
 npm install
-npm run dev        # electron-vite dev with HMR
-npm run typecheck  # tsc --noEmit for node + web configs
-npm test           # Vitest unit/component tests in jsdom
-npm run build      # compile then launch the production app (one command)
+npm run dev            # electron-vite dev with HMR
+npm run typecheck      # tsc --noEmit for node + web configs
+npm test               # Vitest unit/component tests in jsdom
+npm run build          # compile then launch the production app
 npm run build:compile  # compile only -> out/
-npm run pack       # build + package installable Orbit.app (macOS) -> release/
-npm run check      # canonical verification gate
-npm start          # run the existing production build without rebuilding
+npm run pack           # build + package installable Orbit.app (macOS)
+npm run check          # canonical verification gate
+npm start              # run the existing production build
 ```
 
 `opencode2` must be on PATH (or an opencode service already running) for
 OpenCode sessions. `dsh` must be on PATH for DeepSeek Harness sessions.
+
+## Context discipline
+
+Use the smallest context that can safely answer the task.
+
+1. Read `AGENTS.md`.
+2. Route to the task-relevant doc(s) below.
+3. Inspect the specific implementation files/symbols and nearby tests named by
+   those docs.
+4. Expand outward only when evidence shows another dependency or invariant is
+   relevant.
+
+Do not preload all docs, crawl the repository to "understand everything", or
+read whole large files when a relevant symbol/section is sufficient. Do not
+re-open information already established in the current task context.
 
 ## Module map
 
 | Area | Path | Role |
 |---|---|---|
 | Main process | `src/main/index.ts` | Window, IPC handlers, backend wiring |
-| Backend | `src/main/opencode.ts` | Runtime routing, session state, fs watching, baselines, and OpenCode traffic |
-| Runtime adapters | `src/main/runtimes/` | Versioned adapter contract, capability manifests, durable runtime identity, and DeepSeek HTTP/WebSocket integration |
-| Stream transport | `src/main/stream-pipeline.ts` | SSE pipeline: per-directory delta coalescing, snapshot barriers, 33ms batched flush, heartbeat, reconnect backoff |
-| Provider usage | `src/main/provider-usage.ts` | Reads opencode's stored OAuth credentials and fetches per-provider plan/rate-limit data (ChatGPT, Claude, Copilot) |
-| Terminal | `src/main/terminal.ts` | `node-pty` PTY manager powering the bottom terminal tray and embedded agent TUI |
-| Packaging | `scripts/install-app.mjs` | electron-builder pack (`electron-builder.yml`) and `/Applications` install via `npm run install-app` |
-| Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to the renderer |
-| Renderer store | `src/renderer/src/store.tsx` | All UI state (concurrent sessions: panels + per-workspace slices); subscribes to backend events |
-| Chat store | `src/renderer/src/chat-store.ts` | Authoritative per-session message/part maps (`binary.ts`); transcript projection + snapshot materialization |
-| Streaming stack | `src/renderer/src/streaming.ts` + `session-activity.ts` + `assistant-status.ts` | Per-message stream lifecycle (streaming/cooldown/completed, 1Hz heartbeat), session phase, and working-summary derivation |
-| Message queue | `src/renderer/src/message-queue.ts` + `messages/` | Native server-side inbox for queued follow-ups (delivery queue/steer), local failure fallback, agent mentions, synthetic-part guards |
-| Renderer components | `src/renderer/src/components/` | Sidebar (Sessions/Files tabs), editor, agent panels, embedded agent TUI, welcome, terminal tray |
+| Backend | `src/main/opencode.ts` | Runtime routing, session state, fs watching, baselines, OpenCode traffic |
+| Runtime adapters | `src/main/runtimes/` | Adapter contract, capability manifests, durable runtime identity, DeepSeek transport |
+| Stream transport | `src/main/stream-pipeline.ts` | SSE batching, delta coalescing, snapshot barriers, heartbeat, reconnect |
+| Provider usage | `src/main/provider-usage.ts` | Provider plan/rate-limit data |
+| Terminal | `src/main/terminal.ts` | `node-pty` manager for terminal tray and embedded agent TUI |
+| Preload bridge | `src/preload/index.ts` | `window.openshell` API exposed to renderer |
+| Renderer store | `src/renderer/src/store.tsx` | UI state, concurrent sessions, backend event subscription |
+| Chat store | `src/renderer/src/chat-store.ts` | Authoritative per-session message/part state and transcript projection |
+| Streaming stack | `src/renderer/src/streaming.ts`, `session-activity.ts`, `assistant-status.ts` | Stream/session lifecycle and working status |
+| Message queue | `src/renderer/src/message-queue.ts`, `messages/` | Native inbox follow-ups and local failure fallback |
+| Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panels, TUI, welcome, terminal |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
-| Shared types | `src/shared/types.ts` | Types shared across main/preload/renderer |
-| Mobile companion | `mobile/` | Self-contained bun workspace (Capacitor Android/iOS shell + web UI + server) rebranded from OpenChamber (MIT); see `mobile/README.md` |
+| Shared types | `src/shared/types.ts` | Contracts shared across main/preload/renderer |
+| Mobile companion | `mobile/` | Self-contained Capacitor/bun workspace; see `mobile/README.md` |
 
-See `docs/` for full docs: `architecture.md` (system overview),
-`walkthrough.md` (guided tour of the connections), `events.md` (opencode2
-event protocol), `operations.md` (run/verify/debug playbook), `main.md`,
-`preload.md`, `renderer.md`, `shared.md`. Open product
-requests and current priorities live in the README and repository issues.
+## Task / symptom router
+
+| Task or symptom | Read first | Likely implementation |
+|---|---|---|
+| Agent response/stream/timeline is wrong | `docs/events.md`, relevant `docs/renderer.md` section | `chat-store.ts`, `streaming.ts`, `chat-stream.ts`, `store.tsx` |
+| Runtime/provider integration issue | `docs/architecture.md` runtime section, `docs/main.md` | `src/main/runtimes/`, `runtime-adapter.ts` |
+| IPC/API change | `docs/main.md`, `docs/preload.md`, `docs/shared.md` | main handler → preload wrapper → shared type → renderer caller |
+| File watching/diff/baseline issue | `docs/architecture.md` diff section | `src/main/opencode.ts`, renderer store/editor state |
+| Renderer state/component behavior | relevant `docs/renderer.md` section | owning store/action/component + nearby tests/SCSS |
+| Event contract mismatch | `docs/events.md` | stream pipeline, event normalization/reducer, fixtures |
+| Terminal/TUI issue | terminal sections in `docs/main.md` and `docs/renderer.md` | `terminal.ts`, `TerminalTray.tsx`, `AgentTui.tsx` |
+| Build/start/package/debug issue | `docs/operations.md` | scripts/config and the failing subsystem |
+| Cross-process flow is unclear | `docs/walkthrough.md` | follow the named connection points, then open canonical module docs |
+
+## Execution policy
+
+Before editing, silently classify the work as **PATCH**, **FEATURE**,
+**PROJECT**, or **BATCH**. Use the lightest mode that safely fits. Do not create
+process artifacts merely to demonstrate compliance.
+
+- **PATCH** — localized, well-understood change with clear acceptance criteria
+  and straightforward verification. Inspect → edit → targeted validation →
+  review diff → `npm run check` → commit.
+- **FEATURE** — coordinated multi-file/component change or behavior requiring
+  investigation. Make a concise in-context plan, implement in validated slices,
+  then run the canonical gate and commit logical units.
+- **PROJECT** — architectural/contract/security/concurrency/persistence change,
+  migration, major uncertainty, or work expected to span several commits or
+  contexts. Create and review a temporary task plan under `.agent/tasks/`, then
+  implement phase by phase with verified Git checkpoints.
+- **BATCH** — multiple independently completable outcomes. Triage the whole
+  batch for dependencies/shared root causes, order or cluster it, then execute
+  each logical unit using PATCH, FEATURE, or PROJECT rules. Do not keep every
+  implementation active in one working context.
+
+For detailed planning, escalation, delegation, and task-file rules, read
+`docs/agent-execution.md` for FEATURE, PROJECT, or BATCH work.
+
+### Escalate instead of patching blindly
+
+Replan or move to a heavier mode when an architectural assumption proves
+wrong, scope/coupling expands materially, tests reveal an unexpected dependency,
+two repair attempts fail for the same underlying problem, unrelated refactors
+start becoming necessary, or the agent can no longer state the invariant that
+keeps the change correct.
+
+Do not create a spec, design document, subagent hierarchy, or persistent plan
+when direct execution is sufficient. Planning exists to reduce implementation
+risk, not as mandatory ceremony.
 
 ## Architecture in one paragraph
 
 The Electron **main process** owns runtime adapters and is the only process that
 talks to OpenCode or DeepSeek Harness. OpenCode uses its discovered service and
-coalesced SSE pipeline; DeepSeek launches a workspace-local `dsh web` process,
-uses correlated loopback HTTP RPC plus independent WebSocket downlinks, and
-maps verified native records to normalized runtime events. Every session keeps
-its runtime id and capability manifest, while a durable index makes DeepSeek
-sessions reopenable after restart. The **renderer** (React) keeps all UI state in one
-store and renders a three-pane layout: file tree,
-Monaco editor with an Edit/Diff toggle, and the streaming agent panel. Model
-response events mutate an authoritative per-session message/part chat store
-whose projection is the visible transcript; incomplete snapshots materialize
-from the session's message history. The main
-process also watches the repo with `fs.watch`; every change streams a
-`{baseline, content}` update so Changes reflects files still differing from
-their effective baseline. Git metadata changes refresh those baselines while
-the session is active, and Diff remains available when the baseline is known.
+coalesced SSE pipeline; DeepSeek launches workspace-local `dsh web`, uses
+correlated loopback HTTP RPC plus independent WebSocket downlinks, and maps
+verified native records to normalized runtime events. Every session retains its
+runtime id and capability manifest. The **renderer** keeps UI state and the
+authoritative per-session chat projection. Main watches the repo and streams
+baseline/content updates so the Changes/Diff UI reflects observed workspace
+changes while preserving process and trust boundaries.
 
-## Conventions (follow these)
+## Conventions
 
-- **No code comments.** Code must be self-explanatory; put knowledge in
-  `docs/` instead.
+- Prefer self-explanatory code. Do not narrate obvious implementation with
+  comments. Use concise comments for non-obvious invariants, protocol quirks,
+  security assumptions, race-condition defenses, compatibility workarounds, or
+  rationale that cannot be recovered from the code itself. Long-lived
+  architecture belongs in docs; local correctness knowledge belongs beside the
+  implementation it constrains.
 - TypeScript strict; shared shapes live in `src/shared/types.ts` and are
-  imported as `@shared/types` (alias configured in the tsconfigs and
-  `electron.vite.config.ts`).
-- IPC channels are named `shell:*`; backend messages to the renderer are
-  `{ kind: "event" | "file-update" | "session", ... }` (see
-  `src/shared/types.ts`).
-- OpenCode SDK calls remain isolated in `src/main/opencode.ts`; DeepSeek native
+  imported as `@shared/types`.
+- IPC channels are named `shell:*`; shared backend message shapes live in
+  `src/shared/types.ts`.
+- OpenCode SDK calls remain isolated in `src/main/opencode.ts`; DeepSeek-native
   traffic remains isolated under `src/main/runtimes/deepseek/`.
-- Tree paths are relative to the session directory, always `/`-separated,
-  no trailing slashes.
-- Everything under `out/`, `node_modules/`, `*.tsbuildinfo` is gitignored.
+- Tree paths are session-relative, `/`-separated, with no trailing slash.
+- `out/`, `node_modules/`, and `*.tsbuildinfo` are gitignored.
 
 ## Definition of done
 
-After any change, run `npm run check`. It runs typecheck, unit/component tests,
-docs checks, and the production build. Commit buildable state; never commit a
-broken build.
+Use targeted checks while iterating. Before a logical unit is considered done,
+run `npm run check`; it runs typecheck, unit/component tests, docs checks, and
+the production build. Run additional platform/manual validation when the
+relevant module docs require it. Never commit a knowingly broken checkpoint.
 
-## Commits are the agent's job
+## Git ownership and safety
 
-The agent owns version control — the user should never see a dirty tree.
+The agent owns version control **for changes it creates**.
 
-- Check `git status` at the start of a session and leave the tree exactly
-  as you found it; if the session starts clean, it must end clean.
-- Commit after each logically complete unit of work (a feature, a fix,
-  its docs) rather than once at the end — but only after that unit
-  passes `npm run check`.
-- Include the doc/brain updates for a change in the same commit as the
-  code that makes them necessary (see Docs maintenance).
-- Write concise commit messages that match the repo's existing style.
-- Do not commit unrelated or experimental files; never commit secrets.
-- Only commit what you are confident is correct: a commit is the
-  checkpoint a future session (or `git revert`) may rely on.
+- Record `git status` before editing.
+- Never discard, reset, clean, stash, overwrite, or commit pre-existing user
+  changes merely to obtain a clean tree.
+- Preserve unrelated changes exactly as found.
+- Commit each logically complete, independently sound unit after its required
+  verification; large PROJECT work should normally have one checkpoint commit
+  per completed phase.
+- Include required project-brain updates in the same commit as the behavior or
+  contract change that makes them necessary.
+- Do not commit experimental debris or secrets.
+- A commit is a recovery checkpoint. Only commit work you believe is correct.
+
+## Documentation ownership
+
+Permanent docs describe durable product truth; temporary task files describe
+work in progress. Prefer one canonical owner for each class of fact and link to
+it elsewhere rather than restating the invariant in different words.
+
+| Truth | Canonical owner |
+|---|---|
+| Repository routing, conventions, execution entry rules | `AGENTS.md` |
+| Execution modes, planning, delegation, replanning | `docs/agent-execution.md` |
+| Cross-process architecture and architectural invariants | `docs/architecture.md` |
+| Main-process behavior and IPC inventory | `docs/main.md` |
+| Preload bridge contract | `docs/preload.md` |
+| Renderer state/ownership/invariants | `docs/renderer.md` |
+| Runtime event protocol and handling inventory | `docs/events.md` |
+| Shared data contracts | `docs/shared.md` |
+| Run/verify/debug procedures | `docs/operations.md` |
+| End-to-end navigation through the system | `docs/walkthrough.md` (routing aid, not a second invariant owner) |
+| Current multi-phase work | `.agent/tasks/<task>.md` |
+| Runtime correctness | source + tests |
+| Completed implementation history | Git |
 
 ## Docs maintenance (the project brain)
 
-The brain is `AGENTS.md` + `docs/`. It must never drift from the code.
+The permanent brain is `AGENTS.md` + `docs/`. Keep it aligned with code without
+turning it into a prose clone of the implementation.
 
-- `npm run docs:check` runs the documented surface presence check in
-  `scripts/check-docs.mjs`. It checks `AGENTS.md`, `README.md`,
-  and every `docs/*.md` file for local Markdown link
-  targets, numeric source references, and duplicate table inventory rows.
-  Against source, it inventories IPC channels, `OpenShellBackend` public
-  methods, the `window.openshell` contract, handled and intentionally unhandled
-  event types, and shared backend message kinds.
-  It also asserts the canonical package command and supported Node metadata.
-  It does not prove prose or runtime behavior; tests own those invariants.
-- **When you change code, update the brain in the same commit**: add the
-  new IPC channel / method / event to the relevant docs table. The check
-  will tell you exactly what is missing.
-- **When you add an event handler**, put it in the events.md handled
-  table; when the app starts ignoring an event, move it to the
-  not-handled list.
-- **When a change is pure refactoring with no observable surface**
-  (naming, internals, private helpers), no doc update is needed — the
-  check only tracks the public, verifiable surface so it never demands
-  noise.
+- `npm run docs:check` verifies documented surfaces and local references; it
+  does not prove prose or runtime behavior. Tests own executable invariants.
+- Update the canonical owner when a durable architectural, contract, or
+  operational truth changes. In non-owner docs, prefer a link/short routing
+  note over duplicating the full explanation.
+- Add handled/ignored events to `docs/events.md` as appropriate and keep the
+  IPC/preload/shared inventories synchronized with their source surfaces.
+- Pure refactors with no changed durable behavior or public/verifiable surface
+  do not require documentation churn.
+- `.agent/tasks/` is temporary working memory, not part of the permanent brain.
+  On PROJECT completion, move only durable truths into canonical docs, ensure
+  follow-up work lives in issues/backlog, then delete the completed task file.

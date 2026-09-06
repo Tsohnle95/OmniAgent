@@ -1,5 +1,7 @@
 # Architecture
 
+> **Document role:** canonical owner for cross-process architecture and durable architectural invariants. Module docs may summarize or route here but should not redefine these invariants.
+
 Orbit is an Electron app built with **electron-vite** (three build
 targets: `main`, `preload`, `renderer`). It is a GUI for the opencode2
 agent: you open a repository, send a prompt, and watch the agent stream
@@ -174,12 +176,13 @@ custom schemes, malformed targets, and insecure HTTP targets are rejected.
    is busy; the renderer reconciles `activeSessions()` every second so the
    background run remains in **Open now** and can be reopened or explicitly
    closed.
-7. Closing the window on macOS keeps the backend alive (it is only torn
-   down in `before-quit`); re-activating re-creates the window while the
-   single-flight event loop remains active. Shutdown aborts the active SDK SSE
-   subscription and stops every context watcher. On renderer reload,
-   `activeSessions()` restores every open panel silently and focuses the most
-   recently activated one unless the user already acted.
+7. `window-all-closed` quits on every platform. `before-quit` aborts the active
+   SDK SSE subscription, stops every context watcher, and tears down terminals.
+   A renderer reload does not close the backend process; `activeSessions()`
+   restores every open panel silently and focuses the most recently activated
+   one unless the user already acted. Dock `activate` can re-create a window
+   only while the process is still alive (for example after programmatic window
+   destruction), not after the last-window quit path.
 
 ## Diffs and baselines (how the diff view works)
 
