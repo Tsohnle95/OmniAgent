@@ -4,9 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const electronMocks = vi.hoisted(() => ({ showItemInFolder: vi.fn() }));
+
 vi.mock("electron", () => ({
   app: { getPath: () => tmpdir() },
-  shell: { trashItem: vi.fn(), openPath: async () => "" }
+  shell: { trashItem: vi.fn(), openPath: async () => "", showItemInFolder: electronMocks.showItemInFolder }
 }));
 vi.mock("@opencode-ai/client", () => ({ OpenCode: { make: vi.fn() } }));
 vi.mock("@opencode-ai/client/service", () => ({ Service: {} }));
@@ -90,6 +92,31 @@ describe("resolveExternalOpen", () => {
     const big = path.join(outside, "big.txt");
     await writeFile(big, "x".repeat(9 * 1024 * 1024));
     await expect(backend.resolveExternalOpen(workspace, big)).rejects.toThrow("too large");
+  });
+});
+
+describe("revealInFileManager", () => {
+  it("reveals existing files and folders without changing workspace state", async () => {
+    const { backend, root } = await fixture();
+    const file = path.join(root, "inside.txt");
+    const folder = path.join(root, "folder");
+    await writeFile(file, "hello");
+    await mkdir(folder);
+
+    await backend.revealInFileManager(workspace, "inside.txt");
+    await backend.revealInFileManager(workspace, "folder");
+
+    expect(electronMocks.showItemInFolder).toHaveBeenNthCalledWith(1, file);
+    expect(electronMocks.showItemInFolder).toHaveBeenNthCalledWith(2, folder);
+  });
+
+  it("rejects missing or outside items before invoking the file manager", async () => {
+    electronMocks.showItemInFolder.mockClear();
+    const { backend, root } = await fixture();
+
+    await expect(backend.revealInFileManager(workspace, "gone.txt")).rejects.toThrow("no longer available");
+    await expect(backend.revealInFileManager(workspace, "../outside.txt")).rejects.toThrow("invalid workspace path");
+    expect(electronMocks.showItemInFolder).not.toHaveBeenCalled();
   });
 });
 

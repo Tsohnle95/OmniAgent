@@ -99,6 +99,8 @@ const api = {
   interrupt: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:interrupt", workspace),
   listDir: (workspace: WorkspaceIdentity, rel: string): Promise<{ path: string; type: "file" | "directory" }[]> =>
     ipcRenderer.invoke("shell:fs-list", workspace, rel),
+  revealInFileManager: (workspace: WorkspaceIdentity, rel: string): Promise<void> =>
+    ipcRenderer.invoke("shell:fs-reveal", workspace, rel),
   readFile: (workspace: WorkspaceIdentity, rel: string): Promise<string | null> =>
     ipcRenderer.invoke("shell:fs-read", workspace, rel),
   writeFile: (

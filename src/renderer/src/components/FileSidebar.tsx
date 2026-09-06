@@ -258,7 +258,7 @@ function TreeNameInput({
 }
 
 function ExplorerMenu({ onOpenTerminal }: { onOpenTerminal?: (directory: string) => void }): ReactNode {
-  const { session, startCreate, startRename, deleteEntry, removeFromWorkspace, closePanel } = useStore();
+  const { session, startCreate, startRename, revealInFileManager, deleteEntry, removeFromWorkspace, closePanel } = useStore();
   const { ctxMenu, closeCtxMenu } = useCtxMenu();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -304,6 +304,11 @@ function ExplorerMenu({ onOpenTerminal }: { onOpenTerminal?: (directory: string)
         <FolderPlusIcon />
         New Folder…
       </button>
+      {target && (
+        <button className="ctx-item" onClick={() => void revealInFileManager(target.path)}>
+          Reveal in File Manager
+        </button>
+      )}
       {workspaceRoot && session && (
         <button className="ctx-item" onClick={() => { closeCtxMenu(); closePanel(session.id); }}>
           Remove Workspace

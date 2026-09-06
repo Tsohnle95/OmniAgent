@@ -133,6 +133,23 @@ describe("store workspace continuations", () => {
     expect(store.tabs.map((tab) => tab.path)).toEqual(["same.txt"]);
   });
 
+  it("reveals a path without changing the active editor state and handles stale items", async () => {
+    const revealInFileManager = vi.fn(async () => { throw new Error("workspace item is no longer available"); });
+    window.openshell = api({ revealInFileManager });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    await act(async () => store.openFile("same.txt"));
+    const tabsBefore = store.tabs;
+    const activeBefore = store.activePath;
+
+    await act(async () => store.revealInFileManager("same.txt"));
+
+    expect(revealInFileManager).toHaveBeenCalledWith(store.session!.workspace, "same.txt");
+    expect(store.tabs).toBe(tabsBefore);
+    expect(store.activePath).toBe(activeBefore);
+    expect(store.toasts.at(-1)?.text).toBe("workspace item is no longer available");
+  });
+
   it("does not open a file created by a completed old-workspace operation", async () => {
     const creation = deferred();
     window.openshell = api({ createFile: vi.fn(() => creation.promise) });

@@ -18,6 +18,7 @@ const store = {
   cancelPending: vi.fn(),
   startCreate: vi.fn(),
   startRename: vi.fn(),
+  revealInFileManager: vi.fn(),
   deleteEntry: vi.fn(),
   removeFromWorkspace: vi.fn(),
   restoreRemovedFromWorkspace: vi.fn()
@@ -88,6 +89,17 @@ describe("FileSidebar context menu open/close", () => {
     act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} onOpenTerminal={onOpenTerminal} />));
     act(() => document.body.querySelector<HTMLButtonElement>(".ctx-item")!.click());
     expect(onOpenTerminal).toHaveBeenLastCalledWith("dir");
+  });
+
+  it("offers reveal in file manager for a selected explorer item", () => {
+    ctxMenuApi.ctxMenu = { x: 50, y: 60, target: { path: "dir/a.txt", type: "file" } };
+    act(() => root.render(<FileSidebar collapsed={false} onCollapse={() => {}} onDrag={() => {}} />));
+    const item = [...document.body.querySelectorAll<HTMLButtonElement>(".ctx-item")].find(
+      (button) => button.textContent === "Reveal in File Manager"
+    )!;
+    expect(item).toBeTruthy();
+    act(() => item.click());
+    expect(store.revealInFileManager).toHaveBeenCalledWith("dir/a.txt");
   });
 
   it("renders the menu outside the sidebar so ancestors cannot clip it", () => {

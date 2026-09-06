@@ -235,6 +235,7 @@ interface Store {
   mergeTab: (path: string) => void;
   toggleDir: (path: string) => Promise<void>;
   ensureRootOpen: () => Promise<void>;
+  revealInFileManager: (path: string) => Promise<void>;
   replyPermission: (requestID: string, reply: PermissionReply, sessionID?: string) => Promise<void>;
   removeQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => void;
   popQueuedMessage: (workspace: WorkspaceIdentity, messageID: string) => QueuedMessage | null;
@@ -2138,6 +2139,19 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setPendingRename({ path });
   }, [closeCtxMenu]);
 
+  const revealInFileManager = useCallback(async (path: string): Promise<void> => {
+    closeCtxMenu();
+    const target = sessionRef.current?.workspace;
+    if (!target) return;
+    try {
+      await window.openshell.revealInFileManager(target, path);
+    } catch (err) {
+      if (panelFor(target)) {
+        toast(err instanceof Error ? err.message : String(err), "error");
+      }
+    }
+  }, [closeCtxMenu, panelFor, toast]);
+
   const unhidePath = useCallback((path: string): void => {
     const target = sessionRef.current;
     if (!target || !hiddenPathsByWorkspace[target.workspace.id]?.has(path)) return;
@@ -3530,6 +3544,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       mergeTab,
       toggleDir,
       ensureRootOpen,
+      revealInFileManager,
       replyPermission,
       removeQueuedMessage,
       popQueuedMessage,
@@ -3557,7 +3572,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       models, availableModels, lastModel, currentModel, agents, currentAgent, approvalMode, wordWrap, messageQueue.followUpBehavior, setFollowUpBehavior, sessions, savedWorkspaces, saveWorkspace, removeWorkspace, activeSessions, panels, workspaceOnlyPanelIDs, panelViews, activeSessionID,
       focusSession, closePanel, openSession, addModelPanel, openWorkspacePanel, selectAddPanel, selectFolder, selectFile, openFileWorkspace, openExternalPath, importPaths, dropIntoExplorer, selectPanelDirectory, changePanelDirectory, reopenSession, loadSessions, sendPrompt, runCommand, stop, refreshProviderUsage, loadModels, switchModel,
       loadAgents, switchAgent, toggleApprovalMode, toggleWordWrap,
-      openFile, closeTab, setActive, setTabMode,
+      openFile, closeTab, setActive, setTabMode, revealInFileManager,
       editContent, saveTab, reloadTab, overwriteTab, mergeTab, toggleDir, ensureRootOpen, replyPermission,
       startCreate, startRename, cancelPending, commitName, deleteEntry, removeFromWorkspace, moveEntry, openRecovery, acknowledgeRecovery,
       removeQueuedMessage, popQueuedMessage, sendQueuedNow, reorderQueuedMessage,

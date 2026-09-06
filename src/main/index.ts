@@ -704,6 +704,11 @@ function registerIpc(): void {
     return backend.listDir(target.workspace, target.rel);
   });
 
+  handleTrusted("shell:fs-reveal", async (_e, workspace: WorkspaceIdentity, rel: string) => {
+    const target = workspacePath(workspace, rel, true);
+    return backend.revealInFileManager(target.workspace, target.rel);
+  });
+
   handleTrusted("shell:fs-read", async (_e, workspace: WorkspaceIdentity, rel: string) => {
     const target = workspacePath(workspace, rel);
     return backend.readFile(target.workspace, target.rel);

@@ -182,6 +182,7 @@ dialog), `reopenSession(id, silent)`
 requests vanished — e.g. answered in an attached TUI),
 `openCtxMenu`, `closeCtxMenu`, `startCreate(parent, kind)`, `startRename(path)`, `cancelPending`,
 `commitName(name)`, `deleteEntry(path)`, `moveEntry(path, destDir)`,
+`revealInFileManager(path)`,
 `openRecovery(id)`, `acknowledgeRecovery(id)`. `closePanel` invokes
 `shell:close-session` so main tears down the panel's backend context
 (watcher, context map) while the opencode session stays reopenable. Each panel

@@ -91,6 +91,7 @@ Public methods (all used by IPC):
 | `replyPermission(workspace, requestID, reply, sessionID)` | Replies only when the supplied session is the captured context session |
 | `listPermissions(workspace)` | `permission.request.list()` → `PendingPermissionRequest[]` (`id`, `sessionID`, `action`, `resources`) for every pending request on the service |
 | `listDir(workspace, rel)` | Validates the context and confinement, then reads the directory directly from the filesystem (`fs.readdir`) with trailing slashes stripped |
+| `revealInFileManager(workspace, rel)` | Validates the context, confinement, and current file or folder, then asks the operating system's native file manager to reveal it |
 | `readFile(workspace, rel)` | Confined workspace-relative API read; `null` if unreadable |
 | `writeFile(workspace, rel, content, write)` | Confined bounded Node `fs` write; holds and validates the expected disk version, installs by no-replace link, preserves recovery files on concurrent recreation, and emits an identified `file-update` |
 | `createFile(workspace, rel)` | Confined `mkdir -p` parents and empty exclusive write; emits `file-update` |
@@ -250,6 +251,7 @@ Internals:
 | `shell:read-image-preview` | `(absolutePath) → string \| null` — resized data-URL thumbnail for composer attachment chips; `null` when the file is not a decodable image |
 | `shell:interrupt` | `(workspace) → void` |
 | `shell:fs-list` | `(workspace, rel) → TreeEntry[]` |
+| `shell:fs-reveal` | `(workspace, rel) → void` — validates and reveals a file or folder in the operating system's native file manager |
 | `shell:fs-read` | `(workspace, rel) → string \| null` |
 | `shell:fs-write` | `(workspace, rel, content, write) → void` |
 | `shell:fs-create-file` | `(workspace, rel) → void` |

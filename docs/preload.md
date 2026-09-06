@@ -54,6 +54,7 @@ automatically.
 | `readImagePreview(file)` | `Promise<string \| null>` — data-URL thumbnail for a local image path |
 | `interrupt(workspace)` | `Promise<void>` |
 | `listDir(workspace, rel)` | `Promise<TreeEntry[]>` |
+| `revealInFileManager(workspace, rel)` | `Promise<void>` — validates and reveals a file or folder in the operating system's native file manager; missing items fail without changing workspace or editor state |
 | `readFile(workspace, rel)` | `Promise<string \| null>` — workspace-relative only |
 | `openExternal(workspace, file)` | `Promise<ExternalOpenResult>` — resolves an absolute path against the workspace: `{kind:"relative", rel, content}` when the file lives under the workspace root (open it normally) or `{kind:"standalone", path, content}` when outside it (open as a standalone tab) |
 | `externalKind(file)` | `Promise<ExternalKind>` — probes an absolute path as `file`/`directory`/`missing` so explorer drops can route files to standalone tabs and folders to imports |

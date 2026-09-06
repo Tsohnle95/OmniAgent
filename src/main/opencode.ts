@@ -2491,6 +2491,17 @@ export class OpenShellBackend {
       }));
   }
 
+  async revealInFileManager(workspace: WorkspaceIdentity, rel: string): Promise<void> {
+    const root = this.workspaceRoot(workspace);
+    const clean = relativePath(rel, true);
+    const abs = await confinedPath(root, clean, true);
+    this.contextFor(workspace);
+    const item = await fsp.lstat(abs).catch(() => null);
+    if (!item || (!item.isFile() && !item.isDirectory())) throw new Error("workspace item is no longer available");
+    this.contextFor(workspace);
+    shell.showItemInFolder(abs);
+  }
+
   async readFile(workspace: WorkspaceIdentity, rel: string): Promise<string | null> {
     const root = this.workspaceRoot(workspace);
     const clean = relativePath(rel);
