@@ -18,3 +18,4 @@ design
 resources/icon.iconset/
 scripts/.electron-profile/
 scripts/.electron-cache/
+repomix-output.xml
