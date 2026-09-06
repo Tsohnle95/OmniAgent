@@ -3403,7 +3403,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     }).catch(() => {});
     if (!startupRestoreStartedRef.current) {
       startupRestoreStartedRef.current = true;
-      void refreshActiveSessions().then(async (liveSessions) => {
+      void (async () => {
+        await window.openshell.health().catch(() => false);
+        if (cancelled) return;
+        const liveSessions = await refreshActiveSessions();
         const liveBySessionID = new Map(liveSessions.map((session) => [session.id, session]));
         const entries: PersistedSessionPanel[] = persistedSessionLayout.panels.map((entry) => ({ ...entry }));
         const known = new Set(entries.map((entry) => entry.sessionID));
@@ -3432,7 +3435,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
           focusSession((preferred ?? restored[restored.length - 1])!.id, false);
         }
         setSessionLayoutReady(true);
-      });
+      })();
     }
     return () => {
       cancelled = true;

@@ -377,6 +377,31 @@ describe("store workspace continuations", () => {
     expect(store.session?.id).toBe("session-one");
   });
 
+  it("waits for backend readiness before attempting cold session restoration", async () => {
+    window.localStorage.setItem("orbit.sessionLayout", JSON.stringify({
+      version: 1,
+      panels: [{ sessionID: "session-one", runtimeID: "opencode" }],
+      activeSessionID: "session-one"
+    }));
+    const health = deferred<boolean>();
+    const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => ({
+      session: { ...info("/one", generation, runtimeID), id: sessionID },
+      transcript: [],
+      todos: [],
+      usage: null
+    }));
+    window.openshell = api({ health: () => health.promise, activeSessions: async () => [], openSessionById });
+
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(openSessionById).not.toHaveBeenCalled();
+
+    await act(async () => health.resolve(true));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(openSessionById).toHaveBeenCalledWith("session-one", expect.any(Number), "opencode");
+    expect(store.session?.id).toBe("session-one");
+  });
+
   it("migrates legacy layout entries and skips stale or unavailable sessions independently", async () => {
     window.localStorage.setItem("orbit.sessionLayout", JSON.stringify({
       version: 0,
