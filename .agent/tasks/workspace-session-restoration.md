@@ -1,6 +1,6 @@
 # Durable workspace session restoration
 
-Status: ACTIVE
+Status: COMPLETE
 
 ## Goal
 
@@ -10,12 +10,12 @@ session restore as untrusted and best-effort.
 
 ## Acceptance criteria
 
-- [ ] Panel order and the active session are restored across a renderer/process restart when sessions and runtimes remain valid.
-- [ ] Persisted state contains only session identity, optional runtime identity, order, and active-session identity; transient or privileged state is not recreated.
-- [ ] Corrupt, partially valid, legacy, stale, moved, or runtime-unavailable entries are skipped without preventing normal launch or valid entries from restoring.
-- [ ] Existing live-backend reload recovery, runtime identity routing, workspace identity boundaries, and explicit user actions remain intact.
-- [ ] Automated coverage exercises normal restoration and important corruption/stale/unavailable/legacy paths.
-- [ ] Canonical durable documentation and the evaluation record describe the implemented behavior.
+- [x] Panel order and the active session are restored across a renderer/process restart when sessions and runtimes remain valid.
+- [x] Persisted state contains only session identity, optional runtime identity, order, and active-session identity; transient or privileged state is not recreated.
+- [x] Corrupt, partially valid, legacy, stale, moved, or runtime-unavailable entries are skipped without preventing normal launch or valid entries from restoring.
+- [x] Existing live-backend reload recovery, runtime identity routing, workspace identity boundaries, and explicit user actions remain intact.
+- [x] Automated coverage exercises normal restoration and important corruption/stale/unavailable/legacy paths.
+- [x] Canonical durable documentation and the evaluation record describe the implemented behavior.
 
 ## Relevant context
 
@@ -53,7 +53,7 @@ Implementation / tests:
 | Phase | Scope | Status | Validation | Commit |
 |---|---|---|---|---|
 | 1 | Plan review and renderer-owned persistence/restore implementation with focused tests | complete | targeted Vitest tests; `npm run check` under Node 22.23.2 | `a4e0ec8`, `4d8a6f4` |
-| 2 | Cumulative review, evaluation record, cleanup | active | final `npm run check` under pinned Node | — |
+| 2 | Cumulative review, evaluation record, cleanup | complete | final `npm run check` under Node 22.23.2: 92 files / 683 tests, docs check, compile | pending completion commit |
 
 ## Validation plan
 
@@ -81,8 +81,8 @@ Implementation / tests:
 
 Before deleting this task file:
 
-- [ ] All acceptance criteria satisfied
-- [ ] Final integration validation passed
-- [ ] Durable truths updated in canonical docs
-- [ ] Follow-up work moved to issues/backlog
-- [ ] Final Git state reviewed
+- [x] All acceptance criteria satisfied
+- [x] Final integration validation passed
+- [x] Durable truths updated in canonical docs
+- [x] Follow-up work moved to issues/backlog
+- [x] Final Git state reviewed
