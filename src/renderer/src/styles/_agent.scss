@@ -548,10 +548,14 @@
 }
 
 .usage-provider-refresh:hover { color: var(--text); }
+.usage-provider-refresh:disabled { cursor: wait; }
 
 .usage-provider-refresh .codicon { font-size: 12px; }
 
-.usage-provider-refresh .codicon.spinning { animation: spin 0.8s linear infinite; }
+.usage-provider-refresh .codicon.spinning {
+  transform-origin: center;
+  animation: provider-usage-refresh 700ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+}
 
 .usage-provider-loading,
 .usage-provider-empty {
@@ -781,6 +785,11 @@
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes provider-usage-refresh {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 
 .agent-input-wrap {
   border-top: 1px solid var(--border);

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePanel, useStore } from "../store";
 import { OpenCodeTimeline, PermissionPrompt } from "./OpenCodeTimeline";
 import { FormPrompt } from "./FormPrompt";
@@ -1115,6 +1115,11 @@ export function AgentPanel({
   const headerRef = useRef<HTMLDivElement>(null);
   const panelDragRef = useRef<number | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [providerUsageRefreshing, setProviderUsageRefreshing] = useState(false);
+  const [providerUsageRefreshKey, setProviderUsageRefreshKey] = useState(0);
+  const providerUsageLoadingRef = useRef(providerUsageLoading);
+  const providerUsageRequestActiveRef = useRef(false);
+  providerUsageLoadingRef.current = providerUsageLoading;
   const [panelMode, setPanelMode] = useState<PanelMode>(() => readPanelMode(activeSession?.id));
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [tuiNotice, setTuiNotice] = useState("");
@@ -1154,9 +1159,20 @@ export function AgentPanel({
     setTuiNotice("");
   }, [activeSession?.id, activeSession?.workspace.id, activeSession?.workspace.generation, tuiAvailable]);
 
+  const triggerProviderUsageRefresh = useCallback((): void => {
+    if (providerUsageLoadingRef.current || providerUsageRequestActiveRef.current) return;
+    providerUsageRequestActiveRef.current = true;
+    setProviderUsageRefreshing(true);
+    setProviderUsageRefreshKey((current) => current + 1);
+    void Promise.resolve(refreshProviderUsage()).finally(() => {
+      providerUsageRequestActiveRef.current = false;
+      setProviderUsageRefreshing(false);
+    });
+  }, [refreshProviderUsage]);
+
   useEffect(() => {
-    if (usageOpen) void refreshProviderUsage();
-  }, [usageOpen, refreshProviderUsage]);
+    if (usageOpen) triggerProviderUsageRefresh();
+  }, [usageOpen, triggerProviderUsageRefresh]);
 
   useEffect(() => {
     if (!usageOpen) return;
@@ -1523,12 +1539,14 @@ export function AgentPanel({
                   Provider usage
                 </span>
                 <button
+                  type="button"
                   className="usage-provider-refresh"
                   title="Refresh provider usage"
                   aria-label="Refresh provider usage"
-                  onClick={() => void refreshProviderUsage()}
+                  disabled={providerUsageLoading || providerUsageRefreshing}
+                  onClick={triggerProviderUsageRefresh}
                 >
-                  <IconRefresh className={providerUsageLoading ? "spinning" : ""} />
+                  <IconRefresh key={providerUsageRefreshKey} className={providerUsageRefreshKey > 0 ? "spinning" : ""} />
                 </button>
               </div>
               {providerUsageLoading && providerUsage.length === 0 ? (

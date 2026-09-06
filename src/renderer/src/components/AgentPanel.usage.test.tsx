@@ -7,6 +7,7 @@ let currentSession: SessionInfo;
 let currentUsage: SessionUsage | null;
 let currentModel: ModelOption | null;
 let currentProviderUsage: ProviderUsageResult[];
+const refreshProviderUsage = vi.hoisted(() => vi.fn());
 
 vi.mock("../store", () => ({
   useStore: () => ({
@@ -32,7 +33,7 @@ vi.mock("../store", () => ({
     toggleApprovalMode: vi.fn(),
     providerUsage: currentProviderUsage,
     providerUsageLoading: false,
-    refreshProviderUsage: vi.fn()
+    refreshProviderUsage
   }),
   usePanel: () => ({
     session: currentSession,
@@ -89,6 +90,8 @@ describe("agent panel usage tracker", () => {
     currentUsage = usage(0);
     currentModel = model(100_000);
     currentProviderUsage = [];
+    refreshProviderUsage.mockReset();
+    refreshProviderUsage.mockResolvedValue(undefined);
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -226,5 +229,23 @@ describe("agent panel usage tracker", () => {
       "45% left",
       "55% left"
     ]);
+  });
+
+  it("refetches provider usage from the control and prevents duplicate in-flight requests", async () => {
+    let resolveRefresh!: () => void;
+    refreshProviderUsage.mockImplementation(() => new Promise<void>((resolve) => { resolveRefresh = resolve; }));
+    await act(async () => root.render(<AgentPanel />));
+    await act(async () => toggle(container).click());
+
+    const refresh = container.querySelector<HTMLButtonElement>('[aria-label="Refresh provider usage"]')!;
+    expect(refreshProviderUsage).toHaveBeenCalledTimes(1);
+    expect(refresh.disabled).toBe(true);
+    act(() => refresh.click());
+    expect(refreshProviderUsage).toHaveBeenCalledTimes(1);
+
+    await act(async () => resolveRefresh());
+    act(() => refresh.click());
+    expect(refreshProviderUsage).toHaveBeenCalledTimes(2);
+    expect(refresh.querySelector(".codicon")?.classList.contains("spinning")).toBe(true);
   });
 });

@@ -2,10 +2,10 @@ import type { ReactNode, SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
-function Icon({ name, children, ...rest }: IconProps & { name: string; children: ReactNode }): ReactNode {
+function Icon({ name, children, className, ...rest }: IconProps & { name: string; children: ReactNode }): ReactNode {
   return (
     <svg
-      className={`os-icon codicon codicon-${name}`}
+      className={`os-icon codicon codicon-${name}${className ? ` ${className}` : ""}`}
       width="1em"
       height="1em"
       viewBox="0 0 16 16"
