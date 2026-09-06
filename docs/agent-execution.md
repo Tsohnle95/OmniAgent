@@ -235,19 +235,25 @@ over a preserved comment thread between agents.
 
 ## Validation depth
 
-Verification should scale with risk.
+Verification should scale with risk and with what the acceptance criteria
+actually require.
 
-- Cosmetic/local UI: targeted build/type/component check plus the relevant
-  visual/manual check when possible.
+- Cosmetic/local UI: targeted build/type/component check; when appearance or
+  interaction is part of acceptance, verify that behavior directly.
 - State/logic bug: targeted unit/component test plus affected integration path.
 - Contract/event/IPC change: producer + consumer tests/fixtures and typecheck.
 - Persistence/recovery/security/concurrency change: focused invariant tests,
-  failure-path tests, restart/recovery behavior where relevant, then full gate.
+  failure-path tests, and restart/recovery behavior where relevant.
+- Platform/runtime/integration behavior: targeted automated checks plus the
+  narrowest relevant platform, CI, integration, or manual smoke.
 - Project completion: cumulative integration validation plus `npm run check`
-  and any platform checks required by `docs/operations.md`.
+  and any additional checks required by the acceptance criteria or
+  `docs/operations.md`.
 
-The canonical gate is necessary but not sufficient for behavior that only a
-manual/platform smoke can verify.
+The canonical gate is necessary but not sufficient for behavior it does not
+exercise. If a required acceptance surface cannot be exercised in the current
+environment, report it explicitly as unverified rather than inferring it from
+passing unrelated tests.
 
 ## Git as execution memory
 

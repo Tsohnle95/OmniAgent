@@ -145,10 +145,20 @@ changes while preserving process and trust boundaries.
 
 Use targeted checks while iterating. Before a logical unit is considered done,
 run `npm run check`; it runs typecheck, unit/component tests, docs checks, and
-the production build. Run additional platform/manual validation when the
-relevant module docs require it. Never commit a knowingly broken checkpoint.
+the production build. Never commit a knowingly broken checkpoint.
 
-Canonical validation is authoritative only when run under the repository-supported toolchain. Before treating npm run check, platform tests, or other final validation as passing, confirm the active Node version satisfies .node-version and package.json engines. An engine/version mismatch requires rerunning final validation under the supported version.
+Canonical validation is authoritative only when run under the
+repository-supported toolchain. Before treating `npm run check`, platform
+tests, or other final validation as passing, confirm the active Node version
+matches `.node-version` and satisfies `package.json` engines. An engine/version
+mismatch requires rerunning final validation under the supported version.
+
+The canonical gate does not prove behavior it does not exercise. When acceptance
+depends on live UI appearance or interaction, full-process restart or recovery,
+OS/platform behavior, or an external runtime/integration, run the narrowest
+available check that directly exercises that behavior. If the required surface
+cannot be verified in the current environment, state that gap explicitly rather
+than claiming the behavior is fully verified.
 
 ## Git ownership and safety
 
