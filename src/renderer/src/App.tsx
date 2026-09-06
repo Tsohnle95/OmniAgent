@@ -265,7 +265,10 @@ function PanelColumn({
     (width, left) => {
       if (!columnRef.current) return;
       columnRef.current.style.width = `${width}px`;
-      if (left !== null) columnRef.current.style.left = `${left}px`;
+      if (left !== null) {
+        columnRef.current.style.left = `${left}px`;
+        columnRef.current.classList.toggle("edge-left", left <= leftMin + 0.5);
+      }
       if (isAnchor) columnRef.current.parentElement?.style.setProperty("--editor-right", `${width}px`);
     }
   );

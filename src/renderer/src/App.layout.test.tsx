@@ -527,6 +527,46 @@ describe("Layout panel sizing", () => {
     expect(agentLefts()).toEqual([589, 969]);
   });
 
+  it("restores the left border during a resize as soon as a gap opens", async () => {
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    const add = container.querySelector<HTMLButtonElement>('button[aria-label="Add model panel"]')!;
+    await act(async () => {
+      add.click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      add.click();
+      add.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".codicon-robot")!.closest("button")!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const second = agentCols()[1];
+    const handle = second.querySelector<HTMLElement>(".panel-resize-left")!;
+    expect(second.classList.contains("edge-left")).toBe(true);
+
+    await act(async () => {
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 400 }));
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 420 }));
+    });
+
+    expect(second.style.left).toBe("335px");
+    expect(second.style.width).toBe("291px");
+    expect(second.classList.contains("edge-left")).toBe(false);
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mouseup", {}));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(agentCols()[1].classList.contains("edge-left")).toBe(false);
+  });
+
   it("stops a panel at its neighbor's edge without touching it", async () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
