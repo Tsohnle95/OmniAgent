@@ -64,17 +64,19 @@ re-open information already established in the current task context.
 
 ## Task / symptom router
 
-| Task or symptom | Read first | Likely implementation |
-|---|---|---|
-| Agent response/stream/timeline is wrong | `docs/events.md`, relevant `docs/renderer.md` section | `chat-store.ts`, `streaming.ts`, `chat-stream.ts`, `store.tsx` |
-| Runtime/provider integration issue | `docs/architecture.md` runtime section, `docs/main.md` | `src/main/runtimes/`, `runtime-adapter.ts` |
-| IPC/API change | `docs/main.md`, `docs/preload.md`, `docs/shared.md` | main handler → preload wrapper → shared type → renderer caller |
-| File watching/diff/baseline issue | `docs/architecture.md` diff section | `src/main/opencode.ts`, renderer store/editor state |
-| Renderer state/component behavior | relevant `docs/renderer.md` section | owning store/action/component + nearby tests/SCSS |
-| Event contract mismatch | `docs/events.md` | stream pipeline, event normalization/reducer, fixtures |
-| Terminal/TUI issue | terminal sections in `docs/main.md` and `docs/renderer.md` | `terminal.ts`, `TerminalTray.tsx`, `AgentTui.tsx` |
-| Build/start/package/debug issue | `docs/operations.md` | scripts/config and the failing subsystem |
-| Cross-process flow is unclear | `docs/walkthrough.md` | follow the named connection points, then open canonical module docs |
+| Task or symptom | Read first | Likely implementation | Tests / validation |
+|---|---|---|---|
+| Agent response/stream/timeline is wrong | `docs/events.md`, relevant `docs/renderer.md` section | `chat-store.ts`, `streaming.ts`, `chat-stream.ts`, `store.tsx` | Tests/fixtures named by the routed docs; otherwise nearby stream/chat-state tests |
+| Runtime/provider integration issue | `docs/architecture.md` runtime section, `docs/main.md` | `src/main/runtimes/`, `runtime-adapter.ts` | Runtime-adapter/provider tests or validation named by the routed docs |
+| IPC/API change | `docs/main.md`, `docs/preload.md`, `docs/shared.md` | main handler → preload wrapper → shared type → renderer caller | Contract/IPC/bridge tests named by those docs |
+| File watching/diff/baseline issue | `docs/architecture.md` diff section | `src/main/opencode.ts`, renderer store/editor state | Baseline/watch/diff tests or validation named by the architecture docs |
+| Renderer state/component behavior | relevant `docs/renderer.md` section | owning store/action/component + nearby tests/SCSS | Owning store/component tests plus direct UI validation when acceptance is visual or interactive |
+| Event contract mismatch | `docs/events.md` | stream pipeline, event normalization/reducer, fixtures | Event/normalization/reducer tests and relevant fixtures |
+| Terminal/TUI issue | terminal sections in `docs/main.md` and `docs/renderer.md` | `terminal.ts`, `TerminalTray.tsx`, `AgentTui.tsx` | Terminal/PTY tests and relevant runtime smoke validation |
+| Build/start/package/debug issue | `docs/operations.md` | scripts/config and the failing subsystem | Relevant targeted check, then `npm run check`; use platform/runtime smoke where required |
+| Cross-process flow is unclear | `docs/walkthrough.md` | follow the named connection points, then open canonical module docs | Tests/validation named along the traced producer → boundary → consumer path |
+
+The Tests / validation column is a routing aid, not a second test inventory. Prefer stable test areas or validation routes over exhaustive filename lists. Canonical module documentation and the current source/test tree remain authoritative.
 
 ## Execution policy
 
@@ -96,6 +98,17 @@ process artifacts merely to demonstrate compliance.
   batch for dependencies/shared root causes, order or cluster it, then execute
   each logical unit using PATCH, FEATURE, or PROJECT rules. Do not keep every
   implementation active in one working context.
+
+Classification is risk-adjusted, not category-triggered. Touching a shared
+contract, persistence code, an IPC boundary, security-related code, or several
+files does not by itself make work PROJECT-class. Escalate based on actual
+ambiguity, blast radius, coupling, architectural novelty, failure cost,
+testability, and the value of durable recovery state.
+
+PATCH does not require `docs/agent-execution.md`. For a PATCH, the root guide,
+routed domain documentation, relevant source, and nearby tests should normally
+be sufficient. Load `docs/agent-execution.md` if the task escalates or when
+working in FEATURE, PROJECT, or BATCH mode.
 
 For detailed planning, escalation, delegation, and task-file rules, read
 `docs/agent-execution.md` for FEATURE, PROJECT, or BATCH work.
@@ -164,6 +177,10 @@ than claiming the behavior is fully verified.
 
 The agent owns version control **for changes it creates**.
 
+Investigation-only, review-only, audit-only, and planning-only work does not
+create a commit unless the task intentionally produces repository changes.
+Autonomous implementation work retains the checkpoint rules below.
+
 - Record `git status` before editing.
 - Never discard, reset, clean, stash, overwrite, or commit pre-existing user
   changes merely to obtain a clean tree.
@@ -205,6 +222,14 @@ turning it into a prose clone of the implementation.
 
 - `npm run docs:check` verifies documented surfaces and local references; it
   does not prove prose or runtime behavior. Tests own executable invariants.
+  - Machine-readable facts should remain owned by their authoritative
+  source/config/schema when one exists. Documentation should explain ownership,
+  invariants, semantics, lifecycle, and routing rather than become a competing
+  manually maintained source of the same fact.
+- Repeat machine-readable facts in documentation only when the routing or
+  explanatory value justifies the maintenance cost. Where practical, derive or
+  mechanically verify those projections instead of relying on agents to keep
+  parallel inventories synchronized by memory.
 - Update the canonical owner when a durable architectural, contract, or
   operational truth changes. In non-owner docs, prefer a link/short routing
   note over duplicating the full explanation.
