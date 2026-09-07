@@ -471,7 +471,7 @@ describe("store workspace continuations", () => {
     window.openshell = api({ closeSession, openSessionById });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/luno"));
-    await act(async () => store.addModelPanel("/omniagent"));
+    await act(async () => store.addModelPanel("/orbit"));
     const firstWorkspace = store.panels[0].workspace;
     const selectedWorkspace = store.panels[1].workspace;
 
@@ -487,7 +487,7 @@ describe("store workspace continuations", () => {
     window.openshell = api();
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/luno"));
-    await act(async () => store.addModelPanel("/omniagent"));
+    await act(async () => store.addModelPanel("/orbit"));
     const first = store.panels[0];
     const refreshed = {
       ...first,
@@ -498,7 +498,7 @@ describe("store workspace continuations", () => {
     await act(async () => messageHandler!({ kind: "session", session: refreshed }));
 
     expect(store.panels.map((panel) => panel.id)).toEqual([first.id, store.panels[1].id]);
-    expect(store.panels.map((panel) => panel.directory)).toEqual(["/luno-renamed", "/omniagent"]);
+    expect(store.panels.map((panel) => panel.directory)).toEqual(["/luno-renamed", "/orbit"]);
   });
 
   it("closes a panel, tears down its backend context, and keeps the neighbor focused", async () => {

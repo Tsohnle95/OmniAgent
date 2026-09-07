@@ -10,8 +10,6 @@ dist/
 .openshell-recovery/
 TODO.md
 redesign
-.omniagent-repo.json
-.omniagent-live-build-failed
 .orbit-repo.json
 .orbit-live-build-failed
 design
