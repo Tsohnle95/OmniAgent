@@ -15,7 +15,6 @@ Exposed via `useStore()` (context). State:
 | `session` | `SessionInfo \| null` | the focused session (derived from `panels` + `activeSessionID`); null → Welcome screen on first launch, otherwise an empty IDE whose explorer offers an open-workspace CTA |
 | `panels` | `SessionInfo[]` | open sessions in panel order; each panel streams and renders its own session |
 | `activeSessions` | `SessionInfo[]` | backend-owned open contexts, reconciled every second independently of visible panels; drives the complete **Open now** inventory |
-| `sessionLayout` | versioned `localStorage` record (`orbit.sessionLayout`) | renderer-owned restart hint containing only ordered session IDs, optional runtime IDs, and the focused session ID; invalid entries are ignored and successful startup reconciliation rewrites it to the current format |
 | `savedWorkspaces` | `ProjectInfo[]` | Orbit-owned workspace bookmarks persisted in `localStorage` ("orbit.savedWorkspaces"); removing one changes only this list and never touches the filesystem |
 | `panelViews` | `Record<workspaceID, PanelView>` | per-panel scoped projection (`session`, `busy`, `transcript`, `todos`, `sessionUsage`, `models`, `currentModel`, `agents`, `currentAgent`) consumed through `usePanel(workspace)` |
 | `activeSessionID` | `string \| null` | focused session id; the editor, sidebar, tree, and terminal tray bind to the focused panel while every panel keeps streaming |
@@ -219,16 +218,19 @@ otherwise replaces the displayed panels, while every async
 continuation captures its workspace identity and mutates only that workspace's
 records, so a slow operation from panel A can never populate panel B's editor
 or tree. Focus has a monotonic version: a late activation completion never
-steals focus from a newer user action. Startup restoration merges the
-renderer-owned `orbit.sessionLayout` hints with the backend's live
-`activeSessions()` inventory, reopens entries sequentially in saved panel order,
-and focuses the saved session only if it restored and the user hasn't already
-acted. It uses the existing `openSessionById` validation/canonicalization path,
-so deleted or moved workspaces, stale sessions, unavailable runtimes, malformed
-entries, and individual reopen failures are skipped without blocking launch;
-the saved record is compacted after reconciliation. A renderer reload still
-restores live backend contexts, while a full process restart uses the durable
-layout hints to recreate only session panels; editor tabs, changes, terminals,
+steals focus from a newer user action. Startup never reopens sessions from a
+previous process: a fresh launch always shows the Welcome screen until the
+user opens a folder, file, or recent session, and any stale
+`orbit.sessionLayout` record left by an older build is deleted on startup.
+Only live backend contexts are re-attached at startup (which covers a
+renderer reload while the main process is still running). They reopen
+sequentially in backend order through the existing `openSessionById`
+validation/canonicalization path, and the last one is focused only if the
+user hasn't already acted, so deleted or moved workspaces, unavailable
+runtimes, and individual reopen failures are skipped without blocking
+launch. Past sessions stay reachable through recents and the **Open now**
+inventory. A renderer reload still restores live backend contexts; editor
+tabs, changes, terminals,
 permissions, queues, prompts, and other transient state are not persisted for
 this purpose.
 `file-update` is accepted only when both its session ID and full workspace

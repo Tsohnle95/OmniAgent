@@ -334,7 +334,7 @@ describe("store workspace continuations", () => {
     expect(store.session?.directory).toBe("/chosen");
   });
 
-  it("persists panel order and runtime identity and restores the active panel after a process restart", async () => {
+  it("starts on the Welcome screen after a process restart instead of reopening past sessions", async () => {
     const openSession = vi.fn(async (directory: string, generation: number) => ({
       ...info(directory, generation, directory === "/one" ? "deepseek" : "opencode"),
       id: directory === "/one" ? "session-one" : "session-two"
@@ -346,43 +346,52 @@ describe("store workspace continuations", () => {
     await act(async () => store.focusSession("session-one"));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
-    expect(JSON.parse(window.localStorage.getItem("orbit.sessionLayout") ?? "null")).toEqual({
-      version: 1,
-      panels: [
-        { sessionID: "session-one", runtimeID: "deepseek" },
-        { sessionID: "session-two", runtimeID: "opencode" }
-      ],
-      activeSessionID: "session-one"
-    });
+    expect(store.panels.map((panel) => panel.id)).toEqual(["session-one", "session-two"]);
 
     await act(async () => root.unmount());
     container.remove();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
-    const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => ({
-      session: { ...info(sessionID === "session-one" ? "/one" : "/two", generation, runtimeID), id: sessionID },
-      transcript: [],
-      todos: [],
-      usage: null
-    }));
+    const openSessionById = vi.fn();
     window.openshell = api({ activeSessions: async () => [], openSessionById });
 
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
 
-    expect(openSessionById.mock.calls.map((call) => call[0])).toEqual(["session-one", "session-two"]);
-    expect(openSessionById.mock.calls.map((call) => call[2])).toEqual(["deepseek", "opencode"]);
-    expect(store.panels.map((panel) => panel.id)).toEqual(["session-one", "session-two"]);
-    expect(store.session?.id).toBe("session-one");
+    expect(openSessionById).not.toHaveBeenCalled();
+    expect(store.panels).toEqual([]);
+    expect(store.session).toBeNull();
   });
 
-  it("waits for backend readiness before attempting cold session restoration", async () => {
+  it("re-attaches live backend sessions on startup and drops stale persisted layout", async () => {
     window.localStorage.setItem("orbit.sessionLayout", JSON.stringify({
       version: 1,
-      panels: [{ sessionID: "session-one", runtimeID: "opencode" }],
-      activeSessionID: "session-one"
+      panels: [{ sessionID: "stale", runtimeID: "opencode" }],
+      activeSessionID: "stale"
     }));
+    const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => ({
+      session: { ...info("/live", generation, runtimeID), id: sessionID },
+      transcript: [],
+      todos: [],
+      usage: null
+    }));
+    window.openshell = api({
+      activeSessions: async () => [info("/live", 7, "deepseek")],
+      openSessionById
+    });
+
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(openSessionById.mock.calls.map((call) => call[0])).toEqual(["session-7"]);
+    expect(openSessionById.mock.calls.map((call) => call[2])).toEqual(["deepseek"]);
+    expect(store.panels.map((panel) => panel.id)).toEqual(["session-7"]);
+    expect(store.session?.id).toBe("session-7");
+    expect(window.localStorage.getItem("orbit.sessionLayout")).toBeNull();
+  });
+
+  it("waits for backend readiness before re-attaching live sessions", async () => {
     const health = deferred<boolean>();
     const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => ({
       session: { ...info("/one", generation, runtimeID), id: sessionID },
@@ -390,71 +399,21 @@ describe("store workspace continuations", () => {
       todos: [],
       usage: null
     }));
-    window.openshell = api({ health: () => health.promise, activeSessions: async () => [], openSessionById });
+    window.openshell = api({
+      health: () => health.promise,
+      activeSessions: async () => [info("/one", 1, "opencode")],
+      openSessionById
+    });
 
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(openSessionById).not.toHaveBeenCalled();
+    expect(store.panels).toEqual([]);
 
     await act(async () => health.resolve(true));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
-    expect(openSessionById).toHaveBeenCalledWith("session-one", expect.any(Number), "opencode");
-    expect(store.session?.id).toBe("session-one");
-  });
-
-  it("migrates legacy layout entries and skips stale or unavailable sessions independently", async () => {
-    window.localStorage.setItem("orbit.sessionLayout", JSON.stringify({
-      version: 0,
-      sessions: [
-        { id: "valid", runtimeID: "opencode" },
-        null,
-        { id: "stale", runtimeID: "opencode" },
-        { sessionID: "unavailable", runtimeID: "deepseek" },
-        { id: 42 }
-      ],
-      activeSessionID: "valid"
-    }));
-    const openSessionById = vi.fn(async (sessionID: string, generation: number, runtimeID?: RuntimeID) => {
-      if (sessionID !== "valid") throw new Error(`${sessionID} cannot be restored`);
-      return {
-        session: { ...info("/valid", generation, runtimeID), id: sessionID },
-        transcript: [],
-        todos: [],
-        usage: null
-      };
-    });
-    window.openshell = api({ activeSessions: async () => [], openSessionById });
-
-    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
-
-    expect(openSessionById.mock.calls.map((call) => [call[0], call[2]])).toEqual([
-      ["valid", "opencode"],
-      ["stale", "opencode"],
-      ["unavailable", "deepseek"]
-    ]);
-    expect(store.panels.map((panel) => panel.id)).toEqual(["valid"]);
-    expect(store.session?.id).toBe("valid");
-    expect(JSON.parse(window.localStorage.getItem("orbit.sessionLayout") ?? "null")).toEqual({
-      version: 1,
-      panels: [{ sessionID: "valid", runtimeID: "opencode" }],
-      activeSessionID: "valid"
-    });
-  });
-
-  it("ignores corrupt persisted layout without blocking normal startup", async () => {
-    window.localStorage.setItem("orbit.sessionLayout", "{\"version\":1,\"panels\":[");
-    window.openshell = api();
-
-    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
-
-    expect(store.panels).toEqual([]);
-    expect(JSON.parse(window.localStorage.getItem("orbit.sessionLayout") ?? "null")).toEqual({
-      version: 1,
-      panels: [],
-      activeSessionID: null
-    });
+    expect(openSessionById).toHaveBeenCalledWith("session-1", expect.any(Number), "opencode");
+    expect(store.session?.id).toBe("session-1");
   });
 
   it("opens parallel sessions and restores each session's own tabs when focus swaps", async () => {

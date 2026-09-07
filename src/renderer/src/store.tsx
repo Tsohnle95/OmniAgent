@@ -443,23 +443,10 @@ const EMPTY_AGENT_FILES: Map<string, AgentFileState> = new Map();
 const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
 const SAVED_WORKSPACES_KEY = "orbit.savedWorkspaces";
-const SESSION_LAYOUT_KEY = "orbit.sessionLayout";
-const SESSION_LAYOUT_VERSION = 1;
-const MAX_RESTORED_PANELS = 100;
+const STALE_SESSION_LAYOUT_KEY = "orbit.sessionLayout";
 const STREAM_SETTLE_MS = 15_000;
 const STREAM_SETTLE_IDLE_MS = 2_000;
 const STREAM_SETTLE_POLL_MS = 1_000;
-
-interface PersistedSessionPanel {
-  sessionID: string;
-  runtimeID?: RuntimeID;
-}
-
-interface PersistedSessionLayout {
-  version: 1;
-  panels: PersistedSessionPanel[];
-  activeSessionID: string | null;
-}
 
 function workspaceName(directory: string): string {
   return directory.split(/[\\/]/).filter(Boolean).pop() ?? directory;
@@ -483,60 +470,6 @@ function readSavedWorkspaces(): ProjectInfo[] {
     });
   } catch {
     return [];
-  }
-}
-
-function readSessionLayout(): PersistedSessionLayout {
-  const empty: PersistedSessionLayout = { version: SESSION_LAYOUT_VERSION, panels: [], activeSessionID: null };
-  try {
-    const raw = window.localStorage.getItem(SESSION_LAYOUT_KEY);
-    if (!raw) return empty;
-    const parsed: unknown = JSON.parse(raw);
-    const source = Array.isArray(parsed)
-      ? parsed
-      : parsed && typeof parsed === "object"
-        ? (() => {
-            const value = parsed as { version?: unknown; panels?: unknown; sessions?: unknown; sessionIDs?: unknown };
-            if (typeof value.version === "number" && value.version > SESSION_LAYOUT_VERSION) return null;
-            return [value.panels, value.sessions, value.sessionIDs].find(Array.isArray) ?? null;
-          })()
-        : null;
-    if (!Array.isArray(source)) return empty;
-
-    const panels: PersistedSessionPanel[] = [];
-    const seen = new Set<string>();
-    for (const item of source) {
-      const sessionID = typeof item === "string"
-        ? item
-        : item && typeof item === "object"
-          ? (() => {
-              const value = item as { sessionID?: unknown; id?: unknown };
-              return typeof value.sessionID === "string" ? value.sessionID : value.id;
-            })()
-          : null;
-      if (typeof sessionID !== "string" || !sessionID || seen.has(sessionID)) continue;
-      const value = item && typeof item === "object" ? item as { runtimeID?: unknown } : null;
-      const runtimeID = typeof value?.runtimeID === "string" && value.runtimeID ? value.runtimeID as RuntimeID : undefined;
-      panels.push({ sessionID, ...(runtimeID ? { runtimeID } : {}) });
-      seen.add(sessionID);
-      if (panels.length >= MAX_RESTORED_PANELS) break;
-    }
-
-    const value = parsed && typeof parsed === "object" ? parsed as { activeSessionID?: unknown; activeSession?: unknown } : {};
-    const activeCandidate = typeof value.activeSessionID === "string"
-      ? value.activeSessionID
-      : typeof value.activeSession === "string"
-        ? value.activeSession
-        : value.activeSession && typeof value.activeSession === "object" && typeof (value.activeSession as { id?: unknown }).id === "string"
-          ? (value.activeSession as { id: string }).id
-          : null;
-    return {
-      version: SESSION_LAYOUT_VERSION,
-      panels,
-      activeSessionID: activeCandidate && seen.has(activeCandidate) ? activeCandidate : null
-    };
-  } catch {
-    return empty;
   }
 }
 
@@ -597,8 +530,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   );
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [savedWorkspaces, setSavedWorkspaces] = useState<ProjectInfo[]>(() => readSavedWorkspaces());
-  const [sessionLayoutReady, setSessionLayoutReady] = useState(false);
-  const [persistedSessionLayout] = useState<PersistedSessionLayout>(() => readSessionLayout());
   const [usageBySession, setUsageBySession] = useState<Record<string, SessionUsage>>({});
   const [compactionBaselineBySession, setCompactionBaselineBySession] = useState<Record<string, number>>(() => {
     try {
@@ -637,20 +568,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       window.localStorage.setItem(SAVED_WORKSPACES_KEY, JSON.stringify(savedWorkspaces));
     } catch {}
   }, [savedWorkspaces]);
-  useEffect(() => {
-    if (!sessionLayoutReady) return;
-    try {
-      const restoredPanels = panels.map((panel) => ({
-        sessionID: panel.id,
-        ...(panel.runtimeID ? { runtimeID: panel.runtimeID } : {})
-      }));
-      window.localStorage.setItem(SESSION_LAYOUT_KEY, JSON.stringify({
-        version: SESSION_LAYOUT_VERSION,
-        panels: restoredPanels,
-        activeSessionID: activeSessionID && panels.some((panel) => panel.id === activeSessionID) ? activeSessionID : null
-      }));
-    } catch {}
-  }, [activeSessionID, panels, sessionLayoutReady]);
   const busy = session ? Boolean(busyBySession[session.id]) : false;
   const todos = session ? (todosByWorkspace[session.workspace.id] ?? []) : [];
   const transcript = session ? transcriptsBySession[session.id] ?? [] : [];
@@ -3406,35 +3323,23 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       void (async () => {
         await window.openshell.health().catch(() => false);
         if (cancelled) return;
+        try {
+          window.localStorage.removeItem(STALE_SESSION_LAYOUT_KEY);
+        } catch {}
+        // Fresh launches start on the Welcome screen: only live backend
+        // contexts (e.g. after a renderer reload) are re-attached. Sessions
+        // from a previous process stay reachable via recents and Open now.
         const liveSessions = await refreshActiveSessions();
-        const liveBySessionID = new Map(liveSessions.map((session) => [session.id, session]));
-        const entries: PersistedSessionPanel[] = persistedSessionLayout.panels.map((entry) => ({ ...entry }));
-        const known = new Set(entries.map((entry) => entry.sessionID));
-        for (const session of liveSessions) {
-          if (known.has(session.id)) continue;
-          entries.push({
-            sessionID: session.id,
-            ...(session.runtimeID ? { runtimeID: session.runtimeID } : {})
-          });
-          known.add(session.id);
-        }
-
         const restored: SessionInfo[] = [];
-        for (const entry of entries) {
+        for (const live of liveSessions) {
           if (cancelled) return;
-          const live = liveBySessionID.get(entry.sessionID);
-          const runtimeID = entry.runtimeID ?? live?.runtimeID ?? (live ? selectedRuntimeID : undefined);
-          const session = await reopenSession(entry.sessionID, true, runtimeID);
+          const session = await reopenSession(live.id, true, live.runtimeID ?? selectedRuntimeID);
           if (session) restored.push(session);
         }
         if (cancelled) return;
         if (!userActivatedRef.current && restored.length > 0) {
-          const preferred = persistedSessionLayout.activeSessionID
-            ? restored.find((session) => session.id === persistedSessionLayout.activeSessionID)
-            : undefined;
-          focusSession((preferred ?? restored[restored.length - 1])!.id, false);
+          focusSession(restored[restored.length - 1]!.id, false);
         }
-        setSessionLayoutReady(true);
       })();
     }
     return () => {
@@ -3473,7 +3378,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     persistence,
     refreshActiveSessions,
     openPaths,
-    persistedSessionLayout,
     selectedRuntimeID
   ]);
 
