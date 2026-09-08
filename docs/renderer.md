@@ -189,9 +189,10 @@ requests vanished — e.g. answered in an attached TUI),
 can point at its own directory: `selectAddPanel` opens the native folder
 picker and attaches the chosen session as a new panel, while
 `selectPanelDirectory` / `changePanelDirectory` swap an existing panel to a
-fresh session on another directory in place — the old backend context is torn
-down, the panel keeps its position and focus, its per-workspace editor/tree/model
-state is dropped, and the old session remains reopenable from recents. The optional workspace/session parameters let
+fresh session on another directory in place — the replaced session is detached
+rather than torn down (it keeps its backend context and stays listed in
+**Open now** until explicitly closed), the panel keeps its position and focus,
+and the old session remains reopenable from recents. The optional workspace/session parameters let
 a background panel's composer act on its own session while the focused session's editor keeps
 its state; they default to the focused session. `commitName`/`deleteEntry`/
 `moveEntry` call the `shell:fs-*` mutation channels, then re-list every expanded
@@ -211,9 +212,10 @@ when the active workspace is the app repository, it opens as a normal relative
 tab. With no active session, the containing directory is opened first.
 
 Sessions activate concurrently when explicitly restored or added in model
-mode. Replacing a panel whose turn is still running detaches its UI but keeps
-its backend context alive and visible in **Open now** until it is reopened or
-explicitly closed; idle replaced panels are closed normally. Workspace opening
+mode. Replacing panels detaches the replaced sessions rather than closing
+them: each keeps its backend context, chat state, and **Open now** entry until
+it is reopened or explicitly closed (the row X), so opening a new session never
+drops the previous one from the jump list. Workspace opening
 otherwise replaces the displayed panels, while every async
 continuation captures its workspace identity and mutates only that workspace's
 records, so a slow operation from panel A can never populate panel B's editor

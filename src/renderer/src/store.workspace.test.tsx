@@ -460,7 +460,7 @@ describe("store workspace continuations", () => {
     expect(store.session?.id).toBe(first.id);
   });
 
-  it("reopens a session in the selected panel without closing its neighbors", async () => {
+  it("reopens a session in the selected panel while detaching its predecessor into Open now", async () => {
     const closeSession = vi.fn(async () => {});
     const openSessionById = vi.fn(async (sessionID: string) => ({
       session: { ...info("/neptune-ai", 9), id: sessionID },
@@ -472,15 +472,15 @@ describe("store workspace continuations", () => {
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/luno"));
     await act(async () => store.addModelPanel("/orbit"));
-    const firstWorkspace = store.panels[0].workspace;
-    const selectedWorkspace = store.panels[1].workspace;
+    const previousSelected = store.panels[1];
 
     await act(async () => store.reopenSession("session-neptune"));
 
     expect(store.panels.map((panel) => panel.directory)).toEqual(["/luno", "/neptune-ai"]);
     expect(store.session?.directory).toBe("/neptune-ai");
-    expect(closeSession).toHaveBeenCalledWith(selectedWorkspace);
-    expect(closeSession).not.toHaveBeenCalledWith(firstWorkspace);
+    expect(closeSession).not.toHaveBeenCalled();
+    expect(store.activeSessions.map((active) => active.id)).toContain(previousSelected.id);
+    expect(store.activeSessions.map((active) => active.id)).toContain("session-neptune");
   });
 
   it("updates a repeated session event in place without duplicating its panel", async () => {
@@ -542,20 +542,22 @@ describe("store workspace continuations", () => {
     expect(closeSession).toHaveBeenCalledWith(info("/older", 1).workspace);
   });
 
-  it("replaces the displayed session and closes every old backend context", async () => {
+  it("replaces the displayed session and detaches every old session into Open now", async () => {
     const closeSession = vi.fn(async () => {});
     window.openshell = api({ closeSession });
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
     await act(async () => store.addModelPanel("/two"));
-    const oldWorkspaces = store.panels.map((panel) => panel.workspace);
+    const oldIDs = store.panels.map((panel) => panel.id);
 
     await act(async () => store.openSession("/three"));
 
     expect(store.panels).toHaveLength(1);
     expect(store.session?.directory).toBe("/three");
-    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[0]);
-    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[1]);
+    expect(closeSession).not.toHaveBeenCalled();
+    for (const id of [...oldIDs, store.session!.id]) {
+      expect(store.activeSessions.map((active) => active.id)).toContain(id);
+    }
   });
 
   it("keeps explicit model-panel additions separate from workspace replacement", async () => {
@@ -577,14 +579,16 @@ describe("store workspace continuations", () => {
     await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
     await act(async () => store.openSession("/one"));
     await act(async () => store.addModelPanel("/two"));
-    const oldWorkspaces = store.panels.map((panel) => panel.workspace);
+    const oldIDs = store.panels.map((panel) => panel.id);
 
     await act(async () => store.selectFolder());
 
     expect(store.panels).toHaveLength(1);
     expect(store.session?.directory).toBe("/picked");
-    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[0]);
-    expect(closeSession).toHaveBeenCalledWith(oldWorkspaces[1]);
+    expect(closeSession).not.toHaveBeenCalled();
+    for (const id of [...oldIDs, store.session!.id]) {
+      expect(store.activeSessions.map((active) => active.id)).toContain(id);
+    }
   });
 
   it("closes a stale replacement context instead of reattaching it", async () => {

@@ -1300,6 +1300,49 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     if (hydrate && !transcriptsBySessionRef.current[sessionID]) void hydrateTranscript(sessionID);
   }, [hydrateTranscript, closeCtxMenu]);
 
+  const ejectPanelFromView = useCallback((sessionID: string): SessionInfo | null => {
+    const closing = panelsRef.current.find((panel) => panel.id === sessionID) ?? null;
+    if (!closing) return null;
+    panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
+    setPanels(panelsRef.current);
+    const childDirectory = closing.directory.replaceAll("\\", "/").replace(/\/+$/, "");
+    setHiddenPathsByWorkspace((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const panel of panelsRef.current) {
+        const parentDirectory = panel.directory.replaceAll("\\", "/").replace(/\/+$/, "");
+        if (!childDirectory.startsWith(`${parentDirectory}/`)) continue;
+        const relative = childDirectory.slice(parentDirectory.length + 1);
+        const paths = current[panel.workspace.id];
+        if (!paths?.has(relative)) continue;
+        const restored = new Set(paths);
+        restored.delete(relative);
+        next[panel.workspace.id] = restored;
+        changed = true;
+      }
+      return changed ? next : current;
+    });
+    setWorkspaceOnlyPanelIDs((current) => {
+      if (!current.has(sessionID)) return current;
+      const next = new Set(current);
+      next.delete(sessionID);
+      return next;
+    });
+    if (sessionRef.current?.id === sessionID) {
+      const neighbor = panelsRef.current[panelsRef.current.length - 1] ?? null;
+      sessionRef.current = neighbor;
+      setActiveSessionID(neighbor?.id ?? null);
+    }
+    return closing;
+  }, []);
+
+  const detachPanel = useCallback((sessionID: string): void => {
+    // Replacement without teardown: the session leaves the visible panels
+    // but its backend context, Open now entry, and chat state stay alive so
+    // the user can jump back to it. Only an explicit close tears it down.
+    ejectPanelFromView(sessionID);
+  }, [ejectPanelFromView]);
+
   const closePanel = useCallback((sessionID: string, preserveBusy = false): void => {
     const closing = panelsRef.current.find((panel) => panel.id === sessionID);
     const active = activeSessionsRef.current.find((session) => session.id === sessionID);
@@ -1310,33 +1353,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       void window.openshell.closeSession(active.workspace).catch(() => {});
       return;
     }
-    panelsRef.current = panelsRef.current.filter((panel) => panel.id !== sessionID);
-    setPanels(panelsRef.current);
-    if (closing) {
-      const childDirectory = closing.directory.replaceAll("\\", "/").replace(/\/+$/, "");
-      setHiddenPathsByWorkspace((current) => {
-        let changed = false;
-        const next = { ...current };
-        for (const panel of panelsRef.current) {
-          const parentDirectory = panel.directory.replaceAll("\\", "/").replace(/\/+$/, "");
-          if (!childDirectory.startsWith(`${parentDirectory}/`)) continue;
-          const relative = childDirectory.slice(parentDirectory.length + 1);
-          const paths = current[panel.workspace.id];
-          if (!paths?.has(relative)) continue;
-          const restored = new Set(paths);
-          restored.delete(relative);
-          next[panel.workspace.id] = restored;
-          changed = true;
-        }
-        return changed ? next : current;
-      });
-    }
-    setWorkspaceOnlyPanelIDs((current) => {
-      if (!current.has(sessionID)) return current;
-      const next = new Set(current);
-      next.delete(sessionID);
-      return next;
-    });
+    const ejected = ejectPanelFromView(sessionID);
+    if (!ejected) return;
     const keepActive = preserveBusy && Boolean(busyBySessionRef.current[sessionID]);
     if (!keepActive) {
       removeActiveSession(sessionID);
@@ -1349,22 +1367,17 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
         return rest;
       });
     }
-    if (closing && !keepActive) {
-      void window.openshell.closeSession(closing.workspace).catch(() => {});
+    if (!keepActive) {
+      void window.openshell.closeSession(ejected.workspace).catch(() => {});
     }
-    if (sessionRef.current?.id === sessionID) {
-      const neighbor = panelsRef.current[panelsRef.current.length - 1] ?? null;
-      sessionRef.current = neighbor;
-      setActiveSessionID(neighbor?.id ?? null);
-    }
-  }, [removeActiveSession]);
+  }, [removeActiveSession, ejectPanelFromView]);
 
   const replacePanels = useCallback((next: SessionInfo): void => {
     for (const panel of [...panelsRef.current]) {
-      if (panel.id !== next.id) closePanel(panel.id, true);
+      if (panel.id !== next.id) detachPanel(panel.id);
     }
     attachPanel(next);
-  }, [attachPanel, closePanel]);
+  }, [attachPanel, detachPanel]);
 
   const loadRecovery = useCallback(async (workspace: WorkspaceIdentity) => {
     try {
@@ -1514,37 +1527,16 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   const replacePanel = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): boolean => {
     const index = panelsRef.current.findIndex((panel) => sameWorkspace(panel.workspace, workspace));
     if (index === -1) return false;
-    const old = panelsRef.current[index];
-    const keepActive = Boolean(busyBySessionRef.current[old.id]);
-    if (!keepActive) {
-      void window.openshell.closeSession(old.workspace).catch(() => {});
-      removeActiveSession(old.id);
-      const oldWorkspaceID = old.workspace.id;
-      chatStatesRef.current.delete(old.id);
-      materializingRef.current.delete(old.id);
-      delete todoKeysRef.current[oldWorkspaceID];
-      setBusyBySession((current) => dropKey(current, old.id));
-      setUsageBySession((current) => dropKey(current, old.id));
-      setCompactionBaselineBySession((current) => dropKey(current, old.id));
-      setTranscriptsBySession((current) => dropKey(current, old.id));
-      setSessionAbortFlags((current) => dropKey(current, old.id));
-      setTodosByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setTabsByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setActivePathByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setSingleFileByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setAgentFilesByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setTreeByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setExpandedByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setRecoveryByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setModelsByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setCurrentModelByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setAgentsByWorkspace((current) => dropKey(current, oldWorkspaceID));
-      setCurrentAgentByWorkspace((current) => dropKey(current, oldWorkspaceID));
-    }
+    // Detach without teardown (see detachPanel): the replaced session keeps
+    // its backend context and Open now entry so it stays jumpable; only an
+    // explicit close ends it.
+    ejectPanelFromView(panelsRef.current[index].id);
+    // The eject above already removed the old entry, so the survivors after
+    // `index` have shifted down one slot.
     panelsRef.current = [
       ...panelsRef.current.slice(0, index),
       info,
-      ...panelsRef.current.slice(index + 1).filter((panel) => !sameWorkspace(panel.workspace, info.workspace))
+      ...panelsRef.current.slice(index).filter((panel) => !sameWorkspace(panel.workspace, info.workspace))
     ];
     setPanels(panelsRef.current);
     userActivatedRef.current = true;
@@ -1553,7 +1545,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setActiveSessionID(info.id);
     addActiveSession(info);
     return true;
-  }, [addActiveSession, removeActiveSession, setPanels]);
+  }, [addActiveSession, ejectPanelFromView]);
 
   const swapPanelTo = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): void => {
     if (!replacePanel(workspace, info)) {

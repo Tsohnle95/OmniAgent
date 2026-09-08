@@ -113,7 +113,7 @@ describe("per-panel workspace selection", () => {
     expect(store.session?.directory).toBe("/picked");
   });
 
-  it("swaps one panel to a picked folder and tears down only its own context", async () => {
+  it("swaps one panel to a picked folder and detaches its context into Open now", async () => {
     const closeSession = vi.fn(async () => {});
     const picked = info("/picked", 4);
     const selectFolder = vi.fn(async () => picked);
@@ -122,17 +122,19 @@ describe("per-panel workspace selection", () => {
     await act(async () => store.openSession("/one"));
     await act(async () => store.addModelPanel("/two"));
     expect(store.panels).toHaveLength(2);
-    const swappedWorkspace = store.panels[0].workspace;
+    const first = store.panels[0];
+    const swappedWorkspace = first.workspace;
     const untouchedWorkspace = store.panels[1].workspace;
 
     await act(async () => store.selectPanelDirectory(swappedWorkspace));
 
     expect(selectFolder).toHaveBeenCalledWith(expect.any(Number));
-    expect(closeSession).toHaveBeenCalledWith(swappedWorkspace);
-    expect(closeSession).not.toHaveBeenCalledWith(untouchedWorkspace);
+    expect(closeSession).not.toHaveBeenCalled();
     expect(store.panels).toHaveLength(2);
     expect(store.panels[0].directory).toBe("/picked");
     expect(store.panels[1].directory).toBe("/two");
+    expect(store.activeSessions.map((active) => active.id)).toContain(first.id);
+    expect(store.activeSessions.map((active) => active.id)).toContain(picked.id);
     expect(store.session?.id).toBe(picked.id);
     expect(store.panelViews[swappedWorkspace.id]).toBeUndefined();
     expect(store.panelViews[untouchedWorkspace.id]).toBeDefined();
@@ -154,7 +156,7 @@ describe("per-panel workspace selection", () => {
 
     await act(async () => store.selectPanelDirectory(oldWorkspace));
 
-    expect(closeSession).toHaveBeenCalledWith(oldWorkspace);
+    expect(closeSession).not.toHaveBeenCalled();
     expect(store.panels).toHaveLength(1);
     expect(store.panels[0].directory).toBe("/picked");
     expect(store.tabs.map((tab) => tab.path)).toEqual([]);
@@ -201,7 +203,7 @@ describe("per-panel workspace selection", () => {
     await act(async () => store.changePanelDirectory(swappedWorkspace, "/three"));
 
     expect(openSession).toHaveBeenCalledWith("/three", expect.any(Number));
-    expect(closeSession).toHaveBeenCalledWith(swappedWorkspace);
+    expect(closeSession).not.toHaveBeenCalled();
     expect(store.panels).toHaveLength(2);
     expect(store.panels[0].directory).toBe("/three");
     expect(store.panels[1].directory).toBe("/two");
@@ -226,7 +228,7 @@ describe("per-panel workspace selection", () => {
     await act(async () => picked.resolve(pickedInfo));
     await act(async () => pending);
 
-    expect(closeSession).toHaveBeenCalledWith(swappedWorkspace);
+    expect(closeSession).not.toHaveBeenCalled();
     expect(store.panels).toHaveLength(2);
     expect(store.panels.map((panel) => panel.directory)).toEqual(["/picked", "/two"]);
     expect(new Set(store.panels.map((panel) => panel.workspace.id)).size).toBe(2);
@@ -251,5 +253,32 @@ describe("per-panel workspace selection", () => {
     expect(closeSession).toHaveBeenCalledWith(info("/picked", 9).workspace);
     expect(store.panels.map((panel) => panel.directory)).toEqual(["/replacement"]);
     expect(store.session?.directory).toBe("/replacement");
+  });
+
+  it("detaches idle panels into Open now on full replacement until explicitly closed", async () => {
+    const closeSession = vi.fn(async () => {});
+    window.openshell = api({ closeSession });
+    await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+    await act(async () => store.openSession("/one"));
+    const first = store.panels[0];
+
+    await act(async () => store.openSession("/two"));
+    const second = store.panels[0];
+
+    // Replacement never tears down: the old session stays jumpable.
+    expect(closeSession).not.toHaveBeenCalled();
+    expect(store.panels.map((panel) => panel.id)).toEqual([second.id]);
+    expect(store.activeSessions.map((active) => active.id)).toEqual([first.id, second.id]);
+
+    // Jumping back detaches the current panel instead of closing it.
+    await act(async () => store.reopenSession(first.id));
+    expect(closeSession).not.toHaveBeenCalledWith(second.workspace);
+    expect(store.panels.map((panel) => panel.id)).toEqual([first.id]);
+    expect(store.activeSessions.map((active) => active.id)).toContain(second.id);
+
+    // Only an explicit close ends the backend link.
+    await act(async () => store.closePanel(second.id));
+    expect(closeSession).toHaveBeenCalledWith(second.workspace);
+    expect(store.activeSessions.map((active) => active.id)).not.toContain(second.id);
   });
 });
