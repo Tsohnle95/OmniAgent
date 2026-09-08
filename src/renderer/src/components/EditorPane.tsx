@@ -6,14 +6,13 @@ import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { OrbitMark } from "./OrbitMark";
-import { useMonacoTheme } from "../theme";
+import { useMonacoTheme, useTheme } from "../theme";
+import { editorFontFamily } from "../editor-fonts";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { Tab } from "@shared/types";
 
 const EDITOR_OPTIONS = {
-  fontSize: 13,
-  fontFamily: "'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
   minimap: { enabled: false },
   automaticLayout: true,
   folding: true,
@@ -83,6 +82,7 @@ function TabBar(): ReactNode {
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   const monacoTheme = useMonacoTheme();
+  const { editorFont, editorFontSize, editorLigatures } = useTheme();
   const {
     editContent,
     setTabMode,
@@ -111,8 +111,14 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   const diffUnknown = tab.baseline?.kind === "unknown";
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;
   const options = useMemo(
-    () => ({ ...EDITOR_OPTIONS, wordWrap: (wordWrap ? "on" : "off") as "on" | "off" }),
-    [wordWrap]
+    () => ({
+      ...EDITOR_OPTIONS,
+      fontFamily: editorFontFamily(editorFont),
+      fontSize: editorFontSize,
+      fontLigatures: editorLigatures,
+      wordWrap: (wordWrap ? "on" : "off") as "on" | "off"
+    }),
+    [wordWrap, editorFont, editorFontSize, editorLigatures]
   );
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);

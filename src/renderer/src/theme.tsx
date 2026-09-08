@@ -1,5 +1,10 @@
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from "react";
 import { APP_THEME_MONACO, EDITOR_THEME_AUTO } from "./editor-themes";
+import {
+  normalizeEditorFont,
+  normalizeEditorFontSize,
+  type EditorFontId
+} from "./editor-fonts";
 
 export type ThemeId = "original" | "paper" | "kitty";
 
@@ -8,10 +13,19 @@ interface ThemeContextValue {
   setTheme: (theme: ThemeId) => void;
   editorTheme: string;
   setEditorTheme: (id: string) => void;
+  editorFont: EditorFontId;
+  setEditorFont: (id: EditorFontId) => void;
+  editorFontSize: number;
+  setEditorFontSize: (size: number) => void;
+  editorLigatures: boolean;
+  setEditorLigatures: (on: boolean) => void;
 }
 
 const THEME_KEY = "orbit.theme";
 const EDITOR_THEME_KEY = "orbit.editorTheme";
+const EDITOR_FONT_KEY = "orbit.editorFont";
+const EDITOR_FONT_SIZE_KEY = "orbit.editorFontSize";
+const EDITOR_LIGATURES_KEY = "orbit.editorLigatures";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function storedTheme(): ThemeId {
@@ -26,14 +40,46 @@ function storedEditorTheme(): string {
   return EDITOR_THEME_AUTO;
 }
 
+function storedEditorFont(): EditorFontId {
+  return normalizeEditorFont(window.localStorage.getItem(EDITOR_FONT_KEY));
+}
+
+function storedEditorFontSize(): number {
+  return normalizeEditorFontSize(window.localStorage.getItem(EDITOR_FONT_SIZE_KEY));
+}
+
+function storedEditorLigatures(): boolean {
+  return window.localStorage.getItem(EDITOR_LIGATURES_KEY) !== "0";
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }): ReactNode {
   const [theme, setTheme] = useState<ThemeId>(storedTheme);
   const [editorTheme, setEditorThemeState] = useState<string>(storedEditorTheme);
+  const [editorFont, setEditorFontState] = useState<EditorFontId>(storedEditorFont);
+  const [editorFontSize, setEditorFontSizeState] = useState<number>(storedEditorFontSize);
+  const [editorLigatures, setEditorLigaturesState] = useState<boolean>(storedEditorLigatures);
 
   const setEditorTheme = (id: string): void => {
     const next = id.length > 0 && id.length <= 128 ? id : EDITOR_THEME_AUTO;
     setEditorThemeState(next);
     window.localStorage.setItem(EDITOR_THEME_KEY, next);
+  };
+
+  const setEditorFont = (id: EditorFontId): void => {
+    const next = normalizeEditorFont(id);
+    setEditorFontState(next);
+    window.localStorage.setItem(EDITOR_FONT_KEY, next);
+  };
+
+  const setEditorFontSize = (size: number): void => {
+    const next = normalizeEditorFontSize(size);
+    setEditorFontSizeState(next);
+    window.localStorage.setItem(EDITOR_FONT_SIZE_KEY, String(next));
+  };
+
+  const setEditorLigatures = (on: boolean): void => {
+    setEditorLigaturesState(on);
+    window.localStorage.setItem(EDITOR_LIGATURES_KEY, on ? "1" : "0");
   };
 
   useLayoutEffect(() => {
@@ -42,7 +88,13 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
     window.localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  return <ThemeContext.Provider value={{ theme, setTheme, editorTheme, setEditorTheme }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider
+      value={{ theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): ThemeContextValue {

@@ -92,6 +92,23 @@ describe("SettingsPage", () => {
     expect(window.localStorage.getItem("orbit.theme")).toBe("original");
   });
 
+  it("selects a code font and toggles ligatures", () => {
+    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
+
+    const cards = [...container.querySelectorAll<HTMLButtonElement>(".font-card")];
+    expect(cards.length).toBe(5);
+    const fira = cards.find((card) => card.textContent?.includes("Fira Code"));
+    act(() => fira?.click());
+    expect(window.localStorage.getItem("orbit.editorFont")).toBe("fira-code");
+    expect(fira?.getAttribute("aria-checked")).toBe("true");
+
+    const ligatureSwitch = [...container.querySelectorAll<HTMLButtonElement>("[role='switch']")]
+      .find((button) => button.closest(".settings-list-row")?.textContent?.includes("Font ligatures"));
+    expect(ligatureSwitch?.getAttribute("aria-checked")).toBe("true");
+    act(() => ligatureSwitch?.click());
+    expect(window.localStorage.getItem("orbit.editorLigatures")).toBe("0");
+  });
+
   it("provides dedicated settings navigation with About as the final tab", () => {
     const onSectionChange = vi.fn();
     act(() => root.render(<SettingsSidebar section="appearance" onSectionChange={onSectionChange} />));

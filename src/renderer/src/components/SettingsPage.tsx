@@ -9,6 +9,7 @@ import {
   EDITOR_THEME_AUTO,
   type EditorThemeOption
 } from "../editor-themes";
+import { EDITOR_FONT_OPTIONS } from "../editor-fonts";
 import { OrbitMark } from "./OrbitMark";
 import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
@@ -84,7 +85,7 @@ function EditorThemeCard({ option, selected, onSelect }: {
 }
 
 export function SettingsPage({ section, onClose }: { section: SettingsSection; onClose: () => void }): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures } = useTheme();
   const {
     session,
     runtimes,
@@ -191,6 +192,37 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
               onSelect={() => setEditorTheme(option.id)}
             />
           ))}
+        </div>
+        <h2 className="settings-group-title">Code font</h2>
+        <p className="settings-note">Bundled offline. Ligatures render only where the chosen font provides them.</p>
+        <div className="font-grid" role="radiogroup" aria-label="Code font">
+          {EDITOR_FONT_OPTIONS.map((option) => {
+            const selected = editorFont === option.id;
+            return (
+              <button
+                key={option.id}
+                className={`font-card ${selected ? "selected" : ""}`}
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setEditorFont(option.id)}
+              >
+                <span className="font-sample" style={{ fontFamily: option.family }}>Aa</span>
+                <span className="theme-card-copy"><strong>{option.name}</strong><small>{option.blurb}</small></span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="settings-list">
+          <SettingRow
+            title="Font size"
+            detail={`Editor text size, currently ${editorFontSize}px.`}
+            control={<span className="settings-segmented"><button aria-label="Decrease font size" onClick={() => setEditorFontSize(editorFontSize - 1)}>−</button><button aria-label="Increase font size" onClick={() => setEditorFontSize(editorFontSize + 1)}>+</button></span>}
+          />
+          <SettingRow
+            title="Font ligatures"
+            detail="Render combinations such as => and != as single glyphs."
+            control={<button className={`settings-switch ${editorLigatures ? "on" : ""}`} role="switch" aria-checked={editorLigatures} onClick={() => setEditorLigatures(!editorLigatures)}><span /></button>}
+          />
         </div>
       </section>}
 

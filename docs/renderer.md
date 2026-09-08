@@ -480,6 +480,9 @@ released at that collapsed position.
   Light, Solarized Light; see the directory README for provenance) registered as `curated-*` in `monaco.ts`. The pure catalog
   (`editor-themes.ts`: ids, blurbs, swatch derivation) is kept separate from Monaco registration so settings UI and unit tests never load
   `monaco-editor` — test files mock `monaco.ts` (`languageForPath` plus a `monaco.editor` stub) and must keep doing so.
+- Code fonts are bundled offline via Fontsource (OFL-licensed: JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, 400 + 700 weights imported
+  in `main.tsx`) with a system-stack fallback. `editor-fonts.ts` holds the pure font catalog and validation; `ThemeProvider` persists `orbit.editorFont`,
+  `orbit.editorFontSize` (clamped 10–24), and `orbit.editorLigatures`; `EditorPane` applies all three through its Monaco options.
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
 - CSS worker diagnostics stay enabled (the only language worker with a

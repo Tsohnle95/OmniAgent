@@ -9,14 +9,20 @@ interface Captured {
   monacoTheme: string;
   setTheme: (theme: "original" | "paper" | "kitty") => void;
   setEditorTheme: (id: string) => void;
+  editorFont: string;
+  setEditorFont: (id: "system" | "jetbrains-mono" | "fira-code" | "ibm-plex-mono" | "source-code-pro") => void;
+  editorFontSize: number;
+  setEditorFontSize: (size: number) => void;
+  editorLigatures: boolean;
+  setEditorLigatures: (on: boolean) => void;
 }
 
 let capture: Captured | null = null;
 
 function Probe(): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures } = useTheme();
   const monacoTheme = useMonacoTheme();
-  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme };
+  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures };
   return null;
 }
 
@@ -82,5 +88,38 @@ describe("editor theme preference", () => {
     render();
     expect(capture?.editorTheme).toBe("auto");
     expect(capture?.monacoTheme).toBe("orbit-original");
+  });
+
+  it("defaults the code font, persists changes, and clamps sizes", () => {
+    render();
+    expect(capture?.editorFont).toBe("system");
+    expect(capture?.editorFontSize).toBe(13);
+    expect(capture?.editorLigatures).toBe(true);
+
+    act(() => capture?.setEditorFont("fira-code"));
+    act(() => capture?.setEditorFontSize(99));
+    act(() => capture?.setEditorLigatures(false));
+    expect(window.localStorage.getItem("orbit.editorFont")).toBe("fira-code");
+    expect(window.localStorage.getItem("orbit.editorFontSize")).toBe("24");
+    expect(window.localStorage.getItem("orbit.editorLigatures")).toBe("0");
+    expect(capture?.editorFontSize).toBe(24);
+    expect(capture?.editorLigatures).toBe(false);
+
+    act(() => root.unmount());
+    container.remove();
+    document.body.append(container);
+    root = createRoot(container);
+    render();
+    expect(capture?.editorFont).toBe("fira-code");
+    expect(capture?.editorFontSize).toBe(24);
+    expect(capture?.editorLigatures).toBe(false);
+  });
+
+  it("falls back to safe font values for corrupt storage", () => {
+    window.localStorage.setItem("orbit.editorFont", "wingdings");
+    window.localStorage.setItem("orbit.editorFontSize", "huge");
+    render();
+    expect(capture?.editorFont).toBe("system");
+    expect(capture?.editorFontSize).toBe(13);
   });
 });
