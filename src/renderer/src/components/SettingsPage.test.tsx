@@ -76,6 +76,22 @@ describe("SettingsPage", () => {
     expect(window.localStorage.getItem("orbit.theme")).toBe("kitty");
   });
 
+  it("selects and persists an editor theme without touching the app profile", () => {
+    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
+
+    const cards = [...container.querySelectorAll<HTMLButtonElement>(".editor-theme-card")];
+    expect(cards.length).toBeGreaterThan(3);
+    const dracula = cards.find((card) => card.textContent?.includes("Dracula"));
+    expect(dracula).toBeDefined();
+    expect(window.localStorage.getItem("orbit.editorTheme")).toBeNull();
+
+    act(() => dracula?.click());
+    expect(window.localStorage.getItem("orbit.editorTheme")).toBe("curated-dracula");
+    expect(dracula?.getAttribute("aria-checked")).toBe("true");
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(window.localStorage.getItem("orbit.theme")).toBe("original");
+  });
+
   it("provides dedicated settings navigation with About as the final tab", () => {
     const onSectionChange = vi.fn();
     act(() => root.render(<SettingsSidebar section="appearance" onSectionChange={onSectionChange} />));

@@ -6,7 +6,7 @@ import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { OrbitMark } from "./OrbitMark";
-import { useTheme } from "../theme";
+import { useMonacoTheme } from "../theme";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { Tab } from "@shared/types";
@@ -82,7 +82,7 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
-  const { theme } = useTheme();
+  const monacoTheme = useMonacoTheme();
   const {
     editContent,
     setTabMode,
@@ -240,7 +240,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 
       {mode === "diff" ? (
         <DiffEditor
-          theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
+          theme={monacoTheme}
           language={language}
           original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
@@ -257,7 +257,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         />
       ) : (
         <Editor
-          theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
+          theme={monacoTheme}
           language={language}
           path={tab.path}
           defaultValue={tab.content}

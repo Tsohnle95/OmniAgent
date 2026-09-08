@@ -7,6 +7,8 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
+import { CURATED_THEME_REGISTRATIONS } from "./editor-themes";
+
 declare global {
   interface Window {
     MonacoEnvironment?: {
@@ -29,6 +31,10 @@ loader.config({ monaco });
 
 emmetHTML(monaco, ["html"]);
 emmetCSS(monaco, ["css", "scss", "less"]);
+
+for (const { id, json } of CURATED_THEME_REGISTRATIONS) {
+  monaco.editor.defineTheme(id, json as unknown as monaco.editor.IStandaloneThemeData);
+}
 
 monaco.editor.defineTheme("orbit-original", {
   base: "vs-dark",

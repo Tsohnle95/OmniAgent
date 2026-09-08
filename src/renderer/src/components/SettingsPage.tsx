@@ -2,6 +2,13 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { CommandOption, McpServerOption, PluginOption, RuntimeID, SkillOption } from "@shared/types";
 import { useStore } from "../store";
 import { type ThemeId, useTheme } from "../theme";
+import {
+  APP_THEME_MONACO,
+  BUILTIN_EDITOR_THEME_OPTIONS,
+  CURATED_EDITOR_THEME_OPTIONS,
+  EDITOR_THEME_AUTO,
+  type EditorThemeOption
+} from "../editor-themes";
 import { OrbitMark } from "./OrbitMark";
 import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
@@ -47,8 +54,37 @@ function SettingRow({ title, detail, control }: { title: string; detail: string;
   );
 }
 
+function EditorThemeCard({ option, selected, onSelect }: {
+  option: EditorThemeOption;
+  selected: boolean;
+  onSelect: () => void;
+}): ReactNode {
+  const [background, ...tokenColors] = option.swatches;
+  const bars = [tokenColors[1] ?? tokenColors[0], tokenColors[2] ?? tokenColors[0], tokenColors[0]].filter(Boolean);
+  return (
+    <button
+      className={`editor-theme-card ${selected ? "selected" : ""}`}
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+    >
+      <span className="editor-theme-preview" style={{ background: background ?? "transparent" }}>
+        {bars.map((color, index) => (
+          <i key={index} style={{ background: color, width: `${78 - index * 16}%` }} />
+        ))}
+      </span>
+      <span className="theme-card-copy">
+        <strong>{option.name}</strong>
+        <small>{option.blurb}</small>
+      </span>
+      <span className="theme-swatches">{option.swatches.map((color) => <i key={color} style={{ background: color }} />)}</span>
+      <span className="theme-check">{selected ? "Selected" : "Select"}</span>
+    </button>
+  );
+}
+
 export function SettingsPage({ section, onClose }: { section: SettingsSection; onClose: () => void }): ReactNode {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme } = useTheme();
   const {
     session,
     runtimes,
@@ -132,6 +168,29 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
             detail="Wrap long editor lines to the available width."
             control={<button className={`settings-switch ${wordWrap ? "on" : ""}`} role="switch" aria-checked={wordWrap} onClick={toggleWordWrap}><span /></button>}
           />
+        </div>
+        <h2 className="settings-group-title">Editor theme</h2>
+        <p className="settings-note">Code editor only. Follow app theme tracks the profile above; any other choice stays fixed.</p>
+        <div className="theme-grid" role="radiogroup" aria-label="Editor theme">
+          <EditorThemeCard
+            option={{
+              id: EDITOR_THEME_AUTO,
+              name: "Follow app theme",
+              dark: theme !== "paper",
+              blurb: "Matches the selected appearance profile.",
+              swatches: BUILTIN_EDITOR_THEME_OPTIONS.find((entry) => entry.id === (APP_THEME_MONACO[theme] ?? ""))?.swatches ?? []
+            }}
+            selected={editorTheme === EDITOR_THEME_AUTO}
+            onSelect={() => setEditorTheme(EDITOR_THEME_AUTO)}
+          />
+          {[...BUILTIN_EDITOR_THEME_OPTIONS, ...CURATED_EDITOR_THEME_OPTIONS].map((option) => (
+            <EditorThemeCard
+              key={option.id}
+              option={option}
+              selected={editorTheme === option.id}
+              onSelect={() => setEditorTheme(option.id)}
+            />
+          ))}
         </div>
       </section>}
 

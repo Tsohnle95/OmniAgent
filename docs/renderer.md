@@ -471,10 +471,15 @@ released at that collapsed position.
 ## Monaco (`monaco.ts`)
 
 - Workers wired for editor/json/css/html/ts (`?worker` imports).
-- `orbit-original`, `orbit-paper`, and `orbit-kitty` themes (diff insert/remove colors included), selected with the persisted renderer color profile. Monaco
-  parses theme palette colors with `Color.fromHex`, which silently maps any
+- `orbit-original`, `orbit-paper`, and `orbit-kitty` themes (diff insert/remove colors included). The editor theme is independent of the app
+  appearance profile: `useMonacoTheme()` returns the persisted `orbit.editorTheme` choice, or the profile-mapped theme when the choice is `auto`.
+  Monaco parses theme palette colors with `Color.fromHex`, which silently maps any
   non-hex value to pure red — every palette color must be hex
   (`#RRGGBB` or `#RRGGBBAA`), never `rgba()`.
+- Curated offline gallery: six Monaco-native themes vendored under `src/renderer/src/editor-themes/` (Dracula, Monokai, Night Owl, Nord, GitHub
+  Light, Solarized Light; see the directory README for provenance) registered as `curated-*` in `monaco.ts`. The pure catalog
+  (`editor-themes.ts`: ids, blurbs, swatch derivation) is kept separate from Monaco registration so settings UI and unit tests never load
+  `monaco-editor` — test files mock `monaco.ts` (`languageForPath` plus a `monaco.editor` stub) and must keep doing so.
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
 - CSS worker diagnostics stay enabled (the only language worker with a
