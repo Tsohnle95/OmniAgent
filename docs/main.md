@@ -319,7 +319,10 @@ userData; a legacy flat `{ width, height }` file migrates into that profile.
 Resizes are saved (400ms debounce) only while the current view is `"session"`,
 and never while minimized, maximized, or full screen, so landing resizes never
 clobber the session profile. With nothing saved yet the session view falls back
-to `DEFAULT_SESSION_SIZE` (1280×800). The app boots at the landing size; the
+to `DEFAULT_SESSION_SIZE` (1280×800). View switches resize and then center the
+window on the current display (skipped while maximized or full screen), so a
+landing → session grow keeps the saved session size centered instead of
+extending down-right from the landing corner. The app boots centered at the landing size; the
 renderer flips the view when the first panel opens and when the last one closes.
 
 The app icon (`resources/icon.svg` →

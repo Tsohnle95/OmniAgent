@@ -239,7 +239,13 @@ function applyWindowView(nextView: WindowView): void {
     nextView === "landing"
       ? { width: LANDING_WIDTH, height: LANDING_HEIGHT }
       : loadSessionBounds() ?? DEFAULT_SESSION_SIZE;
-  if (!win.isMaximized() && !win.isFullScreen()) win.setSize(size.width, size.height);
+  if (!win.isMaximized() && !win.isFullScreen()) {
+    win.setSize(size.width, size.height);
+    // setSize preserves the top-left corner, so a landing → session grow
+    // would otherwise extend down-right and look like a bottom-right
+    // teleport. Re-center so the saved session size appears centered.
+    win.center();
+  }
 }
 
 function readFileSyncSafe(file: string): string {
@@ -286,6 +292,9 @@ function createWindow(show = true): BrowserWindow {
   win = newWin;
   trustedLocation = location;
   inspectPicker.cancel();
+  // Boot centered at the landing size so the first paint never anchors
+  // to a cascaded corner before the session view applies its saved size.
+  newWin.center();
   const wc = newWin.webContents;
 
   wc.on("console-message", (event) => {
