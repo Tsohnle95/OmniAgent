@@ -34,6 +34,8 @@ function asCssHex(value: unknown): string | null {
   return null;
 }
 
+export const normalizeHexColor = asCssHex;
+
 export function editorThemeSwatches(data: {
   colors?: Record<string, string | undefined>;
   rules?: Array<{ foreground?: string }>;
@@ -106,3 +108,49 @@ export const CURATED_EDITOR_THEME_OPTIONS: EditorThemeOption[] = CURATED_THEME_S
     rules?: Array<{ foreground?: string }>;
   })
 }));
+
+export interface CustomEditorThemeData {
+  base: string;
+  inherit: boolean;
+  rules: Array<{ token?: string; foreground?: string; background?: string; fontStyle?: string }>;
+  colors: Record<string, string>;
+}
+
+export interface CustomEditorTheme {
+  id: string;
+  name: string;
+  source: string;
+  dark: boolean;
+  data: CustomEditorThemeData;
+}
+
+export const MAX_CUSTOM_EDITOR_THEMES = 24;
+const CUSTOM_EDITOR_THEMES_KEY = "orbit.editorCustomThemes";
+
+function isCustomEditorTheme(value: unknown): value is CustomEditorTheme {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.id !== "string" || candidate.id.length === 0 || candidate.id.length > 64) return false;
+  if (typeof candidate.name !== "string" || candidate.name.length === 0 || candidate.name.length > 128) return false;
+  if (typeof candidate.source !== "string" || candidate.source.length > 256) return false;
+  if (typeof candidate.dark !== "boolean") return false;
+  if (typeof candidate.data !== "object" || candidate.data === null) return false;
+  const data = candidate.data as Record<string, unknown>;
+  return Array.isArray(data.rules) && typeof data.colors === "object" && data.colors !== null;
+}
+
+export function readStoredCustomEditorThemes(): CustomEditorTheme[] {
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_EDITOR_THEMES_KEY);
+    if (!raw || raw.length > 2_000_000) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isCustomEditorTheme).slice(0, MAX_CUSTOM_EDITOR_THEMES);
+  } catch {
+    return [];
+  }
+}
+
+export function writeStoredCustomEditorThemes(themes: CustomEditorTheme[]): void {
+  window.localStorage.setItem(CUSTOM_EDITOR_THEMES_KEY, JSON.stringify(themes.slice(0, MAX_CUSTOM_EDITOR_THEMES)));
+}

@@ -2,6 +2,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider, useMonacoTheme, useTheme } from "./theme";
+import type { CustomEditorTheme } from "./editor-themes";
 
 interface Captured {
   theme: string;
@@ -15,14 +16,25 @@ interface Captured {
   setEditorFontSize: (size: number) => void;
   editorLigatures: boolean;
   setEditorLigatures: (on: boolean) => void;
+  customEditorThemes: CustomEditorTheme[];
+  installCustomEditorTheme: (theme: CustomEditorTheme) => void;
+  removeCustomEditorTheme: (id: string) => void;
 }
 
 let capture: Captured | null = null;
 
+const customTheme: CustomEditorTheme = {
+  id: "ovsx-acme-cool-0",
+  name: "Cool Dark",
+  source: "Acme/cool v1.0.0",
+  dark: true,
+  data: { base: "vs-dark", inherit: true, rules: [], colors: {} }
+};
+
 function Probe(): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme } = useTheme();
   const monacoTheme = useMonacoTheme();
-  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures };
+  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme };
   return null;
 }
 
@@ -121,5 +133,39 @@ describe("editor theme preference", () => {
     render();
     expect(capture?.editorFont).toBe("system");
     expect(capture?.editorFontSize).toBe(13);
+  });
+
+  it("installs, selects, and removes marketplace themes", () => {
+    render();
+    expect(capture?.customEditorThemes).toEqual([]);
+
+    act(() => capture?.installCustomEditorTheme(customTheme));
+    act(() => capture?.setEditorTheme(customTheme.id));
+    expect(capture?.monacoTheme).toBe(customTheme.id);
+    expect(JSON.parse(window.localStorage.getItem("orbit.editorCustomThemes") ?? "[]")).toHaveLength(1);
+
+    act(() => capture?.removeCustomEditorTheme(customTheme.id));
+    expect(capture?.customEditorThemes).toEqual([]);
+    // Removing the active theme falls back to following the app profile.
+    expect(capture?.editorTheme).toBe("auto");
+    expect(capture?.monacoTheme).toBe("orbit-original");
+    expect(JSON.parse(window.localStorage.getItem("orbit.editorCustomThemes") ?? "[]")).toEqual([]);
+
+    act(() => root.unmount());
+    container.remove();
+    document.body.append(container);
+    root = createRoot(container);
+    render();
+    expect(capture?.customEditorThemes).toEqual([]);
+  });
+
+  it("replaces reinstalls in place and ignores corrupt stored themes", () => {
+    window.localStorage.setItem("orbit.editorCustomThemes", JSON.stringify([{ id: "broken" }, customTheme]));
+    render();
+    expect(capture?.customEditorThemes).toEqual([customTheme]);
+
+    const renamed = { ...customTheme, name: "Cool Darker" };
+    act(() => capture?.installCustomEditorTheme(renamed));
+    expect(capture?.customEditorThemes).toEqual([renamed]);
   });
 });

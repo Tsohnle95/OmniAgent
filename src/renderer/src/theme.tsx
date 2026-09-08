@@ -1,10 +1,17 @@
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from "react";
-import { APP_THEME_MONACO, EDITOR_THEME_AUTO } from "./editor-themes";
 import {
   normalizeEditorFont,
   normalizeEditorFontSize,
   type EditorFontId
 } from "./editor-fonts";
+import {
+  APP_THEME_MONACO,
+  EDITOR_THEME_AUTO,
+  MAX_CUSTOM_EDITOR_THEMES,
+  readStoredCustomEditorThemes,
+  writeStoredCustomEditorThemes,
+  type CustomEditorTheme
+} from "./editor-themes";
 
 export type ThemeId = "original" | "paper" | "kitty";
 
@@ -19,6 +26,9 @@ interface ThemeContextValue {
   setEditorFontSize: (size: number) => void;
   editorLigatures: boolean;
   setEditorLigatures: (on: boolean) => void;
+  customEditorThemes: CustomEditorTheme[];
+  installCustomEditorTheme: (theme: CustomEditorTheme) => void;
+  removeCustomEditorTheme: (id: string) => void;
 }
 
 const THEME_KEY = "orbit.theme";
@@ -58,6 +68,7 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
   const [editorFont, setEditorFontState] = useState<EditorFontId>(storedEditorFont);
   const [editorFontSize, setEditorFontSizeState] = useState<number>(storedEditorFontSize);
   const [editorLigatures, setEditorLigaturesState] = useState<boolean>(storedEditorLigatures);
+  const [customEditorThemes, setCustomEditorThemes] = useState<CustomEditorTheme[]>(readStoredCustomEditorThemes);
 
   const setEditorTheme = (id: string): void => {
     const next = id.length > 0 && id.length <= 128 ? id : EDITOR_THEME_AUTO;
@@ -82,6 +93,30 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
     window.localStorage.setItem(EDITOR_LIGATURES_KEY, on ? "1" : "0");
   };
 
+  const installCustomEditorTheme = (theme: CustomEditorTheme): void => {
+    setCustomEditorThemes((current) => {
+      // Re-installs replace in place; beyond the cap the oldest drops off.
+      const next = [theme, ...current.filter((entry) => entry.id !== theme.id)].slice(0, MAX_CUSTOM_EDITOR_THEMES);
+      writeStoredCustomEditorThemes(next);
+      return next;
+    });
+  };
+
+  const removeCustomEditorTheme = (id: string): void => {
+    // Removing the active theme falls back to following the app profile so
+    // the editor never points at an unregistered theme.
+    setEditorThemeState((current) => {
+      if (current !== id) return current;
+      window.localStorage.setItem(EDITOR_THEME_KEY, EDITOR_THEME_AUTO);
+      return EDITOR_THEME_AUTO;
+    });
+    setCustomEditorThemes((current) => {
+      const next = current.filter((entry) => entry.id !== id);
+      writeStoredCustomEditorThemes(next);
+      return next;
+    });
+  };
+
   useLayoutEffect(() => {
     if (theme === "original") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
@@ -90,7 +125,7 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
 
   return (
     <ThemeContext.Provider
-      value={{ theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures }}
+      value={{ theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme }}
     >
       {children}
     </ThemeContext.Provider>

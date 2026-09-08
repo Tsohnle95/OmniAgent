@@ -7,7 +7,7 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
-import { CURATED_THEME_REGISTRATIONS } from "./editor-themes";
+import { CURATED_THEME_REGISTRATIONS, readStoredCustomEditorThemes, type CustomEditorThemeData } from "./editor-themes";
 
 declare global {
   interface Window {
@@ -34,6 +34,18 @@ emmetCSS(monaco, ["css", "scss", "less"]);
 
 for (const { id, json } of CURATED_THEME_REGISTRATIONS) {
   monaco.editor.defineTheme(id, json as unknown as monaco.editor.IStandaloneThemeData);
+}
+
+export function registerEditorTheme(id: string, data: CustomEditorThemeData): void {
+  monaco.editor.defineTheme(id, data as unknown as monaco.editor.IStandaloneThemeData);
+}
+
+for (const custom of readStoredCustomEditorThemes()) {
+  try {
+    registerEditorTheme(custom.id, custom.data);
+  } catch {
+    // A corrupt stored theme stays listed so it can be removed in settings.
+  }
 }
 
 monaco.editor.defineTheme("orbit-original", {

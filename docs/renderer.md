@@ -483,6 +483,12 @@ released at that collapsed position.
 - Code fonts are bundled offline via Fontsource (OFL-licensed: JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, 400 + 700 weights imported
   in `main.tsx`) with a system-stack fallback. `editor-fonts.ts` holds the pure font catalog and validation; `ThemeProvider` persists `orbit.editorFont`,
   `orbit.editorFontSize` (clamped 10–24), and `orbit.editorLigatures`; `EditorPane` applies all three through its Monaco options.
+- Live marketplace: `ovsx-themes.ts` searches Open VSX (`category:themes`) and installs `.vsix` packages renderer-side with `jszip`. Only the manifest and the
+  contributed theme JSON/JSONC files are read — extension code never runs — and VS Code `tokenColors` are converted to Monaco rules with a longest-prefix
+  scope map (raw scopes are kept alongside mapped tokens; non-hex colors are dropped per the hex rule above; legacy `.tmTheme` files are refused with an
+  explanation). Installed themes persist in `orbit.editorCustomThemes` (validated, capped at 24), are re-registered with Monaco on startup in `monaco.ts`,
+  and removing the active one falls back to `auto`. The settings panel registers fresh installs through a dynamic `../monaco` import so unit tests never
+  load `monaco-editor`.
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
 - CSS worker diagnostics stay enabled (the only language worker with a

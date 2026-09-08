@@ -7,9 +7,11 @@ import {
   BUILTIN_EDITOR_THEME_OPTIONS,
   CURATED_EDITOR_THEME_OPTIONS,
   EDITOR_THEME_AUTO,
+  editorThemeSwatches,
   type EditorThemeOption
 } from "../editor-themes";
 import { EDITOR_FONT_OPTIONS } from "../editor-fonts";
+import { OvsxThemePanel } from "./OvsxThemePanel";
 import { OrbitMark } from "./OrbitMark";
 import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
@@ -85,7 +87,7 @@ function EditorThemeCard({ option, selected, onSelect }: {
 }
 
 export function SettingsPage({ section, onClose }: { section: SettingsSection; onClose: () => void }): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes } = useTheme();
   const {
     session,
     runtimes,
@@ -192,7 +194,24 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
               onSelect={() => setEditorTheme(option.id)}
             />
           ))}
+          {customEditorThemes.map((installed) => (
+            <EditorThemeCard
+              key={installed.id}
+              option={{
+                id: installed.id,
+                name: installed.name,
+                dark: installed.dark,
+                blurb: `Installed from ${installed.source}.`,
+                swatches: editorThemeSwatches(installed.data)
+              }}
+              selected={editorTheme === installed.id}
+              onSelect={() => setEditorTheme(installed.id)}
+            />
+          ))}
         </div>
+        <h2 className="settings-group-title">More themes</h2>
+        <p className="settings-note">Search the Open VSX marketplace over the network. Only theme colors are installed — extension code never runs. Removal happens under Installed marketplace themes.</p>
+        <OvsxThemePanel />
         <h2 className="settings-group-title">Code font</h2>
         <p className="settings-note">Bundled offline. Ligatures render only where the chosen font provides them.</p>
         <div className="font-grid" role="radiogroup" aria-label="Code font">
