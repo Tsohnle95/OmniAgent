@@ -16,6 +16,8 @@ interface Captured {
   setEditorFontSize: (size: number) => void;
   editorLigatures: boolean;
   setEditorLigatures: (on: boolean) => void;
+  useThemeBackground: boolean;
+  setUseThemeBackground: (on: boolean) => void;
   customEditorThemes: CustomEditorTheme[];
   installCustomEditorTheme: (theme: CustomEditorTheme) => void;
   removeCustomEditorTheme: (id: string) => void;
@@ -32,9 +34,9 @@ const customTheme: CustomEditorTheme = {
 };
 
 function Probe(): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, useThemeBackground, setUseThemeBackground, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme } = useTheme();
   const monacoTheme = useMonacoTheme();
-  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme };
+  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, useThemeBackground, setUseThemeBackground, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme };
   return null;
 }
 
@@ -125,6 +127,20 @@ describe("editor theme preference", () => {
     expect(capture?.editorFont).toBe("fira-code");
     expect(capture?.editorFontSize).toBe(24);
     expect(capture?.editorLigatures).toBe(false);
+  });
+
+  it("keeps theme backgrounds on by default and persists the toggle", () => {
+    render();
+    expect(capture?.useThemeBackground).toBe(true);
+    act(() => capture?.setUseThemeBackground(false));
+    expect(window.localStorage.getItem("orbit.editorThemeBackground")).toBe("0");
+
+    act(() => root.unmount());
+    container.remove();
+    document.body.append(container);
+    root = createRoot(container);
+    render();
+    expect(capture?.useThemeBackground).toBe(false);
   });
 
   it("falls back to safe font values for corrupt storage", () => {

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  APP_EDITOR_BACKGROUND,
   APP_THEME_MONACO,
   BUILTIN_EDITOR_THEME_OPTIONS,
   CURATED_EDITOR_THEME_OPTIONS,
-  editorThemeSwatches
+  derivePinnedThemeData,
+  editorThemeSwatches,
+  pinnedThemeId
 } from "./editor-themes";
 
 const HEX = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
@@ -42,5 +45,27 @@ describe("editor theme catalog", () => {
   it("caps swatches at five entries", () => {
     const rules = ["111111", "222222", "333333", "444444", "555555", "666666"].map((foreground) => ({ foreground }));
     expect(editorThemeSwatches({ colors: {}, rules })).toHaveLength(5);
+  });
+
+  it("pins a theme to the Orbit panel background without touching tokens", () => {
+    for (const background of Object.values(APP_EDITOR_BACKGROUND)) {
+      for (const color of Object.values(background)) expect(color).toMatch(HEX);
+    }
+    expect(pinnedThemeId("curated-dracula", "original")).toBe("curated-dracula__bg-original");
+    const pinned = derivePinnedThemeData(
+      {
+        base: "vs-dark",
+        inherit: true,
+        rules: [{ token: "comment", foreground: "6a9955" }],
+        colors: { "editor.background": "#282a36", "editor.selectionBackground": "#44475a" }
+      },
+      "paper"
+    );
+    expect(pinned.colors["editor.background"]).toBe("#fbf7ec");
+    expect(pinned.colors["editorGutter.background"]).toBe("#fbf7ec");
+    expect(pinned.colors["minimap.background"]).toBe("#fbf7ec");
+    expect(pinned.colors["editor.selectionBackground"]).toBe("#44475a");
+    expect(pinned.rules).toEqual([{ token: "comment", foreground: "6a9955" }]);
+    expect(pinned.base).toBe("vs-dark");
   });
 });

@@ -479,7 +479,11 @@ released at that collapsed position.
 - Curated offline gallery: six Monaco-native themes vendored under `src/renderer/src/editor-themes/` (Dracula, Monokai, Night Owl, Nord, GitHub
   Light, Solarized Light; see the directory README for provenance) registered as `curated-*` in `monaco.ts`. The pure catalog
   (`editor-themes.ts`: ids, blurbs, swatch derivation) is kept separate from Monaco registration so settings UI and unit tests never load
-  `monaco-editor` — test files mock `monaco.ts` (`languageForPath` plus a `monaco.editor` stub) and must keep doing so.
+  `monaco-editor` — test files mock `monaco.ts` (`languageForPath`, `ensureEffectiveEditorTheme`, plus a `monaco.editor` stub) and must keep doing so.
+- The editor theme paints the whole editor surface by default (Monaco themes bundle `editor.background`, not just tokens). The `orbit.editorThemeBackground`
+  toggle (default on) switches to text-only mode: `ensureEffectiveEditorTheme()` in `monaco.ts` registers a derived `<id>__bg-<profile>` theme that keeps the
+  Orbit panel background (`APP_EDITOR_BACKGROUND`) while taking the theme's token colors and accents. Built-in `orbit-*` themes already paint Orbit
+  backgrounds and pass through unchanged.
 - Code fonts are bundled offline via Fontsource (OFL-licensed: JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, 400 + 700 weights imported
   in `main.tsx`) with a system-stack fallback. `editor-fonts.ts` holds the pure font catalog and validation; `ThemeProvider` persists `orbit.editorFont`,
   `orbit.editorFontSize` (clamped 10–24), and `orbit.editorLigatures`; `EditorPane` applies all three through its Monaco options.

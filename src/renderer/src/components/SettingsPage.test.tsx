@@ -109,6 +109,17 @@ describe("SettingsPage", () => {
     expect(window.localStorage.getItem("orbit.editorLigatures")).toBe("0");
   });
 
+  it("toggles the editor theme background", () => {
+    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
+
+    const backgroundSwitch = [...container.querySelectorAll<HTMLButtonElement>("[role='switch']")]
+      .find((button) => button.closest(".settings-list-row")?.textContent?.includes("Theme background"));
+    expect(backgroundSwitch?.getAttribute("aria-checked")).toBe("true");
+    act(() => backgroundSwitch?.click());
+    expect(window.localStorage.getItem("orbit.editorThemeBackground")).toBe("0");
+    expect(backgroundSwitch?.getAttribute("aria-checked")).toBe("false");
+  });
+
   it("provides dedicated settings navigation with About as the final tab", () => {
     const onSectionChange = vi.fn();
     act(() => root.render(<SettingsSidebar section="appearance" onSectionChange={onSectionChange} />));

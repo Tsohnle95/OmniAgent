@@ -72,6 +72,7 @@ vi.mock("@monaco-editor/react", () => ({
 }));
 vi.mock("../monaco", () => ({
   languageForPath: () => "typescript",
+  ensureEffectiveEditorTheme: ({ editorTheme }: { editorTheme: string }) => editorTheme,
   monaco: { editor: { setModelMarkers: vi.fn() } }
 }));
 vi.mock("../diagnostics", () => ({

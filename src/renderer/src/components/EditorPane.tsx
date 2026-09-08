@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { languageForPath } from "../monaco";
+import { ensureEffectiveEditorTheme, languageForPath } from "../monaco";
 import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { OrbitMark } from "./OrbitMark";
-import { useMonacoTheme, useTheme } from "../theme";
+import { useTheme } from "../theme";
 import { editorFontFamily } from "../editor-fonts";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
@@ -81,8 +81,11 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
-  const monacoTheme = useMonacoTheme();
-  const { editorFont, editorFontSize, editorLigatures } = useTheme();
+  const { theme, editorTheme, useThemeBackground, customEditorThemes, editorFont, editorFontSize, editorLigatures } = useTheme();
+  const monacoTheme = useMemo(
+    () => ensureEffectiveEditorTheme({ appTheme: theme, editorTheme, useThemeBackground, customs: customEditorThemes }),
+    [theme, editorTheme, useThemeBackground, customEditorThemes]
+  );
   const {
     editContent,
     setTabMode,

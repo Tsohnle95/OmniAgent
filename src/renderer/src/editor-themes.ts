@@ -36,6 +36,35 @@ function asCssHex(value: unknown): string | null {
 
 export const normalizeHexColor = asCssHex;
 
+// Orbit panel backgrounds per app profile, used when a theme is applied
+// text-only (see derivePinnedThemeData): the editor keeps the app surface
+// while the theme supplies token colors and accents.
+export const APP_EDITOR_BACKGROUND: Record<string, { background: string; gutter: string; minimap: string }> = {
+  original: { background: "#262220", gutter: "#262220", minimap: "#262220" },
+  paper: { background: "#fbf7ec", gutter: "#fbf7ec", minimap: "#fbf7ec" },
+  kitty: { background: "#02020400", gutter: "#02020400", minimap: "#02020400" }
+};
+
+export function pinnedThemeId(themeId: string, appTheme: string): string {
+  return `${themeId}__bg-${appTheme}`;
+}
+
+export function derivePinnedThemeData(
+  data: CustomEditorThemeData,
+  appTheme: string
+): CustomEditorThemeData {
+  const background = APP_EDITOR_BACKGROUND[appTheme] ?? APP_EDITOR_BACKGROUND.original;
+  return {
+    ...data,
+    colors: {
+      ...data.colors,
+      "editor.background": background.background,
+      "editorGutter.background": background.gutter,
+      "minimap.background": background.minimap
+    }
+  };
+}
+
 export function editorThemeSwatches(data: {
   colors?: Record<string, string | undefined>;
   rules?: Array<{ foreground?: string }>;

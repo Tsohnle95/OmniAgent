@@ -7,7 +7,16 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
-import { CURATED_THEME_REGISTRATIONS, readStoredCustomEditorThemes, type CustomEditorThemeData } from "./editor-themes";
+import {
+  APP_THEME_MONACO,
+  CURATED_THEME_REGISTRATIONS,
+  derivePinnedThemeData,
+  EDITOR_THEME_AUTO,
+  pinnedThemeId,
+  readStoredCustomEditorThemes,
+  type CustomEditorTheme,
+  type CustomEditorThemeData
+} from "./editor-themes";
 
 declare global {
   interface Window {
@@ -38,6 +47,29 @@ for (const { id, json } of CURATED_THEME_REGISTRATIONS) {
 
 export function registerEditorTheme(id: string, data: CustomEditorThemeData): void {
   monaco.editor.defineTheme(id, data as unknown as monaco.editor.IStandaloneThemeData);
+}
+
+export function ensureEffectiveEditorTheme(options: {
+  appTheme: string;
+  editorTheme: string;
+  useThemeBackground: boolean;
+  customs: CustomEditorTheme[];
+}): string {
+  const { appTheme, editorTheme, useThemeBackground, customs } = options;
+  if (editorTheme === EDITOR_THEME_AUTO || useThemeBackground) {
+    return editorTheme === EDITOR_THEME_AUTO ? (APP_THEME_MONACO[appTheme] ?? "orbit-original") : editorTheme;
+  }
+  // Text-only mode: keep the Orbit panel background, take the theme's token
+  // colors. Built-in orbit-* themes already paint Orbit backgrounds, so only
+  // curated and marketplace themes need a derived registration.
+  if (editorTheme.startsWith("orbit-")) return editorTheme;
+  const curated = CURATED_THEME_REGISTRATIONS.find((entry) => entry.id === editorTheme);
+  const custom = customs.find((entry) => entry.id === editorTheme);
+  const source = curated?.json ?? custom?.data;
+  if (!source) return editorTheme;
+  const pinnedId = pinnedThemeId(editorTheme, appTheme);
+  registerEditorTheme(pinnedId, derivePinnedThemeData(source as CustomEditorThemeData, appTheme));
+  return pinnedId;
 }
 
 for (const custom of readStoredCustomEditorThemes()) {

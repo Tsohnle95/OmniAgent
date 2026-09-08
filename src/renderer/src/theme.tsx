@@ -26,6 +26,8 @@ interface ThemeContextValue {
   setEditorFontSize: (size: number) => void;
   editorLigatures: boolean;
   setEditorLigatures: (on: boolean) => void;
+  useThemeBackground: boolean;
+  setUseThemeBackground: (on: boolean) => void;
   customEditorThemes: CustomEditorTheme[];
   installCustomEditorTheme: (theme: CustomEditorTheme) => void;
   removeCustomEditorTheme: (id: string) => void;
@@ -36,6 +38,7 @@ const EDITOR_THEME_KEY = "orbit.editorTheme";
 const EDITOR_FONT_KEY = "orbit.editorFont";
 const EDITOR_FONT_SIZE_KEY = "orbit.editorFontSize";
 const EDITOR_LIGATURES_KEY = "orbit.editorLigatures";
+const EDITOR_THEME_BACKGROUND_KEY = "orbit.editorThemeBackground";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function storedTheme(): ThemeId {
@@ -62,12 +65,19 @@ function storedEditorLigatures(): boolean {
   return window.localStorage.getItem(EDITOR_LIGATURES_KEY) !== "0";
 }
 
+function storedUseThemeBackground(): boolean {
+  // Default on: a theme renders exactly as designed until the user opts
+  // into text-only mode.
+  return window.localStorage.getItem(EDITOR_THEME_BACKGROUND_KEY) !== "0";
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }): ReactNode {
   const [theme, setTheme] = useState<ThemeId>(storedTheme);
   const [editorTheme, setEditorThemeState] = useState<string>(storedEditorTheme);
   const [editorFont, setEditorFontState] = useState<EditorFontId>(storedEditorFont);
   const [editorFontSize, setEditorFontSizeState] = useState<number>(storedEditorFontSize);
   const [editorLigatures, setEditorLigaturesState] = useState<boolean>(storedEditorLigatures);
+  const [useThemeBackground, setUseThemeBackgroundState] = useState<boolean>(storedUseThemeBackground);
   const [customEditorThemes, setCustomEditorThemes] = useState<CustomEditorTheme[]>(readStoredCustomEditorThemes);
 
   const setEditorTheme = (id: string): void => {
@@ -91,6 +101,11 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
   const setEditorLigatures = (on: boolean): void => {
     setEditorLigaturesState(on);
     window.localStorage.setItem(EDITOR_LIGATURES_KEY, on ? "1" : "0");
+  };
+
+  const setUseThemeBackground = (on: boolean): void => {
+    setUseThemeBackgroundState(on);
+    window.localStorage.setItem(EDITOR_THEME_BACKGROUND_KEY, on ? "1" : "0");
   };
 
   const installCustomEditorTheme = (theme: CustomEditorTheme): void => {
@@ -125,7 +140,7 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
 
   return (
     <ThemeContext.Provider
-      value={{ theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme }}
+      value={{ theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, useThemeBackground, setUseThemeBackground, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme }}
     >
       {children}
     </ThemeContext.Provider>
