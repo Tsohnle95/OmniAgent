@@ -65,6 +65,7 @@ function api(overrides: Partial<OpenShellApi> = {}): OpenShellApi {
     closeSession: async () => {},
     readFile: async () => "content",
     listDir: async () => [],
+    listPermissions: async () => [],
     ...overrides
   } as OpenShellApi;
 }
@@ -116,6 +117,79 @@ describe("store panel usage hydration", () => {
     await act(async () => store.selectAddPanel());
     expect(store.activeSessionID).toBe("session-7");
     expect(store.sessionUsage).toEqual(usageFor("session-7"));
+  });
+
+  it("refreshes usage and snapshots the baseline when compaction ends, with a delayed backstop", async () => {
+    vi.useFakeTimers();
+    try {
+      const postCompaction: SessionUsage = {
+        cost: 0,
+        tokens: { input: 12_000, output: 100, reasoning: 0, cache: { read: 0, write: 0 } }
+      };
+      const sessionUsage = vi.fn(async () => postCompaction);
+      window.openshell = api({ sessionUsage });
+      await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+      await act(async () => store.addModelPanel("/one"));
+      const sessionID = store.activeSessionID!;
+      const workspaceID = store.session!.workspace.id;
+
+      await act(async () => {
+        messageHandler!({
+          kind: "event",
+          type: "session.usage.updated",
+          data: {
+            id: "u-high",
+            created: Date.now(),
+            data: {
+              sessionID,
+              cost: 2,
+              tokens: { input: 190_000, output: 9_000, reasoning: 0, cache: { read: 0, write: 0 } }
+            }
+          }
+        });
+      });
+      expect(store.sessionUsage?.tokens.input).toBe(190_000);
+
+      sessionUsage.mockClear();
+      await act(async () => {
+        messageHandler!({
+          kind: "event",
+          type: "session.compaction.ended",
+          data: { id: "c-end", created: Date.now(), data: { sessionID } }
+        });
+      });
+      // Immediate poll applied the post-compaction snapshot against the
+      // pre-compaction baseline, so context fill drops instead of sticking.
+      expect(sessionUsage).toHaveBeenCalledTimes(1);
+      expect(store.sessionUsage?.tokens.input).toBe(12_000);
+      expect(store.panelViews[workspaceID]?.compactionBaseline).toBe(190_000);
+
+      // Delayed backstop re-polls in case the first read raced the commit.
+      await act(async () => { vi.advanceTimersByTime(8_000); });
+      expect(sessionUsage).toHaveBeenCalledTimes(2);
+      expect(store.sessionUsage?.tokens.input).toBe(12_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-polls usage after a manual compact command, promptly and as a backstop", async () => {
+    vi.useFakeTimers();
+    try {
+      const sessionUsage = vi.fn(async () => usageFor("session-1"));
+      window.openshell = api({ sessionUsage, runCommand: async () => {} });
+      await act(async () => root.render(<StoreProvider><Probe /></StoreProvider>));
+      await act(async () => store.addModelPanel("/one"));
+
+      sessionUsage.mockClear();
+      await act(async () => { await store.runCommand("compact"); });
+      await act(async () => { vi.advanceTimersByTime(1_500); });
+      expect(sessionUsage).toHaveBeenCalledTimes(1);
+      await act(async () => { vi.advanceTimersByTime(8_500); });
+      expect(sessionUsage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the newest provider usage refresh when requests finish out of order", async () => {

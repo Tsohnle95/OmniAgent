@@ -1711,10 +1711,14 @@ export class OpenShellBackend {
       const raw = info.data ?? info;
       const cost = raw.cost;
       const tokens = raw.tokens;
-      if (typeof cost !== "number" || !tokens) return null;
+      // Cost is display-only; local providers may omit it while still
+      // reporting tokens. Require tokens (they drive the context display)
+      // but coerce a missing cost to 0 instead of dropping the snapshot,
+      // mirroring the renderer's live-event normalization.
+      if (!tokens) return null;
       const num = (n: number | undefined): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
       return {
-        cost,
+        cost: num(cost),
         tokens: {
           input: num(tokens.input),
           output: num(tokens.output),
@@ -1754,11 +1758,13 @@ export class OpenShellBackend {
     const raw = (res as { data?: Record<string, unknown> }).data ?? res as Record<string, unknown>;
     const cost = raw.cost;
     const tokens = raw.tokens as Record<string, unknown> | undefined;
-    if (typeof cost !== "number" || !tokens) return null;
+    // See openSessionById above: tokens are required, cost coerces to 0 so
+    // cost-less local providers still get a refreshable usage snapshot.
+    if (!tokens) return null;
     const num = (n: unknown): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
     const cache = tokens.cache as Record<string, unknown> | undefined;
     return {
-      cost,
+      cost: num(cost),
       tokens: {
         input: num(tokens.input),
         output: num(tokens.output),

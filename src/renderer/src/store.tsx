@@ -1944,7 +1944,12 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       if (name === "compact" || name === "compress") {
         toast("Compacting session…");
         const panel = panelFor(target);
-        if (panel) setTimeout(() => void refreshSessionUsage(panel.id), 1500);
+        if (panel) {
+          setTimeout(() => void refreshSessionUsage(panel.id), 1500);
+          // The compaction event may arrive late (or its immediate poll may
+          // race the server commit); re-poll once more as a backstop.
+          setTimeout(() => void refreshSessionUsage(panel.id), 10_000);
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -2970,6 +2975,11 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             setCompactionBaselineBySession((prev) => ({ ...prev, [targetSessionID]: currentInput }));
           }
           void refreshSessionUsage(targetSessionID);
+          // Backstop: the usage snapshot may lag the compaction commit on
+          // slow/local backends. Re-poll once so the context display cannot
+          // stay pinned to its pre-compaction value. refreshSessionUsage
+          // no-ops when the panel is gone.
+          setTimeout(() => void refreshSessionUsage(targetSessionID), 8_000);
         } else if (type === "session.compaction.failed") {
           void refreshSessionUsage(targetSessionID);
         }

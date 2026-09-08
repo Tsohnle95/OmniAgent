@@ -51,8 +51,8 @@ Implementation / tests:
 | 1 | Window centered on view change | PATCH | complete | window-sizing test + typecheck pass (node 22.23.2) | — |
 | 2 | Agent scroll survives settings | PATCH | complete | AgentPanel.workspace.test (11 pass) + typecheck (node 22.23.2) | — |
 | 3 | Busy indicator reliability (local/slow models) | FEATURE | complete | stream-settle (10) + session-activity + assistant-status pass; matches documented 60s, no docs change | — |
-| 4 | Context usage accuracy + compaction refresh | FEATURE | pending | usage tests + typecheck | — |
-| 5 | Final gate + docs sync | — | pending | `npm run check` | — |
+| 4 | Context usage accuracy + compaction refresh | FEATURE | complete | usage tests (17) + typecheck (node 22.23.2) | — |
+| 5 | Final gate + docs sync | — | active | `npm run check` | — |
 
 ## Validation plan
 
