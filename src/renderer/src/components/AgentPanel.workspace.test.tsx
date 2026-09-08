@@ -64,7 +64,7 @@ vi.mock("../store", () => ({
   })
 }));
 
-import { AgentPanel, Composer } from "./AgentPanel";
+import { AgentPanel, Composer, clearAgentScrollMemoryForTests } from "./AgentPanel";
 
 function session(id: string, generation: number): SessionInfo {
   return {
@@ -87,6 +87,7 @@ describe("composer workspace continuations", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     window.localStorage.clear();
+    clearAgentScrollMemoryForTests();
     currentSession = session("one", 1);
     panelTranscript = [];
     panelQueuedMessages = [];
@@ -220,6 +221,43 @@ describe("composer workspace continuations", () => {
     await act(async () => root.render(<AgentPanel />));
 
     expect(scroll.scrollTop).toBe(500);
+  });
+
+  it("restores a scrolled-up position across a remount instead of jumping to the bottom", async () => {
+    currentSession = session("scroll", 9);
+    panelTranscript = [{ kind: "user", id: "user-1", text: "Inspect" }];
+    await act(async () => root.render(<AgentPanel />));
+    const scroll = container.querySelector<HTMLDivElement>(".agent-scroll")!;
+    Object.defineProperties(scroll, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 500, writable: true },
+      scrollTop: { configurable: true, value: 500, writable: true }
+    });
+
+    scroll.scrollTop = 200;
+    await act(async () => scroll.dispatchEvent(new Event("scroll")));
+
+    // Settings open/close unmounts the workspace area; remount the panel.
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => root.render(<AgentPanel />));
+    const restored = container.querySelector<HTMLDivElement>(".agent-scroll")!;
+    Object.defineProperties(restored, {
+      clientHeight: { configurable: true, value: 100, writable: true },
+      scrollHeight: { configurable: true, value: 500, writable: true },
+      scrollTop: { configurable: true, value: 200, writable: true }
+    });
+    restored.scrollTop = 200;
+    await act(async () => restored.dispatchEvent(new Event("scroll")));
+
+    // New content arrives while the reader sits mid-conversation: the panel
+    // must not yank them to the live edge.
+    panelTranscript = [
+      { kind: "user", id: "user-1", text: "Inspect" },
+      { kind: "user", id: "user-2", text: "Continue" }
+    ];
+    await act(async () => root.render(<AgentPanel />));
+    expect(restored.scrollTop).toBe(200);
   });
 
   it("returns from a child agent session to its parent", async () => {
