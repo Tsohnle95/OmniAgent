@@ -444,7 +444,7 @@ const EMPTY_TREE: Record<string, TreeEntry[]> = {};
 const EMPTY_EXPANDED: Set<string> = new Set();
 const SAVED_WORKSPACES_KEY = "orbit.savedWorkspaces";
 const STALE_SESSION_LAYOUT_KEY = "orbit.sessionLayout";
-const STREAM_SETTLE_MS = 15_000;
+const STREAM_SETTLE_MS = 60_000;
 const STREAM_SETTLE_IDLE_MS = 2_000;
 const STREAM_SETTLE_POLL_MS = 1_000;
 
@@ -3095,6 +3095,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             const previous = snapshotChatState(draft);
             applyChatEvent(draft, targetSessionID, streamEvent);
             syncStreaming(targetSessionID, previous);
+            // Authoritative proof the turn is alive: reset the settle quiet
+            // clock so slow models (long prefill/tool gaps with no deltas)
+            // cannot trip the watchdog mid-turn.
+            lastStreamActivityRef.current[targetSessionID] = Date.now();
             setSessionBusy(targetSessionID, true);
           }
           break;

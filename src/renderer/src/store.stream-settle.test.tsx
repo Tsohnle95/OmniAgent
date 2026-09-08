@@ -89,14 +89,14 @@ describe("store stream settle", () => {
   it("marks a reopened stale turn busy and settles it after the quiet window", async () => {
     expect(store.busy).toBe(true);
 
-    await act(async () => { vi.advanceTimersByTime(16_500); });
+    await act(async () => { vi.advanceTimersByTime(61_500); });
 
     expect(store.busy).toBe(false);
     expect(store.transcript.some((item) => item.kind === "assistant" && item.completed)).toBe(true);
   });
 
   it("restores busy when stream content arrives on a settled session", async () => {
-    await act(async () => { vi.advanceTimersByTime(16_500); });
+    await act(async () => { vi.advanceTimersByTime(61_500); });
     expect(store.busy).toBe(false);
 
     const sessionID = store.activeSessionID!;
@@ -113,8 +113,40 @@ describe("store stream settle", () => {
 
     expect(store.busy).toBe(true);
 
-    await act(async () => { vi.advanceTimersByTime(16_500); });
+    await act(async () => { vi.advanceTimersByTime(61_500); });
 
+    expect(store.busy).toBe(false);
+  });
+
+  it("holds busy across slow-model gaps while execution events reset the quiet clock", async () => {
+    await act(async () => { vi.advanceTimersByTime(61_500); });
+    expect(store.busy).toBe(false);
+
+    const sessionID = store.activeSessionID!;
+    const executionStarted: BackendMessage = {
+      kind: "event",
+      type: "session.execution.started",
+      data: { id: "exec-1", created: Date.now(), data: { sessionID } }
+    };
+    await act(async () => { messageHandler!(executionStarted); });
+    expect(store.busy).toBe(true);
+
+    // 50s of delta silence: still working (the old 15s window flipped to send here).
+    await act(async () => { vi.advanceTimersByTime(50_000); });
+    expect(store.busy).toBe(true);
+
+    // A fresh authoritative start resets the clock again.
+    const executionRestarted: BackendMessage = {
+      kind: "event",
+      type: "session.execution.started",
+      data: { id: "exec-2", created: Date.now(), data: { sessionID } }
+    };
+    await act(async () => { messageHandler!(executionRestarted); });
+    await act(async () => { vi.advanceTimersByTime(50_000); });
+    expect(store.busy).toBe(true);
+
+    // Genuine silence still settles the composer.
+    await act(async () => { vi.advanceTimersByTime(61_500); });
     expect(store.busy).toBe(false);
   });
 
@@ -289,7 +321,7 @@ describe("store stream settle", () => {
   });
 
   it("keeps pushed execution state authoritative after prompt submission without polling history", async () => {
-    await act(async () => { vi.advanceTimersByTime(16_500); });
+    await act(async () => { vi.advanceTimersByTime(61_500); });
     expect(store.busy).toBe(false);
 
     let finishPrompt: ((value: SessionTranscript) => void) | undefined;
@@ -339,7 +371,7 @@ describe("store stream settle", () => {
   });
 
   it("retains prompt IPC failures in the transcript with their code", async () => {
-    await act(async () => { vi.advanceTimersByTime(16_500); });
+    await act(async () => { vi.advanceTimersByTime(61_500); });
     window.openshell.prompt = vi.fn(async () => {
       throw Object.assign(new Error("model unavailable"), { code: "MODEL_UNAVAILABLE" });
     });
