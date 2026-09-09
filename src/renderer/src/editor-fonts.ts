@@ -9,16 +9,17 @@ export interface EditorFontOption {
   name: string;
   blurb: string;
   family: string;
+  familyName: string;
 }
 
 const FALLBACK = "'SF Mono', Menlo, Consolas, monospace";
 
 export const EDITOR_FONT_OPTIONS: EditorFontOption[] = [
-  { id: "system", name: "System", blurb: "SF Mono, Menlo, Consolas.", family: FALLBACK },
-  { id: "jetbrains-mono", name: "JetBrains Mono", blurb: "Distinct shapes, coding ligatures.", family: `'JetBrains Mono', ${FALLBACK}` },
-  { id: "fira-code", name: "Fira Code", blurb: "Extensive programming ligatures.", family: `'Fira Code', ${FALLBACK}` },
-  { id: "ibm-plex-mono", name: "IBM Plex Mono", blurb: "Neutral grotesque, no-nonsense.", family: `'IBM Plex Mono', ${FALLBACK}` },
-  { id: "source-code-pro", name: "Source Code Pro", blurb: "Adobe's readable coding face.", family: `'Source Code Pro', ${FALLBACK}` }
+  { id: "system", name: "System", blurb: "SF Mono, Menlo, Consolas.", family: FALLBACK, familyName: "SF Mono" },
+  { id: "jetbrains-mono", name: "JetBrains Mono", blurb: "Distinct shapes, coding ligatures.", family: `'JetBrains Mono', ${FALLBACK}`, familyName: "JetBrains Mono" },
+  { id: "fira-code", name: "Fira Code", blurb: "Extensive programming ligatures.", family: `'Fira Code', ${FALLBACK}`, familyName: "Fira Code" },
+  { id: "ibm-plex-mono", name: "IBM Plex Mono", blurb: "Neutral grotesque, no-nonsense.", family: `'IBM Plex Mono', ${FALLBACK}`, familyName: "IBM Plex Mono" },
+  { id: "source-code-pro", name: "Source Code Pro", blurb: "Adobe's readable coding face.", family: `'Source Code Pro', ${FALLBACK}`, familyName: "Source Code Pro" }
 ];
 
 export const DEFAULT_EDITOR_FONT_SIZE = 13;

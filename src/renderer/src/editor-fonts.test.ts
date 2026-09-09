@@ -17,6 +17,8 @@ describe("code font catalog", () => {
     for (const option of EDITOR_FONT_OPTIONS) {
       expect(option.name.length).toBeGreaterThan(0);
       expect(option.family).toContain("monospace");
+      expect(option.familyName.length).toBeGreaterThan(0);
+      expect(option.family).toContain(option.familyName);
     }
   });
 

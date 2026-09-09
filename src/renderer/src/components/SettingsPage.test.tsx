@@ -101,6 +101,7 @@ describe("SettingsPage", () => {
     act(() => fira?.click());
     expect(window.localStorage.getItem("orbit.editorFont")).toBe("fira-code");
     expect(fira?.getAttribute("aria-checked")).toBe("true");
+    expect(container.textContent).toContain("Active: Fira Code");
 
     const ligatureSwitch = [...container.querySelectorAll<HTMLButtonElement>("[role='switch']")]
       .find((button) => button.closest(".settings-list-row")?.textContent?.includes("Font ligatures"));

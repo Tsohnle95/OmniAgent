@@ -480,9 +480,10 @@ released at that collapsed position.
   Light, Solarized Light; see the directory README for provenance) registered as `curated-*` in `monaco.ts`. The pure catalog
   (`editor-themes.ts`: ids, blurbs, swatch derivation) is kept separate from Monaco registration so settings UI and unit tests never load
   `monaco-editor` — test files mock `monaco.ts` (`languageForPath`, `ensureEffectiveEditorTheme`, plus a `monaco.editor` stub) and must keep doing so.
-- The editor theme only recolors text: `resolveEffectiveThemeId()` maps an explicit gallery/marketplace choice to a background-pinned `<id>__bg-<profile>`
-  derivation (registered by `ensureEffectiveEditorTheme()` in `monaco.ts`) that keeps the Orbit panel background (`APP_EDITOR_BACKGROUND`) while taking the
-  theme's token colors and accents. Built-in `orbit-*` themes already paint Orbit backgrounds and pass through unchanged.
+- The editor theme only recolors text: `resolveEffectiveThemeId()` maps every explicit choice — built-in, curated, or marketplace — to a background-pinned
+  `<id>__bg-<profile>` derivation (registered by `ensureEffectiveEditorTheme()` in `monaco.ts`) that keeps the current app-profile panel background
+  (`APP_EDITOR_BACKGROUND`) while taking the theme's token colors and accents. Built-in theme data lives in `editor-themes.ts` (`ORBIT_MONACO_THEME_DATA`)
+  so pinning covers those picks too; `auto` follows the profile and needs no derivation.
 - Code fonts are bundled offline via Fontsource (OFL-licensed: JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, 400 + 700 weights imported
   in `main.tsx`) with a system-stack fallback. `editor-fonts.ts` holds the pure font catalog and validation; `ThemeProvider` persists `orbit.editorFont`,
   `orbit.editorFontSize` (clamped 10–24), and `orbit.editorLigatures`; `EditorPane` applies all three through its Monaco options.

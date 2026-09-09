@@ -10,8 +10,19 @@ import {
   editorThemeSwatches,
   type EditorThemeOption
 } from "../editor-themes";
-import { EDITOR_FONT_OPTIONS } from "../editor-fonts";
+import { EDITOR_FONT_OPTIONS, type EditorFontId } from "../editor-fonts";
 import { OvsxThemePanel } from "./OvsxThemePanel";
+
+function fontStatusLine(font: EditorFontId, size: number, ligatures: boolean): string {
+  const option = EDITOR_FONT_OPTIONS.find((entry) => entry.id === font) ?? EDITOR_FONT_OPTIONS[0];
+  let fileState = "system fallback";
+  try {
+    if (typeof document !== "undefined" && document.fonts?.check(`400 12px "${option.familyName}"`)) fileState = "loaded";
+  } catch {
+    fileState = "system fallback";
+  }
+  return `Active: ${option.name} ${size}px${ligatures ? " · ligatures" : ""} · font file ${fileState}.`;
+}
 import { OrbitMark } from "./OrbitMark";
 import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
@@ -243,6 +254,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
             control={<button className={`settings-switch ${editorLigatures ? "on" : ""}`} role="switch" aria-checked={editorLigatures} onClick={() => setEditorLigatures(!editorLigatures)}><span /></button>}
           />
         </div>
+        <p className="settings-note">{fontStatusLine(editorFont, editorFontSize, editorLigatures)}</p>
       </section>}
 
       {section === "plugins" && <section className="settings-section">

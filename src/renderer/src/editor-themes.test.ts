@@ -6,6 +6,7 @@ import {
   CURATED_EDITOR_THEME_OPTIONS,
   derivePinnedThemeData,
   editorThemeSwatches,
+  ORBIT_MONACO_THEME_DATA,
   pinnedThemeId,
   resolveEffectiveThemeId
 } from "./editor-themes";
@@ -73,8 +74,19 @@ describe("editor theme catalog", () => {
   it("resolves every theme choice to a text-only editor theme", () => {
     expect(resolveEffectiveThemeId("original", "auto")).toBe("orbit-original");
     expect(resolveEffectiveThemeId("paper", "auto")).toBe("orbit-paper");
-    expect(resolveEffectiveThemeId("original", "orbit-paper")).toBe("orbit-paper");
+    expect(resolveEffectiveThemeId("paper", "orbit-paper")).toBe("orbit-paper__bg-paper");
+    expect(resolveEffectiveThemeId("paper", "orbit-original")).toBe("orbit-original__bg-paper");
     expect(resolveEffectiveThemeId("original", "curated-dracula")).toBe("curated-dracula__bg-original");
     expect(resolveEffectiveThemeId("paper", "ovsx-acme-cool-0")).toBe("ovsx-acme-cool-0__bg-paper");
+  });
+
+  it("covers every built-in option with pinnable theme data", () => {
+    for (const option of BUILTIN_EDITOR_THEME_OPTIONS) {
+      const data = ORBIT_MONACO_THEME_DATA[option.id];
+      expect(data).toBeDefined();
+      expect(typeof data.base).toBe("string");
+      expect(Array.isArray(data.rules)).toBe(true);
+      expect(typeof data.colors).toBe("object");
+    }
   });
 });
