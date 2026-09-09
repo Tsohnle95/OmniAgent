@@ -6,7 +6,8 @@ import {
   CURATED_EDITOR_THEME_OPTIONS,
   derivePinnedThemeData,
   editorThemeSwatches,
-  pinnedThemeId
+  pinnedThemeId,
+  resolveEffectiveThemeId
 } from "./editor-themes";
 
 const HEX = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
@@ -67,5 +68,13 @@ describe("editor theme catalog", () => {
     expect(pinned.colors["editor.selectionBackground"]).toBe("#44475a");
     expect(pinned.rules).toEqual([{ token: "comment", foreground: "6a9955" }]);
     expect(pinned.base).toBe("vs-dark");
+  });
+
+  it("resolves every theme choice to a text-only editor theme", () => {
+    expect(resolveEffectiveThemeId("original", "auto")).toBe("orbit-original");
+    expect(resolveEffectiveThemeId("paper", "auto")).toBe("orbit-paper");
+    expect(resolveEffectiveThemeId("original", "orbit-paper")).toBe("orbit-paper");
+    expect(resolveEffectiveThemeId("original", "curated-dracula")).toBe("curated-dracula__bg-original");
+    expect(resolveEffectiveThemeId("paper", "ovsx-acme-cool-0")).toBe("ovsx-acme-cool-0__bg-paper");
   });
 });

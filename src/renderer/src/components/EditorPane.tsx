@@ -81,10 +81,10 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
-  const { theme, editorTheme, useThemeBackground, customEditorThemes, editorFont, editorFontSize, editorLigatures } = useTheme();
+  const { theme, editorTheme, customEditorThemes, editorFont, editorFontSize, editorLigatures } = useTheme();
   const monacoTheme = useMemo(
-    () => ensureEffectiveEditorTheme({ appTheme: theme, editorTheme, useThemeBackground, customs: customEditorThemes }),
-    [theme, editorTheme, useThemeBackground, customEditorThemes]
+    () => ensureEffectiveEditorTheme({ appTheme: theme, editorTheme, customs: customEditorThemes }),
+    [theme, editorTheme, customEditorThemes]
   );
   const {
     editContent,

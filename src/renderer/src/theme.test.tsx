@@ -16,8 +16,6 @@ interface Captured {
   setEditorFontSize: (size: number) => void;
   editorLigatures: boolean;
   setEditorLigatures: (on: boolean) => void;
-  useThemeBackground: boolean;
-  setUseThemeBackground: (on: boolean) => void;
   customEditorThemes: CustomEditorTheme[];
   installCustomEditorTheme: (theme: CustomEditorTheme) => void;
   removeCustomEditorTheme: (id: string) => void;
@@ -34,9 +32,9 @@ const customTheme: CustomEditorTheme = {
 };
 
 function Probe(): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, useThemeBackground, setUseThemeBackground, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme } = useTheme();
   const monacoTheme = useMonacoTheme();
-  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, useThemeBackground, setUseThemeBackground, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme };
+  capture = { theme, editorTheme, monacoTheme, setTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes, installCustomEditorTheme, removeCustomEditorTheme };
   return null;
 }
 
@@ -82,11 +80,12 @@ describe("editor theme preference", () => {
     render();
     act(() => capture?.setEditorTheme("curated-dracula"));
     expect(capture?.editorTheme).toBe("curated-dracula");
-    expect(capture?.monacoTheme).toBe("curated-dracula");
+    // Explicit themes resolve to a background-pinned derivation: text-only.
+    expect(capture?.monacoTheme).toBe("curated-dracula__bg-original");
     expect(window.localStorage.getItem("orbit.editorTheme")).toBe("curated-dracula");
 
     act(() => capture?.setTheme("paper"));
-    expect(capture?.monacoTheme).toBe("curated-dracula");
+    expect(capture?.monacoTheme).toBe("curated-dracula__bg-paper");
 
     act(() => root.unmount());
     container.remove();
@@ -94,7 +93,8 @@ describe("editor theme preference", () => {
     root = createRoot(container);
     render();
     expect(capture?.editorTheme).toBe("curated-dracula");
-    expect(capture?.monacoTheme).toBe("curated-dracula");
+    // The app profile persisted as paper above, so the pinning follows it.
+    expect(capture?.monacoTheme).toBe("curated-dracula__bg-paper");
   });
 
   it("treats blank or missing stored values as auto", () => {
@@ -129,20 +129,6 @@ describe("editor theme preference", () => {
     expect(capture?.editorLigatures).toBe(false);
   });
 
-  it("keeps theme backgrounds on by default and persists the toggle", () => {
-    render();
-    expect(capture?.useThemeBackground).toBe(true);
-    act(() => capture?.setUseThemeBackground(false));
-    expect(window.localStorage.getItem("orbit.editorThemeBackground")).toBe("0");
-
-    act(() => root.unmount());
-    container.remove();
-    document.body.append(container);
-    root = createRoot(container);
-    render();
-    expect(capture?.useThemeBackground).toBe(false);
-  });
-
   it("falls back to safe font values for corrupt storage", () => {
     window.localStorage.setItem("orbit.editorFont", "wingdings");
     window.localStorage.setItem("orbit.editorFontSize", "huge");
@@ -157,7 +143,7 @@ describe("editor theme preference", () => {
 
     act(() => capture?.installCustomEditorTheme(customTheme));
     act(() => capture?.setEditorTheme(customTheme.id));
-    expect(capture?.monacoTheme).toBe(customTheme.id);
+    expect(capture?.monacoTheme).toBe("ovsx-acme-cool-0__bg-original");
     expect(JSON.parse(window.localStorage.getItem("orbit.editorCustomThemes") ?? "[]")).toHaveLength(1);
 
     act(() => capture?.removeCustomEditorTheme(customTheme.id));

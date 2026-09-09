@@ -87,7 +87,7 @@ function EditorThemeCard({ option, selected, onSelect }: {
 }
 
 export function SettingsPage({ section, onClose }: { section: SettingsSection; onClose: () => void }): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, useThemeBackground, setUseThemeBackground, customEditorThemes } = useTheme();
+  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes } = useTheme();
   const {
     session,
     runtimes,
@@ -173,7 +173,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
           />
         </div>
         <h2 className="settings-group-title">Editor theme</h2>
-        <p className="settings-note">Code editor only. Follow app theme tracks the profile above; any other choice stays fixed.</p>
+        <p className="settings-note">Code editor only — themes recolor text, never the panel background. Follow app theme tracks the profile above; any other choice stays fixed.</p>
         <div className="theme-grid" role="radiogroup" aria-label="Editor theme">
           <EditorThemeCard
             option={{
@@ -208,13 +208,6 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
               onSelect={() => setEditorTheme(installed.id)}
             />
           ))}
-        </div>
-        <div className="settings-list">
-          <SettingRow
-            title="Theme background"
-            detail="On paints the whole editor surface in the theme's colors. Off keeps the Orbit panel background and only recolors text."
-            control={<button className={`settings-switch ${useThemeBackground ? "on" : ""}`} role="switch" aria-checked={useThemeBackground} onClick={() => setUseThemeBackground(!useThemeBackground)}><span /></button>}
-          />
         </div>
         <h2 className="settings-group-title">More themes</h2>
         <p className="settings-note">Search the Open VSX marketplace over the network. Only theme colors are installed — extension code never runs. Removal happens under Installed marketplace themes.</p>

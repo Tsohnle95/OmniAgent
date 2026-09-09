@@ -49,6 +49,15 @@ export function pinnedThemeId(themeId: string, appTheme: string): string {
   return `${themeId}__bg-${appTheme}`;
 }
 
+export function resolveEffectiveThemeId(appTheme: string, editorTheme: string): string {
+  // Editor themes only ever recolor text: an explicit gallery/marketplace
+  // choice resolves to a background-pinned derivation (registered by
+  // ensureEffectiveEditorTheme in monaco.ts), never to the raw theme.
+  if (editorTheme === EDITOR_THEME_AUTO) return APP_THEME_MONACO[appTheme] ?? "orbit-original";
+  if (editorTheme.startsWith("orbit-")) return editorTheme;
+  return pinnedThemeId(editorTheme, appTheme);
+}
+
 export function derivePinnedThemeData(
   data: CustomEditorThemeData,
   appTheme: string

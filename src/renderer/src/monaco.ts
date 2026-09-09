@@ -8,12 +8,10 @@ import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 import {
-  APP_THEME_MONACO,
   CURATED_THEME_REGISTRATIONS,
   derivePinnedThemeData,
-  EDITOR_THEME_AUTO,
-  pinnedThemeId,
   readStoredCustomEditorThemes,
+  resolveEffectiveThemeId,
   type CustomEditorTheme,
   type CustomEditorThemeData
 } from "./editor-themes";
@@ -52,24 +50,20 @@ export function registerEditorTheme(id: string, data: CustomEditorThemeData): vo
 export function ensureEffectiveEditorTheme(options: {
   appTheme: string;
   editorTheme: string;
-  useThemeBackground: boolean;
   customs: CustomEditorTheme[];
 }): string {
-  const { appTheme, editorTheme, useThemeBackground, customs } = options;
-  if (editorTheme === EDITOR_THEME_AUTO || useThemeBackground) {
-    return editorTheme === EDITOR_THEME_AUTO ? (APP_THEME_MONACO[appTheme] ?? "orbit-original") : editorTheme;
-  }
+  const { appTheme, editorTheme, customs } = options;
+  const id = resolveEffectiveThemeId(appTheme, editorTheme);
+  if (id === editorTheme) return id;
   // Text-only mode: keep the Orbit panel background, take the theme's token
   // colors. Built-in orbit-* themes already paint Orbit backgrounds, so only
   // curated and marketplace themes need a derived registration.
-  if (editorTheme.startsWith("orbit-")) return editorTheme;
   const curated = CURATED_THEME_REGISTRATIONS.find((entry) => entry.id === editorTheme);
   const custom = customs.find((entry) => entry.id === editorTheme);
   const source = curated?.json ?? custom?.data;
   if (!source) return editorTheme;
-  const pinnedId = pinnedThemeId(editorTheme, appTheme);
-  registerEditorTheme(pinnedId, derivePinnedThemeData(source as CustomEditorThemeData, appTheme));
-  return pinnedId;
+  registerEditorTheme(id, derivePinnedThemeData(source as CustomEditorThemeData, appTheme));
+  return id;
 }
 
 for (const custom of readStoredCustomEditorThemes()) {
