@@ -144,7 +144,9 @@ export const APP_EDITOR_BACKGROUND: Record<string, { background: string; gutter:
 };
 
 export function pinnedThemeId(themeId: string, appTheme: string): string {
-  return `${themeId}__bg-${appTheme}`;
+  // Monaco theme names allow only [a-z0-9-] (it throws otherwise), so the
+  // derivation suffix uses dashes, never underscores.
+  return `${themeId}-on-${appTheme}`;
 }
 
 export function resolveEffectiveThemeId(appTheme: string, editorTheme: string): string {
@@ -266,7 +268,7 @@ const CUSTOM_EDITOR_THEMES_KEY = "orbit.editorCustomThemes";
 function isCustomEditorTheme(value: unknown): value is CustomEditorTheme {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Record<string, unknown>;
-  if (typeof candidate.id !== "string" || candidate.id.length === 0 || candidate.id.length > 64) return false;
+  if (typeof candidate.id !== "string" || !/^[A-Za-z0-9-]{1,64}$/.test(candidate.id)) return false;
   if (typeof candidate.name !== "string" || candidate.name.length === 0 || candidate.name.length > 128) return false;
   if (typeof candidate.source !== "string" || candidate.source.length > 256) return false;
   if (typeof candidate.dark !== "boolean") return false;

@@ -481,7 +481,7 @@ released at that collapsed position.
   (`editor-themes.ts`: ids, blurbs, swatch derivation) is kept separate from Monaco registration so settings UI and unit tests never load
   `monaco-editor` — test files mock `monaco.ts` (`languageForPath`, `ensureEffectiveEditorTheme`, plus a `monaco.editor` stub) and must keep doing so.
 - The editor theme only recolors text: `resolveEffectiveThemeId()` maps every explicit choice — built-in, curated, or marketplace — to a background-pinned
-  `<id>__bg-<profile>` derivation (registered by `ensureEffectiveEditorTheme()` in `monaco.ts`) that keeps the current app-profile panel background
+  `<id>-on-<profile>` derivation (registered by `ensureEffectiveEditorTheme()` in `monaco.ts`) that keeps the current app-profile panel background
   (`APP_EDITOR_BACKGROUND`) while taking the theme's token colors and accents. Built-in theme data lives in `editor-themes.ts` (`ORBIT_MONACO_THEME_DATA`)
   so pinning covers those picks too; `auto` follows the profile and needs no derivation.
 - Code fonts are bundled offline via Fontsource (OFL-licensed: JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, 400 + 700 weights imported

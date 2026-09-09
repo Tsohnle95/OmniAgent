@@ -8,6 +8,7 @@ import {
   editorThemeSwatches,
   ORBIT_MONACO_THEME_DATA,
   pinnedThemeId,
+  readStoredCustomEditorThemes,
   resolveEffectiveThemeId
 } from "./editor-themes";
 
@@ -53,7 +54,7 @@ describe("editor theme catalog", () => {
     for (const background of Object.values(APP_EDITOR_BACKGROUND)) {
       for (const color of Object.values(background)) expect(color).toMatch(HEX);
     }
-    expect(pinnedThemeId("curated-dracula", "original")).toBe("curated-dracula__bg-original");
+    expect(pinnedThemeId("curated-dracula", "original")).toBe("curated-dracula-on-original");
     const pinned = derivePinnedThemeData(
       {
         base: "vs-dark",
@@ -71,13 +72,12 @@ describe("editor theme catalog", () => {
     expect(pinned.base).toBe("vs-dark");
   });
 
-  it("resolves every theme choice to a text-only editor theme", () => {
-    expect(resolveEffectiveThemeId("original", "auto")).toBe("orbit-original");
+  it("resolves every theme choice to a text-only editor theme", () => {    expect(resolveEffectiveThemeId("original", "auto")).toBe("orbit-original");
     expect(resolveEffectiveThemeId("paper", "auto")).toBe("orbit-paper");
-    expect(resolveEffectiveThemeId("paper", "orbit-paper")).toBe("orbit-paper__bg-paper");
-    expect(resolveEffectiveThemeId("paper", "orbit-original")).toBe("orbit-original__bg-paper");
-    expect(resolveEffectiveThemeId("original", "curated-dracula")).toBe("curated-dracula__bg-original");
-    expect(resolveEffectiveThemeId("paper", "ovsx-acme-cool-0")).toBe("ovsx-acme-cool-0__bg-paper");
+    expect(resolveEffectiveThemeId("paper", "orbit-paper")).toBe("orbit-paper-on-paper");
+    expect(resolveEffectiveThemeId("paper", "orbit-original")).toBe("orbit-original-on-paper");
+    expect(resolveEffectiveThemeId("original", "curated-dracula")).toBe("curated-dracula-on-original");
+    expect(resolveEffectiveThemeId("paper", "ovsx-acme-cool-0")).toBe("ovsx-acme-cool-0-on-paper");
   });
 
   it("covers every built-in option with pinnable theme data", () => {
@@ -88,5 +88,34 @@ describe("editor theme catalog", () => {
       expect(Array.isArray(data.rules)).toBe(true);
       expect(typeof data.colors).toBe("object");
     }
+  });
+
+  it("keeps every derived id inside Monaco's theme-name rule", () => {
+    // monaco.editor.defineTheme throws "Illegal theme name!" unless the id
+    // matches /^[a-z0-9-]+$/i — a throw during render trips the error
+    // boundary, so this is a crash guard, not cosmetics.
+    const profiles = ["original", "paper", "kitty"];
+    const ids = [...BUILTIN_EDITOR_THEME_OPTIONS, ...CURATED_EDITOR_THEME_OPTIONS].map((option) => option.id);
+    for (const id of [...ids, "ovsx-acme-cool-0"]) {
+      for (const profile of profiles) {
+        expect(resolveEffectiveThemeId(profile, id)).toMatch(/^[a-z0-9-]+$/i);
+      }
+    }
+  });
+
+  it("rejects stored custom themes with illegal ids", () => {
+    const valid = {
+      id: "ovsx-acme-cool-0",
+      name: "Cool",
+      source: "Acme/cool",
+      dark: true,
+      data: { base: "vs-dark", inherit: true, rules: [], colors: {} }
+    };
+    window.localStorage.setItem(
+      "orbit.editorCustomThemes",
+      JSON.stringify([{ ...valid, id: "bad__id" }, valid])
+    );
+    expect(readStoredCustomEditorThemes()).toEqual([valid]);
+    window.localStorage.clear();
   });
 });

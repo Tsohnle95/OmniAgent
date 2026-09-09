@@ -8,6 +8,7 @@ import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 import {
+  APP_THEME_MONACO,
   CURATED_THEME_REGISTRATIONS,
   derivePinnedThemeData,
   ORBIT_MONACO_THEME_DATA,
@@ -62,9 +63,19 @@ export function ensureEffectiveEditorTheme(options: {
   const curated = CURATED_THEME_REGISTRATIONS.find((entry) => entry.id === editorTheme);
   const custom = customs.find((entry) => entry.id === editorTheme);
   const source = ORBIT_MONACO_THEME_DATA[editorTheme] ?? curated?.json ?? custom?.data;
-  if (!source) return editorTheme;
-  registerEditorTheme(id, derivePinnedThemeData(source as CustomEditorThemeData, appTheme));
+  if (!source) return fallbackTheme(appTheme);
+  try {
+    registerEditorTheme(id, derivePinnedThemeData(source as CustomEditorThemeData, appTheme));
+  } catch {
+    // A theme must never crash the editor (e.g. Monaco rejects illegal
+    // names with a throw); fall back to the profile theme instead.
+    return fallbackTheme(appTheme);
+  }
   return id;
+}
+
+function fallbackTheme(appTheme: string): string {
+  return APP_THEME_MONACO[appTheme] ?? "orbit-original";
 }
 
 for (const custom of readStoredCustomEditorThemes()) {
