@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { CommandOption, McpServerOption, PluginOption, RuntimeID, SkillOption } from "@shared/types";
 import { useStore } from "../store";
-import { type ThemeId, useTheme } from "../theme";
+import { type ThemeId, useMonacoTheme, useTheme } from "../theme";
 import {
   APP_THEME_MONACO,
   BUILTIN_EDITOR_THEME_OPTIONS,
@@ -94,6 +94,47 @@ function EditorThemeCard({ option, selected, onSelect }: {
       <span className="theme-swatches">{option.swatches.map((color) => <i key={color} style={{ background: color }} />)}</span>
       <span className="theme-check">{selected ? "Selected" : "Select"}</span>
     </button>
+  );
+}
+
+function EditorDiagnostics(): ReactNode {
+  const { theme, editorTheme, editorFont, editorFontSize, editorLigatures } = useTheme();
+  const monacoTheme = useMonacoTheme();
+  const [text, setText] = useState<string | null>(null);
+
+  const open = async (): Promise<void> => {
+    const option = EDITOR_FONT_OPTIONS.find((entry) => entry.id === editorFont) ?? EDITOR_FONT_OPTIONS[0];
+    let fontFile = "system fallback";
+    try {
+      if (typeof document !== "undefined" && document.fonts?.check(`400 12px "${option.familyName}"`)) fontFile = "loaded";
+    } catch {
+      fontFile = "system fallback";
+    }
+    // Dynamic import keeps monaco-editor out of the settings test graph.
+    const { getEditorDiagnostics } = await import("../monaco");
+    const diag = getEditorDiagnostics();
+    const payload = {
+      appTheme: theme,
+      editorTheme,
+      resolvedTheme: monacoTheme,
+      registeredThemes: diag.registered,
+      openModels: diag.models,
+      font: { id: editorFont, size: editorFontSize, ligatures: editorLigatures, file: fontFile }
+    };
+    const rendered = JSON.stringify(payload, null, 2);
+    setText(rendered);
+    try {
+      await navigator.clipboard?.writeText(rendered);
+    } catch {
+      // Showing the text is the point; clipboard is a bonus.
+    }
+  };
+
+  return (
+    <div className="ovsx-panel">
+      <div><button className="ovsx-btn" onClick={() => void open()}>Show editor diagnostics</button></div>
+      {text && <pre className="ovsx-diag">{text}</pre>}
+    </div>
   );
 }
 
@@ -255,6 +296,9 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
           />
         </div>
         <p className="settings-note">{fontStatusLine(editorFont, editorFontSize, editorLigatures)}</p>
+        <h2 className="settings-group-title">Editor diagnostics</h2>
+        <p className="settings-note">If theme or font changes look wrong, open this and send me the text.</p>
+        <EditorDiagnostics />
       </section>}
 
       {section === "plugins" && <section className="settings-section">

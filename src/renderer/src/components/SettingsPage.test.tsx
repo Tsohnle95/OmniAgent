@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../theme";
 import { SettingsPage } from "./SettingsPage";
 import { SettingsSidebar } from "./SettingsSidebar";
+import { getEditorDiagnostics } from "../monaco";
+
+vi.mock("../monaco", () => ({
+  getEditorDiagnostics: vi.fn()
+}));
 
 const store = {
   session: null,
@@ -120,5 +125,23 @@ describe("SettingsPage", () => {
 
     act(() => container.querySelectorAll<HTMLButtonElement>(".settings-nav-item")[5].click());
     expect(onSectionChange).toHaveBeenCalledWith("model");
+  });
+
+  it("shows editor diagnostics with the resolved theme and font state", async () => {
+    vi.mocked(getEditorDiagnostics).mockReturnValue({
+      registered: ["curated-dracula-on-paper", "orbit-paper"],
+      models: [{ path: "src/app.js", language: "javascript" }]
+    });
+    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
+
+    await act(async () => {
+      [...container.querySelectorAll(".ovsx-btn")]
+        .find((button) => button.textContent === "Show editor diagnostics")!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const diag = container.querySelector(".ovsx-diag")?.textContent ?? "";
+    expect(diag).toContain("curated-dracula-on-paper");
+    expect(diag).toContain("javascript");
+    expect(vi.mocked(getEditorDiagnostics)).toHaveBeenCalled();
   });
 });

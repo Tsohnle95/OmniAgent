@@ -41,12 +41,25 @@ loader.config({ monaco });
 emmetHTML(monaco, ["html"]);
 emmetCSS(monaco, ["css", "scss", "less"]);
 
-for (const { id, json } of CURATED_THEME_REGISTRATIONS) {
-  monaco.editor.defineTheme(id, json as unknown as monaco.editor.IStandaloneThemeData);
-}
+const registeredEditorThemeIds = new Set<string>();
 
 export function registerEditorTheme(id: string, data: CustomEditorThemeData): void {
   monaco.editor.defineTheme(id, data as unknown as monaco.editor.IStandaloneThemeData);
+  registeredEditorThemeIds.add(id);
+}
+
+export function getEditorDiagnostics(): {
+  registered: string[];
+  models: Array<{ path: string; language: string }>;
+} {
+  return {
+    registered: [...registeredEditorThemeIds].sort(),
+    models: monaco.editor.getModels().map((model) => ({ path: model.uri.toString(), language: model.getLanguageId() }))
+  };
+}
+
+for (const { id, json } of CURATED_THEME_REGISTRATIONS) {
+  registerEditorTheme(id, json as unknown as CustomEditorThemeData);
 }
 
 export function ensureEffectiveEditorTheme(options: {
@@ -87,7 +100,7 @@ for (const custom of readStoredCustomEditorThemes()) {
 }
 
 for (const [id, data] of Object.entries(ORBIT_MONACO_THEME_DATA)) {
-  monaco.editor.defineTheme(id, data as unknown as monaco.editor.IStandaloneThemeData);
+  registerEditorTheme(id, data);
 }
 
 export { monaco };

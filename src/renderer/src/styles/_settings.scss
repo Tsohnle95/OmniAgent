@@ -189,6 +189,20 @@
 .ovsx-search button:hover:not(:disabled), .ovsx-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .ovsx-search button:disabled, .ovsx-btn:disabled { opacity: 0.55; cursor: default; }
 .ovsx-error { color: var(--red); font-size: 12px; line-height: 1.5; }
+.ovsx-diag {
+  margin: 0;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.55;
+  max-height: 260px;
+  overflow: auto;
+}
 
 .settings-list { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 .theme-grid + .settings-list { margin-top: 16px; }
