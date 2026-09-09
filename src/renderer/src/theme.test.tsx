@@ -81,11 +81,11 @@ describe("editor theme preference", () => {
     act(() => capture?.setEditorTheme("curated-dracula"));
     expect(capture?.editorTheme).toBe("curated-dracula");
     // Explicit themes resolve to a background-pinned derivation: text-only.
-    expect(capture?.monacoTheme).toBe("curated-dracula__bg-original");
+    expect(capture?.monacoTheme).toBe("curated-dracula-on-original");
     expect(window.localStorage.getItem("orbit.editorTheme")).toBe("curated-dracula");
 
     act(() => capture?.setTheme("paper"));
-    expect(capture?.monacoTheme).toBe("curated-dracula__bg-paper");
+    expect(capture?.monacoTheme).toBe("curated-dracula-on-paper");
 
     act(() => root.unmount());
     container.remove();
@@ -94,7 +94,7 @@ describe("editor theme preference", () => {
     render();
     expect(capture?.editorTheme).toBe("curated-dracula");
     // The app profile persisted as paper above, so the pinning follows it.
-    expect(capture?.monacoTheme).toBe("curated-dracula__bg-paper");
+    expect(capture?.monacoTheme).toBe("curated-dracula-on-paper");
   });
 
   it("treats blank or missing stored values as auto", () => {
@@ -143,7 +143,7 @@ describe("editor theme preference", () => {
 
     act(() => capture?.installCustomEditorTheme(customTheme));
     act(() => capture?.setEditorTheme(customTheme.id));
-    expect(capture?.monacoTheme).toBe("ovsx-acme-cool-0__bg-original");
+    expect(capture?.monacoTheme).toBe("ovsx-acme-cool-0-on-original");
     expect(JSON.parse(window.localStorage.getItem("orbit.editorCustomThemes") ?? "[]")).toHaveLength(1);
 
     act(() => capture?.removeCustomEditorTheme(customTheme.id));
