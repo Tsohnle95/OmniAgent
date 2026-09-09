@@ -1,28 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { CommandOption, McpServerOption, PluginOption, RuntimeID, SkillOption } from "@shared/types";
 import { useStore } from "../store";
-import { type ThemeId, useMonacoTheme, useTheme } from "../theme";
-import {
-  APP_THEME_MONACO,
-  BUILTIN_EDITOR_THEME_OPTIONS,
-  CURATED_EDITOR_THEME_OPTIONS,
-  EDITOR_THEME_AUTO,
-  editorThemeSwatches,
-  type EditorThemeOption
-} from "../editor-themes";
-import { EDITOR_FONT_OPTIONS, type EditorFontId } from "../editor-fonts";
-import { OvsxThemePanel } from "./OvsxThemePanel";
-
-function fontStatusLine(font: EditorFontId, size: number, ligatures: boolean): string {
-  const option = EDITOR_FONT_OPTIONS.find((entry) => entry.id === font) ?? EDITOR_FONT_OPTIONS[0];
-  let fileState = "system fallback";
-  try {
-    if (typeof document !== "undefined" && document.fonts?.check(`400 12px "${option.familyName}"`)) fileState = "loaded";
-  } catch {
-    fileState = "system fallback";
-  }
-  return `Active: ${option.name} ${size}px${ligatures ? " · ligatures" : ""} · font file ${fileState}.`;
-}
+import { type ThemeId, useTheme } from "../theme";
 import { OrbitMark } from "./OrbitMark";
 import { ProviderSettings } from "./ProviderSettings";
 import type { SettingsSection } from "./SettingsSidebar";
@@ -68,78 +47,8 @@ function SettingRow({ title, detail, control }: { title: string; detail: string;
   );
 }
 
-function EditorThemeCard({ option, selected, onSelect }: {
-  option: EditorThemeOption;
-  selected: boolean;
-  onSelect: () => void;
-}): ReactNode {
-  const [background, ...tokenColors] = option.swatches;
-  const bars = [tokenColors[1] ?? tokenColors[0], tokenColors[2] ?? tokenColors[0], tokenColors[0]].filter(Boolean);
-  return (
-    <button
-      className={`editor-theme-card ${selected ? "selected" : ""}`}
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-    >
-      <span className="editor-theme-preview" style={{ background: background ?? "transparent" }}>
-        {bars.map((color, index) => (
-          <i key={index} style={{ background: color, width: `${78 - index * 16}%` }} />
-        ))}
-      </span>
-      <span className="theme-card-copy">
-        <strong>{option.name}</strong>
-        <small>{option.blurb}</small>
-      </span>
-      <span className="theme-swatches">{option.swatches.map((color) => <i key={color} style={{ background: color }} />)}</span>
-      <span className="theme-check">{selected ? "Selected" : "Select"}</span>
-    </button>
-  );
-}
-
-function EditorDiagnostics(): ReactNode {
-  const { theme, editorTheme, editorFont, editorFontSize, editorLigatures } = useTheme();
-  const monacoTheme = useMonacoTheme();
-  const [text, setText] = useState<string | null>(null);
-
-  const open = async (): Promise<void> => {
-    const option = EDITOR_FONT_OPTIONS.find((entry) => entry.id === editorFont) ?? EDITOR_FONT_OPTIONS[0];
-    let fontFile = "system fallback";
-    try {
-      if (typeof document !== "undefined" && document.fonts?.check(`400 12px "${option.familyName}"`)) fontFile = "loaded";
-    } catch {
-      fontFile = "system fallback";
-    }
-    // Dynamic import keeps monaco-editor out of the settings test graph.
-    const { getEditorDiagnostics } = await import("../monaco");
-    const diag = getEditorDiagnostics();
-    const payload = {
-      appTheme: theme,
-      editorTheme,
-      resolvedTheme: monacoTheme,
-      registeredThemes: diag.registered,
-      openModels: diag.models,
-      font: { id: editorFont, size: editorFontSize, ligatures: editorLigatures, file: fontFile }
-    };
-    const rendered = JSON.stringify(payload, null, 2);
-    setText(rendered);
-    try {
-      await navigator.clipboard?.writeText(rendered);
-    } catch {
-      // Showing the text is the point; clipboard is a bonus.
-    }
-  };
-
-  return (
-    <div className="ovsx-panel">
-      <div><button className="ovsx-btn" onClick={() => void open()}>Show editor diagnostics</button></div>
-      {text && <pre className="ovsx-diag">{text}</pre>}
-    </div>
-  );
-}
-
 export function SettingsPage({ section, onClose }: { section: SettingsSection; onClose: () => void }): ReactNode {
-  const { theme, setTheme, editorTheme, setEditorTheme, editorFont, setEditorFont, editorFontSize, setEditorFontSize, editorLigatures, setEditorLigatures, customEditorThemes } = useTheme();
+  const { theme, setTheme } = useTheme();
   const {
     session,
     runtimes,
@@ -224,81 +133,6 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
             control={<button className={`settings-switch ${wordWrap ? "on" : ""}`} role="switch" aria-checked={wordWrap} onClick={toggleWordWrap}><span /></button>}
           />
         </div>
-        <h2 className="settings-group-title">Editor theme</h2>
-        <p className="settings-note">Code editor only — themes recolor text, never the panel background. Follow app theme tracks the profile above; any other choice stays fixed.</p>
-        <div className="theme-grid" role="radiogroup" aria-label="Editor theme">
-          <EditorThemeCard
-            option={{
-              id: EDITOR_THEME_AUTO,
-              name: "Follow app theme",
-              dark: theme !== "paper",
-              blurb: "Matches the selected appearance profile.",
-              swatches: BUILTIN_EDITOR_THEME_OPTIONS.find((entry) => entry.id === (APP_THEME_MONACO[theme] ?? ""))?.swatches ?? []
-            }}
-            selected={editorTheme === EDITOR_THEME_AUTO}
-            onSelect={() => setEditorTheme(EDITOR_THEME_AUTO)}
-          />
-          {[...BUILTIN_EDITOR_THEME_OPTIONS, ...CURATED_EDITOR_THEME_OPTIONS].map((option) => (
-            <EditorThemeCard
-              key={option.id}
-              option={option}
-              selected={editorTheme === option.id}
-              onSelect={() => setEditorTheme(option.id)}
-            />
-          ))}
-          {customEditorThemes.map((installed) => (
-            <EditorThemeCard
-              key={installed.id}
-              option={{
-                id: installed.id,
-                name: installed.name,
-                dark: installed.dark,
-                blurb: `Installed from ${installed.source}.`,
-                swatches: editorThemeSwatches(installed.data)
-              }}
-              selected={editorTheme === installed.id}
-              onSelect={() => setEditorTheme(installed.id)}
-            />
-          ))}
-        </div>
-        <h2 className="settings-group-title">More themes</h2>
-        <p className="settings-note">Search the Open VSX marketplace over the network. Only theme colors are installed — extension code never runs. Removal happens under Installed marketplace themes.</p>
-        <OvsxThemePanel />
-        <h2 className="settings-group-title">Code font</h2>
-        <p className="settings-note">Bundled offline. Ligatures render only where the chosen font provides them.</p>
-        <div className="font-grid" role="radiogroup" aria-label="Code font">
-          {EDITOR_FONT_OPTIONS.map((option) => {
-            const selected = editorFont === option.id;
-            return (
-              <button
-                key={option.id}
-                className={`font-card ${selected ? "selected" : ""}`}
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setEditorFont(option.id)}
-              >
-                <span className="font-sample" style={{ fontFamily: option.family }}>Aa</span>
-                <span className="theme-card-copy"><strong>{option.name}</strong><small>{option.blurb}</small></span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="settings-list">
-          <SettingRow
-            title="Font size"
-            detail={`Editor text size, currently ${editorFontSize}px.`}
-            control={<span className="settings-segmented"><button aria-label="Decrease font size" onClick={() => setEditorFontSize(editorFontSize - 1)}>−</button><button aria-label="Increase font size" onClick={() => setEditorFontSize(editorFontSize + 1)}>+</button></span>}
-          />
-          <SettingRow
-            title="Font ligatures"
-            detail="Render combinations such as => and != as single glyphs."
-            control={<button className={`settings-switch ${editorLigatures ? "on" : ""}`} role="switch" aria-checked={editorLigatures} onClick={() => setEditorLigatures(!editorLigatures)}><span /></button>}
-          />
-        </div>
-        <p className="settings-note">{fontStatusLine(editorFont, editorFontSize, editorLigatures)}</p>
-        <h2 className="settings-group-title">Editor diagnostics</h2>
-        <p className="settings-note">If theme or font changes look wrong, open this and send me the text.</p>
-        <EditorDiagnostics />
       </section>}
 
       {section === "plugins" && <section className="settings-section">

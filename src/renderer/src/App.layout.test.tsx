@@ -10,7 +10,6 @@ vi.mock("./components/EditorPane", () => ({
 
 vi.mock("./monaco", () => ({
   languageForPath: () => "plaintext",
-  ensureEffectiveEditorTheme: ({ editorTheme }: { editorTheme: string }) => editorTheme,
   monaco: { editor: { setModelMarkers: vi.fn() } }
 }));
 

@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { ensureEffectiveEditorTheme, languageForPath } from "../monaco";
+import { languageForPath } from "../monaco";
 import { wireEmmetKeys } from "../emmet-keys";
 import { clearW3cMarkers } from "../w3c-validation";
 import { useStore } from "../store";
 import { OrbitMark } from "./OrbitMark";
 import { useTheme } from "../theme";
-import { editorFontFamily } from "../editor-fonts";
 import { registerEditor, unregisterEditor } from "../reveal";
 import { droppedFilePaths, isExternalFileDrag } from "../drop";
 import type { Tab } from "@shared/types";
 
 const EDITOR_OPTIONS = {
+  fontSize: 13,
+  fontFamily: "'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
   minimap: { enabled: false },
   automaticLayout: true,
   folding: true,
@@ -81,11 +82,7 @@ function TabBar(): ReactNode {
 }
 
 function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
-  const { theme, editorTheme, customEditorThemes, editorFont, editorFontSize, editorLigatures } = useTheme();
-  const monacoTheme = useMemo(
-    () => ensureEffectiveEditorTheme({ appTheme: theme, editorTheme, customs: customEditorThemes }),
-    [theme, editorTheme, customEditorThemes]
-  );
+  const { theme } = useTheme();
   const {
     editContent,
     setTabMode,
@@ -114,14 +111,8 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
   const diffUnknown = tab.baseline?.kind === "unknown";
   const mode = tab.mode === "diff" && !diffAvailable ? "edit" : tab.mode;
   const options = useMemo(
-    () => ({
-      ...EDITOR_OPTIONS,
-      fontFamily: editorFontFamily(editorFont),
-      fontSize: editorFontSize,
-      fontLigatures: editorLigatures,
-      wordWrap: (wordWrap ? "on" : "off") as "on" | "off"
-    }),
-    [wordWrap, editorFont, editorFontSize, editorLigatures]
+    () => ({ ...EDITOR_OPTIONS, wordWrap: (wordWrap ? "on" : "off") as "on" | "off" }),
+    [wordWrap]
   );
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -249,7 +240,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
 
       {mode === "diff" ? (
         <DiffEditor
-          theme={monacoTheme}
+          theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
           language={language}
           original={tab.baseline?.kind === "known" ? tab.baseline.content : ""}
           modified={tab.content}
@@ -266,7 +257,7 @@ function EditorWithSave({ tab }: { tab: Tab }): ReactNode {
         />
       ) : (
         <Editor
-          theme={monacoTheme}
+          theme={theme === "paper" ? "orbit-paper" : theme === "kitty" ? "orbit-kitty" : "orbit-original"}
           language={language}
           path={tab.path}
           defaultValue={tab.content}

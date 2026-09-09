@@ -4,11 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../theme";
 import { SettingsPage } from "./SettingsPage";
 import { SettingsSidebar } from "./SettingsSidebar";
-import { getEditorDiagnostics } from "../monaco";
-
-vi.mock("../monaco", () => ({
-  getEditorDiagnostics: vi.fn()
-}));
 
 const store = {
   session: null,
@@ -81,40 +76,6 @@ describe("SettingsPage", () => {
     expect(window.localStorage.getItem("orbit.theme")).toBe("kitty");
   });
 
-  it("selects and persists an editor theme without touching the app profile", () => {
-    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
-
-    const cards = [...container.querySelectorAll<HTMLButtonElement>(".editor-theme-card")];
-    expect(cards.length).toBeGreaterThan(3);
-    const dracula = cards.find((card) => card.textContent?.includes("Dracula"));
-    expect(dracula).toBeDefined();
-    expect(window.localStorage.getItem("orbit.editorTheme")).toBeNull();
-
-    act(() => dracula?.click());
-    expect(window.localStorage.getItem("orbit.editorTheme")).toBe("curated-dracula");
-    expect(dracula?.getAttribute("aria-checked")).toBe("true");
-    expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(window.localStorage.getItem("orbit.theme")).toBe("original");
-  });
-
-  it("selects a code font and toggles ligatures", () => {
-    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
-
-    const cards = [...container.querySelectorAll<HTMLButtonElement>(".font-card")];
-    expect(cards.length).toBe(5);
-    const fira = cards.find((card) => card.textContent?.includes("Fira Code"));
-    act(() => fira?.click());
-    expect(window.localStorage.getItem("orbit.editorFont")).toBe("fira-code");
-    expect(fira?.getAttribute("aria-checked")).toBe("true");
-    expect(container.textContent).toContain("Active: Fira Code");
-
-    const ligatureSwitch = [...container.querySelectorAll<HTMLButtonElement>("[role='switch']")]
-      .find((button) => button.closest(".settings-list-row")?.textContent?.includes("Font ligatures"));
-    expect(ligatureSwitch?.getAttribute("aria-checked")).toBe("true");
-    act(() => ligatureSwitch?.click());
-    expect(window.localStorage.getItem("orbit.editorLigatures")).toBe("0");
-  });
-
   it("provides dedicated settings navigation with About as the final tab", () => {
     const onSectionChange = vi.fn();
     act(() => root.render(<SettingsSidebar section="appearance" onSectionChange={onSectionChange} />));
@@ -125,23 +86,5 @@ describe("SettingsPage", () => {
 
     act(() => container.querySelectorAll<HTMLButtonElement>(".settings-nav-item")[5].click());
     expect(onSectionChange).toHaveBeenCalledWith("model");
-  });
-
-  it("shows editor diagnostics with the resolved theme and font state", async () => {
-    vi.mocked(getEditorDiagnostics).mockReturnValue({
-      registered: ["curated-dracula-on-paper", "orbit-paper"],
-      models: [{ path: "src/app.js", language: "javascript" }]
-    });
-    act(() => root.render(<ThemeProvider><SettingsPage section="appearance" onClose={() => {}} /></ThemeProvider>));
-
-    await act(async () => {
-      [...container.querySelectorAll(".ovsx-btn")]
-        .find((button) => button.textContent === "Show editor diagnostics")!
-        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    const diag = container.querySelector(".ovsx-diag")?.textContent ?? "";
-    expect(diag).toContain("curated-dracula-on-paper");
-    expect(diag).toContain("javascript");
-    expect(vi.mocked(getEditorDiagnostics)).toHaveBeenCalled();
   });
 });

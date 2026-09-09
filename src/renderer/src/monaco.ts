@@ -7,17 +7,6 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
-import {
-  APP_THEME_MONACO,
-  CURATED_THEME_REGISTRATIONS,
-  derivePinnedThemeData,
-  ORBIT_MONACO_THEME_DATA,
-  readStoredCustomEditorThemes,
-  resolveEffectiveThemeId,
-  type CustomEditorTheme,
-  type CustomEditorThemeData
-} from "./editor-themes";
-
 declare global {
   interface Window {
     MonacoEnvironment?: {
@@ -41,67 +30,100 @@ loader.config({ monaco });
 emmetHTML(monaco, ["html"]);
 emmetCSS(monaco, ["css", "scss", "less"]);
 
-const registeredEditorThemeIds = new Set<string>();
-
-export function registerEditorTheme(id: string, data: CustomEditorThemeData): void {
-  monaco.editor.defineTheme(id, data as unknown as monaco.editor.IStandaloneThemeData);
-  registeredEditorThemeIds.add(id);
-}
-
-export function getEditorDiagnostics(): {
-  registered: string[];
-  models: Array<{ path: string; language: string }>;
-} {
-  return {
-    registered: [...registeredEditorThemeIds].sort(),
-    models: monaco.editor.getModels().map((model) => ({ path: model.uri.toString(), language: model.getLanguageId() }))
-  };
-}
-
-for (const { id, json } of CURATED_THEME_REGISTRATIONS) {
-  registerEditorTheme(id, json as unknown as CustomEditorThemeData);
-}
-
-export function ensureEffectiveEditorTheme(options: {
-  appTheme: string;
-  editorTheme: string;
-  customs: CustomEditorTheme[];
-}): string {
-  const { appTheme, editorTheme, customs } = options;
-  const id = resolveEffectiveThemeId(appTheme, editorTheme);
-  if (id === editorTheme) return id;
-  // Text-only mode: keep the Orbit panel background, take the theme's token
-  // colors. Every explicit choice is derived — including orbit-* picks that
-  // differ from the app profile.
-  const curated = CURATED_THEME_REGISTRATIONS.find((entry) => entry.id === editorTheme);
-  const custom = customs.find((entry) => entry.id === editorTheme);
-  const source = ORBIT_MONACO_THEME_DATA[editorTheme] ?? curated?.json ?? custom?.data;
-  if (!source) return fallbackTheme(appTheme);
-  try {
-    registerEditorTheme(id, derivePinnedThemeData(source as CustomEditorThemeData, appTheme));
-  } catch {
-    // A theme must never crash the editor (e.g. Monaco rejects illegal
-    // names with a throw); fall back to the profile theme instead.
-    return fallbackTheme(appTheme);
+monaco.editor.defineTheme("orbit-original", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "78716C", fontStyle: "italic" },
+    { token: "keyword", foreground: "E8875F" },
+    { token: "string", foreground: "A8C69A" },
+    { token: "number", foreground: "E5B567" },
+    { token: "type", foreground: "8FBCD9" },
+    { token: "function", foreground: "EAD9C8" }
+  ],
+  colors: {
+    "editor.background": "#262220",
+    "editor.lineHighlightBackground": "#2d2926",
+    "editorLineNumber.foreground": "#57534e",
+    "editorCursor.foreground": "#9eb4a1",
+    "editor.selectionBackground": "#4a352c",
+    "editorGutter.background": "#262220",
+    "diffEditor.insertedTextBackground": "#9dc2a11f",
+    "diffEditor.removedTextBackground": "#e2988a1f",
+    "diffEditor.insertedLineBackground": "#9dc2a117",
+    "diffEditor.removedLineBackground": "#e2988a17",
+    "diffEditorOverview.insertedForeground": "#9dc2a1b3",
+    "diffEditorOverview.removedForeground": "#e2988ab3",
+    "diffEditor.diagonalFill": "#262220",
+    "scrollbarSlider.background": "#ffffff17",
+    "scrollbarSlider.hoverBackground": "#ffffff26",
+    "minimap.background": "#262220"
   }
-  return id;
-}
+});
 
-function fallbackTheme(appTheme: string): string {
-  return APP_THEME_MONACO[appTheme] ?? "orbit-original";
-}
-
-for (const custom of readStoredCustomEditorThemes()) {
-  try {
-    registerEditorTheme(custom.id, custom.data);
-  } catch {
-    // A corrupt stored theme stays listed so it can be removed in settings.
+monaco.editor.defineTheme("orbit-paper", {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "948571", fontStyle: "italic" },
+    { token: "keyword", foreground: "C25F3C" },
+    { token: "string", foreground: "587657" },
+    { token: "number", foreground: "9C742F" },
+    { token: "type", foreground: "49708F" },
+    { token: "function", foreground: "5B4030" }
+  ],
+  colors: {
+    "editor.background": "#fbf7ec",
+    "editor.foreground": "#2b2119",
+    "editor.lineHighlightBackground": "#eee5d4",
+    "editorLineNumber.foreground": "#a69883",
+    "editorCursor.foreground": "#617a68",
+    "editor.selectionBackground": "#dfc8b7",
+    "editorGutter.background": "#fbf7ec",
+    "diffEditor.insertedTextBackground": "#58765720",
+    "diffEditor.removedTextBackground": "#aa624f20",
+    "diffEditor.insertedLineBackground": "#58765714",
+    "diffEditor.removedLineBackground": "#aa624f14",
+    "diffEditorOverview.insertedForeground": "#587657b3",
+    "diffEditorOverview.removedForeground": "#aa624fb3",
+    "diffEditor.diagonalFill": "#eee5d4",
+    "scrollbarSlider.background": "#2b21191a",
+    "scrollbarSlider.hoverBackground": "#2b21192b",
+    "minimap.background": "#fbf7ec"
   }
-}
+});
 
-for (const [id, data] of Object.entries(ORBIT_MONACO_THEME_DATA)) {
-  registerEditorTheme(id, data);
-}
+monaco.editor.defineTheme("orbit-kitty", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "comment", foreground: "7F8292", fontStyle: "italic" },
+    { token: "keyword", foreground: "FF8B85" },
+    { token: "string", foreground: "5BD69A" },
+    { token: "number", foreground: "E0A85A" },
+    { token: "type", foreground: "6FC3DF" },
+    { token: "function", foreground: "E7E7EE" }
+  ],
+  colors: {
+    "editor.background": "#02020400",
+    "editor.foreground": "#e7e7ee",
+    "editor.lineHighlightBackground": "#343a5526",
+    "editorLineNumber.foreground": "#626b78",
+    "editorCursor.foreground": "#00a2ce",
+    "editor.selectionBackground": "#2e4d78",
+    "editorGutter.background": "#02020400",
+    "diffEditor.insertedTextBackground": "#5bd69a20",
+    "diffEditor.removedTextBackground": "#ff4b6720",
+    "diffEditor.insertedLineBackground": "#5bd69a14",
+    "diffEditor.removedLineBackground": "#ff4b6714",
+    "diffEditorOverview.insertedForeground": "#5bd69ab3",
+    "diffEditorOverview.removedForeground": "#ff4b67b3",
+    "diffEditor.diagonalFill": "#02020400",
+    "scrollbarSlider.background": "#e7e7ee17",
+    "scrollbarSlider.hoverBackground": "#e7e7ee2b",
+    "minimap.background": "#02020400"
+  }
+});
 
 export { monaco };
 

@@ -471,28 +471,10 @@ released at that collapsed position.
 ## Monaco (`monaco.ts`)
 
 - Workers wired for editor/json/css/html/ts (`?worker` imports).
-- `orbit-original`, `orbit-paper`, and `orbit-kitty` themes (diff insert/remove colors included). The editor theme is independent of the app
-  appearance profile: `useMonacoTheme()` returns the persisted `orbit.editorTheme` choice, or the profile-mapped theme when the choice is `auto`.
-  Monaco parses theme palette colors with `Color.fromHex`, which silently maps any
+- `orbit-original`, `orbit-paper`, and `orbit-kitty` themes (diff insert/remove colors included), selected with the persisted renderer color profile. Monaco
+  parses theme palette colors with `Color.fromHex`, which silently maps any
   non-hex value to pure red — every palette color must be hex
   (`#RRGGBB` or `#RRGGBBAA`), never `rgba()`.
-- Curated offline gallery: six Monaco-native themes vendored under `src/renderer/src/editor-themes/` (Dracula, Monokai, Night Owl, Nord, GitHub
-  Light, Solarized Light; see the directory README for provenance) registered as `curated-*` in `monaco.ts`. The pure catalog
-  (`editor-themes.ts`: ids, blurbs, swatch derivation) is kept separate from Monaco registration so settings UI and unit tests never load
-  `monaco-editor` — test files mock `monaco.ts` (`languageForPath`, `ensureEffectiveEditorTheme`, plus a `monaco.editor` stub) and must keep doing so.
-- The editor theme only recolors text: `resolveEffectiveThemeId()` maps every explicit choice — built-in, curated, or marketplace — to a background-pinned
-  `<id>-on-<profile>` derivation (registered by `ensureEffectiveEditorTheme()` in `monaco.ts`) that keeps the current app-profile panel background
-  (`APP_EDITOR_BACKGROUND`) while taking the theme's token colors and accents. Built-in theme data lives in `editor-themes.ts` (`ORBIT_MONACO_THEME_DATA`)
-  so pinning covers those picks too; `auto` follows the profile and needs no derivation.
-- Code fonts are bundled offline via Fontsource (OFL-licensed: JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro, 400 + 700 weights imported
-  in `main.tsx`) with a system-stack fallback. `editor-fonts.ts` holds the pure font catalog and validation; `ThemeProvider` persists `orbit.editorFont`,
-  `orbit.editorFontSize` (clamped 10–24), and `orbit.editorLigatures`; `EditorPane` applies all three through its Monaco options.
-- Live marketplace: `ovsx-themes.ts` searches Open VSX (`category:themes`) and installs `.vsix` packages renderer-side with `jszip`. Only the manifest and the
-  contributed theme JSON/JSONC files are read — extension code never runs — and VS Code `tokenColors` are converted to Monaco rules with a longest-prefix
-  scope map (raw scopes are kept alongside mapped tokens; non-hex colors are dropped per the hex rule above; legacy `.tmTheme` files are refused with an
-  explanation). Installed themes persist in `orbit.editorCustomThemes` (validated, capped at 24), are re-registered with Monaco on startup in `monaco.ts`,
-  and removing the active one falls back to `auto`. The settings panel registers fresh installs through a dynamic `../monaco` import so unit tests never
-  load `monaco-editor`.
 - `languageForPath()` — extension → Monaco language map (fallback
   `plaintext`).
 - CSS worker diagnostics stay enabled (the only language worker with a
