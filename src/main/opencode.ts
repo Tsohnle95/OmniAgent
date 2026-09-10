@@ -244,7 +244,9 @@ function eventSessionID(...values: unknown[]): string | undefined {
     for (const key of ["sessionID", "sessionId"]) {
       if (typeof source[key] === "string" && source[key]) return source[key] as string;
     }
-    for (const key of ["data", "properties", "info", "part", "message", "error"]) {
+    // `form` holds the true session for form.created, which unlike
+    // form.replied/cancelled has no top-level sessionID.
+    for (const key of ["data", "properties", "info", "part", "message", "error", "form"]) {
       if (source[key] && typeof source[key] === "object") pending.push(source[key]);
     }
   }
@@ -836,8 +838,21 @@ export class OpenShellBackend {
         location?: { directory?: string };
       };
       const type = typed.type ?? typed.event ?? "unknown";
-      this.emit({ kind: "event", type, data: evt });
       const eventData = typed.data ?? typed.properties;
+      // The global daemon is shared with external `opencode2` terminal
+      // sessions. Interactive prompts for sessions Orbit never opened must
+      // not reach the renderer, where they would otherwise be misattributed
+      // to the focused panel. (Child/subagent transcript streams still flow;
+      // the renderer keeps them in separate stored state.)
+      if (type === "form.created" || type === "form.replied" || type === "form.cancelled" ||
+        type === "permission.asked" || type === "permission.replied" ||
+        type === "permission.v2.asked" || type === "permission.v2.replied" ||
+        type === "session.inbox.enqueued" || type === "session.inbox.delivered" ||
+        type === "session.inbox.cancelled") {
+        const ownerID = eventSessionID(eventData, evt, typed.location);
+        if (!ownerID || !this.contextBySessionID(ownerID)) continue;
+      }
+      this.emit({ kind: "event", type, data: evt });
       try {
         await this.handleServerEvent(type, eventData, typed.location);
       } catch (error) {
@@ -1798,6 +1813,18 @@ export class OpenShellBackend {
       const keys = [...this.contexts.keys()];
       this.primary = keys.length > 0 ? keys[keys.length - 1] : null;
     }
+  }
+
+  async deleteSession(sessionID: string): Promise<void> {
+    // DeepSeek sessions have no delete RPC; only the native opencode
+    // service supports destroying a session server-side.
+    if (this.runtimeAdapters.get(sessionID) || await this.runtimeSessionIndex.get(sessionID)) {
+      throw new Error("Deleting DeepSeek sessions is not supported yet; close the session instead");
+    }
+    if (!this.client) throw new Error("not connected to opencode service");
+    const context = this.contextBySessionID(sessionID);
+    if (context) await this.closeSession(context.workspace);
+    await this.client.session.remove({ sessionID });
   }
 
   async workspaceDirectory(workspace: WorkspaceIdentity): Promise<string> {

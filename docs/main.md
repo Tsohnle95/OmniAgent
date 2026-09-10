@@ -62,6 +62,7 @@ Public methods (all used by IPC):
 | `listSessions()` | `session.list` (paged, newest first) → `{id, title, directory, updatedAt, parentID?, agent?}`; hides sessions older than 30 days and sessions with no conversation (no title and zero token usage) |
 | `activeSessions()` | The open contexts' `SessionInfo` in activation order, primary last (startup restore) |
 | `closeSession(workspace)` | Tears down the addressed context (stops its watcher, removes it from the context map) when its panel closes; the opencode session itself stays alive so recents can reopen it |
+| `deleteSession(sessionID)` | Closes the panel context when open, then permanently destroys the opencode session via `session.remove`; DeepSeek sessions are rejected (no delete RPC) |
 | `openSessionById(sessionID, generation?, runtimeID?)` | Loads `session.get` plus replay; reuses the context when the session is already open (no re-emit), otherwise activates a new one. When a `runtimeID` is passed for a session whose native runtime differs and no context is active, remaps it to the requested runtime by opening the same directory (fresh native session) instead of the session's original runtime |
 | `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
 | `sessionUsage(sessionID)` | Loads `session.get` and returns the normalized `SessionUsage` (`cost` + `tokens`) or `null` when unavailable (tokens missing — a missing `cost`, as with cost-less local providers, coerces to 0 so the snapshot stays refreshable); called after compaction to refresh the context-window display |
@@ -138,6 +139,9 @@ work without an auth login. Tokens never leave the main process; the
 renderer only receives normalized provider snapshots. Each refresh prefers a
 new live response and falls back per provider to a plugin snapshot younger
 than 15 minutes only when live credentials or the provider endpoint are unavailable.
+A provider whose credentials fail authentication and which has no snapshot
+is omitted from the result (no subscription to show); retryable network
+failures stay visible so a transient outage cannot silently hide an active sub.
 
 Internals:
 
@@ -227,6 +231,7 @@ Internals:
 | `shell:active-sessions` | `() → SessionInfo[]` — open backend sessions, most recently activated last |
 | `shell:close-session` | `(workspace) → void` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `shell:open-session-id` | `(sessionID, generation, runtimeID?) → ReopenedSession`; persisted runtime identity resolves omitted ids; a differing `runtimeID` with no active context remaps the session to the requested runtime on the same directory |
+| `shell:delete-session` | `(sessionID) → void` — permanently destroys the opencode session server-side; the panel closes first and DeepSeek sessions are rejected |
 | `shell:session-transcript` | `(sessionID) → { transcript, todos }` — stream materialization snapshot; does not activate a context |
 | `shell:session-usage` | `(sessionID) → SessionUsage \| null` — normalized `cost`/`tokens` for the addressed session; materialization and compaction refresh the live usage popup |
 | `shell:prompt` | `(workspace, text, files?, delivery?) → SessionTranscript` |

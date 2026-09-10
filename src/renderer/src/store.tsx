@@ -213,6 +213,7 @@ interface Store {
   selectPanelDirectory: (workspace: WorkspaceIdentity) => Promise<void>;
   changePanelDirectory: (workspace: WorkspaceIdentity, dir: string) => Promise<void>;
   reopenSession: (sessionID: string, silent?: boolean) => Promise<SessionInfo | null>;
+  deleteSession: (sessionID: string) => Promise<void>;
   loadSessions: () => Promise<void>;
   sendPrompt: (text: string, files?: PromptFile[], workspace?: WorkspaceIdentity) => Promise<void>;
   runCommand: (name: string, args?: string, workspace?: WorkspaceIdentity) => Promise<void>;
@@ -629,6 +630,8 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
   panelsRef.current = panels;
   const activeSessionsRef = useRef(activeSessions);
   activeSessionsRef.current = activeSessions;
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
   const activeRefreshSequenceRef = useRef(0);
   const transcriptsBySessionRef = useRef(transcriptsBySession);
   transcriptsBySessionRef.current = transcriptsBySession;
@@ -1524,6 +1527,21 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
     setSavedWorkspaces((current) => current.filter((workspace) => workspace.directory !== directory));
   }, []);
 
+  const deleteSession = useCallback(async (sessionID: string): Promise<void> => {
+    const panel = panelForSession(sessionID);
+    const summary = sessionsRef.current.find((item) => item.id === sessionID);
+    const title = panel?.title ?? summary?.title ?? sessionID;
+    if (!window.confirm(`Delete session "${title}"? This permanently removes it from opencode and cannot be undone.`)) return;
+    try {
+      if (panel) closePanel(sessionID);
+      await window.openshell.deleteSession(sessionID);
+      toast(`Deleted session ${title}`);
+      void loadSessions();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  }, [panelForSession, closePanel, toast, loadSessions]);
+
   const replacePanel = useCallback((workspace: WorkspaceIdentity, info: SessionInfo): boolean => {
     const index = panelsRef.current.findIndex((panel) => sameWorkspace(panel.workspace, workspace));
     if (index === -1) return false;
@@ -1816,7 +1834,6 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
             protectedSessionIDs()
           ));
         }
-        if (!silent) toast(`Reopened session in ${reopened.session.directory}`);
         void loadModels(reopened.session.workspace);
         void loadAgents(reopened.session.workspace);
         void loadSessions();
@@ -2873,9 +2890,28 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       const streamEvent = normalizeStreamEvent(msg);
       if (!streamEvent) return;
       const { data, type } = streamEvent;
-      const targetSessionID = typeof data.sessionID === "string"
-        ? data.sessionID
-        : sessionRef.current?.id;
+      const formRecord = (data as Record<string, any>).form as Record<string, any> | undefined;
+      const formSessionID = formRecord && typeof formRecord.sessionID === "string" ? formRecord.sessionID : undefined;
+      const altSessionID = typeof (data as Record<string, any>).sessionId === "string"
+        ? (data as Record<string, any>).sessionId as string
+        : undefined;
+      const addressedSessionID = typeof data.sessionID === "string"
+        ? data.sessionID as string
+        : (altSessionID ?? formSessionID);
+      // The global SSE stream includes external `opencode2` terminal
+      // sessions and child/subagent streams. Interactive prompts must never
+      // be misattributed to the focused panel: only route forms,
+      // permissions, and inbox items for sessions Orbit has open. Transcript
+      // deltas for foreign child sessions still flow into their own stored
+      // state so task cards can replay them on open.
+      if ((type === "form.created" || type === "form.replied" || type === "form.cancelled" ||
+        type === "permission.asked" || type === "permission.replied" ||
+        type === "session.inbox.enqueued" || type === "session.inbox.delivered" ||
+        type === "session.inbox.cancelled") &&
+        (!addressedSessionID || !panelForSession(addressedSessionID))) {
+        return;
+      }
+      const targetSessionID = addressedSessionID ?? sessionRef.current?.id;
       const targetWorkspace = targetSessionID ? workspaceOfSession(targetSessionID) : null;
       const active = Boolean(targetSessionID && targetSessionID === sessionRef.current?.id);
       if (type === "session.inbox.delivered" && targetSessionID && typeof data.inboxID === "string") {
@@ -2933,8 +2969,10 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
 
       switch (type) {
         case "form.created": {
-          const normalized = normalizePendingForm({ ...(data.form as Record<string, any> | undefined), sessionID: targetSessionID });
-          if (normalized && targetSessionID) {
+          const rawForm = (data.form as Record<string, any> | undefined) ?? {};
+          const trueSessionID = typeof rawForm.sessionID === "string" ? rawForm.sessionID : targetSessionID;
+          const normalized = normalizePendingForm({ ...rawForm, sessionID: trueSessionID });
+          if (normalized && targetSessionID && normalized.sessionID === targetSessionID) {
             setFormsBySession((current) => ({
               ...current,
               [targetSessionID]: [
@@ -3550,6 +3588,7 @@ const StoreBody = memo(function StoreBody({ children, closeCtxMenu }: { children
       selectPanelDirectory,
       changePanelDirectory,
       reopenSession,
+      deleteSession,
       loadSessions,
       sendPrompt,
       runCommand,

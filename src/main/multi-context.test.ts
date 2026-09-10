@@ -296,4 +296,49 @@ describe("concurrent session contexts", () => {
     expect(contextMap.contexts.get(reopened.session.workspace.id)?.watcher).toBeTruthy();
     await backend.stop();
   });
+
+  it("deletes an opencode session server-side and closes its context", async () => {
+    const one = await realpath(await mkdtemp(path.join(tmpdir(), "openshell-multi-delete-")));
+    roots.push(one);
+    const { backend } = await fixture();
+    const remove = vi.fn(async () => {});
+    const client = {
+      ...(clientWith({ "session-one": one }) as Record<string, unknown>),
+      session: {
+        ...(clientWith({ "session-one": one }) as { session: Record<string, unknown> }).session,
+        remove
+      }
+    };
+    (backend as unknown as { client: unknown }).client = client;
+
+    const first = await backend.openSession(one, 1);
+    expect(await backend.activeSessions()).toHaveLength(1);
+
+    await backend.deleteSession(first.id);
+
+    expect(remove).toHaveBeenCalledWith({ sessionID: first.id });
+    expect(await backend.activeSessions()).toHaveLength(0);
+    await backend.stop();
+  });
+
+  it("refuses to delete DeepSeek sessions without a delete RPC", async () => {
+    const dir = await realpath(await mkdtemp(path.join(tmpdir(), "orbit-runtime-sessions-")));
+    roots.push(dir);
+    const { RuntimeSessionIndex } = await import("./runtimes/runtime-session-index");
+    const { backend } = await fixture();
+    const backendWithIndex = new OpenShellBackend(
+      () => {},
+      () => { throw new Error("no runtime"); },
+      new RuntimeSessionIndex(path.join(dir, "runtime-sessions.json"))
+    );
+    void backend;
+    (backendWithIndex as unknown as { client: unknown }).client = clientWith({});
+    const index = (backendWithIndex as unknown as {
+      runtimeSessionIndex: { put: (record: unknown) => Promise<void> };
+    }).runtimeSessionIndex;
+    await index.put({ id: "deepseek-one", runtimeID: "deepseek", title: "d", directory: "/tmp", updatedAt: Date.now() });
+
+    await expect(backendWithIndex.deleteSession("deepseek-one")).rejects.toThrow("DeepSeek");
+    await backendWithIndex.stop();
+  });
 });

@@ -12,6 +12,13 @@ interface WorkspaceMenuState {
   y: number;
 }
 
+interface SessionMenuState {
+  id: string;
+  title: string;
+  x: number;
+  y: number;
+}
+
 function readPinned(): string[] {
   try {
     const raw = window.localStorage.getItem(PINNED_KEY);
@@ -30,7 +37,8 @@ function SessionRow({
   busy,
   onOpen,
   onClose,
-  onTogglePin
+  onTogglePin,
+  onDelete
 }: {
   summary: SessionSummary;
   running: boolean;
@@ -40,12 +48,18 @@ function SessionRow({
   onOpen: () => void;
   onClose?: () => void;
   onTogglePin: () => void;
+  onDelete?: (e: React.MouseEvent) => void;
 }): ReactNode {
   return (
     <div
       className={`sessions-row ${focused ? "focused" : ""} ${running ? "running" : ""}`}
       onClick={onOpen}
       title={summary.directory}
+      onContextMenu={onDelete ? (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDelete(e);
+      } : undefined}
     >
       {running ? (
         <span className={`agent-dot live ${busy ? "busy" : ""}`} />
@@ -91,6 +105,7 @@ export function SessionsPane(): ReactNode {
     focusSession,
     closePanel,
     reopenSession,
+    deleteSession,
     openSession,
     selectFolder,
     sessions,
@@ -106,19 +121,28 @@ export function SessionsPane(): ReactNode {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceMenuState | null>(null);
+  const [sessionMenu, setSessionMenu] = useState<SessionMenuState | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
+  const sessionMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
 
   useEffect(() => {
-    if (!workspaceMenu) return;
+    if (!workspaceMenu && !sessionMenu) return;
     const onPointerDown = (event: PointerEvent): void => {
-      if (!workspaceMenuRef.current?.contains(event.target as Node)) setWorkspaceMenu(null);
+      if (!workspaceMenuRef.current?.contains(event.target as Node) &&
+        !sessionMenuRef.current?.contains(event.target as Node)) {
+        setWorkspaceMenu(null);
+        setSessionMenu(null);
+      }
     };
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setWorkspaceMenu(null);
+      if (event.key === "Escape") {
+        setWorkspaceMenu(null);
+        setSessionMenu(null);
+      }
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("keydown", onKeyDown);
@@ -126,7 +150,7 @@ export function SessionsPane(): ReactNode {
       document.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [workspaceMenu]);
+  }, [workspaceMenu, sessionMenu]);
 
   const runningPanels = useMemo(() => new Map(panels.map((panel) => [panel.id, panel])), [panels]);
   const openSessionInfos = useMemo(() => {
@@ -166,6 +190,11 @@ export function SessionsPane(): ReactNode {
     [recents, openNowIDs]
   );
 
+  // Keep Open now visible whenever it has entries to show.
+  useEffect(() => {
+    if (openSummaries.length > 0) setOpenNowOpen(true);
+  }, [openSummaries.length]);
+
   const togglePin = (id: string): void => {
     setPinnedIDs((current) => {
       const next = current.includes(id) ? current.filter((p) => p !== id) : [...current, id];
@@ -177,6 +206,11 @@ export function SessionsPane(): ReactNode {
   const openRow = (id: string): void => {
     if (runningPanels.has(id)) focusSession(id);
     else void reopenSession(id);
+  };
+
+  const askDeleteRow = (summary: { id: string; title: string }, x: number, y: number): void => {
+    setWorkspaceMenu(null);
+    setSessionMenu({ id: summary.id, title: summary.title, x, y });
   };
 
   const newSession = (): void => {
@@ -232,6 +266,7 @@ export function SessionsPane(): ReactNode {
                   onOpen={() => openRow(summary.id)}
                   onClose={() => closePanel(summary.id)}
                   onTogglePin={() => togglePin(summary.id)}
+                  onDelete={(e) => askDeleteRow(summary, e.clientX, e.clientY)}
                 />
               );
             })
@@ -325,6 +360,7 @@ export function SessionsPane(): ReactNode {
                             onOpen={() => openRow(s.id)}
                             onClose={openNowIDs.has(s.id) ? () => closePanel(s.id) : undefined}
                             onTogglePin={() => togglePin(s.id)}
+                            onDelete={(e) => askDeleteRow(s, e.clientX, e.clientY)}
                           />
                         );
                       })}
@@ -367,6 +403,7 @@ export function SessionsPane(): ReactNode {
                   busy={false}
                   onOpen={() => openRow(summary.id)}
                   onTogglePin={() => togglePin(summary.id)}
+                  onDelete={(e) => askDeleteRow(summary, e.clientX, e.clientY)}
                 />
               );
             })
@@ -390,6 +427,27 @@ export function SessionsPane(): ReactNode {
             }}
           >
             Remove from Orbit
+          </button>
+        </div>
+      )}
+      {sessionMenu && (
+        <div
+          ref={sessionMenuRef}
+          className="sessions-context-menu"
+          style={{ left: Math.max(4, Math.min(sessionMenu.x, window.innerWidth - 190)), top: Math.max(4, Math.min(sessionMenu.y, window.innerHeight - 70)) }}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <button
+            type="button"
+            className="sessions-context-item sessions-context-danger"
+            title={`Permanently delete "${sessionMenu.title}" from opencode`}
+            onClick={() => {
+              const id = sessionMenu.id;
+              setSessionMenu(null);
+              void deleteSession(id);
+            }}
+          >
+            Delete session
           </button>
         </div>
       )}

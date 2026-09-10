@@ -150,8 +150,14 @@ OpenCode client, the latest upstream protocol, and older opencode2 services.
 The transport pipeline in `src/main/stream-pipeline.ts` (see the scheduling
 paragraph above) delivers per-directory batches into `deliverEvents` in
 `src/main/opencode.ts`, which forwards each event and then runs
-`handleServerEvent`. `handleServerEvent` intercepts two types after
-forwarding:
+`handleServerEvent`. `deliverEvents` drops interactive prompts (`form.*`,
+`permission.*`, `session.inbox.*`) for sessions Orbit never opened: the
+global daemon is shared with external `opencode2` terminal sessions, and
+forwarding those prompts would misattribute them to the focused panel
+(`form.created` carries its session only inside `data.form`, so
+`eventSessionID` also descends into `form`). Child/subagent transcript
+streams still flow; the renderer keeps them in separate stored state.
+`handleServerEvent` intercepts two types after forwarding:
 
 - `session.tool.called` → `snapshotInputs(context, input)` snapshots structured
   file paths for the session context addressed by the event's `sessionID`

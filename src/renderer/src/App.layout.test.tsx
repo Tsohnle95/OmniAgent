@@ -1238,8 +1238,11 @@ describe("Layout panel sizing", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       const openNow = [...container.querySelectorAll<HTMLButtonElement>(".section-toggle")]
         .find((button) => button.textContent?.includes("Open now"))!;
-      openNow.click();
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      // Open now auto-opens when it has entries; the toggle only collapses.
+      if (openNow.getAttribute("aria-expanded") !== "true") {
+        openNow.click();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
       container.querySelector<HTMLButtonElement>(".sessions-row-close")!.click();
       await new Promise((resolve) => setTimeout(resolve, 20));
     });

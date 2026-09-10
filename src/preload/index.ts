@@ -70,6 +70,8 @@ const api = {
   closeSession: (workspace: WorkspaceIdentity): Promise<void> => ipcRenderer.invoke("shell:close-session", workspace),
   openSessionById: (sessionID: string, generation: number, runtimeID?: RuntimeID): Promise<ReopenedSession> =>
     ipcRenderer.invoke("shell:open-session-id", sessionID, generation, runtimeID),
+  deleteSession: (sessionID: string): Promise<void> =>
+    ipcRenderer.invoke("shell:delete-session", sessionID),
   sessionTranscript: (sessionID: string): Promise<SessionTranscript> =>
     ipcRenderer.invoke("shell:session-transcript", sessionID),
   sessionUsage: (sessionID: string): Promise<SessionUsage | null> =>

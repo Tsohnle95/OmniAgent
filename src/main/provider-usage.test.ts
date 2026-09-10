@@ -193,14 +193,12 @@ describe("provider usage from opencode store", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("https://api.commandcode.ai/alpha/billing/credits");
   });
 
-  it("reports Command Code auth failure when the API rejects the token", async () => {
+  it("hides Command Code when the API rejects the token and no snapshot exists", async () => {
     mockDbRows([], [{ integration_id: "command-code", value: "cc-token", active: 1 }]);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 401 })));
 
     const results = await fetchProviderUsage();
-    const cc = results.find((result) => result.provider === "command-code");
-    expect(cc?.status).toBe("unauthenticated");
-    expect(cc?.error?.code).toBe("reauth_required");
+    expect(results.find((result) => result.provider === "command-code")).toBeUndefined();
   });
 
   it("uses COMMAND_CODE_API_KEY when no auth-store credential exists", async () => {
@@ -222,5 +220,22 @@ describe("provider usage from opencode store", () => {
     expect(fetchMock.mock.calls[0][1]).toEqual(
       expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer env-cc-token" }) })
     );
+  });
+
+  it("hides OpenCode Go when the subscription cannot be verified and no snapshot exists", async () => {
+    mockDbRows([], [{ integration_id: "opencode-go", value: "stale-go-token", active: 1 }]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 403 })));
+
+    const results = await fetchProviderUsage();
+    expect(results.find((result) => result.provider === "opencode-go")).toBeUndefined();
+  });
+
+  it("keeps a retryable network failure visible so an active sub does not vanish", async () => {
+    mockDbRows([], [{ integration_id: "opencode-go", value: "go-token", active: 1 }]);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const results = await fetchProviderUsage();
+    const go = results.find((result) => result.provider === "opencode-go");
+    expect(go?.error?.retryable).toBe(true);
   });
 });

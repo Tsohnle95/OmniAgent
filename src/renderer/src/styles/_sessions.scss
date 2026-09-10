@@ -338,6 +338,14 @@
   background: var(--bg-hover);
 }
 
+.sessions-context-danger {
+  color: var(--danger, #e5484d);
+}
+
+.sessions-context-danger:hover {
+  background: var(--danger-bg, rgba(229, 72, 77, 0.12));
+}
+
 .sessions-row {
   position: relative;
   display: flex;

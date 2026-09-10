@@ -260,7 +260,11 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
-    await act(async () => section("Open now").querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    // Open now auto-opens when it has entries; the toggle only collapses.
+    const openNowToggle = section("Open now").querySelector<HTMLButtonElement>(".section-toggle")!;
+    if (openNowToggle.getAttribute("aria-expanded") !== "true") {
+      await act(async () => openNowToggle.click());
+    }
     const openNow = section("Open now");
     const runningRow = openNow.querySelector<HTMLElement>(".sessions-row")!;
     expect(runningRow.querySelector(".agent-dot")?.classList.contains("busy")).toBe(true);
@@ -283,7 +287,11 @@ describe("FileSidebar tabs and sessions pane", () => {
     await render();
     await settle();
 
-    await act(async () => section("Open now").querySelector<HTMLButtonElement>(".section-toggle")!.click());
+    // Open now auto-opens when it has entries; the toggle only collapses.
+    const backgroundToggle = section("Open now").querySelector<HTMLButtonElement>(".section-toggle")!;
+    if (backgroundToggle.getAttribute("aria-expanded") !== "true") {
+      await act(async () => backgroundToggle.click());
+    }
     const openNow = section("Open now");
     expect(openNow.textContent).toContain("Background agent");
     const row = openNow.querySelector<HTMLElement>(".sessions-row")!;

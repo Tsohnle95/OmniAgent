@@ -630,6 +630,10 @@ function registerIpc(): void {
     backend.openSessionById(sessionId(sessionID), backend.beginActivation(activationGeneration(requestGeneration)), optionalRuntimeId(requestedRuntimeID))
   );
 
+  handleTrusted("shell:delete-session", async (_e, sessionID: string) =>
+    backend.deleteSession(sessionId(sessionID))
+  );
+
   handleTrusted("shell:runtimes", async () => backend.runtimeManifests());
 
   handleTrusted("shell:session-transcript", async (_e, sessionID: string) =>

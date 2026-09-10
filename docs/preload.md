@@ -27,6 +27,7 @@ automatically.
 | `activeSessions()` | `Promise<SessionInfo[]>` — currently open backend sessions in activation order; the last element is the most recently activated (used for startup restore) |
 | `closeSession(workspace)` | `Promise<void>` — tears down the backend context when a panel closes; the opencode session remains reopenable |
 | `openSessionById(sessionID, generation, runtimeID?)` | `Promise<ReopenedSession>` (session + replayed transcript + cumulative `usage`); idempotent for already-open sessions and resolves persisted runtime identity when omitted. A `runtimeID` that differs from the session's native runtime and targets no active context remaps the session to the requested runtime on the same directory |
+| `deleteSession(sessionID)` | `Promise<void>` — permanently destroys the opencode session server-side (`client.session.remove`) and closes its panel; DeepSeek sessions are rejected (no delete RPC) |
 | `sessionTranscript(sessionID)` | `Promise<{transcript, todos}>` — authoritative message replay used to materialize incomplete stream snapshots |
 | `sessionUsage(sessionID)` | `Promise<SessionUsage \| null>` — normalized `cost`/`tokens` for the addressed session; used after `session.compaction` to refresh the context-window display |
 | `prompt(workspace, text, files?, delivery?)` | Sends the prompt; `delivery` is `"queue"` or `"steer"` for follow-ups while busy |
