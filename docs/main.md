@@ -371,7 +371,10 @@ terminal:{id,data}}` and `{kind:"terminal-exit", terminal:{id,exitCode}}`
 over the same `shell:message` channel. Every PTY is owned by the workspace
 identity that created it, and each session panel's terminal tray boots and
 stops its own terminals as the user switches focus — `stopAll()` only runs
-at quit. `before-input-event` intercepts
+at quit, where it kills each child, waits (bounded, 3s per terminal) for the
+exit events to drain, then detaches the callbacks so no pty callback can
+fire into Node teardown and abort the process. The `before-quit` handler
+bounds the whole shutdown at 10s and always proceeds to `app.quit()`. `before-input-event` intercepts
 ⌘W / Ctrl+W (so it never closes the window) and forwards
 `{kind:"ui-command", command:"toggle-word-wrap"}` to the renderer instead
 (the user's muscle memory maps ⌘W to word wrap, and the window must never

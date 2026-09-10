@@ -1071,14 +1071,25 @@ app.on("window-all-closed", () => {
 
 let quitting = false;
 
+const QUIT_TIMEOUT_MS = 10_000;
+
 app.on("before-quit", (event) => {
   if (quitting) return;
   event.preventDefault();
   quitting = true;
   void (async () => {
-    await backend.stop();
-    await terminals.stopAll();
-    await viteServers.stopAll();
+    // Bounded shutdown: terminals must reap their children before Node
+    // teardown (a late pty exit callback aborts the process), but a wedged
+    // child must never block quit forever.
+    const shutdown = (async () => {
+      await backend.stop();
+      await terminals.stopAll();
+      await viteServers.stopAll();
+    })().catch(() => {});
+    await Promise.race([
+      shutdown,
+      new Promise<void>((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS))
+    ]);
     app.quit();
   })();
 });

@@ -64,6 +64,62 @@ describe("TerminalManager capability ownership", () => {
 
     expect(spawnPty).toHaveBeenCalledWith("opencode2", ["--session", "session-1"], expect.objectContaining({ cwd: "/tmp" }));
   });
+
+  it("stopAll kills, waits for exits, then detaches callbacks", async () => {
+    const listeners = new Map<string, Array<(event: { exitCode: number }) => void>>();
+    const killed: string[] = [];
+    const spawnPty = vi.fn((...args: unknown[]) => {
+      const marker = JSON.stringify(args.slice(0, 2));
+      return {
+        onData: () => ({ dispose() {} }),
+        onExit: (listener: (event: { exitCode: number }) => void) => {
+          const list = listeners.get(marker) ?? [];
+          list.push(listener);
+          listeners.set(marker, list);
+          return { dispose() {} };
+        },
+        write() {}, resize() {},
+        kill() { killed.push(marker); }
+      };
+    });
+    const manager = new TerminalManager(spawnPty as never);
+    await manager.start("term-a", "/tmp", workspace);
+    await manager.start("term-b", "/tmp", workspace);
+
+    const stopping = manager.stopAll(1000);
+    await Promise.resolve();
+    // Both children get SIGTERM; exits arriving drain the shutdown.
+    for (const list of listeners.values()) for (const listener of list) listener({ exitCode: 0 });
+    await stopping;
+
+    expect(killed).toHaveLength(2);
+    const state = manager as unknown as { terminals: Map<string, unknown> };
+    expect(state.terminals.size).toBe(0);
+  });
+
+  it("stopAll detaches stragglers that never exit instead of hanging quit", async () => {
+    vi.useFakeTimers();
+    try {
+      const pty = {
+        onData: () => ({ dispose: vi.fn() }),
+        onExit: () => ({ dispose: vi.fn() }),
+        write() {}, resize() {},
+        kill: vi.fn()
+      } as unknown as IPty;
+      const manager = new TerminalManager(vi.fn(() => pty) as never);
+      await manager.start("term-stuck", "/tmp", workspace);
+
+      const stopping = manager.stopAll(500);
+      await vi.advanceTimersByTimeAsync(600);
+      await stopping;
+
+      expect(pty.kill).toHaveBeenCalled();
+      const state = manager as unknown as { terminals: Map<string, unknown> };
+      expect(state.terminals.size).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("terminal platform configuration", () => {

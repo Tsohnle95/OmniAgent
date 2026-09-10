@@ -81,22 +81,74 @@ export class TerminalManager {
     }
   }
 
+  private dispose(id: string): void {
+    const terminal = this.terminals.get(id);
+    if (!terminal) return;
+    this.terminals.delete(id);
+    // Disposing the subscriptions detaches node-pty's ThreadSafeFunction
+    // callbacks. Queued exit/data callbacks must run before this, or a
+    // late exit event fires into a torn-down Node environment and aborts
+    // the process on quit (SIGABRT via Napi::Error::ThrowAsJavaScriptException).
+    terminal.dataSubscription.dispose();
+    terminal.exitSubscription.dispose();
+  }
+
   stop(id: string, workspace?: WorkspaceIdentity): void {
     const terminal = this.terminals.get(id);
     if (!terminal) throw new Error("unknown terminal");
     if (workspace && terminal.workspaceId !== workspace.id) throw new Error("stale terminal");
-    this.terminals.delete(id);
-    terminal.dataSubscription.dispose();
-    terminal.exitSubscription.dispose();
     try {
       terminal.pty.kill();
     } catch {
-      return;
+      // fall through to disposal
     }
+    this.dispose(id);
   }
 
-  async stopAll(): Promise<void> {
-    for (const id of [...this.terminals.keys()]) this.stop(id);
+  async stopAll(shutdownTimeoutMs = 3000): Promise<void> {
+    const live = [...this.terminals.entries()];
+    if (live.length === 0) return;
+    // Reap every child first: an exit event queued after Node teardown
+    // begins throws a JS exception into the dying environment and aborts
+    // the process. Wait (bounded) for exits to arrive, then detach.
+    const exits = await Promise.all(live.map(([id, terminal]) => new Promise<void>((resolve) => {
+      if (!this.terminals.has(id)) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(resolve, shutdownTimeoutMs);
+      const done = (): void => {
+        clearTimeout(timer);
+        // The shared handler already deleted the entry; guard keeps a
+        // double-fire harmless.
+        if (this.terminals.has(id)) this.terminals.delete(id);
+        resolve();
+      };
+      const previous = terminal.exitSubscription;
+      terminal.exitSubscription = terminal.pty.onExit(() => {
+        try {
+          previous.dispose();
+        } catch {
+          // never block shutdown on disposal
+        }
+        done();
+      });
+      try {
+        terminal.pty.kill();
+      } catch {
+        done();
+      }
+    })));
+    void exits;
+    for (const [id, terminal] of live) {
+      if (!this.terminals.has(id)) continue;
+      try {
+        terminal.pty.kill();
+      } catch {
+        // already gone; disposal below still detaches callbacks
+      }
+      this.dispose(id);
+    }
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
 }
