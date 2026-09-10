@@ -81,11 +81,14 @@
 [data-component="session-turn"] [data-slot="session-turn-message-container"] {
   width: 100%;
   min-width: 0;
+  max-width: min(100%, 140ch);
+  margin-left: auto;
+  margin-right: auto;
   padding: 0 20px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  align-self: stretch;
+  align-self: center;
   gap: 0;
   overflow-anchor: none;
 }
