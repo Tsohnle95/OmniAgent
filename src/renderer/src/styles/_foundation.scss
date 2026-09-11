@@ -196,7 +196,8 @@
 :root[data-theme="kitty"] .sidebar,
 :root[data-theme="kitty"] .editor-pane,
 :root[data-theme="kitty"] .agent-panel,
-:root[data-theme="kitty"] .settings-page {
+:root[data-theme="kitty"] .settings-page,
+:root[data-theme="kitty"] .terminal-tray {
   -webkit-backdrop-filter: blur(20px) saturate(135%);
   backdrop-filter: blur(20px) saturate(135%);
 }

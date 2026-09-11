@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
+import { useOptionalTheme } from "../theme";
 import { IconAdd, IconChevronDown, IconChevronUp, IconServer } from "./icons";
 import type { WorkspaceIdentity } from "@shared/types";
 import { PendingTerminalOutput, removeTerminal, terminalDirectoryCommand, type TerminalTabs } from "../terminal-state";
@@ -31,6 +32,32 @@ const THEME = {
   brightWhite: "#ffffff"
 };
 
+// Same palette as the embedded agent TUI; the transparent background lets the
+// tray surface show through so the tray matches the app background.
+const KITTY_THEME = {
+  background: "rgba(2, 2, 4, 0)",
+  foreground: "#f4f4fa",
+  cursor: "#00a2ce",
+  cursorAccent: "#020204",
+  selectionBackground: "#2e4d78",
+  black: "#020204",
+  red: "#ff4b67",
+  green: "#5bd69a",
+  yellow: "#e0a85a",
+  blue: "#00a2ce",
+  magenta: "#c99ff2",
+  cyan: "#6fc3df",
+  white: "#f4f4fa",
+  brightBlack: "#a6a9b8",
+  brightRed: "#ff8b85",
+  brightGreen: "#82e8b4",
+  brightYellow: "#f0c780",
+  brightBlue: "#25b8dd",
+  brightMagenta: "#dcb8ff",
+  brightCyan: "#8fd8ef",
+  brightWhite: "#ffffff"
+};
+
 interface TermInstanceProps {
   id: string;
   active: boolean;
@@ -41,6 +68,7 @@ interface TermInstanceProps {
 }
 
 function TermInstance({ id, active, height, workspace, onRegister, onUnregister }: TermInstanceProps): ReactNode {
+  const theme = useOptionalTheme()?.theme ?? "original";
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -54,7 +82,8 @@ function TermInstance({ id, active, height, workspace, onRegister, onUnregister 
       lineHeight: 1.25,
       cursorBlink: true,
       scrollback: 5000,
-      theme: THEME
+      allowTransparency: theme === "kitty",
+      theme: theme === "kitty" ? KITTY_THEME : THEME
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -94,6 +123,12 @@ function TermInstance({ id, active, height, workspace, onRegister, onUnregister 
       void window.openshell.terminalStop(workspace, id).catch(() => {});
     };
   }, [id, workspace, onRegister, onUnregister]);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.theme = theme === "kitty" ? KITTY_THEME : THEME;
+  }, [theme]);
 
   useEffect(() => {
     if (!active) return;
