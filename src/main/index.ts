@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { OpenShellBackend } from "./opencode";
 import { TerminalManager } from "./terminal";
+import { MobileServer } from "./mobile-server";
 import { defaultViteDeps, VitePreviewManager } from "./vite-server";
 import { collectLaunchPaths, PendingOpenPaths } from "./open-paths";
 import {
@@ -70,6 +71,7 @@ applyExecPath();
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
+const mobileServer = new MobileServer();
 const viteCommand = (() => {
   const bin = path.join(app.getAppPath(), "node_modules", "vite", "bin", "vite.js");
   if (existsSync(bin)) return { command: process.execPath, prefix: [bin] };
@@ -1023,6 +1025,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     const trustSmoke = process.env["OPENSHELL_TRUST_SMOKE"] === "1";
     if (!trustSmoke) backend.start();
+    if (!trustSmoke) mobileServer.start();
     const pendingFileUpdates = new Map<string, unknown>();
     let fileUpdateFlush: ReturnType<typeof setTimeout> | null = null;
     const flushFileUpdates = (): void => {
@@ -1090,6 +1093,7 @@ app.on("before-quit", (event) => {
       await backend.stop();
       await terminals.stopAll();
       await viteServers.stopAll();
+      await mobileServer.stop();
     })().catch(() => {});
     await Promise.race([
       shutdown,

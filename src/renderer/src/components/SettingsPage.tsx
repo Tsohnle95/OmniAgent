@@ -209,7 +209,7 @@ export function SettingsPage({ section, onClose }: { section: SettingsSection; o
       </section>}
 
       {section === "mobile" && <section className="settings-section">
-        <div className="settings-callout"><strong>Mobile access is not enabled.</strong><p>Orbit currently runs as a local desktop application. A future mobile setup flow will provide pairing and session controls without exposing the workspace directly to the network.</p></div>
+        <div className="settings-callout"><strong>Mobile access is on while Orbit is open.</strong><p>Orbit runs the mobile server for as long as this app is open, and stops it when you quit. On your phone, open the Orbit app and connect to this Mac's Tailscale address at port 3011 (for example <code>http://100.x.y.z:3011</code>) using your mobile password. If the phone can't connect, make sure Orbit is running.</p></div>
       </section>}
 
       {section === "about" && <section className="settings-section">
