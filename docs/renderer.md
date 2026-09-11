@@ -452,8 +452,9 @@ Agent TUI input uses the same terminal message stream and ownership checks, but
 starts the active runtime command through `agentTuiStart` in the panel's
 workspace directory. OpenCode uses `opencode2 --session <session-id>`; the
 DeepSeek profile remains unavailable until its TUI command is supported.
-The persisted Kitty Glass appearance profile applies its translucent xterm
-background, Kitty-inspired palette, and Fira Code fallback to the embedded TUI.
+The persisted Kitty Glass appearance profile applies its transparent xterm
+background, Kitty-inspired palette, and Fira Code fallback to the embedded TUI,
+so the terminal shares the panel's glass instead of adding its own dark layer.
 The renderer generates and registers each validated terminal UUID before
 invoking `terminalStart`, so startup output or exit can be attributed even when
 it arrives before the invoke resolves. Only those pending IDs can buffer startup output. Buffers retain at most 64 chunks / 256 KiB for ten
