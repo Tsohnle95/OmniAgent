@@ -843,7 +843,7 @@ function registerIpc(): void {
   });
 
   handleTrusted("shell:agent-tui-start", async (_e, workspace: WorkspaceIdentity, requestedId: string) => {
-    const directory = await backend.workspaceDirectory(workspace);
+    const directory = await backend.ptyDirectory(workspace);
     const command = await backend.tuiCommand(workspace);
     const id = terminalId(requestedId);
     await terminals.start(id, directory, workspace, command);

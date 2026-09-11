@@ -76,6 +76,7 @@ Public methods (all used by IPC):
 | `sessionTranscript(sessionID)` | Loads `message.list` replay as `{transcript, todos}` without activating a context; the renderer's stream materialization source |
 | `sessionUsage(sessionID)` | Loads `session.get` and returns the normalized `SessionUsage` (`cost` + `tokens`) or `null` when unavailable (tokens missing — a missing `cost`, as with cost-less local providers, coerces to 0 so the snapshot stays refreshable); called after compaction to refresh the context-window display |
 | `workspaceDirectory(workspace)` | Resolves a workspace identity to its canonical session directory (terminal cwd, identity validation) |
+| `ptyDirectory(workspace)` | Working directory for a PTY in this panel: the captured workspace root, or the session's current location when the folder moved underneath the panel; rejects with the path when neither exists |
 | `tuiCommand(workspace)` | Resolves the active runtime's TUI command for the addressed session; currently enabled for OpenCode and rejects runtimes without a declared TUI capability |
 | `prompt(workspace, text, files?, delivery?)` | Captures and verifies the context around attachment awaits, then calls `session.prompt`; `delivery` forwards `queue`/`steer` for native inbox queuing; IPC failures are normalized to a stable code and message before returning to the renderer |
 | `listInbox(workspace)` | Lists the active session's queued user entries via `session.inbox.list` |

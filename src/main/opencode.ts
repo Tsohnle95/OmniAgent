@@ -87,6 +87,7 @@ import {
   MAX_WORKSPACE_FILE_BYTES,
   relativePath
 } from "./workspace-security";
+import { resolvePtyDirectory } from "./pty-directory";
 import type { RuntimeAdapter } from "./runtimes/runtime-adapter";
 import { DeepSeekRuntimeAdapter } from "./runtimes/deepseek/deepseek-adapter";
 import { tuiCommandForRuntime } from "./tui-command";
@@ -1829,6 +1830,27 @@ export class OpenShellBackend {
 
   async workspaceDirectory(workspace: WorkspaceIdentity): Promise<string> {
     return this.contextFor(workspace).directory;
+  }
+
+  /** Working directory for a PTY spawned in this panel. Panels outlive their
+   *  folder when a workspace moves underneath them, and a PTY spawned into a
+   *  missing directory dies with a bare exit code 1, so fall back to the
+   *  session's current location before giving up. */
+  async ptyDirectory(workspace: WorkspaceIdentity): Promise<string> {
+    const context = this.contextFor(workspace);
+    const nativeRuntimeID = context.sessionInfo.runtimeID ?? context.runtime?.manifest.id ?? "opencode";
+    const sessionDirectory = await this.sessionDirectory(context.sessionID, nativeRuntimeID).catch(() => null);
+    return resolvePtyDirectory({
+      captured: context.directory,
+      sessionDirectory,
+      isDirectory: async (directory) => {
+        try {
+          return (await fsp.stat(directory)).isDirectory();
+        } catch {
+          return false;
+        }
+      }
+    });
   }
 
   async tuiCommand(workspace: WorkspaceIdentity): Promise<TerminalCommand> {
