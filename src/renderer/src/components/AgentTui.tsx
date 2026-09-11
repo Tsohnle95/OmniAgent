@@ -178,9 +178,17 @@ export function AgentTui({
       if (message.kind === "terminal-exit" && message.terminal.id === id) onExitRef.current(message.terminal.exitCode);
     });
     resize();
-    void window.openshell.agentTuiStart(workspace, id).catch((error: unknown) => {
-      onErrorRef.current(error instanceof Error ? error.message : "Could not start the agent TUI");
-    });
+    void window.openshell.agentTuiStart(workspace, id)
+      .then(() => {
+        // The PTY starts at the terminal manager's default size, so the fitted
+        // size has to follow the spawn. Resizing before the start lands on an
+        // unregistered terminal and is dropped, which left the TUI drawing only
+        // the default rows with the rest of the panel blank.
+        if (terminalRef.current === terminal) resize();
+      })
+      .catch((error: unknown) => {
+        onErrorRef.current(error instanceof Error ? error.message : "Could not start the agent TUI");
+      });
 
     return () => {
       off();

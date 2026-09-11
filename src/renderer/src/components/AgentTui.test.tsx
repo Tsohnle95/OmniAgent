@@ -123,6 +123,22 @@ describe("AgentTui", () => {
     expect(stop).toHaveBeenCalledWith(workspace, "term-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
   });
 
+  it("re-sends the fitted size once the TUI has started", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    start.mockReturnValueOnce(gate);
+    const { AgentTui } = await import("./AgentTui");
+    await act(async () => root.render(<ThemeProvider><AgentTui workspace={workspace} onExit={onExit} onError={onError} /></ThemeProvider>));
+
+    // The pre-start resize lands on an unregistered terminal in main and is
+    // dropped, so the PTY keeps the manager's default size until one follows
+    // the spawn.
+    const beforeStart = resize.mock.calls.length;
+    await act(async () => { release(); await gate; });
+    expect(resize.mock.calls.length).toBeGreaterThan(beforeStart);
+    expect(resize.mock.calls.at(-1)).toEqual([workspace, "term-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 80, 24]);
+  });
+
   it("returns a failed TUI launch to the GUI with an error", async () => {
     start.mockRejectedValueOnce(new Error("opencode2 was not found"));
     const { AgentTui } = await import("./AgentTui");

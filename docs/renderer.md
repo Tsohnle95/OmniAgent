@@ -450,7 +450,10 @@ presentational declarations remain in the owning SCSS partial.
 
 Terminal input flows: keystrokes → `terminalInput(id, data)`; output
 streams back via `onMessage` (`terminal-data`). The xterm `fit` addon +
-`ResizeObserver` keep the PTY dimensions in sync (`terminalResize`).
+`ResizeObserver` keep the PTY dimensions in sync (`terminalResize`), and the
+agent TUI re-sends its fitted size once `agentTuiStart` resolves — a resize
+that arrives before the PTY is registered is dropped by the terminal manager,
+which would leave the TUI drawing only the spawn-default rows.
 Agent TUI input uses the same terminal message stream and ownership checks, but
 starts the active runtime command through `agentTuiStart` in the panel's
 workspace directory. OpenCode uses `opencode2 --session <session-id>`; the
