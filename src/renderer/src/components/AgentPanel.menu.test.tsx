@@ -132,4 +132,21 @@ describe("composer agent menu", () => {
     expect(star).not.toBeNull();
     expect(star!.className).toContain("on");
   });
+
+  it("keeps favorited models visible even when their provider is hidden", async () => {
+    currentModels = [{ id: "gpt", name: "GPT", providerID: "openai" }];
+    window.localStorage.setItem("favoriteModels", JSON.stringify(["openai::gpt"]));
+    window.localStorage.setItem("hiddenProviders", JSON.stringify(["openai"]));
+    await act(async () => root.render(<Composer />));
+    const modelButton = container.querySelector<HTMLButtonElement>(
+      'button[title="Change model and response strength"]'
+    )!;
+    await act(async () => modelButton.click());
+
+    const favoritesGroup = [...container.querySelectorAll(".composer-menu-group")].find((group) =>
+      group.textContent?.includes("Favorites")
+    );
+    expect(favoritesGroup).not.toBeNull();
+    expect(favoritesGroup!.textContent).toContain("GPT");
+  });
 });

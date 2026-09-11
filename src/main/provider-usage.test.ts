@@ -193,12 +193,15 @@ describe("provider usage from opencode store", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("https://api.commandcode.ai/alpha/billing/credits");
   });
 
-  it("hides Command Code when the API rejects the token and no snapshot exists", async () => {
+  it("shows Command Code auth failures instead of hiding them", async () => {
     mockDbRows([], [{ integration_id: "command-code", value: "cc-token", active: 1 }]);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 401 })));
 
     const results = await fetchProviderUsage();
-    expect(results.find((result) => result.provider === "command-code")).toBeUndefined();
+    const cc = results.find((result) => result.provider === "command-code");
+    expect(cc).toBeDefined();
+    expect(cc?.status).toBe("unauthenticated");
+    expect(cc?.error?.retryable).toBe(false);
   });
 
   it("uses COMMAND_CODE_API_KEY when no auth-store credential exists", async () => {
@@ -222,12 +225,14 @@ describe("provider usage from opencode store", () => {
     );
   });
 
-  it("hides OpenCode Go when the subscription cannot be verified and no snapshot exists", async () => {
+  it("shows OpenCode Go verification failures instead of hiding them", async () => {
     mockDbRows([], [{ integration_id: "opencode-go", value: "stale-go-token", active: 1 }]);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 403 })));
 
     const results = await fetchProviderUsage();
-    expect(results.find((result) => result.provider === "opencode-go")).toBeUndefined();
+    const go = results.find((result) => result.provider === "opencode-go");
+    expect(go).toBeDefined();
+    expect(go?.status).toBe("unauthenticated");
   });
 
   it("keeps a retryable network failure visible so an active sub does not vanish", async () => {

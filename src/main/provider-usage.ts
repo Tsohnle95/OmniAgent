@@ -911,14 +911,5 @@ export async function fetchProviderUsage(): Promise<ProviderUsageResult[]> {
     snapshotByProvider.delete(provider);
   }
   results.push(...snapshotByProvider.values());
-  // Hide subscriptions that are not currently active: an auth failure with
-  // no usable snapshot means there is nothing to show (e.g. a stale
-  // OpenCode Go token with no subscription). Retryable transport failures
-  // stay visible so an active sub with a transient network error still
-  // reports instead of vanishing.
-  return results.filter((result) =>
-    result.status === "ok" ||
-    result.snapshot !== null ||
-    result.error?.retryable === true
-  );
+  return results;
 }

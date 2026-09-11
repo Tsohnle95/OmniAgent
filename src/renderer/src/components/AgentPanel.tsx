@@ -381,13 +381,16 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
     [modelSearch, models]
   );
   const settingsGroups = useModelGroups(settingsModels);
-  const favoriteList = useMemo(
-    () =>
-      filteredModels
-        .filter((model) => favorites.has(modelKey(model)) && !hiddenModels.has(modelKey(model)))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [favorites, filteredModels, hiddenModels]
-  );
+  const favoriteList = useMemo(() => {
+    const query = modelSearch.trim().toLowerCase();
+    return models
+      .filter((model) => favorites.has(modelKey(model)))
+      .filter(
+        (model) =>
+          !query || `${model.name} ${model.id} ${model.providerID}`.toLowerCase().includes(query)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [favorites, models, modelSearch]);
   const canSend = input.trim().length > 0 || files.length > 0;
   const variantLabel = currentModel?.variant
     ? formatVariant(currentModel.variant)
@@ -820,6 +823,11 @@ export function Composer({ session }: { session?: SessionInfo | null }): ReactNo
             className={`composer-selector model ${menu === "model" && modelView !== "strength" ? "open" : ""}`}
             title="Change model and response strength"
             onClick={() => {
+              if (menu !== "model") {
+                setFavorites(readModelKeys("favoriteModels"));
+                setHiddenModels(readModelKeys("hiddenModels"));
+                setHiddenProviders(readModelKeys("hiddenProviders"));
+              }
               setMenu(menu === "model" ? null : "model");
               if (menu !== "model") setModelView("list");
               if (menu !== "model" && models.length === 0) void loadModels(workspace ?? undefined);
