@@ -51,6 +51,12 @@ const resolveMobileHome = (): string | null => {
   return existsSync(script) ? home : null;
 };
 
+export interface MobileBackend {
+  url: string;
+  username: string;
+  password: string;
+}
+
 export class MobileServer {
   private child: ChildProcess | null = null;
   private home: string | null = resolveMobileHome();
@@ -60,16 +66,27 @@ export class MobileServer {
     return Boolean(this.home && this.node);
   }
 
-  start(): void {
+  start(backend?: MobileBackend): void {
     if (!this.available() || this.child) return;
     const script = path.join(this.home as string, "scripts", "desktop-service.mjs");
     mkdirSync(path.join(SUPPORT, "logs"), { recursive: true });
     const out = openSync(path.join(SUPPORT, "logs", "desktop-service.out.log"), "a");
     const err = openSync(path.join(SUPPORT, "logs", "desktop-service.err.log"), "a");
+    // When the desktop daemon endpoint is known, point the mobile server at it
+    // (ORBIT_EXTERNAL_BACKEND) so sessions are shared with the desktop. Without
+    // it, the agent falls back to its own isolated backend.
+    const backendEnv: Record<string, string> = backend
+      ? {
+          ORBIT_EXTERNAL_BACKEND: "1",
+          OPENCODE_HOST: backend.url,
+          OPENCODE_SERVER_USERNAME: backend.username,
+          OPENCODE_SERVER_PASSWORD: backend.password
+        }
+      : {};
     try {
       this.child = spawn(this.node as string, [script, "--parent-pid", String(process.pid)], {
         cwd: this.home as string,
-        env: { ...process.env, HOME: homedir() },
+        env: { ...process.env, HOME: homedir(), ...backendEnv },
         stdio: ["ignore", out, err]
       });
       this.child.on("exit", () => {

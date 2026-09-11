@@ -542,6 +542,7 @@ type MutationPhaseHandler = (phase: MutationPhase, source: string, target: strin
 
 export class OpenShellBackend {
   private client: Client | null = null;
+  private endpoint: Endpoint | null = null;
   private readonly contexts = new Map<string, SessionContext>();
   private primary: string | null = null;
   private listeners = new Set<(msg: unknown) => void>();
@@ -657,12 +658,27 @@ export class OpenShellBackend {
       (await this.discoverEndpoint()) ??
       (await this.ensureBounded());
     if (!endpoint) return false;
+    this.endpoint = endpoint;
     this.client = OpenCode.make({
       baseUrl: endpoint.url,
       headers: Service.headers(endpoint)
     });
     this.scheduleRetentionPrune();
     return true;
+  }
+
+  /**
+   * Connection details for the shared global OpenCode daemon, so the mobile
+   * server can attach to the same backend and share sessions with the desktop.
+   */
+  mobileEndpoint(): { url: string; username: string; password: string } | null {
+    const endpoint = this.endpoint;
+    if (!endpoint) return null;
+    return {
+      url: endpoint.url,
+      username: endpoint.auth?.username ?? "opencode",
+      password: endpoint.auth?.password ?? ""
+    };
   }
 
   private scheduleRetentionPrune(): void {

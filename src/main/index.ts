@@ -1025,7 +1025,6 @@ if (!app.requestSingleInstanceLock()) {
     }
     const trustSmoke = process.env["OPENSHELL_TRUST_SMOKE"] === "1";
     if (!trustSmoke) backend.start();
-    if (!trustSmoke) mobileServer.start();
     const pendingFileUpdates = new Map<string, unknown>();
     let fileUpdateFlush: ReturnType<typeof setTimeout> | null = null;
     const flushFileUpdates = (): void => {
@@ -1063,7 +1062,15 @@ if (!app.requestSingleInstanceLock()) {
     }
     createWindow();
     if (app.isPackaged) pendingOpenPaths.push(collectLaunchPaths(process.argv.slice(1), existsSync, process.execPath));
-    void backend.connect().catch(() => {});
+    void backend.connect()
+      .then((connected) => {
+        // Share the desktop's OpenCode daemon (and therefore its sessions) with
+        // the mobile server when available.
+        mobileServer.start(connected ? backend.mobileEndpoint() ?? undefined : undefined);
+      })
+      .catch(() => {
+        mobileServer.start();
+      });
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
