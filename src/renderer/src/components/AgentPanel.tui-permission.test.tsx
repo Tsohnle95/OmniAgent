@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionInfo, TranscriptItem } from "@shared/types";
+import type { PendingFormRequest, SessionInfo, TranscriptItem } from "@shared/types";
 import { ThemeProvider } from "../theme";
 
 const terminalWrites = vi.hoisted(() => vi.fn());
@@ -27,7 +27,7 @@ vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
 let currentSession: SessionInfo;
 let currentTranscript: TranscriptItem[] = [];
-let currentPendingForms: unknown[] = [];
+let currentPendingForms: PendingFormRequest[] = [];
 const replyPermission = vi.fn(async () => {});
 const agentTuiStart = vi.fn(async () => {});
 
@@ -78,7 +78,17 @@ const pendingPermission: TranscriptItem = {
   pending: true
 };
 
-describe("AgentPanel embedded TUI approvals", () => {
+const pendingQuestion: PendingFormRequest = {
+  id: "form-1",
+  sessionID: "one",
+  title: "Which package manager?",
+  fields: [{ key: "manager", title: "Package manager", type: "string", required: true }]
+};
+
+const dock = (kind: string): Element | null =>
+  document.querySelector(`[data-component="dock-prompt"][data-kind="${kind}"]`);
+
+describe("AgentPanel interactive prompt surface", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -127,33 +137,52 @@ describe("AgentPanel embedded TUI approvals", () => {
     ));
   };
 
-  it("shows the approval dock while the embedded TUI is the active view", async () => {
+  const switchToGui = async (): Promise<void> => {
+    window.localStorage.setItem("orbit.agent-panel-mode.one", "gui");
+    await act(async () => root.unmount());
+    container.remove();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await renderPanel();
+  };
+
+  it("leaves the embedded TUI to own its own prompts", async () => {
     currentTranscript = [pendingPermission];
+    currentPendingForms = [pendingQuestion];
     await renderPanel();
 
     expect(container.querySelector(".agent-tui-host")).not.toBeNull();
-    const dock = container.querySelector('[data-component="dock-prompt"][data-kind="permission"]');
-    expect(dock).not.toBeNull();
-    expect(dock?.textContent).toContain("Permission required");
-    expect(dock?.textContent).toContain("bash");
-    expect(dock?.textContent).toContain("rm -rf build");
-    expect(dock?.textContent).toContain("Allow once");
+    expect(dock("permission")).toBeNull();
+    expect(dock("form")).toBeNull();
   });
 
-  it("replies to the approval from the TUI view", async () => {
+  it("renders the approval dock again in the GUI view", async () => {
     currentTranscript = [pendingPermission];
-    await renderPanel();
+    await switchToGui();
 
-    const allow = [...container.querySelectorAll("button")].find((button) => button.textContent === "Allow once")!;
+    const permission = dock("permission");
+    expect(permission).not.toBeNull();
+    expect(permission?.textContent).toContain("Permission required");
+    expect(permission?.textContent).toContain("bash");
+    expect(permission?.textContent).toContain("rm -rf build");
+  });
+
+  it("renders the question dock again in the GUI view", async () => {
+    currentPendingForms = [pendingQuestion];
+    await switchToGui();
+
+    expect(dock("form")).not.toBeNull();
+    expect(dock("form")?.textContent).toContain("Which package manager?");
+  });
+
+  it("replies to the approval from the GUI dock", async () => {
+    currentTranscript = [pendingPermission];
+    await switchToGui();
+
+    const allow = [...document.querySelectorAll("button")].find((button) => button.textContent === "Allow once")!;
     await act(async () => allow.click());
 
     expect(replyPermission).toHaveBeenCalledWith("req-1", "once", "one");
-  });
-
-  it("renders the TUI without an approval dock when nothing is pending", async () => {
-    await renderPanel();
-
-    expect(container.querySelector(".agent-tui-host")).not.toBeNull();
-    expect(container.querySelector('[data-component="dock-prompt"][data-kind="permission"]')).toBeNull();
   });
 });

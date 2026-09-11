@@ -1321,8 +1321,9 @@ export function AgentPanel({
     [transcript]
   );
 
-  // Approvals and forms block the session regardless of which surface the user
-  // is watching, so both the GUI timeline and the embedded TUI render them.
+  // Approvals and forms are interactive: the surface the user is watching owns
+  // them. The embedded TUI renders its own prompts in the terminal, so drawing
+  // the panel dock there would ask the same question twice.
   const interactivePrompts = (
     <>
       {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
@@ -1640,10 +1641,7 @@ export function AgentPanel({
       )}
 
       {panelMode === "tui" && activeSession ? (
-        <>
-          {interactivePrompts}
-          <AgentTui workspace={activeSession.workspace} onExit={handleTuiExit} onError={handleTuiError} />
-        </>
+        <AgentTui workspace={activeSession.workspace} onExit={handleTuiExit} onError={handleTuiError} />
       ) : (
         <>
           <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
