@@ -33,7 +33,7 @@ const THEME = {
 };
 
 // Same palette as the embedded agent TUI; the transparent background lets the
-// tray surface show through so the tray matches the app background.
+// window's glass show through so the kitty tray matches the app background.
 const KITTY_THEME = {
   background: "rgba(2, 2, 4, 0)",
   foreground: "#f4f4fa",

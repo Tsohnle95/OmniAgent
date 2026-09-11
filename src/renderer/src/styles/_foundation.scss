@@ -202,9 +202,14 @@
   backdrop-filter: blur(20px) saturate(135%);
 }
 
-:root[data-theme="kitty"] .editor-pane {
+:root[data-theme="kitty"] .editor-pane,
+:root[data-theme="kitty"] .terminal-tray {
   background-color: transparent;
   background-image: none;
+}
+
+:root[data-theme="kitty"] .terminal-tray {
+  box-shadow: none;
 }
 
 :root[data-theme="kitty"] .agent-panel {
