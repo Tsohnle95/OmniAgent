@@ -9,6 +9,15 @@
 Provider usage is a separate main-process integration with provider APIs in
 `src/main/provider-usage.ts`.
 
+`src/main/exec-path.ts` augments `process.env.PATH` once at startup. GUI-launched
+macOS/Linux builds inherit a minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), so
+user-installed runtimes in `~/.local/bin` and similar directories would
+otherwise be invisible to the runtime `--version` probes that populate the
+capability manifests (the embedded TUI and terminal tray), the
+`Service.ensure` fallback, and every spawned PTY. The augmentation prepends the
+conventional user tool directories without duplicating existing entries; Windows
+GUI processes already inherit the user PATH and are left unchanged.
+
 `src/main/runtimes/runtime-adapter.ts` defines the version-1 normalized runtime
 contract and capability manifest. `src/main/runtimes/deepseek/` implements the
 DeepSeek Harness rc.7 HTTP/WebSocket carrier, native session/model operations, event

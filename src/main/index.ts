@@ -62,6 +62,11 @@ import {
   sessionId,
   workspacePath
 } from "./ipc-schema";
+import { applyExecPath } from "./exec-path";
+
+// Must run before the first runtime probe or PTY spawn: GUI-launched builds do
+// not inherit the user's shell PATH (see exec-path.ts).
+applyExecPath();
 
 const backend = new OpenShellBackend();
 const terminals = new TerminalManager();
