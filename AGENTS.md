@@ -60,7 +60,6 @@ re-open information already established in the current task context.
 | Renderer components | `src/renderer/src/components/` | Sidebar, editor, agent panels, TUI, welcome, terminal |
 | Monaco setup | `src/renderer/src/monaco.ts` | Workers, theme, language mapping |
 | Shared types | `src/shared/types.ts` | Contracts shared across main/preload/renderer |
-| Mobile companion | `mobile/` | Self-contained Capacitor/bun workspace; see `mobile/README.md` |
 
 ## Task / symptom router
 
