@@ -425,7 +425,10 @@ Key cross-component invariants:
 - Opening a file/tool link from a background panel must address/focus the owning
   workspace rather than whichever panel was previously focused.
 - Agent GUI and TUI are alternate views of the same session, not separate
-  sessions.
+  sessions. Pending approvals and forms block the session whichever view is
+  open, so the interactive prompt dock renders above the embedded TUI as well as
+  in the GUI timeline view; replies from either view go through the same
+  `replyPermission` path.
 - Timeline order comes from the authoritative chat/session state; components do
   not invent a second activity history.
 - Workspace-dependent actions remain inert when no workspace is active.

@@ -1321,6 +1321,17 @@ export function AgentPanel({
     [transcript]
   );
 
+  // Approvals and forms block the session regardless of which surface the user
+  // is watching, so both the GUI timeline and the embedded TUI render them.
+  const interactivePrompts = (
+    <>
+      {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
+      {activeSession && (view.pendingForms ?? []).map((form) => (
+        <FormPrompt key={form.id} form={form} workspace={activeSession.workspace} />
+      ))}
+    </>
+  );
+
   const scrollToBottom = (): void => {
     const el = scrollRef.current;
     if (!el) return;
@@ -1629,7 +1640,10 @@ export function AgentPanel({
       )}
 
       {panelMode === "tui" && activeSession ? (
-        <AgentTui workspace={activeSession.workspace} onExit={handleTuiExit} onError={handleTuiError} />
+        <>
+          {interactivePrompts}
+          <AgentTui workspace={activeSession.workspace} onExit={handleTuiExit} onError={handleTuiError} />
+        </>
       ) : (
         <>
           <div className="agent-scroll" ref={scrollRef} onScroll={onScroll}>
@@ -1653,10 +1667,7 @@ export function AgentPanel({
           </div>
 
           <div data-component="session-prompt-dock">
-            {pendingPermission && <PermissionPrompt item={pendingPermission} session={activeSession} />}
-            {(view.pendingForms ?? []).map((form) => (
-              <FormPrompt key={form.id} form={form} workspace={activeSession!.workspace} />
-            ))}
+            {interactivePrompts}
             {view.stagedRevert && activeSession && (
               <div data-component="dock-prompt" data-kind="revert">
                 <div data-slot="permission-header">Undo staged</div>
